@@ -1,0 +1,5 @@
+# Ignore lambdas as it's a by-product of Jax's vmap
+issue code: unnecessary-lambda
+
+# Speed up Pylint
+jobs=4
