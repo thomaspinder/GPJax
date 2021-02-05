@@ -1,4 +1,5 @@
-from gpjax import Gaussian, RBF
+from gpjax import Gaussian
+from gpjax.kernels import RBF
 from gpjax.likelihoods import Bernoulli
 from gpjax.gps import Prior
 from gpjax.gps.posteriors import Posterior, PosteriorApprox

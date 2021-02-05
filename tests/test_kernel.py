@@ -1,7 +1,7 @@
 import pytest
 import jax.numpy as jnp
-from gpjax.kernel import RBF, Matern12, Matern32
-all_kernels = [RBF, Matern12, Matern32]
+from gpjax.kernels import RBF, Matern12, Matern32, Matern52
+all_kernels = [RBF, Matern12, Matern32, Matern52]
 
 
 @pytest.mark.parametrize('kernel', all_kernels)
@@ -17,7 +17,7 @@ def test_shape(kernel, dim):
 
 
 @pytest.mark.parametrize('kernel', all_kernels)
-@pytest.mark.parametrize('ell, sigma', [(0.1, 0.1), (0.5, 0.1), (0.1, 0.5),
+@pytest.mark.parametrize('ell, sigma', [(0.2, 0.2), (0.5, 0.1), (0.1, 0.5),
                                         (0.5, 0.5)])
 @pytest.mark.parametrize('n', [2, 10, 100])
 def test_pos_def(kernel, ell, sigma, n):
@@ -26,5 +26,7 @@ def test_pos_def(kernel, ell, sigma, n):
     gram = kern(x, x)
     Inn = jnp.eye(n) * 1e-6
     stable_gram = gram + Inn
+    print(stable_gram[0])
     min_eig = jnp.linalg.eigvals(stable_gram).min()
+    print(min_eig)
     assert min_eig > 0

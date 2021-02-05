@@ -5,7 +5,7 @@ import jax.random as jr
 from objax import Module
 from tensorflow_probability.substrates.jax import distributions as tfd
 
-from ..kernel import Kernel
+from ..kernels import Kernel
 from ..likelihoods import Likelihood, Bernoulli, Gaussian
 from .posteriors import PosteriorExact, PosteriorApprox
 from multipledispatch import dispatch
