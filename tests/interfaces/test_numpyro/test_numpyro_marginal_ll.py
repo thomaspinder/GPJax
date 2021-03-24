@@ -4,6 +4,7 @@ import jax.random as jr
 import numpyro
 import numpyro.distributions as dist
 import pytest
+from gpjax import Dataset
 from numpyro.contrib.tfp import distributions as tfd
 from numpyro.distributions import constraints
 
@@ -42,6 +43,7 @@ def test_numpyro_marginal_ll_params():
 
     # create sample data
     X, y = _gen_training_data(10, 10, 2)
+    D = Dataset(X=X, y=y)
 
     # initialize parameters
     params, posterior = _get_conjugate_posterior_params()
