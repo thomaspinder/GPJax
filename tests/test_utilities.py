@@ -8,7 +8,9 @@ from gpjax.utils import (
     merge_dictionaries,
     sort_dictionary,
     standardise,
+add_parameter,
     unstandardise,
+chol_log_det
 )
 
 
@@ -42,6 +44,13 @@ def test_sort_dict():
     assert list(sorted_dict.values()) == [2, 1]
 
 
+def test_add_parameter():
+    base_dict = {"b": 1, "a": 2}
+    expanded_dict = add_parameter(base_dict, ('c', 3))
+    assert list(expanded_dict.keys()) == ['a', 'b', 'c']
+    assert list(expanded_dict.values()) == [2, 1, 3]
+
+
 def test_standardise():
     key = jr.PRNGKey(123)
     x = jr.uniform(key, shape=(100, 1))
@@ -54,3 +63,10 @@ def test_standardise():
     xuntr = unstandardise(xtr, xmean, xstd)
     diff = jnp.sum(jnp.abs(xuntr - x))
     assert pytest.approx(diff) == 0
+
+
+def test_log_det():
+    A = jnp.array([[1., 0.2], [0.2, 1.]])
+    chol_det = chol_log_det(A)
+    log_det = jnp.linalg.slogdet(A)[1]
+    assert pytest.approx(chol_det, rel=16) == log_det

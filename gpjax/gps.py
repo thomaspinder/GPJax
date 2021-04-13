@@ -14,6 +14,9 @@ from .likelihoods import (
 from .mean_functions import MeanFunction, Zero
 
 
+##############
+# GP priors
+##############
 @dataclass(repr=False)
 class Prior:
     kernel: Kernel
@@ -32,6 +35,9 @@ class Prior:
         return NonConjugatePosterior(prior=self, likelihood=other)
 
 
+##############
+# GP Posteriors
+##############
 @dataclass
 class Posterior:
     prior: Prior
@@ -56,13 +62,13 @@ class ConjugatePosterior:
 class NonConjugatePosterior:
     prior: Prior
     likelihood: NonConjugateLikelihoodType
-    name: Optional[str] = "ConjugatePosterior"
+    name: Optional[str] = "Non-conjugatePosterior"
 
     def __repr__(self):
         meanf_string = self.prior.mean_function.__repr__()
         kernel_string = self.prior.kernel.__repr__()
         likelihood_string = self.likelihood.__repr__()
-        return f"Conjugate Posterior\n{'-'*80}\n- {meanf_string}\n- {kernel_string}\n- {likelihood_string}"
+        return f"Non-conjugate Posterior\n{'-'*80}\n- {meanf_string}\n- {kernel_string}\n- {likelihood_string}"
 
 
 @dataclass

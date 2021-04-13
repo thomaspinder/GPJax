@@ -22,7 +22,7 @@ Arrays = Union[
 @dataclass(repr=False)
 class Dataset:
     X: Arrays
-    y: Arrays = None
+    y: Arrays
 
     def __repr__(self) -> str:
         return (
@@ -53,3 +53,20 @@ def verify_dataset(ds: Dataset) -> None:
         assert (
             ds.X.shape[0] == ds.y.shape[0]
         ), f"Number of inputs must equal the number of outputs. \nCurrent counts:\n- X: {ds.X.shape[0]}\n- y: {ds.y.shape[0]}"
+
+
+@dataclass(repr=False)
+class SparseDataset(Dataset):
+    """
+    Base class for the inducing inputs used for sparse GP schemes
+    """
+    Z: Arrays = None
+
+    @property
+    def n_inducing(self) -> int:
+        return self.Z.shape[0]
+
+    def __repr__(self) -> str:
+        return (
+            f"- Number of datapoints: {self.X.shape[0]}\n- Dimension: {self.X.shape[1]}\n- Number of inducing points: {self.n_inducing}"
+        )

@@ -1,10 +1,11 @@
-from typing import Tuple
+from typing import Tuple, Union
+from copy import deepcopy
 
 import jax.numpy as jnp
-from jax.scipy.linalg import cho_factor, cho_solve
+from jax.scipy.linalg import cho_factor, cho_solve, cholesky
 from multipledispatch import dispatch
 
-from .types import Array
+from .types import Array, Arrays
 
 
 def I(n: int) -> Array:
@@ -51,6 +52,12 @@ def sort_dictionary(base_dict: dict) -> dict:
     return dict(sorted(base_dict.items()))
 
 
+def add_parameter(base_dict: dict, key_value: Tuple[str, Union[Arrays, int, float]]) -> dict:
+    expanded_dict = deepcopy(base_dict)
+    expanded_dict[key_value[0]] = key_value[1]
+    return sort_dictionary(expanded_dict)
+
+
 @dispatch(jnp.DeviceArray)
 def standardise(x: jnp.DeviceArray) -> Tuple[jnp.DeviceArray, jnp.DeviceArray, jnp.DeviceArray]:
     """
@@ -94,3 +101,33 @@ def unstandardise(
     :return: A matrix of unstandardised values.
     """
     return (x * xstd) + xmean
+
+
+def chol_log_det(A):
+    """
+    Compute the log-determinant of a PD matrix using the matrix's lower Cholesky.
+    det(A) = det(LL^T) = det(L)^2 => logdet(A) = 2*logdet(L)
+    """
+    L = cholesky(A, lower=True)
+    return 2*jnp.sum(jnp.log(jnp.diag(L)))
+
+
+def woodbury_matrix_identity(A, B, C, D, y):
+    """
+    Compute y'(A + BD^{-1}C)^{-1}y using  Woodbury matrix identity.
+    A should be an N x N diagonal matrix here.
+    B - N x M matrix
+    C - M x N matrix
+    D - M x M invertible matrix
+    """
+    y = y.squeeze()
+    Ainv = 1 / jnp.diag(A)
+    Ainvy = Ainv * y
+    yAinvy = jnp.dot(y, Ainvy)
+    CAinv = C * Ainv.reshape(1, -1)
+
+    E = jnp.linalg.inv(D + jnp.dot(CAinv, B))
+    yAinvB = jnp.dot(Ainvy.reshape(1, -1), B)
+    CAinvy = jnp.dot(C, Ainvy.reshape(-1, 1))
+    res = yAinvy - jnp.dot(jnp.dot(yAinvB, E), CAinvy)
+    return res.reshape()

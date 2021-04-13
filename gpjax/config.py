@@ -16,4 +16,5 @@ def get_defaults():
     transformations.obs_noise = "positive_transform"
     transformations.latent = "identity_transform"
     transformations.basis_fns = "identity_transform"
+    transformations.inducing_inputs = "identity_transform"
     return config
