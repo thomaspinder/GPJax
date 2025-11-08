@@ -35,7 +35,7 @@ jobs:
 
             We strive to be a welcoming and open project. Please follow our
             [Code of
-            Conduct](https://github.com/JaxGaussianProcesses/GPJax/blob/main/.github/CODE_OF_CONDUCT.md).
+            Conduct](https://github.com/thomaspinder/GPJax/blob/main/.github/CODE_OF_CONDUCT.md).
 
           pr_message: |
             Thank you for opening your first PR into GPJax!
@@ -59,4 +59,4 @@ jobs:
 
             We strive to be a welcoming and open project. Please follow our
             [Code of
-            Conduct](https://github.com/JaxGaussianProcesses/GPJax/blob/main/.github/CODE_OF_CONDUCT.md).
+            Conduct](https://github.com/thomaspinder/GPJax/blob/main/.github/CODE_OF_CONDUCT.md).

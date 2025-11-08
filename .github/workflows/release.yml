@@ -3,22 +3,22 @@ name: "Release Automation"
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., v0.6.0)'
+        description: "Version to release (e.g., v0.6.0)"
         required: true
         type: string
       draft:
-        description: 'Create draft release'
+        description: "Create draft release"
         required: false
         default: false
         type: boolean
 
 permissions:
   contents: write
-  id-token: write  # For PyPI trusted publishing
+  id-token: write # For PyPI trusted publishing
 
 jobs:
   validate-release:
@@ -60,13 +60,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.11', '3.12', '3.13']
+        python-version: ["3.11", "3.12", "3.13"]
         exclude:
           # Reduce matrix size - test all Python versions on Ubuntu, subset on others
           - os: macos-latest
-            python-version: '3.11'
+            python-version: "3.11"
           - os: macos-latest
-            python-version: '3.12'
+            python-version: "3.12"
 
     runs-on: ${{ matrix.os }}
 
@@ -113,7 +113,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -151,7 +151,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -246,7 +246,7 @@ jobs:
           CHANGELOG="$CHANGELOG- Model validation results available in CI artifacts\n\n"
 
           CHANGELOG="$CHANGELOG### 🔍 What's Changed\n"
-          CHANGELOG="$CHANGELOG- Full diff: https://github.com/JaxGaussianProcesses/GPJax/compare/$PREVIOUS_TAG...$CURRENT_TAG\n\n"
+          CHANGELOG="$CHANGELOG- Full diff: https://github.com/thomaspinder/GPJax/compare/$PREVIOUS_TAG...$CURRENT_TAG\n\n"
 
           # Escape for GitHub output
           EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)

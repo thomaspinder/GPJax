@@ -1,11 +1,11 @@
 <!-- <h1 align='center'>GPJax</h1>
 <h2 align='center'>Gaussian processes in Jax.</h2> -->
 <p align="center">
-<img width="700" height="300" src="https://raw.githubusercontent.com/JaxGaussianProcesses/GPJax/main/docs/static/gpjax_logo.svg" alt="GPJax's logo">
+<img width="700" height="300" src="https://raw.githubusercontent.com/thomaspinder/GPJax/main/docs/static/gpjax_logo.svg" alt="GPJax's logo">
 </p>
 
-[![codecov](https://codecov.io/gh/JaxGaussianProcesses/GPJax/branch/master/graph/badge.svg?token=DM1DRDASU2)](https://codecov.io/gh/JaxGaussianProcesses/GPJax)
-[![CodeFactor](https://www.codefactor.io/repository/github/jaxgaussianprocesses/gpjax/badge)](https://www.codefactor.io/repository/github/jaxgaussianprocesses/gpjax)
+[![codecov](https://codecov.io/gh/thomaspinder/GPJax/branch/master/graph/badge.svg?token=DM1DRDASU2)](https://codecov.io/gh/thomaspinder/GPJax)
+[![CodeFactor](https://www.codefactor.io/repository/github/thomaspinder/GPJax/badge)](https://www.codefactor.io/repository/github/thomaspinder/GPJax)
 [![Netlify Status](https://api.netlify.com/api/v1/badges/d3950e6f-321f-4508-9e52-426b5dae2715/deploy-status)](https://app.netlify.com/sites/endearing-crepe-c2d5fe/deploys)
 [![PyPI version](https://badge.fury.io/py/GPJax.svg)](https://badge.fury.io/py/GPJax)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/gpjax.svg)](https://anaconda.org/conda-forge/gpjax)
@@ -30,19 +30,19 @@ with GP models.
 
 We would be delighted to receive contributions from interested individuals and
 groups. To learn how you can get involved, please read our [guide for
-contributing](https://github.com/JaxGaussianProcesses/GPJax/blob/main/docs/contributing.md).
+contributing](https://github.com/thomaspinder/GPJax/blob/main/docs/contributing.md).
 If you have any questions, we encourage you to [open an
-issue](https://github.com/JaxGaussianProcesses/GPJax/issues/new/choose). For
+issue](https://github.com/thomaspinder/GPJax/issues/new/choose). For
 broader conversations, such as best GP fitting practices or questions about the
 mathematics of GPs, we invite you to [open a
-discussion](https://github.com/JaxGaussianProcesses/GPJax/discussions).
+discussion](https://github.com/thomaspinder/GPJax/discussions).
 
 Another way you can contribute to GPJax is through [issue
 triaging](https://www.codetriage.com/what).  This can include reproducing bug reports,
 asking for vital information such as version numbers and reproduction instructions, or
 identifying stale issues. If you would like to begin triaging issues, an easy way to get
 started is to
-[subscribe to GPJax on CodeTriage](https://www.codetriage.com/jaxgaussianprocesses/gpjax).
+[subscribe to GPJax on CodeTriage](https://www.codetriage.com/thomaspinder/GPJax).
 
 As a contributor to GPJax, you are expected to abide by our [code of
 conduct](docs/CODE_OF_CONDUCT.md). If you feel that you have either experienced or
@@ -56,7 +56,7 @@ where we can discuss the development of GPJax and broader support for Gaussian
 process modelling.
 
 We appreciate all [the contributors to
-GPJax](https://github.com/JaxGaussianProcesses/GPJax/graphs/contributors) who have helped to shape
+GPJax](https://github.com/thomaspinder/GPJax/graphs/contributors) who have helped to shape
 GPJax into the package it is today.
 
 # Supported methods and interfaces
@@ -144,7 +144,7 @@ conda install --channel conda-forge gpjax
 Clone a copy of the repository to your local machine and run the setup
 configuration in development mode.
 ```bash
-git clone https://github.com/JaxGaussianProcesses/GPJax.git
+git clone https://github.com/thomaspinder/GPJax.git
 cd GPJax
 uv venv
 uv sync --extra dev

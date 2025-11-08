@@ -123,8 +123,8 @@ class Prior(AbstractPrior[M, K]):
     r"""A Gaussian process prior object.
 
     The GP is parameterised by a
-    [mean](https://docs.jaxgaussianprocesses.com/api/mean_functions/)
-    and [kernel](https://docs.jaxgaussianprocesses.com/api/kernels/base/)
+    [mean](https://docs.thomaspinder.com/api/mean_functions/)
+    and [kernel](https://docs.thomaspinder.com/api/kernels/base/)
     function.
 
     A Gaussian process prior parameterised by a mean function $m(\cdot)$ and a kernel

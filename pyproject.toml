@@ -105,8 +105,8 @@ dev-dependencies = [
 
 [project.urls]
 Documentation = "https://docs.jaxgaussianprocesses.com/"
-Issues = "https://github.com/JaxGaussianProcesses/GPJax/issues"
-Source = "https://github.com/JaxGaussianProcesses/GPJax"
+Issues = "https://github.com/thomaspinder/GPJax/issues"
+Source = "https://github.com/thomaspinder/GPJax"
 
 [tool.hatch.version]
 path = "gpjax/__init__.py"
