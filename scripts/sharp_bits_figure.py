@@ -21,7 +21,7 @@ import matplotlib as mpl
 from matplotlib import patches
 
 plt.style.use(
-    "https://raw.githubusercontent.com/JaxGaussianProcesses/GPJax/main/docs/examples/gpjax.mplstyle"
+    "https://raw.githubusercontent.com/thomaspinder/GPJax/refs/heads/main/examples/gpjax.mplstyle"
 )
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
