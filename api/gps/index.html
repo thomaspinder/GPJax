@@ -3057,7 +3057,7 @@
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">return_covariance_type</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3080,6 +3080,19 @@ reasons, classes inheriting the <code>AbstractPrior</code> class, should not ove
           –
           <div class="doc-md-description">
             <p>Input locations where the GP should be evaluated.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3113,7 +3126,7 @@ of the Gaussian process.</p>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">return_covariance_type</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3132,6 +3145,19 @@ this method must be implemented.</p>
           –
           <div class="doc-md-description">
             <p>Input locations where the GP should be evaluated.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3242,7 +3268,7 @@ function <span class="arithmatex">\(k(\cdot, \cdot)\)</span> is given by
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">return_covariance_type</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3265,6 +3291,19 @@ reasons, classes inheriting the <code>AbstractPrior</code> class, should not ove
           –
           <div class="doc-md-description">
             <p>Input locations where the GP should be evaluated.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3350,7 +3389,7 @@ Args:
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">return_covariance_type</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3379,6 +3418,19 @@ and then evaluate it on the interval :math:<code>[0, 1]</code>:</p>
           <div class="doc-md-description">
             <p>The inputs at which to evaluate the
 prior distribution.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3582,7 +3634,12 @@ covariance matrix to ensure numerical stability.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nf">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3613,6 +3670,19 @@ reasons, classes inheriting the <code>AbstractPosterior</code> class, should not
           –
           <div class="doc-md-description">
             <p>Training dataset to condition on.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3646,7 +3716,12 @@ of the Gaussian process.</p>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3672,6 +3747,19 @@ this method must be implemented.</p>
           –
           <div class="doc-md-description">
             <p>Training dataset to condition on.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -3828,7 +3916,12 @@ covariance matrix to ensure numerical stability.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nf">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3861,6 +3954,19 @@ reasons, classes inheriting the <code>AbstractPosterior</code> class, should not
             <p>Training dataset to condition on.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -3888,7 +3994,12 @@ of the Gaussian process.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3900,13 +4011,13 @@ can be evaluated at a set of test inputs to compute the corresponding
 predictive density.</p>
 <p>The predictive distribution of a conjugate GP is given by
 $$
-    p(\mathbf{f}^{\star}\mid \mathbf{y}) &amp; = \int p(\mathbf{f}^{\star} \mathbf{f} \mid \mathbf{y})\
-    &amp; =\mathcal{N}(\mathbf{f}^{\star} \boldsymbol{\mu}<em>{\mid \mathbf{y}}, \boldsymbol{\Sigma}</em>{\mid \mathbf{y}}
+p(\mathbf{f}^{\star}\mid \mathbf{y}) &amp; = \int p(\mathbf{f}^{\star} \mathbf{f} \mid \mathbf{y})\
+&amp; =\mathcal{N}(\mathbf{f}^{\star} \boldsymbol{\mu}<em>{\mid \mathbf{y}}, \boldsymbol{\Sigma}</em>{\mid \mathbf{y}}
 $$
 where
 $$
-    \boldsymbol{\mu}<em>{\mid \mathbf{y}} &amp; = k(\mathbf{x}^{\star}, \mathbf{x})\left(k(\mathbf{x}, \mathbf{x}')+\sigma^2\mathbf{I}_n\right)^{-1}\mathbf{y}  \
-    \boldsymbol{\Sigma}</em>{\mid \mathbf{y}} &amp; =k(\mathbf{x}^{\star}, \mathbf{x}^{\star\prime}) -k(\mathbf{x}^{\star}, \mathbf{x})\left( k(\mathbf{x}, \mathbf{x}') + \sigma^2\mathbf{I}_n \right)^{-1}k(\mathbf{x}, \mathbf{x}^{\star}).
+\boldsymbol{\mu}<em>{\mid \mathbf{y}} &amp; = k(\mathbf{x}^{\star}, \mathbf{x})\left(k(\mathbf{x}, \mathbf{x}')+\sigma^2\mathbf{I}_n\right)^{-1}\mathbf{y} \
+\boldsymbol{\Sigma}</em>{\mid \mathbf{y}} &amp; =k(\mathbf{x}^{\star}, \mathbf{x}^{\star\prime}) -k(\mathbf{x}^{\star}, \mathbf{x})\left( k(\mathbf{x}, \mathbf{x}') + \sigma^2\mathbf{I}_n \right)^{-1}k(\mathbf{x}, \mathbf{x}^{\star}).
 $$</p>
 <p>The conditioning set is a GPJax <code>Dataset</code> object, whilst predictions
 are made on a regular Jax array.</p>
@@ -3943,6 +4054,19 @@ predictive distribution is evaluated.</p>
           <div class="doc-md-description">
             <p>A <code>gpx.Dataset</code> object that contains the input and
 output data used for training dataset.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
           </div>
         </li>
     </ul>
@@ -4041,14 +4165,8 @@ kernel.</p>
 <b><code>FunctionalSample</code></b> (              <code><a class="autorefs autorefs-internal" title="gpjax.typing.FunctionalSample" href="../typing/#gpjax.typing.FunctionalSample">FunctionalSample</a></code>
 )          –
           <div class="doc-md-description">
-            <p>A function representing an approximate sample from the Gaussian</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="gpjax.typing.FunctionalSample" href="../typing/#gpjax.typing.FunctionalSample">FunctionalSample</a></code>
-          –
-          <div class="doc-md-description">
-            <p>process prior.</p>
+            <p>A function representing an approximate sample from the Gaussian
+process prior.</p>
           </div>
         </li>
     </ul>
@@ -4157,7 +4275,12 @@ covariance matrix to ensure numerical stability.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span><span class="nf">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="fm">__call__</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nf">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4190,6 +4313,19 @@ reasons, classes inheriting the <code>AbstractPosterior</code> class, should not
             <p>Training dataset to condition on.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_covariance_type</code></b>
+              (<code><span title="typing.Literal">Literal</span>[&#39;dense&#39;, &#39;diagonal&#39;]</code>, default:
+                  <code>&#39;dense&#39;</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Literal denoting whether to return the full covariance
+of the joint predictive distribution at the test_inputs (dense)
+or just the the standard-deviation of the predictive distribution at
+the test_inputs.</p>
+          </div>
+        </li>
     </ul>
 
 
@@ -4217,7 +4353,12 @@ of the Gaussian process.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span><span class="n">test_inputs</span><span class="p">,</span> <span class="n">train_data</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">test_inputs</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4229,20 +4370,14 @@ function can be evaluated at a set of test inputs to compute the
 corresponding predictive density. Note, to gain predictions on the scale
 of the original data, the returned distribution will need to be
 transformed through the likelihood function's inverse link function.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>train_data</code></b>
-              (<code><a class="autorefs autorefs-internal" title="gpjax.dataset.Dataset" href="../dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A <code>gpx.Dataset</code> object that contains the input
-and output data used for training dataset.</p>
-          </div>
-        </li>
-    </ul>
+        <p>test_inputs (Num[Array, "N D"]): A Jax array of test inputs at which the
+    predictive distribution is evaluated.
+train_data (Dataset): A <code>gpx.Dataset</code> object that contains the input
+    and output data used for training dataset.
+return_covariance_type: Literal denoting whether to return the full covariance
+    of the joint predictive distribution at the test_inputs (dense)
+    or just the the standard-deviation of the predictive distribution at
+    the test_inputs.</p>
 
 
 <p><span class="doc-section-title">Returns:</span></p>
