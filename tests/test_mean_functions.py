@@ -38,7 +38,7 @@ from gpjax.mean_functions import (
     Constant,
     Zero,
 )
-from gpjax.parameters import Parameter
+from gpjax.parameters import Parameter, Real
 
 
 def test_abstract() -> None:
@@ -323,3 +323,15 @@ def test_zero_mean_function_uses_raw_value():
     result = meanf(x)
     expected = jnp.array([[0.0], [0.0], [0.0]])
     assert jnp.allclose(result, expected)
+
+
+@pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
+@pytest.mark.parametrize("partype", [Real, jnp.array])
+def test_constant_dtype_preservation(dtype, partype):
+    """Test that Constant mean function preserves dtype of the constant."""
+    x = jnp.arange(5, dtype=dtype).reshape(-1, 1)
+    constant = partype(jnp.array(3.0, dtype=dtype))
+    mean_fn = Constant(constant)
+    mean = mean_fn(x)
+    
+    assert mean.dtype == dtype
