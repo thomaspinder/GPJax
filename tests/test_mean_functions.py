@@ -38,7 +38,10 @@ from gpjax.mean_functions import (
     Constant,
     Zero,
 )
-from gpjax.parameters import Parameter, Real
+from gpjax.parameters import (
+    Parameter,
+    Real,
+)
 
 
 def test_abstract() -> None:
@@ -333,5 +336,5 @@ def test_constant_dtype_preservation(dtype, partype):
     constant = partype(jnp.array(3.0, dtype=dtype))
     mean_fn = Constant(constant)
     mean = mean_fn(x)
-    
+
     assert mean.dtype == dtype
