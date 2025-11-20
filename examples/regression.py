@@ -217,7 +217,7 @@ print(-gpx.objectives.conjugate_mll(opt_posterior, D))
 # this, we use our defined `posterior` and `likelihood` at our test inputs to obtain
 # the predictive distribution as a `Distrax` multivariate Gaussian upon which `mean`
 # and `stddev` can be used to extract the predictive mean and standard deviatation.
-# 
+#
 # We are only concerned here about the variance between the test points and themselves, so
 # we can just copute the diagonal version of the covariance.  We enforce this by using
 # `return_covariance_type = "diagonal"` in the `predict` call.
