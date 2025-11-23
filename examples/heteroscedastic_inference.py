@@ -18,12 +18,9 @@
 # %% [markdown]
 # # Heteroscedastic inference for regression and classification
 #
-# This notebook shows how to fit heteroscedastic Gaussian processes (GPs) for two
-# everyday tasks:
-#
-# - Regression with input-dependent noise using the tight Lázaro-Gredilla & Titsias
-#   (2011) bound.
-# - Classification with input-dependent label noise using the generic chained bound.
+# This notebook shows how to fit a heteroscedastic Gaussian processes (GPs) that
+# allows one to perform regression where there exists non-constant, or
+# input-dependent, noise.
 #
 #
 # ## Background
@@ -37,7 +34,7 @@
 # [homoscedastic GP](https://docs.jaxgaussianprocesses.com/_examples/regression/)
 # where we learn a constant value for the noise.
 #
-# In the Gaussian case, the observed targets follow
+# In the Gaussian case, the observed response follows
 # $$y \mid f, g \sim \mathcal{N}(f, \sigma^2(x)).$$
 # Variational inference works with independent posteriors $q(f)q(g)$, combining the
 # moments of each into an ELBO. For non-Gaussian likelihoods the same structure
@@ -69,16 +66,16 @@ config.update("jax_enable_x64", True)
 
 
 use_mpl_style()
-key = jr.key(0)
+key = jr.key(123)
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 
 # %% [markdown]
 # ## Dataset simulation
-# We synthesise a regression dataset whose mean structure and noise level vary with
-# the input. Specifically, we sample inputs $x \sim \mathcal{U}(0, 1)$ and define the
+# We simulate whose mean and noise levels vary with
+# the input. We sample inputs $x \sim \mathcal{U}(0, 1)$ and define the
 # latent signal to be
-# $$f(x) = (x - 0.5)^2 + 0.05,$$
+# $$f(x) = (x - 0.5)^2 + 0.05;$$
 # a smooth bowl-shaped curve. The observation standard deviation is chosen to be
 # proportional to the signal,
 # $$\sigma(x) = 0.5\,f(x),$$
