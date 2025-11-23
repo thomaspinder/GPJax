@@ -30,9 +30,6 @@ import jax.numpy as jnp  # noqa: F401
 import jupytext
 
 # %%
-import gpjax
-
-# %%
 get_last = lambda x: x[-1]
 
 
@@ -80,14 +77,7 @@ class Result:
         contents = "\n".join([line for line in lines if not line.startswith("%")])
 
         loc = {}
-
-        # weird bug in interactive interpreter: lambda functions
-        # don't have access to the global scope of the executed file
-        # so we need to pass gpjax in the globals explicitly
-        # since it's used in a lambda function inside the examples
-        _globals = globals()
-        _globals["gpx"] = gpjax
-        exec(contents, _globals, loc)
+        exec(contents, loc)
         for k, v in self.comparisons.items():
             truth, op = v
             self._compare(
@@ -127,3 +117,12 @@ stochastic = Result(
     },
 )
 stochastic.test()
+
+# %%
+heteroscedastic = Result(
+    path="examples/heteroscedastic_inference.py",
+    comparisons={
+        "history": (251.918, get_last),
+    },
+)
+heteroscedastic.test()

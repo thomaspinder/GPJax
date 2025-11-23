@@ -140,7 +140,7 @@ help = "Check code formatting and style"
 
 # Testing tasks
 [tool.poe.tasks.test]
-cmd = "pytest . -v -n 8 --beartype-packages='gpjax'"
+cmd = "pytest tests -v -n 8 --beartype-packages='gpjax'"
 help = "Run tests with pytest"
 
 [tool.poe.tasks.coverage]

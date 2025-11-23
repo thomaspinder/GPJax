@@ -14,6 +14,9 @@ from gpjax.gps import (
     ConjugatePosterior,
     NonConjugatePosterior,
 )
+from gpjax.likelihoods import (
+    AbstractHeteroscedasticLikelihood,
+)
 from gpjax.linalg import (
     Dense,
     lower_cholesky,
@@ -25,9 +28,13 @@ from gpjax.typing import (
     Array,
     ScalarFloat,
 )
-from gpjax.variational_families import AbstractVariationalFamily
+from gpjax.variational_families import (
+    AbstractVariationalFamily,
+    HeteroscedasticVariationalFamily,
+)
 
 VF = TypeVar("VF", bound=AbstractVariationalFamily)
+HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
 
 
 Objective = tpe.Callable[[nnx.Module, Dataset], ScalarFloat]
@@ -414,3 +421,49 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
     # log N(y; μx, Io² + KxzKzz⁻¹Kzx) - 1/2o² tr(Kxx - KxzKzz⁻¹Kzx)
     return (two_log_prob - two_trace).squeeze() / 2.0
+
+
+def heteroscedastic_elbo_lgt(variational_family: HVF, data: Dataset) -> ScalarFloat:
+    r"""Tight LGT bound for heteroscedastic Gaussian likelihoods."""
+    likelihood = variational_family.posterior.likelihood
+    mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
+
+    expected_ll, _ = likelihood.expected_log_likelihood(
+        data.y,
+        mean_f,
+        var_f,
+        mean_g=mean_g,
+        variance_g=var_g,
+        return_parts=True,
+    )
+
+    scale = likelihood.num_datapoints / data.n
+    return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
+
+
+def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> ScalarFloat:
+    r"""Generic chained bound for heteroscedastic likelihoods."""
+    likelihood: AbstractHeteroscedasticLikelihood = (
+        variational_family.posterior.likelihood
+    )
+    mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
+    noise_stats = likelihood.noise_statistics(mean_g, var_g)
+
+    expected_ll = likelihood.expected_log_likelihood(
+        data.y,
+        mean_f,
+        var_f,
+        mean_g=mean_g,
+        variance_g=var_g,
+        noise_stats=noise_stats,
+    )
+
+    scale = likelihood.num_datapoints / data.n
+    return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
+
+
+def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
+    likelihood = variational_family.posterior.likelihood
+    if likelihood.supports_tight_bound():
+        return heteroscedastic_elbo_lgt(variational_family, data)
+    return heteroscedastic_elbo_chained(variational_family, data)

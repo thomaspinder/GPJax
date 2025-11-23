@@ -32,8 +32,10 @@ from gpjax.distributions import GaussianDistribution
 from gpjax.kernels import RFF
 from gpjax.kernels.base import AbstractKernel
 from gpjax.likelihoods import (
+    AbstractHeteroscedasticLikelihood,
     AbstractLikelihood,
     Gaussian,
+    HeteroscedasticGaussian,
     NonGaussian,
 )
 from gpjax.linalg import (
@@ -62,6 +64,7 @@ M = tp.TypeVar("M", bound=AbstractMeanFunction)
 L = tp.TypeVar("L", bound=AbstractLikelihood)
 NGL = tp.TypeVar("NGL", bound=NonGaussian)
 GL = tp.TypeVar("GL", bound=Gaussian)
+HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
 
 
 class AbstractPrior(nnx.Module, tp.Generic[M, K]):
@@ -476,6 +479,22 @@ class AbstractPosterior(nnx.Module, tp.Generic[P, L]):
         raise NotImplementedError
 
 
+class LatentPosterior(AbstractPosterior[P, L]):
+    r"""A posterior shell used to expose prior structure without inference."""
+
+    def predict(
+        self,
+        test_inputs: Num[Array, "N D"],
+        train_data: Dataset,
+        *,
+        return_covariance_type: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        raise NotImplementedError(
+            "LatentPosteriors are a lightweight wrapper for priors and do not "
+            "implement predictive distributions. Use a variational family for inference."
+        )
+
+
 class ConjugatePosterior(AbstractPosterior[P, GL]):
     r"""A Conjuate Gaussian process posterior object.
 
@@ -839,6 +858,40 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         return GaussianDistribution(jnp.atleast_1d(mean.squeeze()), cov)
 
 
+class HeteroscedasticPosterior(LatentPosterior[P, HL]):
+    r"""Posterior shell for heteroscedastic likelihoods.
+
+    The posterior retains both the signal and noise priors; inference is delegated
+    to variational families and specialised objectives.
+    """
+
+    def __init__(
+        self,
+        prior: AbstractPrior[M, K],
+        likelihood: HL,
+        jitter: float = 1e-6,
+    ):
+        if likelihood.noise_prior is None:
+            raise ValueError("Heteroscedastic likelihoods require a noise_prior.")
+        super().__init__(prior=prior, likelihood=likelihood, jitter=jitter)
+        self.noise_prior = likelihood.noise_prior
+        self.noise_posterior = LatentPosterior(
+            prior=self.noise_prior, likelihood=likelihood, jitter=jitter
+        )
+
+
+class ChainedPosterior(HeteroscedasticPosterior[P, HL]):
+    r"""Posterior routed for heteroscedastic likelihoods using chained bounds."""
+
+    def __init__(
+        self,
+        prior: AbstractPrior[M, K],
+        likelihood: HL,
+        jitter: float = 1e-6,
+    ):
+        super().__init__(prior=prior, likelihood=likelihood, jitter=jitter)
+
+
 #######################
 # Utils
 #######################
@@ -852,6 +905,18 @@ def construct_posterior(prior: P, likelihood: GL) -> ConjugatePosterior[P, GL]: 
 def construct_posterior(  # noqa: F811
     prior: P, likelihood: NGL
 ) -> NonConjugatePosterior[P, NGL]: ...
+
+
+@tp.overload
+def construct_posterior(  # noqa: F811
+    prior: P, likelihood: HeteroscedasticGaussian
+) -> HeteroscedasticPosterior[P, HeteroscedasticGaussian]: ...
+
+
+@tp.overload
+def construct_posterior(  # noqa: F811
+    prior: P, likelihood: AbstractHeteroscedasticLikelihood
+) -> ChainedPosterior[P, AbstractHeteroscedasticLikelihood]: ...
 
 
 def construct_posterior(prior, likelihood):  # noqa: F811
@@ -872,6 +937,15 @@ def construct_posterior(prior, likelihood):  # noqa: F811
     """
     if isinstance(likelihood, Gaussian):
         return ConjugatePosterior(prior=prior, likelihood=likelihood)
+
+    if (
+        isinstance(likelihood, HeteroscedasticGaussian)
+        and likelihood.supports_tight_bound()
+    ):
+        return HeteroscedasticPosterior(prior=prior, likelihood=likelihood)
+
+    if isinstance(likelihood, AbstractHeteroscedasticLikelihood):
+        return ChainedPosterior(prior=prior, likelihood=likelihood)
 
     return NonConjugatePosterior(prior=prior, likelihood=likelihood)
 
@@ -911,7 +985,10 @@ __all__ = [
     "AbstractPrior",
     "Prior",
     "AbstractPosterior",
+    "LatentPosterior",
     "ConjugatePosterior",
     "NonConjugatePosterior",
+    "HeteroscedasticPosterior",
+    "ChainedPosterior",
     "construct_posterior",
 ]

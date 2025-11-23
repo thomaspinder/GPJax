@@ -29,7 +29,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from examples.utils import (
-    clean_legend,
     use_mpl_style,
 )
 
@@ -129,26 +128,26 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 # %%
 # %% [markdown]
-prior_dist = prior.predict(xtest, return_covariance_type="dense")
-
-prior_mean = prior_dist.mean
-prior_std = prior_dist.variance
-samples = prior_dist.sample(key=key, sample_shape=(20,))
-
-
-fig, ax = plt.subplots()
-ax.plot(xtest, samples.T, alpha=0.5, color=cols[0], label="Prior samples")
-ax.plot(xtest, prior_mean, color=cols[1], label="Prior mean")
-ax.fill_between(
-    xtest.flatten(),
-    prior_mean - prior_std,
-    prior_mean + prior_std,
-    alpha=0.3,
-    color=cols[1],
-    label="Prior variance",
-)
-ax.legend(loc="best")
-ax = clean_legend(ax)
+# prior_dist = prior.predict(xtest, return_covariance_type="dense")
+#
+# prior_mean = prior_dist.mean
+# prior_std = prior_dist.variance
+# samples = prior_dist.sample(key=key, sample_shape=(20,))
+#
+#
+# fig, ax = plt.subplots()
+# ax.plot(xtest, samples.T, alpha=0.5, color=cols[0], label="Prior samples")
+# ax.plot(xtest, prior_mean, color=cols[1], label="Prior mean")
+# ax.fill_between(
+#     xtest.flatten(),
+#     prior_mean - prior_std,
+#     prior_mean + prior_std,
+#     alpha=0.3,
+#     color=cols[1],
+#     label="Prior variance",
+# )
+# ax.legend(loc="best")
+# ax = clean_legend(ax)
 
 # %% [markdown]
 # ## Constructing the posterior
@@ -217,13 +216,15 @@ print(-gpx.objectives.conjugate_mll(opt_posterior, D))
 # this, we use our defined `posterior` and `likelihood` at our test inputs to obtain
 # the predictive distribution as a `Distrax` multivariate Gaussian upon which `mean`
 # and `stddev` can be used to extract the predictive mean and standard deviatation.
-# 
+#
 # We are only concerned here about the variance between the test points and themselves, so
 # we can just copute the diagonal version of the covariance.  We enforce this by using
 # `return_covariance_type = "diagonal"` in the `predict` call.
 
 # %%
-latent_dist = opt_posterior.predict(xtest, train_data=D, return_covariance_type="diagonal")
+latent_dist = opt_posterior.predict(
+    xtest, train_data=D, return_covariance_type="diagonal"
+)
 predictive_dist = opt_posterior.likelihood(latent_dist)
 
 predictive_mean = predictive_dist.mean

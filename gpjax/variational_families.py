@@ -14,6 +14,7 @@
 # ==============================================================================
 
 import abc
+from dataclasses import dataclass
 
 import beartype.typing as tp
 from flax import nnx
@@ -29,9 +30,12 @@ from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
     AbstractPosterior,
     AbstractPrior,
+    ChainedPosterior,
+    HeteroscedasticPosterior,
 )
 from gpjax.kernels.base import AbstractKernel
 from gpjax.likelihoods import (
+    AbstractHeteroscedasticLikelihood,
     Gaussian,
     NonGaussian,
 )
@@ -59,8 +63,10 @@ M = tp.TypeVar("M", bound=AbstractMeanFunction)
 L = tp.TypeVar("L", Gaussian, NonGaussian)
 NGL = tp.TypeVar("NGL", bound=NonGaussian)
 GL = tp.TypeVar("GL", bound=Gaussian)
+HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
 P = tp.TypeVar("P", bound=AbstractPrior)
 PP = tp.TypeVar("PP", bound=AbstractPosterior)
+HP = tp.TypeVar("HP", HeteroscedasticPosterior, ChainedPosterior)
 
 
 class AbstractVariationalFamily(nnx.Module, tp.Generic[L]):
@@ -870,6 +876,126 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         )
 
 
+@dataclass
+class VariationalGaussianInit:
+    """Initialization parameters for a variational Gaussian distribution."""
+
+    inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+    variational_mean: tp.Union[Float[Array, "N 1"], None] = None
+    variational_root_covariance: tp.Union[Float[Array, "N N"], None] = None
+
+
+class HeteroscedasticPrediction(tp.NamedTuple):
+    """Mean and variance of the signal and noise latent processes."""
+
+    mean_f: Float[Array, "N 1"]
+    variance_f: Float[Array, "N 1"]
+    mean_g: Float[Array, "N 1"]
+    variance_g: Float[Array, "N 1"]
+
+
+class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
+    r"""Variational family for two independent latent processes f and g."""
+
+    def __init__(
+        self,
+        posterior: HP,
+        inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]] = None,
+        inducing_inputs_g: tp.Union[
+            Int[Array, "M D"], Float[Array, "M D"], None
+        ] = None,
+        variational_mean_f: tp.Union[Float[Array, "N 1"], None] = None,
+        variational_root_covariance_f: tp.Union[Float[Array, "N N"], None] = None,
+        variational_mean_g: tp.Union[Float[Array, "M 1"], None] = None,
+        variational_root_covariance_g: tp.Union[Float[Array, "M M"], None] = None,
+        jitter: ScalarFloat = 1e-6,
+        signal_init: tp.Optional[VariationalGaussianInit] = None,
+        noise_init: tp.Optional[VariationalGaussianInit] = None,
+    ):
+        self.jitter = jitter
+
+        if signal_init is not None:
+            self.signal_variational = VariationalGaussian(
+                posterior=posterior,
+                inducing_inputs=signal_init.inducing_inputs,
+                variational_mean=signal_init.variational_mean,
+                variational_root_covariance=signal_init.variational_root_covariance,
+                jitter=jitter,
+            )
+        elif inducing_inputs is not None:
+            self.signal_variational = VariationalGaussian(
+                posterior=posterior,
+                inducing_inputs=inducing_inputs,
+                variational_mean=variational_mean_f,
+                variational_root_covariance=variational_root_covariance_f,
+                jitter=jitter,
+            )
+        else:
+            raise ValueError("Either signal_init or inducing_inputs must be provided.")
+
+        if noise_init is not None:
+            self.noise_variational = VariationalGaussian(
+                posterior=posterior.noise_posterior,
+                inducing_inputs=noise_init.inducing_inputs,
+                variational_mean=noise_init.variational_mean,
+                variational_root_covariance=noise_init.variational_root_covariance,
+                jitter=jitter,
+            )
+        else:
+            noise_inducing = (
+                inducing_inputs if inducing_inputs_g is None else inducing_inputs_g
+            )
+            if noise_inducing is None and signal_init is not None:
+                noise_inducing = signal_init.inducing_inputs
+
+            if noise_inducing is None:
+                raise ValueError(
+                    "Could not determine inducing inputs for noise process."
+                )
+
+            self.noise_variational = VariationalGaussian(
+                posterior=posterior.noise_posterior,
+                inducing_inputs=noise_inducing,
+                variational_mean=variational_mean_g,
+                variational_root_covariance=variational_root_covariance_g,
+                jitter=jitter,
+            )
+        super().__init__(posterior)
+
+    def prior_kl(self) -> ScalarFloat:
+        return self.signal_variational.prior_kl() + self.noise_variational.prior_kl()
+
+    def predict(
+        self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+    ) -> HeteroscedasticPrediction:
+        dist_f = self.signal_variational.predict(test_inputs)
+        dist_g = self.noise_variational.predict(test_inputs)
+
+        mean_f = dist_f.mean[:, None] if dist_f.mean.ndim == 1 else dist_f.mean
+        var_f = (
+            dist_f.variance[:, None] if dist_f.variance.ndim == 1 else dist_f.variance
+        )
+        mean_g = dist_g.mean[:, None] if dist_g.mean.ndim == 1 else dist_g.mean
+        var_g = (
+            dist_g.variance[:, None] if dist_g.variance.ndim == 1 else dist_g.variance
+        )
+
+        return HeteroscedasticPrediction(
+            mean_f=mean_f,
+            variance_f=var_f,
+            mean_g=mean_g,
+            variance_g=var_g,
+        )
+
+    def predict_latents(
+        self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+    ) -> tuple[GaussianDistribution, GaussianDistribution]:
+        return (
+            self.signal_variational.predict(test_inputs),
+            self.noise_variational.predict(test_inputs),
+        )
+
+
 __all__ = [
     "AbstractVariationalFamily",
     "AbstractVariationalGaussian",
@@ -879,4 +1005,7 @@ __all__ = [
     "NaturalVariationalGaussian",
     "ExpectationVariationalGaussian",
     "CollapsedVariationalGaussian",
+    "HeteroscedasticVariationalFamily",
+    "VariationalGaussianInit",
+    "HeteroscedasticPrediction",
 ]

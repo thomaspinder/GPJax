@@ -5,6 +5,7 @@ config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import pytest
 
+import gpjax as gpx
 from gpjax.citation import (
     AbstractCitation,
     NullCitation,
@@ -22,6 +23,10 @@ from gpjax.kernels import (
     Matern32,
     Matern52,
 )
+
+
+from gpjax.likelihoods import HeteroscedasticGaussian
+from gpjax.mean_functions import Zero
 
 
 def _check_no_fallback(citation: AbstractCitation):
@@ -94,3 +99,16 @@ def test_rff(kernel):
 def test_missing_citation(kernel):
     citation = cite(kernel)
     assert isinstance(citation, NullCitation)
+
+
+def test_heteroscedastic_citation():
+    noise_prior = gpx.gps.Prior(mean_function=Zero(), kernel=RBF())
+    likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
+    citation = cite(likelihood)
+
+    assert isinstance(citation, PaperCitation)
+    assert citation.citation_key == "lazaro2011variational"
+    assert citation.title == "Variational heteroscedastic Gaussian process regression"
+    assert citation.authors == "Lázaro-Gredilla, Miguel and Titsias, Michalis"
+    assert citation.year == "2011"
+    _check_no_fallback(citation)

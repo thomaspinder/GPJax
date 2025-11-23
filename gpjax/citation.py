@@ -24,6 +24,8 @@ from gpjax.kernels import (
     Matern52,
 )
 
+from gpjax.likelihoods import HeteroscedasticGaussian
+
 CitationType = Union[None, str, Dict[str, str]]
 
 
@@ -148,4 +150,16 @@ def _(tree) -> PaperCitation:
         year="2007",
         booktitle="Advances in neural information processing systems",
         citation_type="article",
+    )
+
+
+@cite.register(HeteroscedasticGaussian)
+def _(tree) -> PaperCitation:
+    return PaperCitation(
+        citation_key="lazaro2011variational",
+        authors="Lázaro-Gredilla, Miguel and Titsias, Michalis",
+        title="Variational heteroscedastic Gaussian process regression",
+        year="2011",
+        booktitle="Proceedings of the 28th International Conference on Machine Learning (ICML)",
+        citation_type="inproceedings",
     )

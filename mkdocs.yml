@@ -27,6 +27,7 @@ nav:
     - Sparse GPs: _examples/collapsed_vi.md
     - Stochastic sparse GPs: _examples/uncollapsed_vi.md
     - Multi-output GPs for Ocean Modelling: _examples/oceanmodelling.md
+    - Heteroscedastic Inference: _examples/heteroscedastic_inference.md
   - 📖 Guides for customisation:
     - Kernels: _examples/constructing_new_kernels.md
     - Likelihoods: _examples/likelihoods_guide.md

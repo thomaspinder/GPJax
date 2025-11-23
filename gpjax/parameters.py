@@ -77,7 +77,14 @@ class Parameter(nnx.Variable[T]):
         _check_is_arraylike(value)
 
         super().__init__(value=jnp.asarray(value), **kwargs)
-        self.tag = tag
+
+        # nnx.Variable metadata must be set via set_metadata (direct setattr is disallowed).
+        self.set_metadata(tag=tag)
+
+    @property
+    def tag(self) -> ParameterTag:
+        """Return the parameter's constraint tag."""
+        return self.metadata.get("tag", "real")
 
 
 class NonNegativeReal(Parameter[T]):
