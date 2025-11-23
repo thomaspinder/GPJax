@@ -808,6 +808,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../_examples/heteroscedastic_inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Heteroscedastic Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2518,6 +2541,24 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#gpjax.objectives.heteroscedastic_elbo_conjugate" class="md-nav__link">
+    <span class="md-ellipsis">
+      heteroscedastic_elbo_conjugate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.objectives.heteroscedastic_elbo_chained" class="md-nav__link">
+    <span class="md-ellipsis">
+      heteroscedastic_elbo_chained
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2799,6 +2840,24 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.objectives.heteroscedastic_elbo_conjugate" class="md-nav__link">
+    <span class="md-ellipsis">
+      heteroscedastic_elbo_conjugate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.objectives.heteroscedastic_elbo_chained" class="md-nav__link">
+    <span class="md-ellipsis">
+      heteroscedastic_elbo_chained
+    </span>
+  </a>
   
 </li>
       
@@ -3245,6 +3304,44 @@ ELBO with respect to.</p>
         <h4 id="gpjax.objectives.collapsed_elbo--returns">Returns<a class="headerlink" href="#gpjax.objectives.collapsed_elbo--returns" title="Permanent link"></a></h4>
 <div class="language-text highlight"><pre><span></span><code>ScalarFloat: The evidence lower bound of the variational approximation.
 </code></pre></div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="gpjax.objectives.heteroscedastic_elbo_conjugate" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">heteroscedastic_elbo_conjugate</span>
+
+
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">heteroscedastic_elbo_conjugate</span><span class="p">(</span><span class="n">variational_family</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Tight bound from Lázaro-Gredilla &amp; Titsias (2011) for heteroscedastic Gaussian likelihoods.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="gpjax.objectives.heteroscedastic_elbo_chained" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">heteroscedastic_elbo_chained</span>
+
+
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">heteroscedastic_elbo_chained</span><span class="p">(</span><span class="n">variational_family</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Generic chained bound for heteroscedastic likelihoods.</p>
 
     </div>
 

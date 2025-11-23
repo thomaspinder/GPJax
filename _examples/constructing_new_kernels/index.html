@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/">
       
       
-        <link rel="prev" href="../oceanmodelling/">
+        <link rel="prev" href="../heteroscedastic_inference/">
       
       
         <link rel="next" href="../likelihoods_guide/">
@@ -798,6 +798,29 @@
   
   <span class="md-ellipsis">
     Multi-output GPs for Ocean Modelling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../heteroscedastic_inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Heteroscedastic Inference
     
   </span>
   
@@ -2830,7 +2853,7 @@ a sum kernel is provided by the <code>SumKernel</code> class.</p>
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im1</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f1265ca8d50&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f2bd46f3b90&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_11_1.png" /></p>
 <p>Similarly, products of kernels can be created through the <code>ProductKernel</code> class.</p>
@@ -2849,7 +2872,7 @@ a sum kernel is provided by the <code>SumKernel</code> class.</p>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im3</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f12651bc350&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f2bccd8d1d0&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_13_1.png" /></p>
 <h2 id="custom-kernel">Custom kernel<a class="headerlink" href="#custom-kernel" title="Permanent link"></a></h2>
@@ -3015,7 +3038,7 @@ and illustrate the results.</p>
 </span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">D</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">D</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Observations&quot;</span><span class="p">)</span>
 </span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f12647d8dd0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f2bccc78fd0&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_21_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>
@@ -3024,17 +3047,17 @@ and illustrate the results.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Thu Nov 20 2025
+Last updated: Sun Nov 23 2025
 
 Python implementation: CPython
 Python version       : 3.11.14
 IPython version      : 9.5.0
 
+matplotlib: 3.10.6
+jaxtyping : 0.3.2
+gpjax     : 0.13.4
 numpyro   : 0.19.0
 jax       : 0.7.1
-matplotlib: 3.10.6
-gpjax     : 0.13.3
-jaxtyping : 0.3.2
 
 Watermark: 2.5.0
 </code></pre></div>

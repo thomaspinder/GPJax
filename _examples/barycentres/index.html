@@ -946,6 +946,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../heteroscedastic_inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Heteroscedastic Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2904,14 +2927,14 @@ Optimization terminated successfully.
          Gradient evaluations: 22
 
 
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
-  res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
-
-
          Current function value: -271.573651
          Iterations: 10
          Function evaluations: 57
          Gradient evaluations: 45
+
+
+/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
+  res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
 </code></pre></div>
 <h2 id="computing-the-barycentre">Computing the barycentre<a class="headerlink" href="#computing-the-barycentre" title="Permanent link"></a></h2>
 <p>In GPJax, the predictive distribution of a GP is given by a
@@ -3001,7 +3024,7 @@ uncertainty bands are sensible.</p>
 </span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="p">)</span>
 </span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f59f4e066d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7fc86c8f7850&gt;
 </code></pre></div>
 <p><img alt="png" src="../barycentres_files/barycentres_11_1.png" /></p>
 <h2 id="displacement-interpolation">Displacement interpolation<a class="headerlink" href="#displacement-interpolation" title="Permanent link"></a></h2>
@@ -3018,17 +3041,17 @@ distributions <span class="arithmatex">\(\mu_1\)</span> and <span class="arithma
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Thu Nov 20 2025
+Last updated: Sun Nov 23 2025
 
 Python implementation: CPython
 Python version       : 3.11.14
 IPython version      : 9.5.0
 
-matplotlib: 3.10.6
 numpyro   : 0.19.0
-gpjax     : 0.13.3
 jax       : 0.7.1
+matplotlib: 3.10.6
 jaxtyping : 0.3.2
+gpjax     : 0.13.4
 
 Watermark: 2.5.0
 </code></pre></div>
