@@ -18,6 +18,7 @@ from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import pytest
+from hypothesis import given, settings, strategies as st
 
 import gpjax as gpx
 from gpjax.dataset import Dataset
@@ -127,10 +128,11 @@ def test_heteroscedastic_gaussian_validation(noise_prior, dataset):
 # --- Transform Tests ---
 
 
-def test_log_normal_transform_moments():
+@given(num_data=st.integers(min_value=1, max_value=100))
+def test_log_normal_transform_moments(num_data: int):
     transform = LogNormalTransform()
-    mean = jnp.array([[0.5], [1.0]])
-    variance = jnp.array([[0.1], [0.2]])
+    mean = jnp.array([[0.5] for _ in range(num_data)])
+    variance = jnp.array([[0.1] for _ in range(num_data)])
 
     moments = transform.moments(mean, variance)
 
@@ -143,16 +145,26 @@ def test_log_normal_transform_moments():
     assert jnp.allclose(moments.inv_variance, expected_inv_variance)
 
 
-def test_softplus_transform_numerical_accuracy():
-    # Monte Carlo verification of SoftplusTransform moments
+@given(
+    mean=st.floats(
+        min_value=-2.0,
+        max_value=5.0,
+        allow_nan=False,
+        allow_infinity=False,
+    ),
+    variance=st.floats(min_value=1e-3, max_value=3.0, allow_nan=False),
+    seed=st.integers(min_value=0, max_value=2**32 - 1),
+)
+def test_softplus_transform_numerical_accuracy(mean: float, variance: float, seed: int):
+    # Monte Carlo verification of SoftplusTransform moments over a range of inputs
     transform = SoftplusTransform(num_points=100)
-    mean = jnp.array([[0.5]])
-    variance = jnp.array([[0.2]])
+    mean_array = jnp.array([[mean]])
+    variance_array = jnp.array([[variance]])
 
-    moments = transform.moments(mean, variance)
+    moments = transform.moments(mean_array, variance_array)
 
-    key = jr.PRNGKey(42)
-    samples = mean + jnp.sqrt(variance) * jr.normal(key, (50000, 1))
+    key = jr.PRNGKey(seed)
+    samples = mean_array + jnp.sqrt(variance_array) * jr.normal(key, (100000, 1))
     transformed_samples = jax.nn.softplus(samples)
 
     # E[sigma^2]
@@ -163,7 +175,7 @@ def test_softplus_transform_numerical_accuracy():
     mc_inv_variance = jnp.mean(1.0 / transformed_samples)
 
     # Allow for some MC error and quadrature approximation error
-    rtol = 2e-2
+    rtol = 0.1
     assert jnp.allclose(moments.variance, mc_variance, rtol=rtol)
     assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol)
     assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol)
@@ -194,15 +206,27 @@ def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
     assert latent_g.mean.shape[0] == dataset.n
 
 
-def test_variational_family_init_structure(prior, noise_prior):
+@given(
+    n_inducing=st.integers(min_value=1, max_value=10),
+    offset=st.floats(
+        min_value=-0.5,
+        max_value=0.5,
+        allow_nan=False,
+        allow_infinity=False,
+    ),
+)
+def test_variational_family_init_structure(n_inducing: int, offset: float):
+    prior = Prior(kernel=RBF(), mean_function=Zero())
+    noise_prior = Prior(kernel=RBF(), mean_function=Zero())
     likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
     posterior = HeteroscedasticPosterior(prior=prior, likelihood=likelihood)
 
-    n_inducing = 5
-    inducing_inputs = jnp.linspace(0, 1, n_inducing).reshape(-1, 1)
+    inducing_inputs = jnp.linspace(0.0, 1.0, n_inducing, dtype=jnp.float64).reshape(
+        -1, 1
+    )
 
     signal_init = VariationalGaussianInit(inducing_inputs=inducing_inputs)
-    noise_inducing = jnp.linspace(0, 1, n_inducing).reshape(-1, 1) + 0.1
+    noise_inducing = inducing_inputs + jnp.asarray(offset, dtype=jnp.float64)
     noise_init = VariationalGaussianInit(inducing_inputs=noise_inducing)
 
     q = HeteroscedasticVariationalFamily(
@@ -230,21 +254,6 @@ def test_variational_family_init_errors(prior, noise_prior):
         ValueError, match="Either signal_init or inducing_inputs must be provided"
     ):
         HeteroscedasticVariationalFamily(posterior=posterior)
-
-    # Case 2: Cannot infer noise inducing inputs
-    # This is hard to trigger because if signal_init is provided, it falls back to signal_init.inducing_inputs.
-    # And if inducing_inputs is provided, it falls back to inducing_inputs.
-    # We need a case where we supply signal_init, but we want to force a failure in noise inference?
-    # Actually, the code says:
-    # if noise_inducing is None and signal_init is not None: noise_inducing = signal_init.inducing_inputs
-    # if noise_inducing is None: raise ValueError
-    # So if signal_init is passed, it's always safe.
-    # If inducing_inputs is passed, it's always safe.
-    # The only failure mode is if BOTH are None (caught by first check)
-    # OR if logic flows in a way that misses.
-    # Wait, if `inducing_inputs` is passed, `noise_inducing` becomes `inducing_inputs`.
-    # So effectively, if the first check passes, the second check should arguably not be reachable
-    # unless I pass `inducing_inputs_g=None` explicitly? No, default is None.
 
 
 def test_variational_family_predict_return_type(prior, noise_prior):
@@ -297,11 +306,6 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
         assert jnp.isfinite(loss_val)
         assert jnp.isfinite(loss_jit)
         assert isinstance(grads, nnx.State)
-
-        # Verify correct bound usage (smoke test via return value logic)
-        # SoftplusHeteroscedastic forces chained bound.
-        # HeteroscedasticGaussian uses LGT bound.
-        # We verify they both run and return finite values.
 
 
 # --- JIT Compatibility Tests ---

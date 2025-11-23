@@ -423,8 +423,10 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     return (two_log_prob - two_trace).squeeze() / 2.0
 
 
-def heteroscedastic_elbo_lgt(variational_family: HVF, data: Dataset) -> ScalarFloat:
-    r"""Tight LGT bound for heteroscedastic Gaussian likelihoods."""
+def heteroscedastic_elbo_conjugate(
+    variational_family: HVF, data: Dataset
+) -> ScalarFloat:
+    r"""Tight bound from Lázaro-Gredilla & Titsias (2011) for heteroscedastic Gaussian likelihoods."""
     likelihood = variational_family.posterior.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
 
@@ -465,5 +467,5 @@ def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> Scal
 def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
     likelihood = variational_family.posterior.likelihood
     if likelihood.supports_tight_bound():
-        return heteroscedastic_elbo_lgt(variational_family, data)
+        return heteroscedastic_elbo_conjugate(variational_family, data)
     return heteroscedastic_elbo_chained(variational_family, data)

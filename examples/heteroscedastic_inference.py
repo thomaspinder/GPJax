@@ -180,7 +180,7 @@ q = HeteroscedasticVariationalFamily(
 # optimisation iteratively updates the inducing posteriors for both latent GPs.
 
 # %%
-# Optimise the heteroscedastic ELBO (selects LGT bound).
+# Optimise the heteroscedastic ELBO (selects tighter bound).
 objective = lambda model, data: -gpx.objectives.heteroscedastic_elbo(model, data)
 optimiser = ox.adam(1e-2)
 q_trained, history = gpx.fit(

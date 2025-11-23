@@ -261,7 +261,8 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
         return self.predict(dist, noise_dist)
 
     def supports_tight_bound(self) -> bool:
-        """Return whether the tighter LGT bound is applicable."""
+        """Return whether the tighter bound from Lázaro-Gredilla & Titsias (2011)
+        is applicable."""
         return False
 
     def noise_statistics(
