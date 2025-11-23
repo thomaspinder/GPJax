@@ -215,7 +215,7 @@ mf, vf, mg, vg = q_trained.predict(xtest)
 signal_pred, noise_pred = q_trained.predict_latents(xtest)
 predictive = likelihood.predict(signal_pred, noise_pred)
 
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots()
 ax.plot(train.X, train.y, "o", label="Observations", alpha=0.5)
 ax.plot(xtest, mf, color="C0", label="Posterior mean")
 ax.fill_between(
@@ -238,7 +238,6 @@ ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
 ax.legend(loc="upper left")
 ax.set_title("Heteroscedastic regression")
-plt.show()
 
 # %% [markdown]
 # The latent intervals quantify epistemic uncertainty about $f$, whereas the broader
@@ -348,7 +347,7 @@ predictive_dist = likelihood_adv.predict(signal_dist, noise_dist)
 predictive_mean = predictive_dist.mean
 predictive_std = jnp.sqrt(jnp.diag(predictive_dist.covariance_matrix))
 
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots()
 ax.plot(x, y, "o", color="black", alpha=0.3, label="Data")
 ax.plot(xtest, mf, color="C0", label="Signal Mean")
 ax.fill_between(
@@ -373,7 +372,6 @@ ax.fill_between(
 
 ax.set_title("Heteroscedastic Regression with Custom Inducing Points")
 ax.legend(loc="upper left", fontsize="small")
-plt.show()
 
 # %% [markdown]
 # ## Takeaways
