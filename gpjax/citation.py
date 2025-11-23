@@ -23,7 +23,6 @@ from gpjax.kernels import (
     Matern32,
     Matern52,
 )
-
 from gpjax.likelihoods import HeteroscedasticGaussian
 
 CitationType = Union[None, str, Dict[str, str]]

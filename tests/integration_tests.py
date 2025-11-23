@@ -28,6 +28,7 @@ from beartype.typing import (
 )
 import jax.numpy as jnp  # noqa: F401
 import jupytext
+
 import gpjax
 
 # %%

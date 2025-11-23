@@ -13,12 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 from flax import nnx
+from hypothesis import (
+    given,
+    strategies as st,
+)
 import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import pytest
-from hypothesis import given, settings, strategies as st
 
 import gpjax as gpx
 from gpjax.dataset import Dataset

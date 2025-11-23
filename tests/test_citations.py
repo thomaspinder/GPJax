@@ -23,8 +23,6 @@ from gpjax.kernels import (
     Matern32,
     Matern52,
 )
-
-
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.mean_functions import Zero
 

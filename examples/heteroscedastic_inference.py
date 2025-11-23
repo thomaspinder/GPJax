@@ -44,8 +44,8 @@
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import optax as ox
 
 from examples.utils import use_mpl_style
@@ -55,7 +55,6 @@ from gpjax.likelihoods import (
     LogNormalTransform,
     SoftplusTransform,
 )
-from gpjax.objectives import heteroscedastic_elbo
 from gpjax.variational_families import (
     HeteroscedasticVariationalFamily,
     VariationalGaussianInit,

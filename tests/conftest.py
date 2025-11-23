@@ -1,5 +1,5 @@
-from jax import config
 from hypothesis import settings
+from jax import config
 from jaxtyping import install_import_hook
 
 config.update("jax_enable_x64", True)
