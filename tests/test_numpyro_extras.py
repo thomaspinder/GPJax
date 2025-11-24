@@ -1,203 +1,103 @@
-from jax import (
-    grad,
-    jit,
-)
+from flax import nnx
 import jax.numpy as jnp
-import numpy as np
-import pytest
+import numpyro.distributions as dist
+from numpyro.handlers import (
+    seed,
+    trace,
+)
 
-from gpjax.numpyro_extras import FillTriangularTransform
-
-
-# Helper function to generate a test input vector for a given matrix size.
-def generate_test_vector(n):
-    """
-    Generate a sequential vector of shape (n(n+1)/2,) with values [1, 2, ..., n(n+1)/2].
-    """
-    L = n * (n + 1) // 2
-    return jnp.arange(1, L + 1, dtype=jnp.float32)
+from gpjax.numpyro_extras import register_parameters
+from gpjax.parameters import (
+    PositiveReal,
+    Real,
+)
 
 
-# ----------------- Unit tests using PyTest -----------------
+class MockSubModule(nnx.Module):
+    def __init__(self):
+        self.c = Real(jnp.array(3.0))
 
 
-@pytest.mark.parametrize("n", [1, 2, 3, 4])
-def test_forward_inverse(n):
-    """
-    Test that for a range of input sizes the forward transform correctly fills
-    an n x n lower triangular matrix and that the inverse recovers the original vector.
-    """
-    ft = FillTriangularTransform()
-    vec = generate_test_vector(n)
-    L = ft(vec)
-
-    # Construct the expected n x n lower triangular matrix
-    expected = jnp.zeros((n, n), dtype=vec.dtype)
-    row, col = jnp.tril_indices(n)
-    expected = expected.at[row, col].set(vec)
-
-    np.testing.assert_allclose(L, expected, rtol=1e-6)
-
-    # Check that the inverse recovers the original vector
-    vec_rec = ft.inv(L)
-    np.testing.assert_allclose(vec, vec_rec, rtol=1e-6)
+class MockModel(nnx.Module):
+    def __init__(self):
+        self.a = PositiveReal(jnp.array(1.0))
+        self.b = Real(jnp.array(2.0))
+        self.submodule = MockSubModule()
 
 
-@pytest.mark.parametrize("n", [1, 2, 3, 4])
-def test_batched_forward_inverse(n):
-    """
-    Test that the transform correctly handles batched inputs.
-    """
-    ft = FillTriangularTransform()
-    batch_size = 5
-    vec = jnp.stack([generate_test_vector(n) for _ in range(batch_size)], axis=0)
-    L = ft(vec)  # Expected shape: (batch_size, n, n)
-    assert L.shape == (batch_size, n, n)
+def test_register_parameters_default_priors():
+    model = MockModel()
 
-    vec_rec = ft.inv(L)  # Expected shape: (batch_size, n(n+1)/2)
-    assert vec_rec.shape == (batch_size, n * (n + 1) // 2)
-    np.testing.assert_allclose(vec, vec_rec, rtol=1e-6)
+    def model_fn():
+        return register_parameters(model)
 
+    with seed(rng_seed=0):
+        tr = trace(model_fn).get_trace()
 
-def test_jit_forward():
-    """
-    Test that the forward transformation works correctly when compiled with JIT.
-    """
-    ft = FillTriangularTransform()
-    n = 3
-    vec = generate_test_vector(n)
+    # Check sites exist
+    assert "a" in tr
+    assert "b" in tr
+    assert "submodule.c" in tr
 
-    jit_forward = jit(ft)
-    L = ft(vec)
-    L_jit = jit_forward(vec)
-    np.testing.assert_allclose(L, L_jit, rtol=1e-6)
+    # Check distributions
+    # a: PositiveReal -> LogNormal
+    # LogNormal is a TransformedDistribution.
+    assert isinstance(tr["a"]["fn"], dist.LogNormal)
 
+    # b: Real -> Normal
+    # If scalar, to_event(0) returns Normal. If vector, to_event(1) returns Independent.
+    if isinstance(tr["b"]["fn"], dist.Independent):
+        assert isinstance(tr["b"]["fn"].base_dist, dist.Normal)
+    else:
+        assert isinstance(tr["b"]["fn"], dist.Normal)
 
-def test_jit_inverse():
-    """
-    Test that the inverse transformation works correctly when compiled with JIT.
-    """
-    ft = FillTriangularTransform()
-    n = 3
-    vec = generate_test_vector(n)
-    L_mat = ft(vec)
+    # submodule.c: Real -> Normal
+    if isinstance(tr["submodule.c"]["fn"], dist.Independent):
+        assert isinstance(tr["submodule.c"]["fn"].base_dist, dist.Normal)
+    else:
+        assert isinstance(tr["submodule.c"]["fn"], dist.Normal)
 
-    # Wrap the inverse call in a lambda to avoid hashing the unhashable _InverseTransform.
-    jit_inverse = jit(lambda y: ft.inv(y))
-    vec_rec = ft.inv(L_mat)
-    vec_rec_jit = jit_inverse(L_mat)
-    np.testing.assert_allclose(vec_rec, vec_rec_jit, rtol=1e-6)
+    # Check values in updated model
+    with seed(rng_seed=0):
+        updated_model = model_fn()
+
+    assert jnp.allclose(updated_model.a.value, tr["a"]["value"])
+    assert jnp.allclose(updated_model.b.value, tr["b"]["value"])
+    assert jnp.allclose(updated_model.submodule.c.value, tr["submodule.c"]["value"])
+
+    # Verify original values were different (random sample != 1.0)
+    assert not jnp.allclose(updated_model.a.value, 1.0)
 
 
-def test_grad_forward():
-    """
-    Test that JAX gradients can be computed for the forward transform.
-    We define a simple function that sums the output matrix.
-    Since the forward transform is just a reordering, the gradient should be 1
-    for every element in the input vector.
-    """
-    ft = FillTriangularTransform()
-    n = 3
-    vec = generate_test_vector(n)
+def test_register_parameters_custom_priors():
+    model = MockModel()
 
-    # Define a scalar function f(x) = sum(forward(x))
-    f = lambda x: jnp.sum(ft(x))
-    grad_f = grad(f)(vec)
-    np.testing.assert_allclose(grad_f, jnp.ones_like(vec), rtol=1e-6)
+    priors = {"a": dist.Gamma(2.0, 2.0), "submodule.c": dist.Cauchy(0.0, 1.0)}
 
+    def model_fn():
+        return register_parameters(model, priors=priors)
 
-def test_grad_inverse():
-    """
-    Test that gradients flow through the inverse transformation.
-    Define a simple scalar function on the inverse such that g(y) = sum(inv(y)).
-    The gradient with respect to y should be one on the lower triangular indices.
-    """
-    ft = FillTriangularTransform()
-    n = 3
-    vec = generate_test_vector(n)
-    L = ft(vec)
+    with seed(rng_seed=0):
+        tr = trace(model_fn).get_trace()
 
-    g = lambda y: jnp.sum(ft.inv(y))
-    grad_g = grad(g)(L)
-
-    # Construct the expected gradient matrix: zeros everywhere except ones on the lower triangle.
-    grad_expected = jnp.zeros_like(L)
-    row, col = jnp.tril_indices(n)
-    grad_expected = grad_expected.at[row, col].set(1.0)
-    np.testing.assert_allclose(grad_g, grad_expected, rtol=1e-6)
+    assert isinstance(tr["a"]["fn"], dist.Gamma)
+    # b should use default (Normal wrapped in Independent or Normal)
+    if isinstance(tr["b"]["fn"], dist.Independent):
+        assert isinstance(tr["b"]["fn"].base_dist, dist.Normal)
+    else:
+        assert isinstance(tr["b"]["fn"], dist.Normal)
+    assert isinstance(tr["submodule.c"]["fn"], dist.Cauchy)
 
 
-def test_invalid_dimension_error():
-    """
-    Test that the FillTriangularTransform correctly raises a ValueError when
-    the last dimension doesn't equal n(n+1)/2 for some integer n.
-    """
-    ft = FillTriangularTransform()
+def test_register_parameters_prefix():
+    model = MockModel()
 
-    # Create vectors with invalid dimensions that aren't n(n+1)/2 for any integer n
-    invalid_dims = [2, 4, 5, 7, 8, 11, 13, 14, 17, 19, 20]
+    def model_fn():
+        return register_parameters(model, prefix="foo")
 
-    for dim in invalid_dims:
-        vec = jnp.ones(dim)
-        with pytest.raises(
-            ValueError,
-            match="Last dimension must equal n\\(n\\+1\\)/2 for some integer n\\.",
-        ):
-            ft(vec)
+    with seed(rng_seed=0):
+        tr = trace(model_fn).get_trace()
 
-    # Verify that valid dimensions don't raise errors
-    valid_dims = [1, 3, 6, 10, 15, 21]  # n(n+1)/2 for n=1,2,3,4,5,6
-
-    for dim in valid_dims:
-        vec = jnp.ones(dim)
-        try:
-            ft(vec)
-        except ValueError:
-            pytest.fail(
-                f"FillTriangularTransform raised ValueError for valid dimension {dim}"
-            )
-
-
-def test_inverse_dimension_error():
-    """
-    Test that the FillTriangularTransform.inv correctly raises a ValueError when
-    the input has less than two dimensions.
-    """
-    ft = FillTriangularTransform()
-
-    # Create a one-dimensional array
-    vec = jnp.ones(3)  # 1D array with 3 elements
-
-    # Try to call inverse on the 1D array, should fail
-    with pytest.raises(
-        ValueError, match="Input to inverse must be at least two-dimensional."
-    ):
-        ft.inv(vec)
-
-
-def test_inverse_non_square_error():
-    """
-    Test that the FillTriangularTransform.inv correctly raises a ValueError when
-    the input matrix is not square.
-    """
-    ft = FillTriangularTransform()
-
-    # Create non-square matrices of different shapes
-    non_square_matrices = [
-        jnp.ones((3, 4)),  # 3x4 matrix
-        jnp.ones((5, 2)),  # 5x2 matrix
-        jnp.ones((1, 3)),  # 1x3 matrix
-    ]
-
-    for matrix in non_square_matrices:
-        # Extract dimensions
-        dim1, dim2 = matrix.shape[-2:]
-        # Use a simpler regex pattern that doesn't include parentheses
-        error_pattern = "Input matrix must be square; got shape"
-        with pytest.raises(ValueError, match=error_pattern):
-            ft.inv(matrix)
-
-    # Test with batched non-square matrices
-    batched_non_square = jnp.ones((2, 3, 4))  # Batch of 2 matrices of shape 3x4
-    with pytest.raises(ValueError, match="Input matrix must be square"):
-        ft.inv(batched_non_square)
+    assert "foo.a" in tr
+    assert "foo.b" in tr
+    assert "foo.submodule.c" in tr

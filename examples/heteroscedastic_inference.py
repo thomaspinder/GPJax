@@ -357,8 +357,22 @@ ax.fill_between(
     alpha=0.3,
     label="One std. dev.",
 )
-ax.plot(xtest.squeeze(), predictive_mean - predictive_std, "--", color=cols[1], alpha=0.5, linewidth=0.75)
-ax.plot(xtest.squeeze(), predictive_mean + predictive_std, "--", color=cols[1], alpha=0.5, linewidth=0.75)
+ax.plot(
+    xtest.squeeze(),
+    predictive_mean - predictive_std,
+    "--",
+    color=cols[1],
+    alpha=0.5,
+    linewidth=0.75,
+)
+ax.plot(
+    xtest.squeeze(),
+    predictive_mean + predictive_std,
+    "--",
+    color=cols[1],
+    alpha=0.5,
+    linewidth=0.75,
+)
 ax.fill_between(
     xtest.squeeze(),
     predictive_mean - 2 * predictive_std,
@@ -367,8 +381,22 @@ ax.fill_between(
     alpha=0.1,
     label="Two std. dev.",
 )
-ax.plot(xtest.squeeze(), predictive_mean - 2 * predictive_std, "--", color=cols[1], alpha=0.5, linewidth=0.75)
-ax.plot(xtest.squeeze(), predictive_mean + 2 * predictive_std, "--", color=cols[1], alpha=0.5, linewidth=0.75)
+ax.plot(
+    xtest.squeeze(),
+    predictive_mean - 2 * predictive_std,
+    "--",
+    color=cols[1],
+    alpha=0.5,
+    linewidth=0.75,
+)
+ax.plot(
+    xtest.squeeze(),
+    predictive_mean + 2 * predictive_std,
+    "--",
+    color=cols[1],
+    alpha=0.5,
+    linewidth=0.75,
+)
 
 ax.set_title("Sparse Heteroscedastic Regression")
 ax.legend(loc="best", fontsize="small")

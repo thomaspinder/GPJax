@@ -1,106 +1,88 @@
-import math
+import typing as tp
 
-import jax
-import jax.numpy as jnp
-from numpyro.distributions.transforms import Transform
+from flax import nnx
+import jax.tree_util as jtu
+import numpyro
+import numpyro.distributions as dist
 
-# -----------------------------------------------------------------------------
-# Implementation: FillTriangularTransform
-# -----------------------------------------------------------------------------
+from gpjax.parameters import (
+    FillTriangularTransform,
+    Parameter,
+)
 
 
-class FillTriangularTransform(Transform):
+def _get_default_prior(tag, shape, ndim):
+    if tag in ("positive", "non_negative"):
+        return dist.LogNormal(0.0, 1.0).expand(shape).to_event(ndim)
+    if tag == "real":
+        return dist.Normal(0.0, 1.0).expand(shape).to_event(ndim)
+    if tag == "sigmoid":
+        return dist.Uniform(0.0, 1.0).expand(shape).to_event(ndim)
+    if tag == "lower_triangular":
+        N = shape[-1]
+        K = N * (N + 1) // 2
+        batch_shape = shape[:-2]
+        base_shape = batch_shape + (K,)
+        base_dist = dist.Normal(0.0, 1.0).expand(base_shape).to_event(1)
+        td = dist.TransformedDistribution(base_dist, FillTriangularTransform())
+        return td.to_event(len(batch_shape))
+    return dist.Normal(0.0, 1.0).expand(shape).to_event(ndim)
+
+
+def register_parameters(
+    model: nnx.Module,
+    priors: tp.Dict[str, dist.Distribution] | None = None,
+    prefix: str = "",
+) -> nnx.Module:
     """
-    Transform that maps a vector of length n(n+1)/2 to an n x n lower triangular matrix.
-    The ordering is assumed to be:
-       (0,0), (1,0), (1,1), (2,0), (2,1), (2,2), ..., (n-1, n-1)
+    Register GPJax parameters with Numpyro.
+
+    Args:
+        model: The GPJax model (flax.nnx.Module).
+        priors: Optional dictionary mapping parameter names to Numpyro distributions.
+        prefix: Optional prefix for parameter names.
+
+    Returns:
+        The model with parameters updated from Numpyro samples.
     """
+    if priors is None:
+        priors = {}
 
-    # Note: The base class provides `inv` through _InverseTransform wrapping _inverse.
+    def _param_callback(path, param):
+        if not isinstance(param, Parameter):
+            return param
 
-    def __call__(self, x):
-        """
-        Forward transformation.
+        # Construct name
+        name_parts = []
+        for p in path:
+            if isinstance(p, jtu.DictKey):
+                name_parts.append(str(p.key))
+            elif isinstance(p, jtu.SequenceKey):
+                name_parts.append(str(p.idx))
+            elif isinstance(p, jtu.GetAttrKey):
+                name_parts.append(str(p.name))
+            else:
+                name_parts.append(str(p))
 
-        Parameters
-        ----------
-        x : array_like, shape (..., L)
-            Input vector with L = n(n+1)/2 for some integer n.
+        name = ".".join(name_parts)
+        if prefix:
+            name = f"{prefix}.{name}"
 
-        Returns
-        -------
-        y : array_like, shape (..., n, n)
-            Lower-triangular matrix (with zeros in the upper triangle) filled in
-            row-major order (i.e. [ (0,0), (1,0), (1,1), ... ]).
-        """
-        L = x.shape[-1]
-        # Use static (Python) math.sqrt to compute n. This avoids tracer issues.
-        n = int((-1 + math.sqrt(1 + 8 * L)) // 2)
-        if n * (n + 1) // 2 != L:
-            raise ValueError("Last dimension must equal n(n+1)/2 for some integer n.")
+        # Determine prior
+        prior = priors.get(name)
+        if prior is None:
+            prior = _get_default_prior(param.tag, param.value.shape, param.value.ndim)
 
-        def fill_single(vec):
-            out = jnp.zeros((n, n), dtype=vec.dtype)
-            row, col = jnp.tril_indices(n)
-            return out.at[row, col].set(vec)
+        # Sample
+        value = numpyro.sample(name, prior)
 
-        if x.ndim == 1:
-            return fill_single(x)
-        else:
-            batch_shape = x.shape[:-1]
-            flat_x = x.reshape((-1, L))
-            out = jax.vmap(fill_single)(flat_x)
-            return out.reshape(batch_shape + (n, n))
+        # Update parameter
+        return param.replace(value)
 
-    def _inverse(self, y):
-        """
-        Inverse transformation.
+    graphdef, state = nnx.split(model)
 
-        Parameters
-        ----------
-        y : array_like, shape (..., n, n)
-            Lower triangular matrix.
+    new_state = jtu.tree_map_with_path(
+        _param_callback, state, is_leaf=lambda x: isinstance(x, Parameter)
+    )
 
-        Returns
-        -------
-        x : array_like, shape (..., n(n+1)/2)
-            The vector containing the elements from the lower-triangular portion of y.
-        """
-        if y.ndim < 2:
-            raise ValueError("Input to inverse must be at least two-dimensional.")
-        n = y.shape[-1]
-        if y.shape[-2] != n:
-            raise ValueError(
-                "Input matrix must be square; got shape %s" % str(y.shape[-2:])
-            )
-
-        row, col = jnp.tril_indices(n)
-
-        def inv_single(mat):
-            return mat[row, col]
-
-        if y.ndim == 2:
-            return inv_single(y)
-        else:
-            batch_shape = y.shape[:-2]
-            flat_y = y.reshape((-1, n, n))
-            out = jax.vmap(inv_single)(flat_y)
-            return out.reshape(batch_shape + (n * (n + 1) // 2,))
-
-    def log_abs_det_jacobian(self, x, y, intermediates=None):
-        # Since the transform simply reorders the vector into a matrix, the Jacobian determinant is 1.
-        return jnp.zeros(x.shape[:-1])
-
-    @property
-    def sign(self):
-        # The reordering transformation has a positive derivative everywhere.
-        return 1.0
-
-    # Implement tree_flatten and tree_unflatten because base Transform expects them.
-    def tree_flatten(self):
-        # This transform is stateless.
-        return (), {}
-
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        return cls()
+    return nnx.merge(graphdef, new_state)
