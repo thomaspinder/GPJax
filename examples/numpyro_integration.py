@@ -30,6 +30,7 @@ import numpyro.distributions as dist
 from numpyro.infer import (
     MCMC,
     NUTS,
+    Predictive,
 )
 
 import gpjax as gpx
@@ -67,7 +68,7 @@ plt.figure(figsize=(10, 5))
 plt.scatter(x, y, label="Data", alpha=0.6)
 plt.plot(x, y_clean, "k--", label="True Signal")
 plt.legend()
-plt.show()
+# plt.show()
 
 # %% [markdown]
 # ## Model Definition
@@ -75,12 +76,30 @@ plt.show()
 # We define a GP model with a generic mean function (zero for now, as we will handle the linear trend explicitly in the Numpyro model) and a kernel that is the product of a periodic kernel and an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic.
 
 # %%
-kernel = gpx.kernels.RBF() * gpx.kernels.Periodic()
+# Define priors
+lengthscale_prior = dist.LogNormal(0.0, 1.0)
+variance_prior = dist.LogNormal(0.0, 1.0)
+period_prior = dist.LogNormal(0.0, 0.5)
+noise_prior = dist.LogNormal(0.0, 1.0)
+
+# Define Kernel with priors
+# We can explicitly attach priors to the parameters
+kernel = gpx.kernels.RBF(
+    lengthscale=gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior),
+    variance=gpx.parameters.PositiveReal(1.0, prior=variance_prior),
+) * gpx.kernels.Periodic(
+    lengthscale=gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior),
+    period=gpx.parameters.PositiveReal(1.0, prior=period_prior),
+)
+
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 # We will use a ConjugatePosterior since we assume Gaussian noise
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=N)
+likelihood = gpx.likelihoods.Gaussian(
+    num_datapoints=N,
+    obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=noise_prior),
+)
 posterior = prior * likelihood
 
 # We initialise the model parameters.
@@ -111,7 +130,8 @@ def model(X, Y):
     # 2. Register GP parameters
     # This automatically samples parameters from the GPJax model
     # and returns a model with updated values.
-    # We can specify custom priors if needed, but we'll rely on defaults here.
+    # We attached priors to the parameters during model definition,
+    # so register_parameters will use those.
     # register_parameters modifies the model in-place (and returns it).
     # Since Numpyro re-runs this function, we are overwriting the parameters
     # of the same object repeatedly, which is fine as they are completely determined
@@ -150,67 +170,59 @@ mcmc.print_summary()
 samples = mcmc.get_samples()
 
 
-# Helper to get predictions
-def predict(rng_key, sample_idx):
-    # Reconstruct model with sampled values
+def predict_fn(X_new, Y_train):
+    # 1. Sample linear model parameters
+    slope = numpyro.sample("slope", dist.Normal(0.0, 2.0))
+    intercept = numpyro.sample("intercept", dist.Normal(0.0, 2.0))
 
-    # Linear part
-    slope = samples["slope"][sample_idx]
-    intercept = samples["intercept"][sample_idx]
-    trend = slope * x + intercept
+    # Calculate residuals
+    trend_train = slope * x + intercept
+    residuals = Y_train - trend_train
 
-    # GP part
-    # We use numpyro.handlers.substitute to inject the sampled values into register_parameters
-    # to reconstruct the GP model state for this sample.
-    sample_dict = {k: v[sample_idx] for k, v in samples.items()}
+    # 2. Register GP parameters
+    p_posterior = register_parameters(posterior)
 
-    with numpyro.handlers.substitute(data=sample_dict):
-        # We call register_parameters again to update the posterior object with this sample's values
-        p_posterior = register_parameters(posterior)
-
-    # Now predict on residuals
-    residuals = y - trend
+    # Create dataset for residuals
     D_resid = gpx.Dataset(X=x, y=residuals)
 
-    latent_dist = p_posterior.predict(x, train_data=D_resid)
-    predictive_mean = latent_dist.mean
-    predictive_std = latent_dist.stddev()
+    # 3. Compute latent GP distribution
+    latent_dist = p_posterior.predict(X_new, train_data=D_resid)
 
-    return trend + predictive_mean, predictive_std
+    # 4. Sample latent function values
+    f = numpyro.sample("f", latent_dist)
+    f = f.reshape((-1, 1))
 
+    # 5. Compute and return total prediction
+    total_prediction = slope * X_new + intercept + f
+    numpyro.deterministic("y_pred", total_prediction)
+    return total_prediction
+
+
+# Create predictive utility
+predictive = Predictive(predict_fn, posterior_samples=samples)
+
+# Generate predictions
+predictions = predictive(jr.key(1), X_new=x, Y_train=y)
+y_pred = predictions["y_pred"]
+
+# Compute statistics
+mean_prediction = jnp.mean(y_pred, axis=0)
+std_prediction = jnp.std(y_pred, axis=0)
 
 # Plot
 plt.figure(figsize=(12, 6))
 plt.scatter(x, y, alpha=0.5, label="Data", color="gray")
 plt.plot(x, y_clean, "k--", label="True Signal")
 
-# Compute mean prediction (using mean of samples for efficiency)
-mean_slope = jnp.mean(samples["slope"])
-mean_intercept = jnp.mean(samples["intercept"])
-mean_trend = mean_slope * x + mean_intercept
-
-mean_samples = {k: jnp.mean(v, axis=0) for k, v in samples.items()}
-with numpyro.handlers.substitute(data=mean_samples):
-    p_posterior_mean = register_parameters(posterior)
-
-residuals_mean = y - mean_trend
-D_resid_mean = gpx.Dataset(X=x, y=residuals_mean)
-latent_dist = p_posterior_mean.predict(x, train_data=D_resid_mean)
-pred_mean = latent_dist.mean
-pred_std = latent_dist.stddev()
-
-total_mean = mean_trend.flatten() + pred_mean.flatten()
-std_flat = pred_std.flatten()
-
-plt.plot(x, total_mean, "b-", label="Posterior Mean")
+plt.plot(x, mean_prediction, "b-", label="Posterior Mean")
 plt.fill_between(
     x.flatten(),
-    total_mean - 2 * std_flat,
-    total_mean + 2 * std_flat,
+    mean_prediction.flatten() - 2 * std_prediction.flatten(),
+    mean_prediction.flatten() + 2 * std_prediction.flatten(),
     color="b",
     alpha=0.2,
     label="95% CI (GP Uncertainty)",
 )
 
 plt.legend()
-plt.show()
+# plt.show()

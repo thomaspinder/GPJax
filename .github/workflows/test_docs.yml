@@ -3,6 +3,11 @@ name: Test documentation
 on:
   pull_request:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   test-docs:
     # Functionality for testing documentation builds on multiple OSes and Python versions
@@ -42,3 +47,26 @@ jobs:
           uv sync --extra docs
           uv run python docs/scripts/gen_examples.py --execute
           uv run mkdocs build
+
+      - name: Upload built docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site-html
+          path: site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-docs-preview:
+    needs: test-docs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy MkDocs preview
+        id: deployment
+        uses: actions/deploy-pages@v4

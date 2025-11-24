@@ -7,6 +7,7 @@ from jax.experimental import checkify
 import jax.numpy as jnp
 import jax.tree_util as jtu
 from jax.typing import ArrayLike
+import numpyro.distributions as dist
 import numpyro.distributions.transforms as npt
 
 T = tp.TypeVar("T", bound=tp.Union[ArrayLike, list[float]])
@@ -170,13 +171,22 @@ class Parameter(nnx.Variable[T]):
 
     """
 
-    def __init__(self, value: T, tag: ParameterTag, **kwargs):
+    def __init__(
+        self,
+        value: T,
+        tag: ParameterTag,
+        prior: tp.Optional[dist.Distribution] = None,
+        **kwargs,
+    ):
         _check_is_arraylike(value)
 
         super().__init__(value=jnp.asarray(value), **kwargs)
 
         # nnx.Variable metadata must be set via set_metadata (direct setattr is disallowed).
         self.set_metadata(tag=tag)
+        self.numpyro_properties: tp.Dict[str, tp.Any] = {}
+        if prior is not None:
+            self.numpyro_properties["prior"] = prior
 
     @property
     def tag(self) -> ParameterTag:

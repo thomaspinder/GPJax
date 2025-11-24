@@ -68,6 +68,9 @@ class GaussianDistribution(Distribution):
         def affine_transformation(_x):
             return self.loc + covariance_root @ _x
 
+        if not sample_shape:
+            return affine_transformation(white_noise)
+
         return vmap(affine_transformation)(white_noise)
 
     @property

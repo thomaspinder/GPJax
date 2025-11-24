@@ -6,27 +6,8 @@ import numpyro
 import numpyro.distributions as dist
 
 from gpjax.parameters import (
-    FillTriangularTransform,
     Parameter,
 )
-
-
-def _get_default_prior(tag, shape, ndim):
-    if tag in ("positive", "non_negative"):
-        return dist.LogNormal(0.0, 1.0).expand(shape).to_event(ndim)
-    if tag == "real":
-        return dist.Normal(0.0, 1.0).expand(shape).to_event(ndim)
-    if tag == "sigmoid":
-        return dist.Uniform(0.0, 1.0).expand(shape).to_event(ndim)
-    if tag == "lower_triangular":
-        N = shape[-1]
-        K = N * (N + 1) // 2
-        batch_shape = shape[:-2]
-        base_shape = batch_shape + (K,)
-        base_dist = dist.Normal(0.0, 1.0).expand(base_shape).to_event(1)
-        td = dist.TransformedDistribution(base_dist, FillTriangularTransform())
-        return td.to_event(len(batch_shape))
-    return dist.Normal(0.0, 1.0).expand(shape).to_event(ndim)
 
 
 def register_parameters(
@@ -71,7 +52,12 @@ def register_parameters(
         # Determine prior
         prior = priors.get(name)
         if prior is None:
-            prior = _get_default_prior(param.tag, param.value.shape, param.value.ndim)
+            # Check for attached prior
+            numpyro_props = getattr(param, "numpyro_properties", {})
+            prior = numpyro_props.get("prior")
+
+        if prior is None:
+            return param
 
         # Sample
         value = numpyro.sample(name, prior)

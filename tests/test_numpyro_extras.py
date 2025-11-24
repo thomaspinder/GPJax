@@ -1,32 +1,97 @@
 from flax import nnx
+from hypothesis import (
+    given,
+    strategies as st,
+)
+from hypothesis.extra.numpy import arrays
 import jax.numpy as jnp
+import numpy as np
 import numpyro.distributions as dist
 from numpyro.handlers import (
     seed,
     trace,
 )
 
-from gpjax.numpyro_extras import register_parameters
+from gpjax.numpyro_extras import (
+    register_parameters,
+)
 from gpjax.parameters import (
+    LowerTriangular,
+    NonNegativeReal,
     PositiveReal,
     Real,
+    SigmoidBounded,
 )
 
-
-class MockSubModule(nnx.Module):
-    def __init__(self):
-        self.c = Real(jnp.array(3.0))
+# --- Strategies ---
 
 
-class MockModel(nnx.Module):
-    def __init__(self):
-        self.a = PositiveReal(jnp.array(1.0))
-        self.b = Real(jnp.array(2.0))
-        self.submodule = MockSubModule()
+def valid_shapes(min_dims=0, max_dims=2):
+    return st.integers(min_dims, max_dims).flatmap(
+        lambda d: st.lists(st.integers(1, 3), min_size=d, max_size=d).map(tuple)
+    )
 
 
-def test_register_parameters_default_priors():
-    model = MockModel()
+def real_arrays(shape=None, min_value=None, max_value=None):
+    return arrays(
+        dtype=np.float64,
+        shape=shape if shape is not None else valid_shapes(),
+        elements=st.floats(
+            min_value=min_value,
+            max_value=max_value,
+            allow_nan=False,
+            allow_infinity=False,
+            width=64,
+        ),
+    ).map(jnp.array)
+
+
+def lower_triangular_matrices(n=2):
+    return arrays(
+        dtype=np.float64,
+        shape=(n, n),
+        elements=st.floats(min_value=-2.0, max_value=2.0, width=64),
+    ).map(lambda x: jnp.tril(jnp.array(x)))
+
+
+class FlexibleMockModel(nnx.Module):
+    def __init__(
+        self,
+        pos_val,
+        real_val,
+        non_neg_val,
+        sigmoid_val,
+        lower_val,
+        vec_val,
+        pos_prior=None,
+        real_prior=None,
+        non_neg_prior=None,
+        sigmoid_prior=None,
+        lower_prior=None,
+        vec_prior=None,
+    ):
+        self.pos = PositiveReal(pos_val, prior=pos_prior)
+        self.real = Real(real_val, prior=real_prior)
+        self.non_neg = NonNegativeReal(non_neg_val, prior=non_neg_prior)
+        self.sigmoid = SigmoidBounded(sigmoid_val, prior=sigmoid_prior)
+        self.lower = LowerTriangular(lower_val, prior=lower_prior)
+        self.vec = Real(vec_val, prior=vec_prior)
+
+
+@given(
+    pos_val=real_arrays(shape=(1,), min_value=1e-3, max_value=10.0),
+    real_val=real_arrays(shape=(1,), min_value=-10.0, max_value=10.0),
+    non_neg_val=real_arrays(shape=(1,), min_value=0.0, max_value=10.0),
+    sigmoid_val=real_arrays(shape=(1,), min_value=1e-3, max_value=0.999),
+    lower_val=lower_triangular_matrices(n=2),
+    vec_val=real_arrays(shape=(2,), min_value=-10.0, max_value=10.0),
+)
+def test_no_priors_no_sampling(
+    pos_val, real_val, non_neg_val, sigmoid_val, lower_val, vec_val
+):
+    model = FlexibleMockModel(
+        pos_val, real_val, non_neg_val, sigmoid_val, lower_val, vec_val
+    )
 
     def model_fn():
         return register_parameters(model)
@@ -34,45 +99,41 @@ def test_register_parameters_default_priors():
     with seed(rng_seed=0):
         tr = trace(model_fn).get_trace()
 
-    # Check sites exist
-    assert "a" in tr
-    assert "b" in tr
-    assert "submodule.c" in tr
-
-    # Check distributions
-    # a: PositiveReal -> LogNormal
-    # LogNormal is a TransformedDistribution.
-    assert isinstance(tr["a"]["fn"], dist.LogNormal)
-
-    # b: Real -> Normal
-    # If scalar, to_event(0) returns Normal. If vector, to_event(1) returns Independent.
-    if isinstance(tr["b"]["fn"], dist.Independent):
-        assert isinstance(tr["b"]["fn"].base_dist, dist.Normal)
-    else:
-        assert isinstance(tr["b"]["fn"], dist.Normal)
-
-    # submodule.c: Real -> Normal
-    if isinstance(tr["submodule.c"]["fn"], dist.Independent):
-        assert isinstance(tr["submodule.c"]["fn"].base_dist, dist.Normal)
-    else:
-        assert isinstance(tr["submodule.c"]["fn"], dist.Normal)
-
-    # Check values in updated model
-    with seed(rng_seed=0):
-        updated_model = model_fn()
-
-    assert jnp.allclose(updated_model.a.value, tr["a"]["value"])
-    assert jnp.allclose(updated_model.b.value, tr["b"]["value"])
-    assert jnp.allclose(updated_model.submodule.c.value, tr["submodule.c"]["value"])
-
-    # Verify original values were different (random sample != 1.0)
-    assert not jnp.allclose(updated_model.a.value, 1.0)
+    # Should be empty because no priors were attached or passed
+    assert len(tr) == 0
 
 
-def test_register_parameters_custom_priors():
-    model = MockModel()
+@given(
+    pos_val=real_arrays(shape=(1,), min_value=1e-3, max_value=10.0),
+    real_val=real_arrays(shape=(1,), min_value=-10.0, max_value=10.0),
+    non_neg_val=real_arrays(shape=(1,), min_value=0.0, max_value=10.0),
+    sigmoid_val=real_arrays(shape=(1,), min_value=1e-3, max_value=0.999),
+    lower_val=lower_triangular_matrices(n=2),
+    vec_val=real_arrays(shape=(2,), min_value=-10.0, max_value=10.0),
+)
+def test_explicit_priors_sampling(
+    pos_val, real_val, non_neg_val, sigmoid_val, lower_val, vec_val
+):
+    model = FlexibleMockModel(
+        pos_val, real_val, non_neg_val, sigmoid_val, lower_val, vec_val
+    )
 
-    priors = {"a": dist.Gamma(2.0, 2.0), "submodule.c": dist.Cauchy(0.0, 1.0)}
+    # Define priors compatible with shapes
+    priors = {
+        "pos": dist.LogNormal(0.0, 1.0).expand(pos_val.shape).to_event(pos_val.ndim),
+        "real": dist.Normal(0.0, 1.0).expand(real_val.shape).to_event(real_val.ndim),
+        "non_neg": dist.LogNormal(0.0, 1.0)
+        .expand(non_neg_val.shape)
+        .to_event(non_neg_val.ndim),
+        "sigmoid": dist.Uniform(0.0, 1.0)
+        .expand(sigmoid_val.shape)
+        .to_event(sigmoid_val.ndim),
+        # For LowerTriangular, user must provide a prior over the full matrix shape
+        # OR a transformed prior. Here we simulate providing a prior over the full shape
+        # just to ensure the site is registered.
+        "lower": dist.Normal(0.0, 1.0).expand(lower_val.shape).to_event(lower_val.ndim),
+        "vec": dist.Normal(0.0, 1.0).expand(vec_val.shape).to_event(vec_val.ndim),
+    }
 
     def model_fn():
         return register_parameters(model, priors=priors)
@@ -80,24 +141,116 @@ def test_register_parameters_custom_priors():
     with seed(rng_seed=0):
         tr = trace(model_fn).get_trace()
 
-    assert isinstance(tr["a"]["fn"], dist.Gamma)
-    # b should use default (Normal wrapped in Independent or Normal)
-    if isinstance(tr["b"]["fn"], dist.Independent):
-        assert isinstance(tr["b"]["fn"].base_dist, dist.Normal)
-    else:
-        assert isinstance(tr["b"]["fn"], dist.Normal)
-    assert isinstance(tr["submodule.c"]["fn"], dist.Cauchy)
+    assert "pos" in tr
+    assert "real" in tr
+    assert "non_neg" in tr
+    assert "sigmoid" in tr
+    assert "lower" in tr
+    assert "vec" in tr
 
 
-def test_register_parameters_prefix():
-    model = MockModel()
+@given(
+    pos_val=real_arrays(shape=(1,), min_value=1e-3, max_value=10.0),
+    real_val=real_arrays(shape=(1,), min_value=-10.0, max_value=10.0),
+    non_neg_val=real_arrays(shape=(1,), min_value=0.0, max_value=10.0),
+    sigmoid_val=real_arrays(shape=(1,), min_value=1e-3, max_value=0.999),
+    lower_val=lower_triangular_matrices(n=2),
+    vec_val=real_arrays(shape=(2,), min_value=-10.0, max_value=10.0),
+)
+def test_attached_priors_sampling(
+    pos_val, real_val, non_neg_val, sigmoid_val, lower_val, vec_val
+):
+    # Create priors
+    pos_prior = dist.LogNormal(0.0, 1.0).expand(pos_val.shape).to_event(pos_val.ndim)
+    real_prior = dist.Normal(0.0, 1.0).expand(real_val.shape).to_event(real_val.ndim)
+    # Attach only to a subset to verify mixed behavior
+    model = FlexibleMockModel(
+        pos_val,
+        real_val,
+        non_neg_val,
+        sigmoid_val,
+        lower_val,
+        vec_val,
+        pos_prior=pos_prior,
+        real_prior=real_prior,
+    )
 
     def model_fn():
-        return register_parameters(model, prefix="foo")
+        return register_parameters(model)
 
     with seed(rng_seed=0):
         tr = trace(model_fn).get_trace()
 
-    assert "foo.a" in tr
-    assert "foo.b" in tr
-    assert "foo.submodule.c" in tr
+    assert "pos" in tr
+    assert "real" in tr
+    assert "non_neg" not in tr
+    assert "vec" not in tr
+
+
+@given(
+    pos_val=real_arrays(shape=(1,), min_value=1e-3, max_value=10.0),
+)
+def test_prior_precedence(pos_val):
+    # Attached prior
+    attached_prior = dist.Gamma(2.0, 1.0).expand(pos_val.shape).to_event(pos_val.ndim)
+
+    # Explicit prior (different)
+    explicit_prior = dist.Exponential(1.0).expand(pos_val.shape).to_event(pos_val.ndim)
+
+    # Model with attached prior
+    # We need dummy values for others
+    dummy_real = jnp.array([0.0])
+    dummy_lower = jnp.eye(2)
+    dummy_vec = jnp.zeros(2)
+
+    model = FlexibleMockModel(
+        pos_val,
+        dummy_real,
+        dummy_real,
+        dummy_real,
+        dummy_lower,
+        dummy_vec,
+        pos_prior=attached_prior,
+    )
+
+    priors = {"pos": explicit_prior}
+
+    def model_fn():
+        return register_parameters(model, priors=priors)
+
+    with seed(rng_seed=0):
+        tr = trace(model_fn).get_trace()
+
+    # Check that the sampled site corresponds to the explicit prior
+    # We can check the distribution object
+    # Structure might be Independent(Expanded(Exponential)) or Independent(Exponential)
+    d = tr["pos"]["fn"]
+    while hasattr(d, "base_dist"):
+        d = d.base_dist
+    assert isinstance(d, dist.Exponential)
+
+
+def test_register_parameters_nested_prefix():
+    class NestedModel(nnx.Module):
+        def __init__(self):
+            self.inner = FlexibleMockModel(
+                jnp.array([1.0]),
+                jnp.array([0.0]),
+                jnp.array([1.0]),
+                jnp.array([0.5]),
+                jnp.eye(2),
+                jnp.zeros(2),
+            )
+
+    model = NestedModel()
+    # Explicit prior for nested
+    priors = {"outer.inner.pos": dist.LogNormal(0.0, 1.0).expand((1,)).to_event(1)}
+
+    def model_fn():
+        return register_parameters(model, prefix="outer", priors=priors)
+
+    with seed(rng_seed=0):
+        tr = trace(model_fn).get_trace()
+
+    assert "outer.inner.pos" in tr
+    assert "outer.inner.real" not in tr

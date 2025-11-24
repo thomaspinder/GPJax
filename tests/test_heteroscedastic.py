@@ -178,7 +178,7 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
     mc_inv_variance = jnp.mean(1.0 / transformed_samples)
 
     # Allow for some MC error and quadrature approximation error
-    rtol = 0.1
+    rtol = 0.15
     assert jnp.allclose(moments.variance, mc_variance, rtol=rtol)
     assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol)
     assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol)

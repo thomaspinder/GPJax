@@ -1,111 +1,220 @@
 import jax
 from flax import nnx
-from jax import jit
-from jax.experimental import checkify
+from hypothesis import (
+    given,
+    strategies as st,
+)
+from hypothesis.extra.numpy import arrays
 import jax.numpy as jnp
+import numpy as np
 import pytest
 
 from gpjax.parameters import (
     DEFAULT_BIJECTION,
+    FillTriangularTransform,
     LowerTriangular,
     NonNegativeReal,
-    Parameter,
     PositiveReal,
     Real,
     SigmoidBounded,
-    _check_in_bounds,
-    _check_is_lower_triangular,
-    _check_is_positive,
-    _check_is_square,
-    _safe_assert,
     transform,
 )
 
+# --- Strategies ---
 
-@pytest.mark.parametrize(
-    "param, value",
-    [
-        (NonNegativeReal, 0.0),
-        (NonNegativeReal, 1.0),
-        (PositiveReal, 1.0),
-        (Real, 2.0),
-        (SigmoidBounded, 0.5),
-    ],
-)
-def test_transform(param, value):
-    # Create mock parameters and bijectors
-    params = nnx.State(
-        {
-            "param1": param(value),
-            "param2": Parameter(2.0, tag="real"),
-        }
+
+def valid_shapes(min_dims=0, max_dims=2):
+    return st.integers(min_dims, max_dims).flatmap(
+        lambda d: st.lists(st.integers(1, 5), min_size=d, max_size=d).map(tuple)
     )
 
-    # Test forward transformation
-    t_params = transform(params, DEFAULT_BIJECTION)
-    t_param1_expected = DEFAULT_BIJECTION[params["param1"].tag](value)
-    assert jnp.allclose(t_params["param1"].value, t_param1_expected)
-    assert jnp.allclose(t_params["param2"].value, 2.0)
+
+def real_arrays(shape_strategy=valid_shapes(), min_value=None, max_value=None):
+    return arrays(
+        dtype=np.float64,
+        shape=shape_strategy,
+        elements=st.floats(
+            min_value=min_value,
+            max_value=max_value,
+            allow_nan=False,
+            allow_infinity=False,
+            width=64,
+        ),
+    ).map(jnp.array)
 
 
-@pytest.mark.parametrize(
-    "param, tag",
-    [
-        (NonNegativeReal(0.0), "non_negative"),
-        (PositiveReal(1.0), "positive"),
-        (Real(2.0), "real"),
-        (SigmoidBounded(0.5), "sigmoid"),
-        (LowerTriangular(jnp.eye(2)), "lower_triangular"),
-    ],
-)
-def test_default_tags(param, tag):
-    assert param.tag == tag
+# --- Parameter Tests ---
 
 
-def test_check_is_positive():
-    # Check singleton
-    _safe_assert(_check_is_positive, jnp.array(3.0))
-    # Check array
-    _safe_assert(_check_is_positive, jnp.array([3.0, 4.0]))
+@given(value=real_arrays())
+def test_real_parameter(value):
+    # Should accept any real value
+    p = Real(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "real"
 
-    # Check negative singleton
+
+@given(value=real_arrays(min_value=1e-6, max_value=1e6))
+def test_positive_real_valid(value):
+    p = PositiveReal(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "positive"
+
+
+@given(value=real_arrays(max_value=-1e-6))
+def test_positive_real_invalid(value):
     with pytest.raises(ValueError):
-        _safe_assert(_check_is_positive, jnp.array(-3.0))
+        PositiveReal(value)
 
-    # Check negative array
+
+@given(value=real_arrays(min_value=0.0, max_value=1e6))
+def test_non_negative_real_valid(value):
+    p = NonNegativeReal(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "non_negative"
+
+
+@given(value=real_arrays(max_value=-1e-6))
+def test_non_negative_real_invalid(value):
     with pytest.raises(ValueError):
-        _safe_assert(_check_is_positive, jnp.array([-3.0, 4.0]))
-
-    # Test that functions wrapping _check_is_positive are jittable
-    def _dummy_fn(value):
-        _safe_assert(_check_is_positive, value)
-
-    jitted_fn = jit(checkify.checkify(_dummy_fn))
-    jitted_fn(jnp.array(3.0))
+        NonNegativeReal(value)
 
 
-def test_check_is_square():
-    # Check square matrix
-    _safe_assert(_check_is_square, jnp.full((2, 2), 1.0))
-    # Check non-square matrix
+@given(value=real_arrays(min_value=0.0, max_value=1.0))
+def test_sigmoid_bounded_valid(value):
+    p = SigmoidBounded(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "sigmoid"
+
+
+@given(value=real_arrays(min_value=1.001, max_value=1e6))
+def test_sigmoid_bounded_invalid_high(value):
     with pytest.raises(ValueError):
-        _safe_assert(_check_is_square, jnp.full((2, 3), 1.0))
+        SigmoidBounded(value)
 
 
-def test_check_is_lower_triangular():
-    # Check lower triangular matrix
-    _safe_assert(_check_is_lower_triangular, jnp.tril(jnp.eye(2)))
-    # Check non-lower triangular matrix
+@given(value=real_arrays(max_value=-0.001))
+def test_sigmoid_bounded_invalid_low(value):
     with pytest.raises(ValueError):
-        _safe_assert(_check_is_lower_triangular, jnp.linspace(0.0, 1.0, 4))
+        SigmoidBounded(value)
 
 
-def test_check_in_bounds():
-    # Check in bounds
-    _safe_assert(
-        _check_in_bounds, jnp.array(0.5), low=jnp.array(0.0), high=jnp.array(1.0)
+# Strategy for lower triangular matrices
+def lower_triangular_matrices(n_min=1, n_max=5):
+    return st.integers(n_min, n_max).flatmap(
+        lambda n: arrays(
+            dtype=np.float64,
+            shape=(n, n),
+            elements=st.floats(min_value=-10, max_value=10, width=64),
+        ).map(lambda x: jnp.tril(jnp.array(x)))
     )
-    # Check out of bounds
+
+
+@given(value=lower_triangular_matrices())
+def test_lower_triangular_valid(value):
+    p = LowerTriangular(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "lower_triangular"
+
+
+@given(
+    n=st.integers(2, 5),
+    data=st.data(),
+)
+def test_lower_triangular_invalid(n, data):
+    # Generate a square matrix
+    mat = data.draw(
+        arrays(
+            dtype=np.float64,
+            shape=(n, n),
+            elements=st.floats(min_value=-10, max_value=10, width=64),
+        ).map(jnp.array)
+    )
+    # Ensure it's NOT lower triangular by setting an upper element
+    row, col = np.triu_indices(n, 1)
+    if len(row) > 0:
+        # Pick a random upper triangular index
+        idx = data.draw(st.integers(0, len(row) - 1))
+        r, c = row[idx], col[idx]
+        # Set to non-zero
+        mat = mat.at[r, c].set(1.0)
+
+        with pytest.raises(ValueError):
+            LowerTriangular(mat)
+
+
+# --- Transform Tests ---
+
+
+@given(
+    param_class=st.sampled_from([NonNegativeReal, PositiveReal, Real, SigmoidBounded]),
+    data=st.data(),
+)
+def test_transform_roundtrip(param_class, data):
+    # Generate valid value for the parameter type
+    if param_class == NonNegativeReal:
+        val = data.draw(real_arrays(min_value=0.0, max_value=10.0))
+    elif param_class == PositiveReal:
+        val = data.draw(real_arrays(min_value=1e-3, max_value=10.0))
+    elif param_class == Real:
+        val = data.draw(real_arrays(min_value=-10.0, max_value=10.0))
+    elif param_class == SigmoidBounded:
+        val = data.draw(real_arrays(min_value=1e-3, max_value=1.0 - 1e-3))
+    else:
+        return  # Should not happen
+
+    params = nnx.State({"p": param_class(val)})
+
+    # Forward
+    t_params = transform(params, DEFAULT_BIJECTION, inverse=False)
+
+    # Inverse
+    inv_params = transform(t_params, DEFAULT_BIJECTION, inverse=True)
+
+    # Check
+    assert jnp.allclose(inv_params["p"].value, val, atol=1e-5, rtol=1e-5)
+
+
+# --- FillTriangularTransform Tests ---
+
+
+@given(n=st.integers(1, 10))
+def test_fill_triangular_shapes(n):
+    k = n * (n + 1) // 2
+    vec = jnp.zeros(k)
+    ft = FillTriangularTransform()
+
+    mat = ft(vec)
+    assert mat.shape == (n, n)
+    assert jnp.allclose(mat, jnp.tril(mat))
+
+
+@given(n=st.integers(1, 5), data=st.data())
+def test_fill_triangular_roundtrip_hypothesis(n, data):
+    k = n * (n + 1) // 2
+    vec = data.draw(
+        arrays(
+            dtype=np.float64,
+            shape=(k,),
+            elements=st.floats(min_value=-5.0, max_value=5.0, width=64),
+        ).map(jnp.array)
+    )
+
+    ft = FillTriangularTransform()
+
+    # Forward
+    mat = ft(vec)
+    assert mat.shape == (n, n)
+
+    # Inverse
+    vec_recon = ft.inv(mat)
+
+    assert jnp.allclose(vec, vec_recon)
+
+
+def test_fill_triangular_errors():
+    ft = FillTriangularTransform()
+    # Invalid size
     with pytest.raises(ValueError):
         _safe_assert(
             _check_in_bounds, jnp.array(1.5), low=jnp.array(0.0), high=jnp.array(1.0)
