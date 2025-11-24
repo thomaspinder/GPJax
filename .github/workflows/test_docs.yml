@@ -64,9 +64,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: docs-preview
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy MkDocs preview
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          preview: true
