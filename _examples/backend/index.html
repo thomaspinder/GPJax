@@ -2824,7 +2824,7 @@ Notebook</a> to
 see how you can define your own bijectors and parameter types.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">DEFAULT_BIJECTION</span><span class="p">[</span><span class="n">constant_param</span><span class="o">.</span><span class="n">tag</span><span class="p">])</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;numpyro.distributions.transforms.SoftplusTransform object at 0x7f3c411db7d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;numpyro.distributions.transforms.SoftplusTransform object at 0x7f4e69bcbad0&gt;
 </code></pre></div>
 <p>We see here that the Softplus bijector is specified as the default for strictly
 positive parameters. To apply this, we must first realise the <em>state</em> of our model.
@@ -2869,7 +2869,7 @@ explanation of this model.).</p>
     [38;2;156;220;254mkernel[0m[38;2;212;212;212m=[0m[38;2;79;201;177mMatern32[0m[38;2;255;213;3m([0m[38;2;105;105;105m # PositiveReal: 1 (8 B), NonNegativeReal: 1 (8 B), Total: 2 (16 B)[0m
       [38;2;156;220;254mactive_dims[0m[38;2;212;212;212m=[0mslice(None, None, None),
       [38;2;156;220;254mn_dims[0m[38;2;212;212;212m=[0m[38;2;86;156;214mNone[0m,
-      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f3c3cf0bf50&gt;,
+      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f4e648fc290&gt;,
       [38;2;156;220;254mlengthscale[0m[38;2;212;212;212m=[0m[38;2;79;201;177mPositiveReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
         [38;2;156;220;254mvalue[0m[38;2;212;212;212m=[0mArray(1., dtype=float64, weak_type=True),
         [38;2;156;220;254mtag[0m[38;2;212;212;212m=[0m[38;2;207;144;120m&#39;positive&#39;[0m
@@ -2890,7 +2890,7 @@ explanation of this model.).</p>
       [38;2;156;220;254mtag[0m[38;2;212;212;212m=[0m[38;2;207;144;120m&#39;non_negative&#39;[0m
     [38;2;255;213;3m)[0m,
     [38;2;156;220;254mnum_datapoints[0m[38;2;212;212;212m=[0m[38;2;182;207;169m100[0m,
-    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f3c3cf58210&gt;
+    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f4e64948310&gt;
   [38;2;255;213;3m)[0m,
   [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m
 [38;2;255;213;3m)[0m
@@ -2968,7 +2968,7 @@ the updated state.</p>
 <div class="language-text highlight"><pre><span></span><code>[38;2;79;201;177mConjugatePosterior[0m[38;2;255;213;3m([0m[38;2;105;105;105m # NonNegativeReal: 2 (16 B), PositiveReal: 1 (8 B), Total: 3 (24 B)[0m
   [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m,
   [38;2;156;220;254mlikelihood[0m[38;2;212;212;212m=[0m[38;2;79;201;177mGaussian[0m[38;2;255;213;3m([0m[38;2;105;105;105m # NonNegativeReal: 1 (8 B)[0m
-    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f3c3cf58210&gt;,
+    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f4e64948310&gt;,
     [38;2;156;220;254mnum_datapoints[0m[38;2;212;212;212m=[0m[38;2;182;207;169m100[0m,
     [38;2;156;220;254mobs_stddev[0m[38;2;212;212;212m=[0m[38;2;79;201;177mNonNegativeReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
       [38;2;156;220;254mvalue[0m[38;2;212;212;212m=[0mArray(2., dtype=float64, weak_type=True),
@@ -2979,7 +2979,7 @@ the updated state.</p>
     [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m,
     [38;2;156;220;254mkernel[0m[38;2;212;212;212m=[0m[38;2;79;201;177mMatern32[0m[38;2;255;213;3m([0m[38;2;105;105;105m # PositiveReal: 1 (8 B), NonNegativeReal: 1 (8 B), Total: 2 (16 B)[0m
       [38;2;156;220;254mactive_dims[0m[38;2;212;212;212m=[0mslice(None, None, None),
-      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f3c3cf0bf50&gt;,
+      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f4e648fc290&gt;,
       [38;2;156;220;254mlengthscale[0m[38;2;212;212;212m=[0m[38;2;79;201;177mPositiveReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
         [38;2;156;220;254mvalue[0m[38;2;212;212;212m=[0mArray(2., dtype=float64, weak_type=True),
         [38;2;156;220;254mtag[0m[38;2;212;212;212m=[0m[38;2;207;144;120m&#39;positive&#39;[0m
@@ -3104,7 +3104,7 @@ a linearly spaced set of inputs.</p>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">meanf</span> <span class="o">=</span> <span class="n">LinearMeanFunction</span><span class="p">(</span><span class="n">intercept</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">slope</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">meanf</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>[&lt;matplotlib.lines.Line2D at 0x7f3bee8debd0&gt;]
+<div class="language-text highlight"><pre><span></span><code>[&lt;matplotlib.lines.Line2D at 0x7f4e14d6ec90&gt;]
 </code></pre></div>
 <p><img alt="png" src="../backend_files/backend_36_1.png" /></p>
 <p>Looks good! To conclude this section, let's now parameterise a GP with our new mean
@@ -3166,17 +3166,17 @@ notebook.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Sun Nov 23 2025
+Last updated: Mon Nov 24 2025
 
 Python implementation: CPython
 Python version       : 3.11.14
 IPython version      : 9.5.0
 
-flax      : 0.12.0
-jaxtyping : 0.3.2
+jax       : 0.7.1
 gpjax     : 0.13.4
 matplotlib: 3.10.6
-jax       : 0.7.1
+flax      : 0.12.0
+jaxtyping : 0.3.2
 
 Watermark: 2.5.0
 </code></pre></div>
