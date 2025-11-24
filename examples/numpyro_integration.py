@@ -21,11 +21,13 @@
 # We will look at a scenario where we have a structured mean function (a linear model) and a GP capturing the residuals. We will infer the parameters of both the linear model and the GP jointly.
 
 # %%
+import numpyro
+numpyro.set_host_device_count(4)
+
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
-import numpyro
 import numpyro.distributions as dist
 from numpyro.infer import (
     MCMC,
@@ -38,31 +40,37 @@ from gpjax.numpyro_extras import register_parameters
 
 config.update("jax_enable_x64", True)
 
-key = jr.key(42)
+key = jr.key(123)
 
 # %% [markdown]
 # ## Data Generation
 #
-# We generate a synthetic dataset that consists of a linear trend, a periodic component, and some noise.
+# We generate a synthetic dataset that consists of a linear trend together with a locally periodic residual signal whose amplitude varies over time, an additional high-frequency component, and a local bump. This richer structure highlights how a GP can capture deviations from the explicit linear model.
 
 # %%
-N = 100
-x = jnp.sort(jr.uniform(key, shape=(N, 1), minval=0.0, maxval=10.0), axis=0)
+N = 200
+key_x, key_y = jr.split(key)
+x = jnp.sort(jr.uniform(key_x, shape=(N, 1), minval=0.0, maxval=10.0), axis=0)
 
-# True parameters
-true_slope = 0.5
-true_intercept = 2.0
-true_period = 2.0
-true_lengthscale = 1.0
-true_noise = 0.1
+# True parameters for the linear trend
+true_slope = 0.45
+true_intercept = 1.5
 
-# Signal
+# Structured residual signal captured by the GP
+slow_period = 6.0
+fast_period = 0.8
+amplitude_envelope = 1.0 + 0.5 * jnp.sin(2 * jnp.pi * x / slow_period)
+modulated_periodic = amplitude_envelope * jnp.sin(2 * jnp.pi * x / fast_period)
+high_frequency_component = 0.3 * jnp.cos(2 * jnp.pi * x / 0.35)
+localised_bump = 1.2 * jnp.exp(-0.5 * ((x - 7.0) / 0.45) ** 2)
+
 linear_trend = true_slope * x + true_intercept
-periodic_signal = jnp.sin(2 * jnp.pi * x / true_period)
-y_clean = linear_trend + periodic_signal
+residual_signal = modulated_periodic + high_frequency_component + localised_bump
+y_clean = linear_trend + residual_signal
 
-# Observations
-y = y_clean + true_noise * jr.normal(key, shape=x.shape)
+# Observations with homoscedastic noise
+observation_noise = 0.3
+y = y_clean + observation_noise * jr.normal(key_y, shape=x.shape)
 
 plt.figure(figsize=(10, 5))
 plt.scatter(x, y, label="Data", alpha=0.6)
@@ -82,23 +90,30 @@ variance_prior = dist.LogNormal(0.0, 1.0)
 period_prior = dist.LogNormal(0.0, 0.5)
 noise_prior = dist.LogNormal(0.0, 1.0)
 
-# Define Kernel with priors
 # We can explicitly attach priors to the parameters
-kernel = gpx.kernels.RBF(
-    lengthscale=gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior),
-    variance=gpx.parameters.PositiveReal(1.0, prior=variance_prior),
-) * gpx.kernels.Periodic(
-    lengthscale=gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior),
-    period=gpx.parameters.PositiveReal(1.0, prior=period_prior),
-)
+lengthscale = gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior)
+variance = gpx.parameters.PositiveReal(1.0, prior=variance_prior)
+period = gpx.parameters.PositiveReal(1.0, prior=period_prior)
+noise = gpx.parameters.NonNegativeReal(1.0, prior=noise_prior)
 
-meanf = gpx.mean_functions.Zero()
+# Define Kernel with priors
+stationary_component = gpx.kernels.RBF(
+    lengthscale=lengthscale,
+    variance=variance,
+)
+periodic_component = gpx.kernels.Periodic(
+    lengthscale=lengthscale,
+    period=period,
+)
+kernel = stationary_component * periodic_component
+
+meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 # We will use a ConjugatePosterior since we assume Gaussian noise
 likelihood = gpx.likelihoods.Gaussian(
     num_datapoints=N,
-    obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=noise_prior),
+    obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=dist.LogNormal(0.0, 1.0)),
 )
 posterior = prior * likelihood
 
@@ -118,7 +133,7 @@ D = gpx.Dataset(X=x, y=y)
 
 
 # %%
-def model(X, Y):
+def model(X, Y, X_new=None):
     # 1. Sample linear model parameters
     slope = numpyro.sample("slope", dist.Normal(0.0, 2.0))
     intercept = numpyro.sample("intercept", dist.Normal(0.0, 2.0))
@@ -148,6 +163,15 @@ def model(X, Y):
     # 4. Add to potential
     numpyro.factor("gp_log_lik", mll)
 
+    # Optional prediction branch for use with Predictive
+    if X_new is not None:
+        latent_dist = p_posterior.predict(X_new, train_data=D_resid)
+        f_new = numpyro.sample("f_new", latent_dist)
+        f_new = f_new.reshape((-1, 1))
+        total_prediction = slope * X_new + intercept + f_new
+        numpyro.deterministic("y_pred", total_prediction)
+        return total_prediction
+
 
 # %% [markdown]
 # ## Running MCMC
@@ -156,8 +180,8 @@ def model(X, Y):
 
 # %%
 nuts_kernel = NUTS(model)
-mcmc = MCMC(nuts_kernel, num_warmup=500, num_samples=1000, num_chains=1)
-mcmc.run(jr.key(0), x, y)
+mcmc = MCMC(nuts_kernel, num_warmup=1500, num_samples=2000, num_chains=4, chain_method="parallel")
+mcmc.run(jr.key(123), x, y)
 
 mcmc.print_summary()
 
@@ -167,42 +191,18 @@ mcmc.print_summary()
 # We extract the samples and plot the predictions.
 
 # %%
+# Draw posterior samples for downstream use
 samples = mcmc.get_samples()
 
-
-def predict_fn(X_new, Y_train):
-    # 1. Sample linear model parameters
-    slope = numpyro.sample("slope", dist.Normal(0.0, 2.0))
-    intercept = numpyro.sample("intercept", dist.Normal(0.0, 2.0))
-
-    # Calculate residuals
-    trend_train = slope * x + intercept
-    residuals = Y_train - trend_train
-
-    # 2. Register GP parameters
-    p_posterior = register_parameters(posterior)
-
-    # Create dataset for residuals
-    D_resid = gpx.Dataset(X=x, y=residuals)
-
-    # 3. Compute latent GP distribution
-    latent_dist = p_posterior.predict(X_new, train_data=D_resid)
-
-    # 4. Sample latent function values
-    f = numpyro.sample("f", latent_dist)
-    f = f.reshape((-1, 1))
-
-    # 5. Compute and return total prediction
-    total_prediction = slope * X_new + intercept + f
-    numpyro.deterministic("y_pred", total_prediction)
-    return total_prediction
-
-
-# Create predictive utility
-predictive = Predictive(predict_fn, posterior_samples=samples)
+# Create predictive utility that reuses the original model
+predictive = Predictive(
+    model,
+    posterior_samples=samples,
+    return_sites=["y_pred"],
+)
 
 # Generate predictions
-predictions = predictive(jr.key(1), X_new=x, Y_train=y)
+predictions = predictive(jr.key(1), x, y, X_new=x)
 y_pred = predictions["y_pred"]
 
 # Compute statistics
