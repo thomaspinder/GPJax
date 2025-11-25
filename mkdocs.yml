@@ -31,6 +31,7 @@ nav:
     - Log-Gaussian Cox Process: _examples/lgcp_numpyro.md
   - 🧪 Experimental:
     - Numpyro Integration: _examples/numpyro_integration.md
+    - Spatial Linear GP: _examples/spatial_linear_gp.md
   - 📖 Guides for customisation:
     - Kernels: _examples/constructing_new_kernels.md
     - Likelihoods: _examples/likelihoods_guide.md
