@@ -17,13 +17,16 @@
 # %% [markdown]
 # # Joint Inference with Numpyro
 #
-# In this notebook, we demonstrate how to use [Numpyro](https://num.pyro.ai/) to perform fully Bayesian inference over the hyperparameters of a Gaussian process model.
-# We will look at a scenario where we have a structured mean function (a linear model) and a GP capturing the residuals. We will infer the parameters of both the linear model and the GP jointly.
+# In this notebook, we demonstrate how to use [Numpyro](https://num.pyro.ai/) to perform fully
+# Bayesian inference over the hyperparameters of a Gaussian process model.  We will look at a
+# scenario where we have a structured mean function (a linear model) and a GP capturing the
+# residuals. We will infer the parameters of both the linear model and the GP jointly.
 
 # %%
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpyro
 import numpyro.distributions as dist
@@ -33,12 +36,17 @@ from numpyro.infer import (
     Predictive,
 )
 
+from examples.utils import use_mpl_style
 import gpjax as gpx
 from gpjax.numpyro_extras import register_parameters
 
 config.update("jax_enable_x64", True)
 
+use_mpl_style()
+cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
+
 key = jr.key(123)
+keys = jr.split(key, 4)
 
 # %% [markdown]
 # ## Data Generation
@@ -50,8 +58,8 @@ key = jr.key(123)
 
 # %%
 N = 200
-key_x, key_y = jr.split(key)
-x = jnp.sort(jr.uniform(key_x, shape=(N, 1), minval=0.0, maxval=10.0), axis=0)
+
+x = jnp.sort(jr.uniform(keys[0], shape=(N, 1), minval=0.0, maxval=10.0), axis=0)
 
 # True parameters for the linear trend
 true_slope = 0.45
@@ -71,11 +79,11 @@ y_clean = linear_trend + residual_signal
 
 # Observations with homoscedastic noise
 observation_noise = 0.3
-y = y_clean + observation_noise * jr.normal(key_y, shape=x.shape)
+y = y_clean + observation_noise * jr.normal(keys[1], shape=x.shape)
 
 plt.figure(figsize=(10, 5))
-plt.scatter(x, y, label="Data", alpha=0.6)
-plt.plot(x, y_clean, "k--", label="True Signal")
+plt.scatter(x, y, label="Data", alpha=0.6, color=cols[0])
+plt.plot(x, y_clean, "--", label="True Signal", color=cols[1])
 plt.legend()
 
 # %% [markdown]
@@ -182,12 +190,13 @@ def model(X, Y, X_new=None):
 
 # %%
 nuts_kernel = NUTS(model)
+# In practice, one should run more samples from multiple chains.
 mcmc = MCMC(
     nuts_kernel,
     num_warmup=1500,
-    num_samples=2000,
+    num_samples=1000,
 )
-mcmc.run(jr.key(123), x, y)
+mcmc.run(keys[2], x, y)
 
 mcmc.print_summary()
 
@@ -207,8 +216,9 @@ predictive = Predictive(
     return_sites=["y_pred"],
 )
 
-# Generate predictions
-predictions = predictive(jr.key(1), x, y, X_new=x)
+# Generate predictions at a denser set of test points
+x_test = jnp.linspace(-0.5, 10.5, 1000).reshape(-1, 1)
+predictions = predictive(keys[3], x, y, X_new=x_test)
 y_pred = predictions["y_pred"]
 
 # Compute statistics
@@ -217,18 +227,17 @@ std_prediction = jnp.std(y_pred, axis=0)
 
 # Plot
 plt.figure(figsize=(12, 6))
-plt.scatter(x, y, alpha=0.5, label="Data", color="gray")
-plt.plot(x, y_clean, "k--", label="True Signal")
+plt.scatter(x, y, alpha=0.5, label="Observations", color=cols[0])
+plt.plot(x, y_clean, "--", label="True Signal", color=cols[0])
 
-plt.plot(x, mean_prediction, "b-", label="Posterior Mean")
+plt.plot(x_test, mean_prediction, "-", label="Posterior Mean", color=cols[1])
 plt.fill_between(
-    x.flatten(),
+    x_test.flatten(),
     mean_prediction.flatten() - 2 * std_prediction.flatten(),
     mean_prediction.flatten() + 2 * std_prediction.flatten(),
-    color="b",
+    color=cols[1],
     alpha=0.2,
     label="95% CI (GP Uncertainty)",
 )
 
 plt.legend()
-# plt.show()

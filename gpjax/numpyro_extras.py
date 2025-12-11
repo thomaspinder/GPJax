@@ -6,7 +6,7 @@ import numpyro.distributions as dist
 from gpjax.parameters import Parameter
 
 
-def tree_path_to_name(path, prefix: str = "") -> str:
+def tree_path_to_name(path: jtu.KeyPath, prefix: str = "") -> str:
     """Convert a JAX tree path to a dotted parameter name.
 
     As an example, the lengthscale parameter of an RBF kernel that was instantiated

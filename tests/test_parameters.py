@@ -20,8 +20,6 @@ from gpjax.parameters import (
     transform,
 )
 
-# --- Strategies ---
-
 
 def valid_shapes(min_dims=0, max_dims=2):
     return st.integers(min_dims, max_dims).flatmap(
@@ -41,9 +39,6 @@ def real_arrays(shape_strategy=valid_shapes(), min_value=None, max_value=None):
             width=64,
         ),
     ).map(jnp.array)
-
-
-# --- Parameter Tests ---
 
 
 @given(value=real_arrays())
@@ -143,9 +138,6 @@ def test_lower_triangular_invalid(n, data):
             LowerTriangular(mat)
 
 
-# --- Transform Tests ---
-
-
 @given(
     param_class=st.sampled_from([NonNegativeReal, PositiveReal, Real, SigmoidBounded]),
     data=st.data(),
@@ -173,9 +165,6 @@ def test_transform_roundtrip(param_class, data):
 
     # Check
     assert jnp.allclose(inv_params["p"].value, val, atol=1e-5, rtol=1e-5)
-
-
-# --- FillTriangularTransform Tests ---
 
 
 @given(n=st.integers(1, 10))

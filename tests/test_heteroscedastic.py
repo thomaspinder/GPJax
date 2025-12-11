@@ -50,9 +50,6 @@ from gpjax.variational_families import (
 config.update("jax_enable_x64", True)
 
 
-# --- Fixtures ---
-
-
 @pytest.fixture
 def prior() -> Prior:
     return Prior(kernel=RBF(), mean_function=Zero())
@@ -73,9 +70,6 @@ def dataset() -> Dataset:
 class SoftplusHeteroscedastic(HeteroscedasticGaussian):
     def supports_tight_bound(self) -> bool:
         return False
-
-
-# --- Likelihood Tests ---
 
 
 def test_construct_posterior_routing(prior, noise_prior):
@@ -128,9 +122,6 @@ def test_heteroscedastic_gaussian_validation(noise_prior, dataset):
         )
 
 
-# --- Transform Tests ---
-
-
 @given(num_data=st.integers(min_value=1, max_value=100))
 def test_log_normal_transform_moments(num_data: int):
     transform = LogNormalTransform()
@@ -167,7 +158,7 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
     moments = transform.moments(mean_array, variance_array)
 
     key = jr.PRNGKey(seed)
-    samples = mean_array + jnp.sqrt(variance_array) * jr.normal(key, (100000, 1))
+    samples = mean_array + jnp.sqrt(variance_array) * jr.normal(key, (1000000, 1))
     transformed_samples = jax.nn.softplus(samples)
 
     # E[sigma^2]
@@ -182,9 +173,6 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
     assert jnp.allclose(moments.variance, mc_variance, rtol=rtol)
     assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol)
     assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol)
-
-
-# --- Variational Family Tests ---
 
 
 def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
@@ -283,9 +271,6 @@ def test_variational_family_predict_return_type(prior, noise_prior):
     assert jnp.allclose(mf, prediction.mean_f)
 
 
-# --- Objective Tests ---
-
-
 def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
     def _build_variational(likelihood_cls: type[HeteroscedasticGaussian]):
         likelihood = likelihood_cls(num_datapoints=dataset.n, noise_prior=noise_prior)
@@ -309,9 +294,6 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
         assert jnp.isfinite(loss_val)
         assert jnp.isfinite(loss_jit)
         assert isinstance(grads, nnx.State)
-
-
-# --- JIT Compatibility Tests ---
 
 
 def test_jit_prediction(prior, noise_prior, dataset):

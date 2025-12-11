@@ -48,6 +48,7 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpyro
 import numpyro.distributions as dist
@@ -57,17 +58,21 @@ from numpyro.infer import (
     Predictive,
 )
 
+from examples.utils import use_mpl_style
 import gpjax as gpx
 from gpjax.numpyro_extras import register_parameters
 
 jax.config.update("jax_enable_x64", True)
 
+use_mpl_style()
+cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
+
 
 N = 200
 key = jr.key(123)
-key_x, key_noise = jr.split(key)
+keys = jr.split(key, 8)
 
-X = jr.uniform(key_x, shape=(N, 2), minval=0.0, maxval=5.0)
+X = jr.uniform(keys[0], shape=(N, 2), minval=0.0, maxval=5.0)
 
 # True Linear Trend
 true_slope = jnp.array([2.0, -1.0])
@@ -80,7 +85,7 @@ y_res = jnp.sin(X[:, 0]) * jnp.cos(X[:, 1])
 # Total Signal + Noise
 latent_signal = y_lin + y_res
 noise_stddev = 0.1
-y = latent_signal + noise_stddev * jr.normal(key_noise, shape=latent_signal.shape)
+y = latent_signal + noise_stddev * jr.normal(keys[1], shape=latent_signal.shape)
 
 # %% [markdown]
 # ## Linear Component
@@ -109,8 +114,8 @@ def linear_model(X, Y=None):
 
 
 nuts_kernel_lin = NUTS(linear_model)
-mcmc_lin = MCMC(nuts_kernel_lin, num_warmup=500, num_samples=1000, num_chains=1)
-mcmc_lin.run(key, X, y)
+mcmc_lin = MCMC(nuts_kernel_lin, num_warmup=1500, num_samples=2000, num_chains=1)
+mcmc_lin.run(keys[2], X, y)
 mcmc_lin.print_summary()
 
 # %% [markdown]
@@ -181,7 +186,7 @@ joint_model_wrapper = partial(joint_model, gp_posterior=gp_posterior)
 nuts_kernel_joint = NUTS(joint_model_wrapper)
 # In practice, one should run more samples from multiple chains.
 mcmc_joint = MCMC(nuts_kernel_joint, num_warmup=1500, num_samples=2000, num_chains=1)
-mcmc_joint.run(key, X, y)
+mcmc_joint.run(keys[3], X, y)
 mcmc_joint.print_summary()
 
 # %% [markdown]
@@ -193,14 +198,14 @@ mcmc_joint.print_summary()
 # %%
 samples_lin = mcmc_lin.get_samples()
 predictive_lin = Predictive(linear_model, samples_lin, return_sites=["mu"])
-preds_lin = predictive_lin(jr.key(1), X=X)["mu"]
+preds_lin = predictive_lin(keys[4], X=X)["mu"]
 mean_pred_lin = jnp.mean(preds_lin, axis=0)
 
 samples_joint = mcmc_joint.get_samples()
 predictive_joint = Predictive(
     joint_model_wrapper, samples_joint, return_sites=["y_pred"]
 )
-preds_joint = predictive_joint(jr.key(2), X=X, Y=y, X_new=X)["y_pred"]
+preds_joint = predictive_joint(keys[5], X=X, Y=y, X_new=X)["y_pred"]
 mean_pred_joint = jnp.mean(preds_joint, axis=0)
 
 rmse_lin = jnp.sqrt(jnp.mean((mean_pred_lin.flatten() - latent_signal.flatten()) ** 2))
@@ -222,22 +227,22 @@ y_grid_true = (X_grid @ true_slope + true_intercept) + (
     jnp.sin(X_grid[:, 0]) * jnp.cos(X_grid[:, 1])
 )
 
-preds_lin_grid = predictive_lin(jr.key(3), X=X_grid)["mu"]
+preds_lin_grid = predictive_lin(keys[6], X=X_grid)["mu"]
 mean_pred_lin_grid = jnp.mean(preds_lin_grid, axis=0)
 
-preds_joint_grid = predictive_joint(jr.key(4), X=X, Y=y, X_new=X_grid)["y_pred"]
+preds_joint_grid = predictive_joint(keys[7], X=X, Y=y, X_new=X_grid)["y_pred"]
 mean_pred_joint_grid = jnp.mean(preds_joint_grid, axis=0)
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
+fig, axes = plt.subplots(1, 3, figsize=(12, 3), sharey=True)
 
 c0 = axes[0].tricontourf(
-    X_grid[:, 0], X_grid[:, 1], y_grid_true, levels=20, cmap="viridis"
+    X_grid[:, 0], X_grid[:, 1], y_grid_true, levels=20, cmap="magma"
 )
 axes[0].set_title("True Signal")
 plt.colorbar(c0, ax=axes[0])
 
 c1 = axes[1].tricontourf(
-    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=20, cmap="viridis"
+    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=20, cmap="magma"
 )
 axes[1].set_title(f"Linear Model (RMSE: {rmse_lin:.2f})")
 plt.colorbar(c1, ax=axes[1])
@@ -247,7 +252,7 @@ c2 = axes[2].tricontourf(
     X_grid[:, 1],
     mean_pred_joint_grid.flatten(),
     levels=20,
-    cmap="viridis",
+    cmap="magma",
 )
 axes[2].set_title(f"Joint Model (RMSE: {rmse_joint:.2f})")
 plt.colorbar(c2, ax=axes[2])
@@ -255,9 +260,7 @@ plt.colorbar(c2, ax=axes[2])
 for ax in axes:
     ax.set_xlabel("x1")
     ax.set_ylabel("x2")
-    ax.scatter(X[:, 0], X[:, 1], c="k", s=10, alpha=0.3, label="Data")
-
-plt.tight_layout()
+    ax.scatter(X[:, 0], X[:, 1], c=cols[0], s=10, alpha=0.3, label="Data")
 
 
 # %% [markdown]

@@ -115,7 +115,7 @@ slice_kernel = gpx.kernels.RBF(active_dims=[0, 1, 3], lengthscale=jnp.ones((3,))
 
 # %% [markdown]
 #
-# The resulting kernel has one length-scale parameter per input dimension --- an ARD kernel.
+# The resulting kernel has one length-scale parameter per input dimension - an ARD kernel.
 
 # %%
 print(f"Lengthscales: {slice_kernel.lengthscale}")
@@ -182,7 +182,7 @@ fig.colorbar(im3, ax=ax[3], fraction=0.05)
 # 1. Listing the kernel's parameters.
 # 2. Defining the kernel's pairwise operation.
 #
-# We'll demonstrate this process now for a circular kernel --- an adaption of
+# We'll demonstrate this process now for a circular kernel - an adaption of
 # the excellent guide given in the PYMC3 documentation. We encourage curious
 # readers to visit their notebook
 # [here](https://www.pymc.io/projects/docs/en/v3/pymc-_examples/_examples/gaussian_processes/GP-Circular.html).
