@@ -21,13 +21,11 @@
 # We will look at a scenario where we have a structured mean function (a linear model) and a GP capturing the residuals. We will infer the parameters of both the linear model and the GP jointly.
 
 # %%
-import numpyro
-numpyro.set_host_device_count(4)
-
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
+import numpyro
 import numpyro.distributions as dist
 from numpyro.infer import (
     MCMC,
@@ -45,7 +43,10 @@ key = jr.key(123)
 # %% [markdown]
 # ## Data Generation
 #
-# We generate a synthetic dataset that consists of a linear trend together with a locally periodic residual signal whose amplitude varies over time, an additional high-frequency component, and a local bump. This richer structure highlights how a GP can capture deviations from the explicit linear model.
+# We generate a synthetic dataset that consists of a linear trend together with a locally periodic
+# residual signal whose amplitude varies over time, an additional high-frequency component, and a
+# local bump. This richer structure highlights how a GP can capture deviations from the explicit
+# linear model.
 
 # %%
 N = 200
@@ -76,12 +77,13 @@ plt.figure(figsize=(10, 5))
 plt.scatter(x, y, label="Data", alpha=0.6)
 plt.plot(x, y_clean, "k--", label="True Signal")
 plt.legend()
-# plt.show()
 
 # %% [markdown]
 # ## Model Definition
 #
-# We define a GP model with a generic mean function (zero for now, as we will handle the linear trend explicitly in the Numpyro model) and a kernel that is the product of a periodic kernel and an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic.
+# We define a GP model with a generic mean function (zero for now, as we will handle the linear
+# trend explicitly in the Numpyro model) and a kernel that is the product of a periodic kernel and
+# an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic.
 
 # %%
 # Define priors
@@ -180,7 +182,11 @@ def model(X, Y, X_new=None):
 
 # %%
 nuts_kernel = NUTS(model)
-mcmc = MCMC(nuts_kernel, num_warmup=1500, num_samples=2000, num_chains=4, chain_method="parallel")
+mcmc = MCMC(
+    nuts_kernel,
+    num_warmup=1500,
+    num_samples=2000,
+)
 mcmc.run(jr.key(123), x, y)
 
 mcmc.print_summary()

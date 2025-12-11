@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.2
+#       jupytext_version: 1.17.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -43,18 +43,24 @@
 # behaviours without forcing a single mechanism to fit every feature of the data.
 
 # %%
-import jax
-jax.config.update("jax_enable_x64", True)
+from functools import partial
 
+import jax
 import jax.numpy as jnp
 import jax.random as jr
+import matplotlib.pyplot as plt
 import numpyro
 import numpyro.distributions as dist
-from numpyro.infer import MCMC, NUTS, Predictive
+from numpyro.infer import (
+    MCMC,
+    NUTS,
+    Predictive,
+)
+
 import gpjax as gpx
 from gpjax.numpyro_extras import register_parameters
-import matplotlib.pyplot as plt
-from functools import partial
+
+jax.config.update("jax_enable_x64", True)
 
 
 N = 200
@@ -90,6 +96,7 @@ y = latent_signal + noise_stddev * jr.normal(key_noise, shape=latent_signal.shap
 # We use the No-U-Turn Sampler (NUTS) to estimate the posterior distributions of the slope
 # $\mathbf{w}$, intercept $b$, and noise $\sigma$.
 
+
 # %%
 def linear_model(X, Y=None):
     slope = numpyro.sample("slope", dist.Normal(0.0, 5.0).expand([2]))
@@ -99,6 +106,7 @@ def linear_model(X, Y=None):
     mu = X @ slope + intercept
     numpyro.deterministic("mu", mu)
     numpyro.sample("obs", dist.Normal(mu, obs_noise), obs=Y)
+
 
 nuts_kernel_lin = NUTS(linear_model)
 mcmc_lin = MCMC(nuts_kernel_lin, num_warmup=500, num_samples=1000, num_chains=1)
@@ -139,6 +147,7 @@ obs_stddev = gpx.parameters.NonNegativeReal(0.1, prior=dist.LogNormal(0.0, 1.0))
 likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_stddev)
 gp_posterior = prior * likelihood
 
+
 def joint_model(X, Y, gp_posterior, X_new=None):
     slope = numpyro.sample("slope", dist.Normal(0.0, 5.0).expand([2]))
     intercept = numpyro.sample("intercept", dist.Normal(0.0, 5.0))
@@ -156,16 +165,16 @@ def joint_model(X, Y, gp_posterior, X_new=None):
 
     if X_new is not None:
         if Y is not None:
-             residuals = Y - trend
-             residuals = residuals.reshape(-1, 1)
-             D_resid = gpx.Dataset(X=X, y=residuals)
+            residuals = Y - trend
+            residuals = residuals.reshape(-1, 1)
+            D_resid = gpx.Dataset(X=X, y=residuals)
 
-             latent_dist = p_posterior.predict(X_new, train_data=D_resid)
-             f_new = numpyro.sample("f_new", latent_dist)
-             f_new = f_new.reshape((-1, 1))
+            latent_dist = p_posterior.predict(X_new, train_data=D_resid)
+            f_new = numpyro.sample("f_new", latent_dist)
+            f_new = f_new.reshape((-1, 1))
 
-             total_prediction = (X_new @ slope + intercept).reshape(-1, 1) + f_new
-             numpyro.deterministic("y_pred", total_prediction)
+            total_prediction = (X_new @ slope + intercept).reshape(-1, 1) + f_new
+            numpyro.deterministic("y_pred", total_prediction)
 
 
 joint_model_wrapper = partial(joint_model, gp_posterior=gp_posterior)
@@ -188,14 +197,18 @@ preds_lin = predictive_lin(jr.key(1), X=X)["mu"]
 mean_pred_lin = jnp.mean(preds_lin, axis=0)
 
 samples_joint = mcmc_joint.get_samples()
-predictive_joint = Predictive(joint_model_wrapper, samples_joint, return_sites=["y_pred"])
+predictive_joint = Predictive(
+    joint_model_wrapper, samples_joint, return_sites=["y_pred"]
+)
 preds_joint = predictive_joint(jr.key(2), X=X, Y=y, X_new=X)["y_pred"]
 mean_pred_joint = jnp.mean(preds_joint, axis=0)
 
-rmse_lin = jnp.sqrt(jnp.mean((mean_pred_lin.flatten() - latent_signal.flatten())**2))
-rmse_joint = jnp.sqrt(jnp.mean((mean_pred_joint.flatten() - latent_signal.flatten())**2))
+rmse_lin = jnp.sqrt(jnp.mean((mean_pred_lin.flatten() - latent_signal.flatten()) ** 2))
+rmse_joint = jnp.sqrt(
+    jnp.mean((mean_pred_joint.flatten() - latent_signal.flatten()) ** 2)
+)
 
-print(f"\nRMSE Comparison (vs True Signal):")
+print("\nRMSE Comparison (vs True Signal):")
 print(f"Linear Model: {rmse_lin:.4f}")
 print(f"Joint Model:  {rmse_joint:.4f}")
 
@@ -205,7 +218,9 @@ x2 = jnp.linspace(0, 5, n_grid)
 X1, X2 = jnp.meshgrid(x1, x2)
 X_grid = jnp.column_stack([X1.ravel(), X2.ravel()])
 
-y_grid_true = (X_grid @ true_slope + true_intercept) + (jnp.sin(X_grid[:, 0]) * jnp.cos(X_grid[:, 1]))
+y_grid_true = (X_grid @ true_slope + true_intercept) + (
+    jnp.sin(X_grid[:, 0]) * jnp.cos(X_grid[:, 1])
+)
 
 preds_lin_grid = predictive_lin(jr.key(3), X=X_grid)["mu"]
 mean_pred_lin_grid = jnp.mean(preds_lin_grid, axis=0)
@@ -215,22 +230,32 @@ mean_pred_joint_grid = jnp.mean(preds_joint_grid, axis=0)
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
 
-c0 = axes[0].tricontourf(X_grid[:,0], X_grid[:,1], y_grid_true, levels=20, cmap='viridis')
+c0 = axes[0].tricontourf(
+    X_grid[:, 0], X_grid[:, 1], y_grid_true, levels=20, cmap="viridis"
+)
 axes[0].set_title("True Signal")
 plt.colorbar(c0, ax=axes[0])
 
-c1 = axes[1].tricontourf(X_grid[:,0], X_grid[:,1], mean_pred_lin_grid.flatten(), levels=20, cmap='viridis')
+c1 = axes[1].tricontourf(
+    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=20, cmap="viridis"
+)
 axes[1].set_title(f"Linear Model (RMSE: {rmse_lin:.2f})")
 plt.colorbar(c1, ax=axes[1])
 
-c2 = axes[2].tricontourf(X_grid[:,0], X_grid[:,1], mean_pred_joint_grid.flatten(), levels=20, cmap='viridis')
+c2 = axes[2].tricontourf(
+    X_grid[:, 0],
+    X_grid[:, 1],
+    mean_pred_joint_grid.flatten(),
+    levels=20,
+    cmap="viridis",
+)
 axes[2].set_title(f"Joint Model (RMSE: {rmse_joint:.2f})")
 plt.colorbar(c2, ax=axes[2])
 
 for ax in axes:
     ax.set_xlabel("x1")
     ax.set_ylabel("x2")
-    ax.scatter(X[:,0], X[:,1], c='k', s=10, alpha=0.3, label="Data")
+    ax.scatter(X[:, 0], X[:, 1], c="k", s=10, alpha=0.3, label="Data")
 
 plt.tight_layout()
 

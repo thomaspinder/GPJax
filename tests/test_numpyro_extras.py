@@ -5,6 +5,7 @@ from hypothesis import (
 )
 from hypothesis.extra.numpy import arrays
 import jax.numpy as jnp
+import jax.tree_util as jtu
 import numpy as np
 import numpyro.distributions as dist
 from numpyro.handlers import (
@@ -14,6 +15,8 @@ from numpyro.handlers import (
 
 from gpjax.numpyro_extras import (
     register_parameters,
+    resolve_prior,
+    tree_path_to_name,
 )
 from gpjax.parameters import (
     LowerTriangular,
@@ -22,8 +25,6 @@ from gpjax.parameters import (
     Real,
     SigmoidBounded,
 )
-
-# --- Strategies ---
 
 
 def valid_shapes(min_dims=0, max_dims=2):
@@ -254,3 +255,78 @@ def test_register_parameters_nested_prefix():
 
     assert "outer.inner.pos" in tr
     assert "outer.inner.real" not in tr
+
+
+def test_tree_path_to_name_with_getattr_key():
+    path = (jtu.GetAttrKey("kernel"), jtu.GetAttrKey("lengthscale"))
+    assert tree_path_to_name(path) == "kernel.lengthscale"
+
+
+def test_tree_path_to_name_with_dict_key():
+    path = (jtu.DictKey(key="params"), jtu.DictKey(key="variance"))
+    assert tree_path_to_name(path) == "params.variance"
+
+
+def test_tree_path_to_name_with_sequence_key():
+    path = (jtu.GetAttrKey("layers"), jtu.SequenceKey(idx=0), jtu.GetAttrKey("weight"))
+    assert tree_path_to_name(path) == "layers.0.weight"
+
+
+def test_tree_path_to_name_with_prefix():
+    path = (jtu.GetAttrKey("kernel"), jtu.GetAttrKey("variance"))
+    assert tree_path_to_name(path, prefix="model") == "model.kernel.variance"
+
+
+def test_tree_path_to_name_empty_path():
+    path = ()
+    assert tree_path_to_name(path) == ""
+
+
+def test_tree_path_to_name_empty_path_with_prefix():
+    path = ()
+    assert tree_path_to_name(path, prefix="model") == "model."
+
+
+def test_tree_path_to_name_mixed_keys():
+    path = (
+        jtu.GetAttrKey("nested"),
+        jtu.DictKey(key="sub"),
+        jtu.SequenceKey(idx=2),
+    )
+    assert tree_path_to_name(path) == "nested.sub.2"
+
+
+def test_resolve_prior_explicit_takes_precedence():
+    explicit_prior = dist.Normal(0.0, 1.0)
+    attached_prior = dist.Gamma(1.0, 1.0)
+    param = PositiveReal(jnp.array([1.0]), prior=attached_prior)
+    priors = {"my_param": explicit_prior}
+
+    result = resolve_prior("my_param", param, priors)
+    assert result is explicit_prior
+
+
+def test_resolve_prior_falls_back_to_attached():
+    attached_prior = dist.LogNormal(0.0, 1.0)
+    param = PositiveReal(jnp.array([1.0]), prior=attached_prior)
+    priors = {}
+
+    result = resolve_prior("my_param", param, priors)
+    assert result is attached_prior
+
+
+def test_resolve_prior_returns_none_when_no_prior():
+    param = Real(jnp.array([0.0]))
+    priors = {}
+
+    result = resolve_prior("my_param", param, priors)
+    assert result is None
+
+
+def test_resolve_prior_explicit_for_different_name_no_attached():
+    explicit_prior = dist.Normal(0.0, 1.0)
+    param = Real(jnp.array([0.0]))
+    priors = {"other_param": explicit_prior}
+
+    result = resolve_prior("my_param", param, priors)
+    assert result is None
