@@ -47,7 +47,7 @@ jobs:
         uv run bandit -r gpjax/ -f json -o bandit-report.json || true
 
     - name: Upload dependency scan results
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: security-scan-results

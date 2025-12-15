@@ -132,7 +132,7 @@ jobs:
           uv run bandit -r gpjax/ -f json -o bandit-report.json || echo "Bandit scan completed with warnings"
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: security-reports
           path: |
@@ -166,7 +166,7 @@ jobs:
           uv run twine check dist/*
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: dist-packages
           path: dist/
