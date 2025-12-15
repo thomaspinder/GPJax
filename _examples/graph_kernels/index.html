@@ -2797,12 +2797,10 @@ index set of the graph's vertices.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/IPython/core/events.py:82: UserWarning: There are no gridspecs with layoutgrids. Possibly did not call parent GridSpec with the &quot;figure&quot; keyword
   func(*args, **kwargs)
-
-
 /home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/IPython/core/pylabtools.py:170: UserWarning: There are no gridspecs with layoutgrids. Possibly did not call parent GridSpec with the &quot;figure&quot; keyword
   fig.canvas.print_figure(bytes_io, **kw)
 </code></pre></div>
-<p><img alt="png" src="../graph_kernels_files/graph_kernels_9_2.png" /></p>
+<p><img alt="png" src="../graph_kernels_files/graph_kernels_9_1.png" /></p>
 <h2 id="constructing-a-graph-gaussian-process">Constructing a graph Gaussian process<a class="headerlink" href="#constructing-a-graph-gaussian-process" title="Permanent link"></a></h2>
 <p>With our dataset created, we proceed to define our posterior Gaussian process and
 optimise the model's hyperparameters.
@@ -2836,10 +2834,10 @@ booktitle = {International Conference on Artificial Intelligence and Statistics}
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">trainable</span><span class="o">=</span><span class="n">Parameter</span><span class="p">,</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>         Current function value: -113.647914
-         Iterations: 90
-         Function evaluations: 128
-         Gradient evaluations: 117
+<div class="language-text highlight"><pre><span></span><code>         Current function value: -113.648187
+         Iterations: 93
+         Function evaluations: 133
+         Gradient evaluations: 123
 
 
 /home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
@@ -2866,7 +2864,7 @@ the predictive posterior for the full graph to compare the root-mean-squared err
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>RMSE with initial parameters:  7.53
-RMSE with learned parameters:  0.20
+RMSE with learned parameters:  0.21
 </code></pre></div>
 <p>We can also plot the source of error in our model's predictions on the graph by the
 following.</p>
@@ -2894,17 +2892,17 @@ following.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Mon Dec 01 2025
+Last updated: Mon Dec 15 2025
 
 Python implementation: CPython
 Python version       : 3.11.14
 IPython version      : 9.5.0
 
-gpjax     : 0.13.4
 networkx  : 3.5
-jaxtyping : 0.3.2
-matplotlib: 3.10.6
 jax       : 0.7.1
+jaxtyping : 0.3.2
+gpjax     : 0.13.4
+matplotlib: 3.10.6
 
 Watermark: 2.5.0
 </code></pre></div>
