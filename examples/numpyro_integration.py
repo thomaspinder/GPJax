@@ -75,23 +75,34 @@ localised_bump = 1.2 * jnp.exp(-0.5 * ((x - 7.0) / 0.45) ** 2)
 
 linear_trend = true_slope * x + true_intercept
 residual_signal = modulated_periodic + high_frequency_component + localised_bump
-y_clean = linear_trend + residual_signal
+signal = linear_trend + residual_signal
 
 # Observations with homoscedastic noise
 observation_noise = 0.3
-y = y_clean + observation_noise * jr.normal(keys[1], shape=x.shape)
+y = signal + observation_noise * jr.normal(keys[1], shape=x.shape)
 
-plt.figure(figsize=(10, 5))
-plt.scatter(x, y, label="Data", alpha=0.6, color=cols[0])
-plt.plot(x, y_clean, "--", label="True Signal", color=cols[1])
-plt.legend()
+D = gpx.Dataset(X=x, y=y)
+
+fig, ax = plt.subplots()
+ax.scatter(x, y, label="Observations", color=cols[0])
+ax.plot(x, signal, "--", label="True Signal", color=cols[1])
+ax.legend()
 
 # %% [markdown]
 # ## Model Definition
 #
 # We define a GP model with a generic mean function (zero for now, as we will handle the linear
 # trend explicitly in the Numpyro model) and a kernel that is the product of a periodic kernel and
-# an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic.
+# an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic. For
+# a more in-depth look at how complex kernels can be designed, see our
+# [Introduction to Kernels](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/)
+# notebook.
+#
+# We may see from the below that priors are specified on the parameters' constrained space. For
+# example, the lengthscale parameter must be strictly positive and, therefore, a unit-Gaussian
+# would be a poor choice of prior. Instead, we opt for the log-Gaussian as the prior distribution
+# as its support matches that of our lengthscale parameter. Attaching a prior to a parameter is
+# straightforward using the `prior` argument in the parameter's class.
 
 # %%
 # Define priors
@@ -106,7 +117,14 @@ variance = gpx.parameters.PositiveReal(1.0, prior=variance_prior)
 period = gpx.parameters.PositiveReal(1.0, prior=period_prior)
 noise = gpx.parameters.NonNegativeReal(1.0, prior=noise_prior)
 
-# Define Kernel with priors
+# %% [markdown]
+
+# Now that all of our parameters are defined, we'll proceed to construct the Gaussian process in
+# the ordinary fashion. For a deeper look at this, our
+# [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# notebook is a good starting point.
+
+# %%
 stationary_component = gpx.kernels.RBF(
     lengthscale=lengthscale,
     variance=variance,
@@ -120,26 +138,27 @@ kernel = stationary_component * periodic_component
 meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
-# We will use a ConjugatePosterior since we assume Gaussian noise
 likelihood = gpx.likelihoods.Gaussian(
     num_datapoints=N,
     obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=dist.LogNormal(0.0, 1.0)),
 )
 posterior = prior * likelihood
 
-# We initialise the model parameters.
-# Note: These values will be overwritten by Numpyro samples during inference.
-D = gpx.Dataset(X=x, y=y)
-
 # %% [markdown]
 # ## Joint Inference Loop
 #
-# We define a Numpyro model function that:
-# 1. Samples the parameters for the linear trend.
-# 2. Computes the residuals (Data - Linear Trend).
-# 3. Samples the GP hyperparameters using `register_parameters`.
-# 4. Computes the GP marginal log-likelihood on the residuals.
-# 5. Adds the GP log-likelihood to the joint density.
+# With a GPJax Posterior object now defined, the only outstanding task is to integrate
+# it into a full Numpyro. This notebook is not designed to be a full introduction to
+# Numpyro (for that, see the excellent
+# [Numpyro Documentation](https://num.pyro.ai/en/stable/)); however, in the below
+# model we first sample the slope and intercept parameters of the linear component.
+# We then compute the residuals between the observed data and the linear component,
+# before then computing the GP marginal log-likelihood of the residual.
+#
+# The key step in the below is registering the parameters of the GPJax model with
+# Numpyro via GPJax's `register_parameters` function. This function automatically
+# samples parameters of the model and returns an updated state of the model with those
+# sampled values used as parameters.
 
 
 # %%
@@ -147,33 +166,16 @@ def model(X, Y, X_new=None):
     # 1. Sample linear model parameters
     slope = numpyro.sample("slope", dist.Normal(0.0, 2.0))
     intercept = numpyro.sample("intercept", dist.Normal(0.0, 2.0))
+    linear_component = slope * X + intercept
 
-    # Calculate residuals
-    trend = slope * X + intercept
-    residuals = Y - trend
+    residuals = Y - linear_component
 
-    # 2. Register GP parameters
-    # This automatically samples parameters from the GPJax model
-    # and returns a model with updated values.
-    # We attached priors to the parameters during model definition,
-    # so register_parameters will use those.
-    # register_parameters modifies the model in-place (and returns it).
-    # Since Numpyro re-runs this function, we are overwriting the parameters
-    # of the same object repeatedly, which is fine as they are completely determined
-    # by the sample sites.
     p_posterior = register_parameters(posterior)
-
-    # Create dataset for residuals
     D_resid = gpx.Dataset(X=X, y=residuals)
-
-    # 3. Compute MLL
-    # We use conjugate_mll which computes log p(y | X, theta) analytically for Gaussian likelihoods.
     mll = gpx.objectives.conjugate_mll(p_posterior, D_resid)
 
-    # 4. Add to potential
     numpyro.factor("gp_log_lik", mll)
 
-    # Optional prediction branch for use with Predictive
     if X_new is not None:
         latent_dist = p_posterior.predict(X_new, train_data=D_resid)
         f_new = numpyro.sample("f_new", latent_dist)
@@ -186,7 +188,10 @@ def model(X, Y, X_new=None):
 # %% [markdown]
 # ## Running MCMC
 #
-# We use the NUTS sampler to draw samples from the posterior.
+# Using Numpyro's NUTS sampler, we can now draw samples from the posterior. To ensure
+# our documentation can be quickly built, we limit the number of samples and the length
+# of the burn-in phase below. However, in practice, one should draw more samples from
+# multiple chains using the `num_chains` argument in the `MCMC` constructor.
 
 # %%
 nuts_kernel = NUTS(model)
@@ -197,47 +202,62 @@ mcmc = MCMC(
     num_samples=1000,
 )
 mcmc.run(keys[2], x, y)
-
 mcmc.print_summary()
 
 # %% [markdown]
 # ## Analysis and Plotting
 #
-# We extract the samples and plot the predictions.
+# Having obtained samples from the posterior, we now evaluate the predictive posterior
+# at the test sites. In our
+# [Poisson Regression](https://docs.jaxgaussianprocesses.com/_examples/poisson/), this
+# process is done manually. However, by virtue of using Numpyro here, we may instead
+# use Numpyro's `Predictive` object to handle this process for us. Once samples are
+# drawn from the predictive posterior distribution, we may evaluate the mean and 95%
+# credible interval and compare our model's predictions to the underlying data.
 
 # %%
-# Draw posterior samples for downstream use
 samples = mcmc.get_samples()
-
-# Create predictive utility that reuses the original model
 predictive = Predictive(
     model,
     posterior_samples=samples,
     return_sites=["y_pred"],
 )
 
-# Generate predictions at a denser set of test points
 x_test = jnp.linspace(-0.5, 10.5, 1000).reshape(-1, 1)
 predictions = predictive(keys[3], x, y, X_new=x_test)
 y_pred = predictions["y_pred"]
 
-# Compute statistics
 mean_prediction = jnp.mean(y_pred, axis=0)
-std_prediction = jnp.std(y_pred, axis=0)
+lower, upper = jnp.percentile(y_pred, jnp.array([2.5, 97.5]), axis=0)
 
-# Plot
-plt.figure(figsize=(12, 6))
-plt.scatter(x, y, alpha=0.5, label="Observations", color=cols[0])
-plt.plot(x, y_clean, "--", label="True Signal", color=cols[0])
+fig, ax = plt.subplots()
+ax.scatter(x, y, alpha=0.5, label="Observations", color=cols[0])
+ax.plot(x, signal, "--", label="True Signal", color=cols[0])
 
-plt.plot(x_test, mean_prediction, "-", label="Posterior Mean", color=cols[1])
-plt.fill_between(
+ax.plot(x_test, mean_prediction, "-", label="Posterior Mean", color=cols[1])
+ax.fill_between(
     x_test.flatten(),
-    mean_prediction.flatten() - 2 * std_prediction.flatten(),
-    mean_prediction.flatten() + 2 * std_prediction.flatten(),
+    lower.flatten(),
+    upper.flatten(),
     color=cols[1],
     alpha=0.2,
-    label="95% CI (GP Uncertainty)",
+    label="95% Credible Interval",
 )
+ax.legend()
 
-plt.legend()
+# %% [markdown]
+# ## Conclusions
+# This concludes our introduction to the integration of GPJax with Numpyro. The
+# presentation given here is designed to best illustrate *how* the two libraries
+# integrate. For a closer look at the more complex models that one may build by
+# integrating Numpyro and GPJax, see our
+# [Spatial Semi-Linear Model](https://docs.jaxgaussianprocesses.com/_examples/spatial_linear)
+# notebook.
+
+
+# %% [markdown]
+# ## System configuration
+
+# %%
+# %load_ext watermark
+# %watermark -n -u -v -iv -w -a "Thomas Pinder"

@@ -268,4 +268,4 @@ for ax in axes:
 
 # %%
 # %load_ext watermark
-# %watermark -n -u -v -iv -w -a "Francesco Zanetta"
+# %watermark -n -u -v -iv -w -a "Thomas Pinder"
