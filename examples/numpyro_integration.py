@@ -78,13 +78,13 @@ residual_signal = modulated_periodic + high_frequency_component + localised_bump
 signal = linear_trend + residual_signal
 
 # Observations with homoscedastic noise
-observation_noise = 0.3
+observation_noise = 0.7
 y = signal + observation_noise * jr.normal(keys[1], shape=x.shape)
 
 D = gpx.Dataset(X=x, y=y)
 
 fig, ax = plt.subplots()
-ax.scatter(x, y, label="Observations", color=cols[0])
+ax.plot(x, y, "o", label="Observations", color=cols[0])
 ax.plot(x, signal, "--", label="True Signal", color=cols[1])
 ax.legend()
 
