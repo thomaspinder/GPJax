@@ -61,7 +61,7 @@ jobs:
           uv run mkdocs build
 
       - name: Deploy Page 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.7.6
+        uses: JamesIves/github-pages-deploy-action@v4.8.0
         with:
           branch: gh-pages
           folder: site
