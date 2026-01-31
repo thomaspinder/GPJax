@@ -30,6 +30,7 @@ dependencies = [
   "beartype>0.16.1",
   "flax>=0.12.0",
   "numpy>=2.0.0",
+  "tensorstore!=0.1.76; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
