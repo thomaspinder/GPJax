@@ -79,6 +79,7 @@ dev = [
 ]
 
 [tool.uv]
+exclude-newer = "7 days"
 managed = true
 dev-dependencies = [
   "ruff>=0.6",
