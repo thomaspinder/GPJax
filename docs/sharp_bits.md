@@ -178,12 +178,19 @@ points. We demonstrate its use in
 
 ## JIT compilation
 
-There are a subset of operations in GPJax that are not JIT compatible by default. This
-is because we have assertions in place to check the properties of the parameters. For
-example, we check that the lengthscale parameter that a user provides is positive. This
-makes for a better user experience as we can provide more informative error messages;
-however, JIT compiling functions wherein these assertions are made will break the code.
-As an example, consider the following code:
+GPJax validates parameters at construction time using two kinds of checks:
+
+1. **Type checks** — plain Python `isinstance` checks that verify values are array-like.
+2. **Value checks** — JAX-compatible assertions (via `checkify`) that verify constraints
+   like positivity or bounds.
+
+During JIT tracing, concrete values are replaced by abstract tracers. The type checks
+use `isinstance`, which is a pure Python operation that cannot be intercepted by JAX's
+`checkify` transformation. This means that constructing GPJax objects (kernels, mean
+functions, likelihoods, etc.) **inside** a JIT boundary will fail.
+
+As an example, consider the following code that constructs a kernel inside a
+JIT-compiled function:
 
 ```python
 import jax
@@ -192,43 +199,61 @@ import gpjax as gpx
 
 x = jnp.linspace(0, 1, 10)[:, None]
 
-def compute_gram(lengthscale):
+def compute_gram_bad(lengthscale):
     k = gpx.kernels.RBF(active_dims=[0], lengthscale=lengthscale, variance=jnp.array(1.0))
     return k.gram(x)
 
-compute_gram(1.0)
+compute_gram_bad(1.0)  # works fine outside JIT
 ```
 
-so far so good. However, if we try to JIT compile this function, we will get an error:
+If we try to JIT compile this function, we get a `TypeError` because the kernel
+constructor receives a JAX tracer instead of a concrete array:
 
 ```python
-jit_compute_gram = jax.jit(compute_gram)
+jit_compute_gram_bad = jax.jit(compute_gram_bad)
 try:
-    jit_compute_gram(1.0)
-except Exception as e:
+    jit_compute_gram_bad(1.0)
+except TypeError as e:
     print(e)
 ```
 
-This error is due to the fact that the `RBF` kernel contains an assertion that checks
-that the lengthscale is positive. It does not matter that the assertion is satisfied;
-the very presence of the assertion will break JIT compilation.
+### The fix: construct objects outside JIT
 
-To resolve this, we can use the `checkify` decorator to remove the assertion. This will
-allow the function to be JIT compiled.
+The solution is to construct GPJax objects **outside** the JIT boundary and only JIT the
+computation itself. This follows the standard JAX pattern of keeping object construction
+separate from traced computation:
+
+```python
+k = gpx.kernels.RBF(active_dims=[0], lengthscale=1.0, variance=jnp.array(1.0))
+
+@jax.jit
+def compute_gram(x):
+    return k.gram(x)
+
+result = compute_gram(x)
+```
+
+More generally, any GPJax object should be constructed outside of `jax.jit`, `jax.vmap`,
+or `jax.grad` boundaries. Once constructed, their methods can be freely used inside
+these JAX transformations.
+
+### `checkify` for value assertions
+
+For the second kind of check — value assertions like positivity — GPJax uses JAX's
+`checkify` system. These checks are JIT-compatible by design. If you encounter a
+`checkify` assertion inside a JIT-compiled function, you can wrap the function with
+`checkify.checkify` to convert the assertion into a returned error value:
 
 ```python
 from jax.experimental import checkify
 
-jit_compute_gram = jax.jit(checkify.checkify(compute_gram))
-error, value = jit_compute_gram(1.0)
+@checkify.checkify
+def my_fn(x):
+    checkify.check(jnp.all(x > 0), "x must be positive")
+    return x ** 2
+
+jit_fn = jax.jit(my_fn)
+error, value = jit_fn(jnp.array(1.0))
 ```
-By virtue of the `checkify.checkify`, a tuple is returned where the first element is the
-output of the assertion, and the second element is the value of the function. 
 
-This design is not perfect, and in an ideal world we would not enforce the user to wrap
-their code in `checkify.checkify`. We are actively looking into cleaner ways to provide
-guardrails in a less intrusive manner. However, for now, should you try to JIT compile
-a component of GPJax wherein there is an assertion, you will need to wrap the function
-in `checkify.checkify` as shown above.
-
-For more on `checkify`, please see the [JAX Checkify Doc](https://docs.jax.dev/en/latest/debugging/checkify_guide.html).
+For more on `checkify`, see the [JAX Checkify Guide](https://docs.jax.dev/en/latest/debugging/checkify_guide.html).
