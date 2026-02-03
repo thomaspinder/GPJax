@@ -262,12 +262,10 @@ convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "gpjax/__init__.py" = ['I', 'F401', 'E402', 'D104']
-"gpjax/progress_bar.py" = ["TCH004"]
 "gpjax/scan.py" = ["PLR0913"]
 "gpjax/citation.py" = ["F811"]
-"tests/test_base/test_module.py" = ["PLR0915"]
 "tests/test_objectives.py" = ["PLR0913"]
-"docs/examples/barycentres.py" = ["PLR0913"]
+"examples/barycentres.py" = ["PLR0913"]
 
 [tool.isort]
 profile = "black"
