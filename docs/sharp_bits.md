@@ -236,24 +236,3 @@ result = compute_gram(x)
 More generally, any GPJax object should be constructed outside of `jax.jit`, `jax.vmap`,
 or `jax.grad` boundaries. Once constructed, their methods can be freely used inside
 these JAX transformations.
-
-### `checkify` for value assertions
-
-For the second kind of check — value assertions like positivity — GPJax uses JAX's
-`checkify` system. These checks are JIT-compatible by design. If you encounter a
-`checkify` assertion inside a JIT-compiled function, you can wrap the function with
-`checkify.checkify` to convert the assertion into a returned error value:
-
-```python
-from jax.experimental import checkify
-
-@checkify.checkify
-def my_fn(x):
-    checkify.check(jnp.all(x > 0), "x must be positive")
-    return x ** 2
-
-jit_fn = jax.jit(my_fn)
-error, value = jit_fn(jnp.array(1.0))
-```
-
-For more on `checkify`, see the [JAX Checkify Guide](https://docs.jax.dev/en/latest/debugging/checkify_guide.html).
