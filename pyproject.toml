@@ -266,7 +266,7 @@ convention = "numpy"
 "gpjax/citation.py" = ["F811"]
 "tests/test_objectives.py" = ["PLR0913"]
 "examples/barycentres.py" = ["PLR0913"]
-"tests/" = ["PLW0108"]
+"tests/*.py" = ["PLW0108"]
 
 [tool.isort]
 profile = "black"
