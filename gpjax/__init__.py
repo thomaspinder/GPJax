@@ -40,7 +40,7 @@ __license__ = "MIT"
 __description__ = "Gaussian processes in JAX and Flax"
 __url__ = "https://github.com/thomaspinder/GPJax"
 __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
-__version__ = "0.13.4"
+__version__ = "0.13.5"
 
 __all__ = [
     "gps",
