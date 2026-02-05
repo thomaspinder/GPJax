@@ -217,22 +217,26 @@ except Exception as e:
     print(e)
 ```
 
-### The fix: construct objects outside JIT
+This error is due to the fact that the `RBF` kernel contains an assertion that checks
+that the lengthscale is positive. It does not matter that the assertion is satisfied;
+the very presence of the assertion will break JIT compilation.
 
-The solution is to construct GPJax objects **outside** the JIT boundary and only JIT the
-computation itself. This follows the standard JAX pattern of keeping object construction
-separate from traced computation:
+To resolve this, we can use the `checkify` decorator to remove the assertion. This will
+allow the function to be JIT compiled.
 
 ```python
-k = gpx.kernels.RBF(active_dims=[0], lengthscale=1.0, variance=jnp.array(1.0))
+from jax.experimental import checkify
 
-@jax.jit
-def compute_gram(x):
-    return k.gram(x)
-
-result = compute_gram(x)
+jit_compute_gram = jax.jit(checkify.checkify(compute_gram))
+error, value = jit_compute_gram(1.0)
 ```
+By virtue of the `checkify.checkify`, a tuple is returned where the first element is the
+output of the assertion, and the second element is the value of the function. 
 
-More generally, any GPJax object should be constructed outside of `jax.jit`, `jax.vmap`,
-or `jax.grad` boundaries. Once constructed, their methods can be freely used inside
-these JAX transformations.
+This design is not perfect, and in an ideal world we would not enforce the user to wrap
+their code in `checkify.checkify`. We are actively looking into cleaner ways to provide
+guardrails in a less intrusive manner. However, for now, should you try to JIT compile
+a component of GPJax wherein there is an assertion, you will need to wrap the function
+in `checkify.checkify` as shown above.
+
+For more on `checkify`, please see the [JAX Checkify Doc](https://docs.jax.dev/en/latest/debugging/checkify_guide.html).
