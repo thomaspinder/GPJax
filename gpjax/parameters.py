@@ -1,6 +1,7 @@
 import typing as tp
 
 from flax import nnx
+import jax
 from jax.experimental import checkify
 import jax.numpy as jnp
 import jax.tree_util as jtu
@@ -162,7 +163,7 @@ def _check_is_arraylike(value: T) -> None:
     Raises:
         TypeError: If the value is not array-like.
     """
-    if not isinstance(value, (ArrayLike, list)):
+    if not isinstance(value, (jax.Array, ArrayLike, list)):
         raise TypeError(
             f"Expected parameter value to be an array-like type. Got {value}."
         )

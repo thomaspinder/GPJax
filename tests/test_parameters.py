@@ -1,3 +1,4 @@
+import jax
 from flax import nnx
 from jax import jit
 from jax.experimental import checkify
@@ -109,3 +110,22 @@ def test_check_in_bounds():
         _safe_assert(
             _check_in_bounds, jnp.array(1.5), low=jnp.array(0.0), high=jnp.array(1.0)
         )
+
+
+@pytest.mark.parametrize(
+    "param_cls, value",
+    [
+        (PositiveReal, jnp.array(1.0)),
+        (PositiveReal, jnp.array([1.0, 2.0])),
+        (Real, jnp.array(1.0)),
+        (NonNegativeReal, jnp.array(1.0)),
+    ],
+)
+def test_parameter_construction_under_grad(param_cls, value):
+    """Regression test for #592: parameter construction must accept JAX tracers."""
+
+    def f(x):
+        return param_cls(x).value.sum()
+
+    grad = jax.grad(f)(value)
+    assert grad.shape == value.shape
