@@ -3344,7 +3344,7 @@ a sum kernel is provided by the <code>SumKernel</code> class.</p>
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im1</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f4b49e2e550&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f5f2ccb7790&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_11_1.png" /></p>
 <p>Similarly, products of kernels can be created through the <code>ProductKernel</code> class.</p>
@@ -3363,7 +3363,7 @@ a sum kernel is provided by the <code>SumKernel</code> class.</p>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im2</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im3</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f4b486e9090&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f5f2c5eda10&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_13_1.png" /></p>
 <h2 id="custom-kernel">Custom kernel<a class="headerlink" href="#custom-kernel" title="Permanent link"></a></h2>
@@ -3490,7 +3490,7 @@ for further details on this process).</p>
 </span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">trainable</span><span class="o">=</span><span class="n">Parameter</span><span class="p">,</span>
 </span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3376/2395267285.py:48: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
+<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3394/2395267285.py:48: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
 
   variable[...]
 
@@ -3499,7 +3499,7 @@ For other Variable types use:
   variable.get_value()
 
   K = (1 + self.tau.value * t / c) * jnp.clip(
-/tmp/ipykernel_3376/2395267285.py:50: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
+/tmp/ipykernel_3394/2395267285.py:50: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
 
   variable[...]
 
@@ -3523,7 +3523,7 @@ and illustrate the results.</p>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">mu</span> <span class="o">=</span> <span class="n">posterior_rv</span><span class="o">.</span><span class="n">mean</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">one_sigma</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">posterior_rv</span><span class="o">.</span><span class="n">variance</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3376/2395267285.py:48: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
+<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3394/2395267285.py:48: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
 
   variable[...]
 
@@ -3532,7 +3532,7 @@ For other Variable types use:
   variable.get_value()
 
   K = (1 + self.tau.value * t / c) * jnp.clip(
-/tmp/ipykernel_3376/2395267285.py:50: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
+/tmp/ipykernel_3394/2395267285.py:50: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
 
   variable[...]
 
@@ -3568,7 +3568,7 @@ For other Variable types use:
 </span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">D</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">D</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Observations&quot;</span><span class="p">)</span>
 </span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f4b480cb8d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f5f24fcd950&gt;
 </code></pre></div>
 <p><img alt="png" src="../constructing_new_kernels_files/constructing_new_kernels_21_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>
