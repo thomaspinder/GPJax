@@ -258,7 +258,7 @@ class CombinationKernel(AbstractKernel):
             if not isinstance(kernel, AbstractKernel):
                 raise TypeError("can only combine Kernel instances")  # pragma: no cover
 
-            if isinstance(kernel, self.__class__):
+            if isinstance(kernel, self.__class__) and kernel.operator is operator:
                 kernels_list.extend(kernel.kernels)
             else:
                 kernels_list.append(kernel)

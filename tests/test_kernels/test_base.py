@@ -210,3 +210,116 @@ def test_kernel_subclassing():
     assert dummy_kernel.test_a.value == jnp.array([1.0])
     assert dummy_kernel.test_b.value == jnp.array([2.0])
     assert dummy_kernel(jnp.array([1.0]), jnp.array([2.0])) == 4.0
+
+
+def test_nested_sum_of_product_value() -> None:
+    """Test that SumKernel preserves a nested ProductKernel."""
+    x = jnp.array([1.0, 2.0])
+
+    k1 = RBF()
+    k2 = Linear()
+    k3 = RBF()
+
+    # Build nested combination: k1 + (k2 * k3)
+    k_prod = ProductKernel(kernels=[k2, k3])
+    k_sum = SumKernel(kernels=[k1, k_prod])
+
+    # The product kernel should NOT be flattened into the sum
+    expected = k1(x, x) + k2(x, x) * k3(x, x)
+    assert jnp.isclose(k_sum(x, x), expected)
+
+
+def test_nested_product_of_sum_value() -> None:
+    """Test that ProductKernel preserves a nested SumKernel."""
+    x = jnp.array([1.0, 2.0])
+
+    k1 = RBF()
+    k2 = Linear()
+    k3 = RBF()
+
+    # Build nested combination: k1 * (k2 + k3)
+    k_sum = SumKernel(kernels=[k2, k3])
+    k_prod = ProductKernel(kernels=[k1, k_sum])
+
+    # The sum kernel should NOT be flattened into the product
+    expected = k1(x, x) * (k2(x, x) + k3(x, x))
+    assert jnp.isclose(k_prod(x, x), expected)
+
+
+def test_same_type_flattening_preserved() -> None:
+    """Test that same-type nesting is still flattened correctly."""
+    k1 = RBF()
+    k2 = Linear()
+    k3 = Matern12()
+
+    # SumKernel([SumKernel([k1, k2]), k3]) should flatten to SumKernel([k1, k2, k3])
+    k_inner_sum = SumKernel(kernels=[k1, k2])
+    k_outer_sum = SumKernel(kernels=[k_inner_sum, k3])
+    assert len(k_outer_sum.kernels) == 3
+
+    # ProductKernel([ProductKernel([k1, k2]), k3]) should flatten to ProductKernel([k1, k2, k3])
+    k_inner_prod = ProductKernel(kernels=[k1, k2])
+    k_outer_prod = ProductKernel(kernels=[k_inner_prod, k3])
+    assert len(k_outer_prod.kernels) == 3
+
+
+def test_nested_combination_kernel_structure() -> None:
+    """Test that nested combination kernels of different type are not flattened."""
+    k1 = RBF()
+    k2 = Linear()
+    k3 = Matern12()
+
+    # SumKernel([k1, ProductKernel([k2, k3])]) should keep the ProductKernel intact
+    k_prod = ProductKernel(kernels=[k2, k3])
+    k_sum = SumKernel(kernels=[k1, k_prod])
+    assert len(k_sum.kernels) == 2
+    assert isinstance(k_sum.kernels[1], CombinationKernel)
+
+    # ProductKernel([k1, SumKernel([k2, k3])]) should keep the SumKernel intact
+    k_sum2 = SumKernel(kernels=[k2, k3])
+    k_prod2 = ProductKernel(kernels=[k1, k_sum2])
+    assert len(k_prod2.kernels) == 2
+    assert isinstance(k_prod2.kernels[1], CombinationKernel)
+
+
+def test_nested_combination_via_operators() -> None:
+    """Test that operator overloading preserves nested combination structure."""
+    x = jnp.array([1.0, 2.0])
+
+    k1 = RBF()
+    k2 = Linear()
+    k3 = RBF()
+
+    # k1 + k2 * k3 should compute k1(x,x) + k2(x,x)*k3(x,x)
+    k_combined = k1 + k2 * k3
+    expected = k1(x, x) + k2(x, x) * k3(x, x)
+    assert jnp.isclose(k_combined(x, x), expected)
+
+
+@pytest.mark.parametrize("k1", TESTED_KERNELS)
+@pytest.mark.parametrize("k2", TESTED_KERNELS)
+def test_nested_sum_of_product_gram(
+    k1: type[AbstractKernel], k2: type[AbstractKernel]
+) -> None:
+    k1 = k1()
+    k2 = k2()
+    k3 = RBF()
+
+    # Create inputs
+    n = 10
+    x = jnp.linspace(0.0, 1.0, num=n).reshape(-1, 1)
+
+    # Create nested kernel: k1 + (k2 * k3)
+    k_prod = ProductKernel(kernels=[k2, k3])
+    k_sum = SumKernel(kernels=[k1, k_prod])
+
+    # Compute gram matrix
+    Kxx = k_sum.gram(x)
+
+    # Compute expected gram matrix manually
+    Kxx_k1 = k1.gram(x).to_dense()
+    Kxx_k2 = k2.gram(x).to_dense()
+    Kxx_k3 = k3.gram(x).to_dense()
+    Kxx_expected = Kxx_k1 + Kxx_k2 * Kxx_k3
+
+    assert jnp.allclose(Kxx.to_dense(), Kxx_expected)
