@@ -213,7 +213,7 @@ constructor receives a JAX tracer instead of a concrete array:
 jit_compute_gram_bad = jax.jit(compute_gram_bad)
 try:
     jit_compute_gram_bad(1.0)
-except TypeError as e:
+except Exception as e:
     print(e)
 ```
 
