@@ -1,12 +1,13 @@
-import jax
 from flax import nnx
 from hypothesis import (
     given,
     strategies as st,
 )
 from hypothesis.extra.numpy import arrays
+import jax
 import jax.numpy as jnp
 import numpy as np
+import numpyro.distributions as dist
 import pytest
 
 from gpjax.parameters import (
@@ -14,6 +15,7 @@ from gpjax.parameters import (
     FillTriangularTransform,
     LowerTriangular,
     NonNegativeReal,
+    Parameter,
     PositiveReal,
     Real,
     SigmoidBounded,
@@ -203,11 +205,9 @@ def test_fill_triangular_roundtrip_hypothesis(n, data):
 
 def test_fill_triangular_errors():
     ft = FillTriangularTransform()
-    # Invalid size
+    # A vector of length 2 is invalid: no integer n satisfies n(n+1)/2 = 2
     with pytest.raises(ValueError):
-        _safe_assert(
-            _check_in_bounds, jnp.array(1.5), low=jnp.array(0.0), high=jnp.array(1.0)
-        )
+        ft(jnp.zeros(2))
 
 
 @pytest.mark.parametrize(
@@ -227,3 +227,60 @@ def test_parameter_construction_under_grad(param_cls, value):
 
     grad = jax.grad(f)(value)
     assert grad.shape == value.shape
+
+
+class TestParameterPriorStorage:
+    """Regression tests: prior must be stored via NNX metadata, not instance attrs."""
+
+    def test_parameter_with_prior_constructs(self):
+        """Bug 1: Parameter.__init__ must not use direct setattr for numpyro_properties."""
+        p = PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
+        assert isinstance(p, Parameter)
+
+    def test_parameter_without_prior_constructs(self):
+        p = PositiveReal(1.0)
+        assert isinstance(p, Parameter)
+
+    def test_prior_accessible_after_construction(self):
+        prior = dist.LogNormal(0.0, 1.0)
+        p = PositiveReal(1.0, prior=prior)
+        numpyro_props = getattr(p, "numpyro_properties", {})
+        assert numpyro_props.get("prior") is prior
+
+    def test_no_prior_gives_empty_numpyro_properties(self):
+        p = PositiveReal(1.0)
+        numpyro_props = getattr(p, "numpyro_properties", {})
+        assert numpyro_props.get("prior") is None
+
+    def test_tag_property_works(self):
+        """Bug 2: Parameter.tag must not use removed .metadata property."""
+        p = PositiveReal(1.0)
+        assert p.tag == "positive"
+
+    def test_tag_property_all_types(self):
+        assert Real(0.0).tag == "real"
+        assert PositiveReal(1.0).tag == "positive"
+        assert NonNegativeReal(0.0).tag == "non_negative"
+        assert SigmoidBounded(0.5).tag == "sigmoid"
+        assert LowerTriangular(jnp.eye(2)).tag == "lower_triangular"
+
+    def test_prior_survives_split_merge(self):
+        """Prior metadata must survive nnx.split / nnx.merge cycle."""
+
+        class M(nnx.Module):
+            def __init__(self):
+                self.ls = PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
+
+        m = M()
+        graphdef, state = nnx.split(m)
+        m2 = nnx.merge(graphdef, state)
+        numpyro_props = getattr(m2.ls, "numpyro_properties", {})
+        assert isinstance(numpyro_props.get("prior"), dist.LogNormal)
+
+    def test_prior_survives_replace(self):
+        """Prior metadata must survive Variable.replace()."""
+        prior = dist.LogNormal(0.0, 1.0)
+        p = PositiveReal(1.0, prior=prior)
+        p2 = p.replace(jnp.array(2.0))
+        numpyro_props = getattr(p2, "numpyro_properties", {})
+        assert numpyro_props.get("prior") is prior

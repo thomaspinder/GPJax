@@ -3,13 +3,14 @@
 #   jupytext:
 #     cell_metadata_filter: -all
 #     custom_cell_magics: kql
+#     formats: ipynb,py:percent
 #     text_representation:
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.17.3
+#       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -217,6 +218,10 @@ print("\nRMSE Comparison (vs True Signal):")
 print(f"Linear Model: {rmse_lin:.4f}")
 print(f"Joint Model:  {rmse_joint:.4f}")
 
+# %% [markdown]
+# Let's now plot the predicted profiles from both models.
+
+# %%
 n_grid = 30
 x1 = jnp.linspace(0, 5, n_grid)
 x2 = jnp.linspace(0, 5, n_grid)
@@ -235,32 +240,35 @@ mean_pred_joint_grid = jnp.mean(preds_joint_grid, axis=0)
 
 fig, axes = plt.subplots(1, 3, figsize=(12, 3), sharey=True)
 
+vmin = min(y_grid_true.min(), mean_pred_lin_grid.min(), mean_pred_joint_grid.min())
+vmax = max(y_grid_true.max(), mean_pred_lin_grid.max(), mean_pred_joint_grid.max())
+levels = jnp.linspace(vmin, vmax, 20)
+
 c0 = axes[0].tricontourf(
-    X_grid[:, 0], X_grid[:, 1], y_grid_true, levels=20, cmap="magma"
+    X_grid[:, 0], X_grid[:, 1], y_grid_true, levels=levels, cmap="magma"
 )
 axes[0].set_title("True Signal")
-plt.colorbar(c0, ax=axes[0])
 
 c1 = axes[1].tricontourf(
-    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=20, cmap="magma"
+    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=levels, cmap="magma"
 )
 axes[1].set_title(f"Linear Model (RMSE: {rmse_lin:.2f})")
-plt.colorbar(c1, ax=axes[1])
 
 c2 = axes[2].tricontourf(
     X_grid[:, 0],
     X_grid[:, 1],
     mean_pred_joint_grid.flatten(),
-    levels=20,
+    levels=levels,
     cmap="magma",
 )
 axes[2].set_title(f"Joint Model (RMSE: {rmse_joint:.2f})")
-plt.colorbar(c2, ax=axes[2])
+
+cbar = fig.colorbar(c0, ax=axes.tolist())
+cbar.ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter("%d"))
 
 for ax in axes:
     ax.set_xlabel("x1")
-    ax.set_ylabel("x2")
-    ax.scatter(X[:, 0], X[:, 1], c=cols[0], s=10, alpha=0.3, label="Data")
+    ax.scatter(X[:, 0], X[:, 1], c=cols[0], s=10, alpha=0.5)
 
 
 # %% [markdown]

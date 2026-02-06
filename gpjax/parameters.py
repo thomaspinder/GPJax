@@ -183,15 +183,15 @@ class Parameter(nnx.Variable[T]):
         super().__init__(value=jnp.asarray(value), **kwargs)
 
         # nnx.Variable metadata must be set via set_metadata (direct setattr is disallowed).
-        self.set_metadata(tag=tag)
-        self.numpyro_properties: tp.Dict[str, tp.Any] = {}
-        if prior is not None:
-            self.numpyro_properties["prior"] = prior
+        self.set_metadata(
+            tag=tag,
+            numpyro_properties={"prior": prior} if prior is not None else {},
+        )
 
     @property
     def tag(self) -> ParameterTag:
         """Return the parameter's constraint tag."""
-        return self.metadata.get("tag", "real")
+        return self.get_metadata("tag", "real")
 
 
 class NonNegativeReal(Parameter[T]):

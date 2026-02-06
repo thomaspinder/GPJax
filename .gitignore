@@ -158,3 +158,4 @@ local_papers/
 GEMINI.md
 AGENTS.md
 plans/
+*.ipynb

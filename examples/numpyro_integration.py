@@ -3,11 +3,12 @@
 #   jupytext:
 #     cell_metadata_filter: -all
 #     custom_cell_magics: kql
+#     formats: ipynb,py:percent
 #     text_representation:
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.17.3
+#       jupytext_version: 1.19.1
 #   kernelspec:
 #     display_name: python3
 #     language: python
@@ -118,7 +119,7 @@ period = gpx.parameters.PositiveReal(1.0, prior=period_prior)
 noise = gpx.parameters.NonNegativeReal(1.0, prior=noise_prior)
 
 # %% [markdown]
-
+#
 # Now that all of our parameters are defined, we'll proceed to construct the Gaussian process in
 # the ordinary fashion. For a deeper look at this, our
 # [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/)
