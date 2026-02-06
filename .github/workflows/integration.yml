@@ -34,5 +34,5 @@ jobs:
       # Run the unit tests and build the coverage report
       - name: Run Integration Tests
         run: |
-          uv sync --extra docs
+          uv sync --frozen --extra docs
           uv run python tests/integration_tests.py

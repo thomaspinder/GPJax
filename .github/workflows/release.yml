@@ -84,7 +84,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync --frozen --extra dev
 
       - name: Run tests
         run: |
@@ -120,7 +120,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync --frozen --extra dev
           uv add safety bandit[toml]
 
       - name: Run security scans

@@ -56,7 +56,7 @@ jobs:
       - name: Build the documentation with MKDocs
         run: |
           conda install pandoc
-          uv sync --extra docs
+          uv sync --frozen --extra docs
           uv run python docs/scripts/gen_examples.py --execute
           uv run mkdocs build
 
