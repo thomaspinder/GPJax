@@ -23,8 +23,8 @@ from jaxtyping import Num
 from gpjax.typing import Array
 
 
-@dataclass
 @jax.tree_util.register_pytree_node_class
+@dataclass(slots=True)
 class Dataset:
     r"""Base class for datasets.
 

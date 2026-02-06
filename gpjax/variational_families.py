@@ -876,7 +876,7 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         )
 
 
-@dataclass
+@dataclass(slots=True)
 class VariationalGaussianInit:
     """Initialization parameters for a variational Gaussian distribution."""
 

@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from gpjax.gps import Prior
 
 
-@dataclass
+@dataclass(slots=True)
 class NoiseMoments:
     log_variance: Array
     inv_variance: Array
