@@ -210,3 +210,12 @@ SumMeanFunction = ft.partial(
 ProductMeanFunction = ft.partial(
     CombinationMeanFunction, operator=ft.partial(jnp.prod, axis=0)
 )
+
+__all__ = [
+    "AbstractMeanFunction",
+    "CombinationMeanFunction",
+    "Constant",
+    "ProductMeanFunction",
+    "SumMeanFunction",
+    "Zero",
+]

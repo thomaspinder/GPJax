@@ -406,3 +406,13 @@ def _kronecker_tree_unflatten(aux_data, children):
 
 
 jtu.register_pytree_node(Kronecker, _kronecker_tree_flatten, _kronecker_tree_unflatten)
+
+__all__ = [
+    "BlockDiag",
+    "Dense",
+    "Diagonal",
+    "Identity",
+    "Kronecker",
+    "LinearOperator",
+    "Triangular",
+]

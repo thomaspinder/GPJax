@@ -166,3 +166,7 @@ def _check_lengthscale(lengthscale: tp.Any):
                 f"Expected `lengthscale` to be a scalar or 1D array. "
                 f"Got `lengthscale` with shape {ls_shape}."
             )
+
+__all__ = [
+    "StationaryKernel",
+]

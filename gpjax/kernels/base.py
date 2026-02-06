@@ -336,3 +336,11 @@ def _check_dims_compat(
 
 SumKernel = ft.partial(CombinationKernel, operator=jnp.sum)
 ProductKernel = ft.partial(CombinationKernel, operator=jnp.prod)
+
+__all__ = [
+    "AbstractKernel",
+    "CombinationKernel",
+    "Constant",
+    "ProductKernel",
+    "SumKernel",
+]
