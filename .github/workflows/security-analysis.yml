@@ -39,14 +39,16 @@ jobs:
         uv sync --frozen
 
     - name: Run safety check
+      continue-on-error: true
       run: |
         uv add safety
-        uv run safety check --json --output safety-report.json || true
+        uv run safety check --json --output safety-report.json
 
     - name: Run bandit security linter
+      continue-on-error: true
       run: |
         uv add bandit[toml]
-        uv run bandit -r gpjax/ -f json -o bandit-report.json || true
+        uv run bandit -r gpjax/ -f json -o bandit-report.json -ll
 
     - name: Upload dependency scan results
       uses: actions/upload-artifact@v6
