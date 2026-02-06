@@ -20,17 +20,16 @@ linalg operators) produce identical results with and without
 ``jax.jit``.
 """
 
+from gpjax.dataset import Dataset
+from gpjax.gps import Prior
+from gpjax.kernels.stationary import RBF, Matern32
+from gpjax.likelihoods import Gaussian
+from gpjax.linalg import Dense, Diagonal, Identity
+from gpjax.mean_functions import Constant
 import jax
 from jax import config
 import jax.numpy as jnp
 import pytest
-
-from gpjax.dataset import Dataset
-from gpjax.gps import Prior
-from gpjax.kernels.stationary import Matern32, RBF
-from gpjax.likelihoods import Gaussian
-from gpjax.linalg import Dense, Diagonal, Identity
-from gpjax.mean_functions import Constant
 
 config.update("jax_enable_x64", True)
 

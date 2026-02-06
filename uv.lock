@@ -17,7 +17,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-01-30T10:45:31.838364Z"
+exclude-newer = "2026-01-30T12:47:04.003441Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -966,23 +966,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-dev = [
-    { name = "absolufy-imports" },
-    { name = "codespell" },
-    { name = "coverage" },
-    { name = "interrogate" },
-    { name = "jupytext" },
-    { name = "mktestdocs" },
-    { name = "networkx" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-beartype" },
-    { name = "pytest-cov" },
-    { name = "pytest-pretty" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-    { name = "xdoctest" },
-]
 docs = [
     { name = "blackjax" },
     { name = "ipykernel" },
@@ -1031,20 +1014,15 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "absolufy-imports", marker = "extra == 'dev'", specifier = ">=0.3.1" },
     { name = "beartype", specifier = ">0.16.1" },
     { name = "blackjax", marker = "extra == 'docs'", specifier = ">=0.9.6" },
-    { name = "codespell", marker = "extra == 'dev'", specifier = ">=2.2.4" },
-    { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.2.2" },
-    { name = "flax", specifier = ">=0.12.0" },
-    { name = "interrogate", marker = "extra == 'dev'", specifier = ">=1.5.0" },
+    { name = "flax", specifier = ">=0.12.2" },
     { name = "ipykernel", marker = "extra == 'docs'", specifier = ">=6.22.0" },
     { name = "ipython", marker = "extra == 'docs'", specifier = ">=8.11.0" },
     { name = "ipywidgets", marker = "extra == 'docs'", specifier = ">=8.0.5" },
     { name = "jax", specifier = ">=0.5.0" },
     { name = "jaxlib", specifier = ">=0.5.0" },
     { name = "jaxtyping", specifier = ">0.2.10" },
-    { name = "jupytext", marker = "extra == 'dev'" },
     { name = "jupytext", marker = "extra == 'docs'", specifier = ">=1.14.5" },
     { name = "markdown-katex", marker = "extra == 'docs'", specifier = ">=202406.1035" },
     { name = "matplotlib", marker = "extra == 'docs'", specifier = ">=3.7.1" },
@@ -1055,30 +1033,20 @@ requires-dist = [
     { name = "mkdocs-literate-nav", marker = "extra == 'docs'", specifier = ">=0.6.0" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.12" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = "<1.1.0" },
-    { name = "mktestdocs", marker = "extra == 'dev'", specifier = ">=0.2.1" },
     { name = "nbconvert", marker = "extra == 'docs'", specifier = ">=7.16.2" },
-    { name = "networkx", marker = "extra == 'dev'" },
     { name = "networkx", marker = "extra == 'docs'", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=2.0.0" },
-    { name = "numpyro" },
+    { name = "numpyro", specifier = ">=0.19.0" },
     { name = "optax", specifier = ">0.2.1" },
     { name = "pandas", marker = "extra == 'docs'", specifier = ">=1.5.3" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.2.2" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.7.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.2.2" },
-    { name = "pytest-beartype", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "pytest-pretty", marker = "extra == 'dev'", specifier = ">=1.1.1" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.2.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "scikit-learn", marker = "extra == 'docs'", specifier = ">=1.5.1" },
     { name = "seaborn", marker = "extra == 'docs'", specifier = ">=0.12.2" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'", specifier = "!=0.1.76" },
     { name = "tqdm", specifier = ">4.66.2" },
     { name = "watermark", marker = "extra == 'docs'", specifier = ">=2.3.1" },
-    { name = "xdoctest", marker = "extra == 'dev'", specifier = ">=1.1.1" },
 ]
-provides-extras = ["dev", "docs"]
+provides-extras = ["docs"]
 
 [package.metadata.requires-dev]
 dev = [
