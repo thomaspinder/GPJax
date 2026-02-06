@@ -488,7 +488,8 @@ def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
 
     Returns
     -------
-        Float[Array, "*N"]: The inverse probit of the input vector.
+    Float[Array, "*N"]
+        The inverse probit of the input vector.
     """
     jitter = 1e-3  # To ensure output is in interval (0, 1).
     return 0.5 * (1.0 + jsp.special.erf(x / jnp.sqrt(2.0))) * (1 - 2 * jitter) + jitter

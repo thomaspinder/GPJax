@@ -931,9 +931,10 @@ def construct_posterior(prior: AbstractPrior, likelihood: AbstractLikelihood) ->
 
     Returns
     -------
-        AbstractPosterior: A posterior distribution. If the likelihood is
-            Gaussian, then a `ConjugatePosterior` will be returned. Otherwise,
-            a `NonConjugatePosterior` will be returned.
+    AbstractPosterior
+        A posterior distribution. If the likelihood is Gaussian, then a
+        `ConjugatePosterior` will be returned. Otherwise, a
+        `NonConjugatePosterior` will be returned.
     """
     if isinstance(likelihood, Gaussian):
         return ConjugatePosterior(prior=prior, likelihood=likelihood)
@@ -963,7 +964,8 @@ def _build_fourier_features_fn(
 
     Returns
     -------
-        Callable: A callable function evaluation the sampled feature functions.
+    Callable
+        A callable function evaluating the sampled feature functions.
     """
     if (not isinstance(num_features, int)) or num_features <= 0:
         raise ValueError("num_features must be a positive integer")

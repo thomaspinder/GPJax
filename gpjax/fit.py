@@ -371,7 +371,8 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
 
     Returns
     -------
-        Dataset: The batched dataset.
+    Dataset
+        The batched dataset.
     """
     x, y, n = train_data.X, train_data.y, train_data.n
 

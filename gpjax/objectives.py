@@ -94,7 +94,8 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
 
     Returns
     -------
-        ScalarFloat: The marginal log-likelihood of the Gaussian process.
+    ScalarFloat
+        The marginal log-likelihood of the Gaussian process.
     """
 
     x, y = data.X, data.y
@@ -157,7 +158,8 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
 
     Returns
     -------
-        ScalarFloat: The marginal log-likelihood of the Gaussian process.
+    ScalarFloat
+        The marginal log-likelihood of the Gaussian process.
     """
 
     x, y = data.X, data.y
@@ -214,7 +216,8 @@ def log_posterior_density(
 
     Returns
     -------
-        ScalarFloat: The log-posterior density of the Gaussian process.
+    ScalarFloat
+        The log-posterior density of the Gaussian process.
     """
 
     x, y = data.X, data.y
@@ -263,7 +266,8 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
     Returns
     -------
-        ScalarFloat: The evidence lower bound of the variational approximation.
+    ScalarFloat
+        The evidence lower bound of the variational approximation.
     """
     # KL[q(f(·)) || p(f(·))]
     kl = variational_family.prior_kl()
@@ -296,8 +300,9 @@ def variational_expectation(
 
     Returns
     -------
-        Array: The expectation of the model's log-likelihood under our variational
-            distribution.
+    Array
+        The expectation of the model's log-likelihood under our variational
+        distribution.
     """
     # Unpack training batch
     x, y = data.X, data.y
@@ -343,7 +348,8 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
     Returns
     -------
-        ScalarFloat: The evidence lower bound of the variational approximation.
+    ScalarFloat
+        The evidence lower bound of the variational approximation.
     """
     # Unpack training data
     x, y, n = data.X, data.y, data.n
