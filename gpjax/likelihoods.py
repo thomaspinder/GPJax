@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import beartype.typing as tp
 from flax import nnx
@@ -39,6 +40,9 @@ from gpjax.typing import (
     Array,
     ScalarFloat,
 )
+
+if TYPE_CHECKING:
+    from gpjax.gps import Prior
 
 
 @dataclass
@@ -228,7 +232,7 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
     def __init__(
         self,
         num_datapoints: int,
-        noise_prior,
+        noise_prior: Prior,
         noise_transform: tp.Union[
             AbstractNoiseTransform,
             tp.Callable[[Float[Array, ...]], Float[Array, ...]],
