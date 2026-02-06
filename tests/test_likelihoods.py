@@ -18,6 +18,12 @@ from typing import (
     Tuple,
 )
 
+from gpjax.likelihoods import (
+    Bernoulli,
+    Gaussian,
+    Poisson,
+    inv_probit,
+)
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -28,13 +34,6 @@ from jaxtyping import (
 import numpy as np
 import numpyro.distributions as npd
 import pytest
-
-from gpjax.likelihoods import (
-    Bernoulli,
-    Gaussian,
-    Poisson,
-    inv_probit,
-)
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

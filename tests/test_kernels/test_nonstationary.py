@@ -16,12 +16,6 @@
 from itertools import product
 from typing import Any
 
-import jax
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import AbstractKernelComputation
 from gpjax.kernels.nonstationary import (
@@ -34,6 +28,11 @@ from gpjax.parameters import (
     NonNegativeReal,
     Parameter,
 )
+import jax
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

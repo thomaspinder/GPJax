@@ -1,11 +1,5 @@
 from typing import Tuple
 
-import jax
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 from gpjax.kernels.approximations import RFF
 from gpjax.kernels.nonstationary import (
     Linear,
@@ -22,6 +16,11 @@ from gpjax.kernels.stationary import (
     StationaryKernel,
 )
 from gpjax.linalg.operators import Dense
+import jax
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 config.update("jax_enable_x64", True)
 _jitter = 1e-6

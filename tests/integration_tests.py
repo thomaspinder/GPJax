@@ -26,10 +26,9 @@ from beartype.typing import (
     Callable,
     Dict,
 )
+import gpjax
 import jax.numpy as jnp  # noqa: F401
 import jupytext
-
-import gpjax
 
 # %%
 get_last = lambda x: x[-1]

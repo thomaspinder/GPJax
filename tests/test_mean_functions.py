@@ -21,16 +21,6 @@ config.update("jax_enable_x64", True)
 
 import warnings
 
-import jax.numpy as jnp
-import jax.random as jr
-from jaxtyping import (
-    Array,
-    Float,
-    Num,
-)
-import pytest
-from scipy.optimize import OptimizeWarning
-
 import gpjax as gpx
 from gpjax.mean_functions import (
     AbstractMeanFunction,
@@ -42,6 +32,15 @@ from gpjax.parameters import (
     Parameter,
     Real,
 )
+import jax.numpy as jnp
+import jax.random as jr
+from jaxtyping import (
+    Array,
+    Float,
+    Num,
+)
+import pytest
+from scipy.optimize import OptimizeWarning
 
 
 def test_abstract() -> None:

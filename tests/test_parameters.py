@@ -1,15 +1,4 @@
 from flax import nnx
-from hypothesis import (
-    given,
-    strategies as st,
-)
-from hypothesis.extra.numpy import arrays
-import jax
-import jax.numpy as jnp
-import numpy as np
-import numpyro.distributions as dist
-import pytest
-
 from gpjax.parameters import (
     DEFAULT_BIJECTION,
     FillTriangularTransform,
@@ -21,6 +10,16 @@ from gpjax.parameters import (
     SigmoidBounded,
     transform,
 )
+from hypothesis import (
+    given,
+    strategies as st,
+)
+from hypothesis.extra.numpy import arrays
+import jax
+import jax.numpy as jnp
+import numpy as np
+import numpyro.distributions as dist
+import pytest
 
 
 def valid_shapes(min_dims=0, max_dims=2):

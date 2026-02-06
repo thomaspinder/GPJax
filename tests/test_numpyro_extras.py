@@ -1,4 +1,16 @@
 from flax import nnx
+from gpjax.numpyro_extras import (
+    register_parameters,
+    resolve_prior,
+    tree_path_to_name,
+)
+from gpjax.parameters import (
+    LowerTriangular,
+    NonNegativeReal,
+    PositiveReal,
+    Real,
+    SigmoidBounded,
+)
 from hypothesis import (
     given,
     strategies as st,
@@ -11,19 +23,6 @@ import numpyro.distributions as dist
 from numpyro.handlers import (
     seed,
     trace,
-)
-
-from gpjax.numpyro_extras import (
-    register_parameters,
-    resolve_prior,
-    tree_path_to_name,
-)
-from gpjax.parameters import (
-    LowerTriangular,
-    NonNegativeReal,
-    PositiveReal,
-    Real,
-    SigmoidBounded,
 )
 
 

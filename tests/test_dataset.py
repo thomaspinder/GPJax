@@ -23,12 +23,11 @@ try:
 except ImportError:
     ValidationErrors = ValueError
 
+from gpjax.dataset import Dataset
 from jax import config
 import jax.numpy as jnp
 import jax.tree_util as jtu
 import pytest
-
-from gpjax.dataset import Dataset
 
 config.update("jax_enable_x64", True)
 

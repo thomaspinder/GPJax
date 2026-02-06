@@ -10,6 +10,8 @@
 # # See the License for the specific language governing permissions and
 # # limitations under the License.
 
+from gpjax.kernels.non_euclidean import GraphKernel
+from gpjax.linalg.operators import Identity
 from jax import (
     config,
     jit,
@@ -17,9 +19,6 @@ from jax import (
 )
 import jax.numpy as jnp
 import networkx as nx
-
-from gpjax.kernels.non_euclidean import GraphKernel
-from gpjax.linalg.operators import Identity
 
 # # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

@@ -16,17 +16,16 @@
 
 import typing as tp
 
-import jax
-from jax import config
-import jax.numpy as jnp
-import numpy as np
-import pytest
-
 from gpjax.integrators import GHQuadratureIntegrator
 from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
 )
+import jax
+from jax import config
+import jax.numpy as jnp
+import numpy as np
+import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
