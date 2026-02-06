@@ -810,7 +810,7 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         x, y = train_data.X, train_data.y
 
         # Unpack variational parameters
-        noise_var = self.posterior.likelihood.obs_stddev[...]**2
+        noise_var = self.posterior.likelihood.obs_stddev[...] ** 2
         z = self.inducing_inputs[...]
         m = self.num_inducing
 
@@ -999,13 +999,13 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
 __all__ = [
     "AbstractVariationalFamily",
     "AbstractVariationalGaussian",
-    "VariationalGaussian",
-    "GraphVariationalGaussian",
-    "WhitenedVariationalGaussian",
-    "NaturalVariationalGaussian",
-    "ExpectationVariationalGaussian",
     "CollapsedVariationalGaussian",
-    "HeteroscedasticVariationalFamily",
-    "VariationalGaussianInit",
+    "ExpectationVariationalGaussian",
+    "GraphVariationalGaussian",
     "HeteroscedasticPrediction",
+    "HeteroscedasticVariationalFamily",
+    "NaturalVariationalGaussian",
+    "VariationalGaussian",
+    "VariationalGaussianInit",
+    "WhitenedVariationalGaussian",
 ]

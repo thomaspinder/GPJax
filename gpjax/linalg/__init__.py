@@ -21,17 +21,17 @@ from gpjax.linalg.utils import (
 )
 
 __all__ = [
-    "LinearOperator",
+    "PSD",
+    "BlockDiag",
     "Dense",
     "Diagonal",
     "Identity",
-    "Triangular",
-    "BlockDiag",
     "Kronecker",
-    "lower_cholesky",
-    "solve",
-    "logdet",
+    "LinearOperator",
+    "Triangular",
     "diag",
+    "logdet",
+    "lower_cholesky",
     "psd",
-    "PSD",
+    "solve",
 ]

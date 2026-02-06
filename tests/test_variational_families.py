@@ -14,9 +14,9 @@
 # ==============================================================================
 
 from typing import (
-    Callable,
     Tuple,
 )
+from collections.abc import Callable
 
 import gpjax as gpx
 from gpjax.gps import AbstractPosterior
@@ -67,12 +67,12 @@ def test_abstract_variational_family():
 
 
 # Functions to test variational family parameter shapes upon initialisation.
-def vector_shape(n_inducing: int) -> Tuple[int, int]:
+def vector_shape(n_inducing: int) -> tuple[int, int]:
     """Shape of a vector with n_inducing rows and 1 column."""
     return (n_inducing, 1)
 
 
-def matrix_shape(n_inducing: int) -> Tuple[int, int]:
+def matrix_shape(n_inducing: int) -> tuple[int, int]:
     """Shape of a matrix with n_inducing rows and 1 column."""
     return (n_inducing, n_inducing)
 
@@ -130,15 +130,7 @@ def test_variational_gaussians(
     assert q.num_inducing == n_inducing
     assert isinstance(q, AbstractVariationalFamily)
 
-    if isinstance(q, VariationalGaussian):
-        assert q.variational_mean[...].shape == vector_shape(n_inducing)
-        assert q.variational_root_covariance[...].shape == matrix_shape(n_inducing)
-        assert (q.variational_mean[...] == vector_val(0.0)(n_inducing)).all()
-        assert (
-            q.variational_root_covariance[...] == diag_matrix_val(1.0)(n_inducing)
-        ).all()
-
-    elif isinstance(q, WhitenedVariationalGaussian):
+    if isinstance(q, VariationalGaussian) or isinstance(q, WhitenedVariationalGaussian):
         assert q.variational_mean[...].shape == vector_shape(n_inducing)
         assert q.variational_root_covariance[...].shape == matrix_shape(n_inducing)
         assert (q.variational_mean[...] == vector_val(0.0)(n_inducing)).all()

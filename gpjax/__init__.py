@@ -43,6 +43,11 @@ __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
 __version__ = "0.13.5"
 
 __all__ = [
+    "Dataset",
+    "cite",
+    "fit",
+    "fit_lbfgs",
+    "fit_scipy",
     "gps",
     "integrators",
     "kernels",
@@ -51,9 +56,4 @@ __all__ = [
     "objectives",
     "parameters",
     "variational_families",
-    "Dataset",
-    "cite",
-    "fit",
-    "fit_lbfgs",
-    "fit_scipy",
 ]

@@ -24,13 +24,13 @@ from gpjax.kernels.stationary.rbf import RBF
 from gpjax.kernels.stationary.white import White
 
 __all__ = [
+    "RBF",
     "Matern12",
     "Matern32",
     "Matern52",
     "Periodic",
     "PoweredExponential",
     "RationalQuadratic",
-    "RBF",
     "StationaryKernel",
     "White",
 ]

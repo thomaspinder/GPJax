@@ -20,13 +20,13 @@ from jaxtyping import (
     Num,
 )
 
-import gpjax  # noqa: F401
+import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
 from gpjax.typing import Array
 
 Kernel = tp.TypeVar(
     "Kernel",
-    bound="gpjax.kernels.non_euclidean.graph.GraphKernel",  # noqa: F821
+    bound="gpjax.kernels.non_euclidean.graph.GraphKernel",
 )
 
 

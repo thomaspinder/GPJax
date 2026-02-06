@@ -10,7 +10,7 @@ from jax.typing import ArrayLike
 import numpyro.distributions as dist
 import numpyro.distributions.transforms as npt
 
-T = tp.TypeVar("T", bound=tp.Union[ArrayLike, list[float]])
+T = tp.TypeVar("T", bound=ArrayLike | list[float])
 ParameterTag = str
 
 
@@ -113,7 +113,7 @@ class FillTriangularTransform(npt.Transform):
 
 def transform(
     params: nnx.State,
-    params_bijection: tp.Dict[str, npt.Transform],
+    params_bijection: dict[str, npt.Transform],
     inverse: bool = False,
 ) -> nnx.State:
     r"""Transforms parameters using a bijector.
@@ -175,7 +175,7 @@ class Parameter(nnx.Variable[T]):
         self,
         value: T,
         tag: ParameterTag,
-        prior: tp.Optional[dist.Distribution] = None,
+        prior: dist.Distribution | None = None,
         **kwargs,
     ):
         _check_is_arraylike(value)

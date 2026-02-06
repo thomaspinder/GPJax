@@ -76,7 +76,9 @@ class RationalQuadratic(StationaryKernel):
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         x = self.slice_input(x) / self.lengthscale[...]
         y = self.slice_input(y) / self.lengthscale[...]
-        alpha_val = self.alpha[...] if isinstance(self.alpha, nnx.Variable) else self.alpha
+        alpha_val = (
+            self.alpha[...] if isinstance(self.alpha, nnx.Variable) else self.alpha
+        )
         K = self.variance[...] * (1 + 0.5 * squared_distance(x, y) / alpha_val) ** (
             -alpha_val
         )

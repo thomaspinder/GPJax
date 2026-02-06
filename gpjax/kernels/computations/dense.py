@@ -17,11 +17,11 @@ import beartype.typing as tp
 from jax import vmap
 from jaxtyping import Float
 
-import gpjax  # noqa: F401
+import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
 from gpjax.typing import Array
 
-K = tp.TypeVar("K", bound="gpjax.kernels.base.AbstractKernel")  # noqa: F821
+K = tp.TypeVar("K", bound="gpjax.kernels.base.AbstractKernel")
 
 
 class DenseKernelComputation(AbstractKernelComputation):

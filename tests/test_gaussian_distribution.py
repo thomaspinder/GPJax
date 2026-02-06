@@ -48,7 +48,7 @@ def test_array_arguments(n: int) -> None:
     sqrt = jr.uniform(key_sqrt, shape=(n, n))
     covariance = sqrt @ sqrt.T
     # check that cholesky does not error
-    _L = jnp.linalg.cholesky(covariance)  # noqa: F841
+    _L = jnp.linalg.cholesky(covariance)
 
     dist = GaussianDistribution(loc=mean, scale=PSD(Dense(covariance)))
 

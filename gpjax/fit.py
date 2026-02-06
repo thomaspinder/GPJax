@@ -41,13 +41,13 @@ from gpjax.typing import (
 Model = tp.TypeVar("Model", bound=nnx.Module)
 
 
-def fit(  # noqa: PLR0913
+def fit(
     *,
     model: Model,
     objective: Objective,
     train_data: Dataset,
     optim: ox.GradientTransformation,
-    params_bijection: tp.Union[dict[Parameter, Transform], None] = DEFAULT_BIJECTION,
+    params_bijection: dict[Parameter, Transform] | None = DEFAULT_BIJECTION,
     trainable: nnx.filterlib.Filter = Parameter,
     key: KeyArray = jr.PRNGKey(42),
     num_iters: int = 100,
@@ -180,7 +180,7 @@ def fit(  # noqa: PLR0913
     return model, history
 
 
-def fit_scipy(  # noqa: PLR0913
+def fit_scipy(
     *,
     model: Model,
     objective: Objective,
@@ -261,7 +261,7 @@ def fit_lbfgs(
     model: Model,
     objective: Objective,
     train_data: Dataset,
-    params_bijection: tp.Union[dict[Parameter, Transform], None] = DEFAULT_BIJECTION,
+    params_bijection: dict[Parameter, Transform] | None = DEFAULT_BIJECTION,
     trainable: nnx.filterlib.Filter = Parameter,
     max_iters: int = 100,
     safe: bool = True,

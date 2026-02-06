@@ -39,7 +39,7 @@ import pytest
     ],
 )
 def test_euclidean_distance(
-    a: List[float], b: List[float], distance_to_3dp: float
+    a: list[float], b: list[float], distance_to_3dp: float
 ) -> None:
     # Convert lists to JAX arrays:
     a: Float[Array, " D"] = jnp.array(a)

@@ -9,9 +9,9 @@ from gpjax.typing import Array
 
 L = tp.TypeVar(
     "L",
-    bound="gpjax.likelihoods.AbstractLikelihood",  # noqa: F821
+    bound="gpjax.likelihoods.AbstractLikelihood",
 )
-GL = tp.TypeVar("GL", bound="gpjax.likelihoods.Gaussian")  # noqa: F821
+GL = tp.TypeVar("GL", bound="gpjax.likelihoods.Gaussian")
 
 
 class AbstractIntegrator:
@@ -160,6 +160,6 @@ class AnalyticalGaussianIntegrator(AbstractIntegrator):
 
 __all__ = [
     "AbstractIntegrator",
-    "GHQuadratureIntegrator",
     "AnalyticalGaussianIntegrator",
+    "GHQuadratureIntegrator",
 ]

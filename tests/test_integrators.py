@@ -59,7 +59,7 @@ def test_quadrature(jit: bool, num_points: int):
 @pytest.mark.parametrize(
     "params", [(0.5, -4.22579135), (1.0, -1.91893853), (0.01, -9996.31376835)]
 )
-def test_analytical_gaussian(jit: bool, params: tp.Tuple[float, float]):
+def test_analytical_gaussian(jit: bool, params: tuple[float, float]):
     obs_stddev, expected = params
     likelihood = Gaussian(num_datapoints=1, obs_stddev=jnp.array([obs_stddev]))
     mu = jnp.array([[0.0]])
@@ -76,7 +76,7 @@ def test_analytical_gaussian(jit: bool, params: tp.Tuple[float, float]):
 
 @pytest.mark.parametrize("jit", [True, False])
 @pytest.mark.parametrize("params", [(0.25, 0.5, -0.65437282), (0.5, 1.0, -0.61716802)])
-def test_bernoulli_quadrature(jit: bool, params: tp.Tuple[float, float]):
+def test_bernoulli_quadrature(jit: bool, params: tuple[float, float]):
     mu, variance, expected = params
     mu = jnp.atleast_2d(mu)
     variance = jnp.atleast_2d(variance)

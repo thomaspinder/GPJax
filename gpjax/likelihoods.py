@@ -105,7 +105,7 @@ class AbstractLikelihood(nnx.Module):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def link_function(self, f: Float[Array, "..."]) -> npd.Distribution:
+    def link_function(self, f: Float[Array, ...]) -> npd.Distribution:
         r"""Return the link function of the likelihood function.
 
         Args:
@@ -158,13 +158,13 @@ class AbstractNoiseTransform(nnx.Module):
     """Abstract base class for noise transformations."""
 
     @abc.abstractmethod
-    def __call__(self, x: Float[Array, "..."]) -> Float[Array, "..."]:
+    def __call__(self, x: Float[Array, ...]) -> Float[Array, ...]:
         """Transform the input noise signal."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def moments(
-        self, mean: Float[Array, "..."], variance: Float[Array, "..."]
+        self, mean: Float[Array, ...], variance: Float[Array, ...]
     ) -> NoiseMoments:
         """Compute the moments of the transformed noise signal."""
         raise NotImplementedError
@@ -173,11 +173,11 @@ class AbstractNoiseTransform(nnx.Module):
 class LogNormalTransform(AbstractNoiseTransform):
     """Log-normal noise transformation."""
 
-    def __call__(self, x: Float[Array, "..."]) -> Float[Array, "..."]:
+    def __call__(self, x: Float[Array, ...]) -> Float[Array, ...]:
         return jnp.exp(x)
 
     def moments(
-        self, mean: Float[Array, "..."], variance: Float[Array, "..."]
+        self, mean: Float[Array, ...], variance: Float[Array, ...]
     ) -> NoiseMoments:
         expected_variance = jnp.exp(mean + 0.5 * variance)
         expected_log_variance = mean
@@ -195,11 +195,11 @@ class SoftplusTransform(AbstractNoiseTransform):
     def __init__(self, num_points: int = 20):
         self.num_points = num_points
 
-    def __call__(self, x: Float[Array, "..."]) -> Float[Array, "..."]:
+    def __call__(self, x: Float[Array, ...]) -> Float[Array, ...]:
         return jnn.softplus(x)
 
     def moments(
-        self, mean: Float[Array, "..."], variance: Float[Array, "..."]
+        self, mean: Float[Array, ...], variance: Float[Array, ...]
     ) -> NoiseMoments:
         quad_x, quad_w = np.polynomial.hermite.hermgauss(self.num_points)
         quad_w = jnp.asarray(quad_w / jnp.sqrt(jnp.pi))
@@ -231,7 +231,7 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
         noise_prior,
         noise_transform: tp.Union[
             AbstractNoiseTransform,
-            tp.Callable[[Float[Array, "..."]], Float[Array, "..."]],
+            tp.Callable[[Float[Array, ...]], Float[Array, ...]],
         ] = SoftplusTransform(),
         integrator: AbstractIntegrator = GHQuadratureIntegrator(),
     ):
@@ -316,7 +316,7 @@ class Gaussian(AbstractLikelihood):
 
         super().__init__(num_datapoints, integrator)
 
-    def link_function(self, f: Float[Array, "..."]) -> npd.Normal:
+    def link_function(self, f: Float[Array, ...]) -> npd.Normal:
         r"""The link function of the Gaussian likelihood.
 
         Args:
@@ -346,7 +346,7 @@ class Gaussian(AbstractLikelihood):
         """
         n_data = dist.event_shape[0]
         cov = dist.covariance_matrix
-        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(self.obs_stddev[...]**2)
+        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(self.obs_stddev[...] ** 2)
 
         return npd.MultivariateNormal(dist.mean, noisy_cov)
 
@@ -376,7 +376,7 @@ class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
 
         return npd.MultivariateNormal(dist.mean, noisy_cov)
 
-    def link_function(self, f: Float[Array, "..."]) -> npd.Normal:
+    def link_function(self, f: Float[Array, ...]) -> npd.Normal:
         sigma2 = self.noise_transform(jnp.zeros_like(f))
         return npd.Normal(loc=f, scale=jnp.sqrt(sigma2))
 
@@ -415,7 +415,7 @@ class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
 
 
 class Bernoulli(AbstractLikelihood):
-    def link_function(self, f: Float[Array, "..."]) -> npd.BernoulliProbs:
+    def link_function(self, f: Float[Array, ...]) -> npd.BernoulliProbs:
         r"""The probit link function of the Bernoulli likelihood.
 
         Args:
@@ -447,7 +447,7 @@ class Bernoulli(AbstractLikelihood):
 
 
 class Poisson(AbstractLikelihood):
-    def link_function(self, f: Float[Array, "..."]) -> npd.Poisson:
+    def link_function(self, f: Float[Array, ...]) -> npd.Poisson:
         r"""The link function of the Poisson likelihood.
 
         Args:
@@ -493,16 +493,16 @@ def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
 NonGaussian = tp.Union[Poisson, Bernoulli]
 
 __all__ = [
-    "AbstractLikelihood",
-    "NonGaussian",
-    "Gaussian",
     "AbstractHeteroscedasticLikelihood",
-    "HeteroscedasticGaussian",
-    "Bernoulli",
-    "Poisson",
-    "inv_probit",
-    "NoiseMoments",
+    "AbstractLikelihood",
     "AbstractNoiseTransform",
+    "Bernoulli",
+    "Gaussian",
+    "HeteroscedasticGaussian",
     "LogNormalTransform",
+    "NoiseMoments",
+    "NonGaussian",
+    "Poisson",
     "SoftplusTransform",
+    "inv_probit",
 ]

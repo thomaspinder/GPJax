@@ -178,16 +178,16 @@ class Prior(AbstractPrior[M, K]):
         def __mul__(self, other: GL) -> "ConjugatePosterior[Prior[M, K], GL]": ...
 
         @tp.overload
-        def __mul__(  # noqa: F811
+        def __mul__(
             self, other: NGL
         ) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
 
         @tp.overload
-        def __mul__(  # noqa: F811
+        def __mul__(
             self, other: L
         ) -> "AbstractPosterior[Prior[M, K], L]": ...
 
-    def __mul__(self, other):  # noqa: F811
+    def __mul__(self, other):
         r"""Combine the prior with a likelihood to form a posterior distribution.
 
         The product of a prior and likelihood is proportional to the posterior
@@ -224,16 +224,16 @@ class Prior(AbstractPrior[M, K]):
         def __rmul__(self, other: GL) -> "ConjugatePosterior[Prior[M, K], GL]": ...
 
         @tp.overload
-        def __rmul__(  # noqa: F811
+        def __rmul__(
             self, other: NGL
         ) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
 
         @tp.overload
-        def __rmul__(  # noqa: F811
+        def __rmul__(
             self, other: L
         ) -> "AbstractPosterior[Prior[M, K], L]": ...
 
-    def __rmul__(self, other):  # noqa: F811
+    def __rmul__(self, other):
         r"""Combine the prior with a likelihood to form a posterior distribution.
 
         Reimplement the multiplication operator to allow for order-invariant
@@ -697,7 +697,7 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
 
         fourier_weights = jr.normal(key, [num_samples, 2 * num_features])
 
-        obs_var = self.likelihood.obs_stddev[...]**2
+        obs_var = self.likelihood.obs_stddev[...] ** 2
         Kxx = self.prior.kernel.gram(train_data.X)
         Sigma = Dense(add_jitter(Kxx.to_dense(), obs_var + self.jitter))
         eps = jnp.sqrt(obs_var) * jr.normal(key, [train_data.n, num_samples])
@@ -902,24 +902,24 @@ def construct_posterior(prior: P, likelihood: GL) -> ConjugatePosterior[P, GL]: 
 
 
 @tp.overload
-def construct_posterior(  # noqa: F811
+def construct_posterior(
     prior: P, likelihood: NGL
 ) -> NonConjugatePosterior[P, NGL]: ...
 
 
 @tp.overload
-def construct_posterior(  # noqa: F811
+def construct_posterior(
     prior: P, likelihood: HeteroscedasticGaussian
 ) -> HeteroscedasticPosterior[P, HeteroscedasticGaussian]: ...
 
 
 @tp.overload
-def construct_posterior(  # noqa: F811
+def construct_posterior(
     prior: P, likelihood: AbstractHeteroscedasticLikelihood
 ) -> ChainedPosterior[P, AbstractHeteroscedasticLikelihood]: ...
 
 
-def construct_posterior(prior, likelihood):  # noqa: F811
+def construct_posterior(prior, likelihood):
     r"""Utility function for constructing a posterior object from a prior and
     likelihood. The function will automatically select the correct posterior
     object based on the likelihood.
@@ -982,13 +982,13 @@ def _build_fourier_features_fn(
 
 
 __all__ = [
-    "AbstractPrior",
-    "Prior",
     "AbstractPosterior",
-    "LatentPosterior",
-    "ConjugatePosterior",
-    "NonConjugatePosterior",
-    "HeteroscedasticPosterior",
+    "AbstractPrior",
     "ChainedPosterior",
+    "ConjugatePosterior",
+    "HeteroscedasticPosterior",
+    "LatentPosterior",
+    "NonConjugatePosterior",
+    "Prior",
     "construct_posterior",
 ]

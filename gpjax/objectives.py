@@ -100,7 +100,7 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
     x, y = data.X, data.y
 
     # Observation noise o²
-    obs_noise = posterior.likelihood.obs_stddev[...]**2
+    obs_noise = posterior.likelihood.obs_stddev[...] ** 2
     mx = posterior.prior.mean_function(x)
 
     # Σ = (Kxx + Io²) = LLᵀ
@@ -163,7 +163,7 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
     x, y = data.X, data.y
 
     # Observation noise o²
-    obs_var = posterior.likelihood.obs_stddev[...]**2
+    obs_var = posterior.likelihood.obs_stddev[...] ** 2
 
     mx = posterior.prior.mean_function(x)  # [N, M]
 
@@ -354,7 +354,7 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
     m = variational_family.num_inducing
 
-    noise = variational_family.posterior.likelihood.obs_stddev[...]**2
+    noise = variational_family.posterior.likelihood.obs_stddev[...] ** 2
     z = variational_family.inducing_inputs[...]
     Kzz = kernel.gram(z)
     Kzz_dense = add_jitter(Kzz.to_dense(), variational_family.jitter)

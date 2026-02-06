@@ -30,7 +30,7 @@ from gpjax.linalg import (
 )
 from gpjax.typing import Array
 
-K = tp.TypeVar("K", bound="gpjax.kernels.base.AbstractKernel")  # noqa: F821
+K = tp.TypeVar("K", bound="gpjax.kernels.base.AbstractKernel")
 
 
 class AbstractKernelComputation:

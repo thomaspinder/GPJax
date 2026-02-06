@@ -25,7 +25,7 @@ class LinearOperator(ABC):
 
     @property
     @abstractmethod
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         """Return the shape of the operator."""
 
     @property
@@ -122,7 +122,7 @@ class Dense(LinearOperator):
         self.array = array
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self.array.shape
 
     @property
@@ -145,7 +145,7 @@ class Diagonal(LinearOperator):
         self.diagonal = diagonal
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         n = self.diagonal.shape[0]
         return (n, n)
 
@@ -164,7 +164,7 @@ class Diagonal(LinearOperator):
 class Identity(LinearOperator):
     """Identity linear operator."""
 
-    def __init__(self, shape: Union[int, Tuple[int, int]], dtype=jnp.float64):
+    def __init__(self, shape: int | tuple[int, int], dtype=jnp.float64):
         super().__init__()
         if isinstance(shape, int):
             self._shape = (shape, shape)
@@ -175,7 +175,7 @@ class Identity(LinearOperator):
         self._dtype = dtype
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self._shape
 
     @property
@@ -200,7 +200,7 @@ class Triangular(LinearOperator):
         self.lower = lower
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self.array.shape
 
     @property
@@ -222,7 +222,7 @@ class BlockDiag(LinearOperator):
     """Block diagonal linear operator."""
 
     def __init__(
-        self, operators: List[LinearOperator], multiplicities: List[int] = None
+        self, operators: list[LinearOperator], multiplicities: list[int] = None
     ):
         super().__init__()
         self.operators = operators
@@ -255,7 +255,7 @@ class BlockDiag(LinearOperator):
             self._dtype = jnp.float64
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self._shape
 
     @property
@@ -304,7 +304,7 @@ class BlockDiag(LinearOperator):
 class Kronecker(LinearOperator):
     """Kronecker product linear operator."""
 
-    def __init__(self, operators: List[LinearOperator]):
+    def __init__(self, operators: list[LinearOperator]):
         super().__init__()
         if len(operators) < 2:
             raise ValueError("Kronecker product requires at least 2 operators")
@@ -322,7 +322,7 @@ class Kronecker(LinearOperator):
         self._dtype = operators[0].dtype
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         return self._shape
 
     @property

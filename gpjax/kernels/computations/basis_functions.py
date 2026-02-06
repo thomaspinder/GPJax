@@ -10,7 +10,7 @@ from gpjax.linalg import (
 )
 from gpjax.typing import Array
 
-K = tp.TypeVar("K", bound="gpjax.kernels.approximations.RFF")  # noqa: F821
+K = tp.TypeVar("K", bound="gpjax.kernels.approximations.RFF")
 
 # TODO: Use low rank linear operator!
 

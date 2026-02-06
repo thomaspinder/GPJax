@@ -17,7 +17,7 @@ import beartype.typing as tp
 from jax import vmap
 from jaxtyping import Float
 
-import gpjax  # noqa: F401
+import gpjax
 from gpjax.kernels.computations import AbstractKernelComputation
 from gpjax.linalg import (
     Diagonal,
@@ -26,7 +26,7 @@ from gpjax.linalg import (
 )
 from gpjax.typing import Array
 
-Kernel = tp.TypeVar("Kernel", bound="gpjax.kernels.base.AbstractKernel")  # noqa: F821
+Kernel = tp.TypeVar("Kernel", bound="gpjax.kernels.base.AbstractKernel")
 
 
 class DiagonalKernelComputation(AbstractKernelComputation):

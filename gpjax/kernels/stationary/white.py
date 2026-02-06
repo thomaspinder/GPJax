@@ -43,9 +43,9 @@ class White(StationaryKernel):
 
     def __init__(
         self,
-        active_dims: tp.Union[list[int], slice, None] = None,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        n_dims: tp.Union[int, None] = None,
+        active_dims: list[int] | slice | None = None,
+        variance: ScalarFloat | nnx.Variable[ScalarArray] = 1.0,
+        n_dims: int | None = None,
         compute_engine: AbstractKernelComputation = ConstantDiagonalKernelComputation(),
     ):
         """Initializes the kernel.

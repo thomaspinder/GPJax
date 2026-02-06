@@ -27,7 +27,7 @@ from beartype.typing import (
     Dict,
 )
 import gpjax
-import jax.numpy as jnp  # noqa: F401
+import jax.numpy as jnp
 import jupytext
 
 # %%

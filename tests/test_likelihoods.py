@@ -14,9 +14,9 @@
 # ==============================================================================
 
 from typing import (
-    Callable,
     Tuple,
 )
+from collections.abc import Callable
 
 from gpjax.likelihoods import (
     Bernoulli,
@@ -42,7 +42,7 @@ _initialise_key = jr.key(123)
 
 def _compute_latent_dist(
     n: int,
-) -> Tuple[npd.MultivariateNormal, Float[Array, " N"], Float[Array, "N N"]]:
+) -> tuple[npd.MultivariateNormal, Float[Array, " N"], Float[Array, "N N"]]:
     k1, k2 = jr.split(_initialise_key)
     latent_mean = jr.uniform(k1, shape=(n,))
     latent_sqrt = jr.uniform(k2, shape=(n, n))
@@ -67,7 +67,7 @@ def test_gaussian_likelihood(n: int, obs_stddev: float):
 
     # Check predictive mean and variance.
     assert (pred_dist.mean == latent_mean).all()
-    noise_matrix = jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev[...]**2
+    noise_matrix = jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev[...] ** 2
     assert np.allclose(
         pred_dist.scale_tril, jnp.linalg.cholesky(latent_cov + noise_matrix)
     )

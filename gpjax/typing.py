@@ -14,9 +14,9 @@
 # ==============================================================================
 
 from typing import (
-    Callable,
     Union,
 )
+from collections.abc import Callable
 
 from jaxtyping import (
     Array as JAXArray,
@@ -49,4 +49,4 @@ any set of $N$ inputs (of dimension $D$) and returning the evaluations of each
 (potentially approximate) sample draw across these inputs.
 """
 
-__all__ = ["KeyArray", "ScalarBool", "ScalarInt", "ScalarFloat", "FunctionalSample"]
+__all__ = ["FunctionalSample", "KeyArray", "ScalarBool", "ScalarFloat", "ScalarInt"]

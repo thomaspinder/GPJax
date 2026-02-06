@@ -74,7 +74,7 @@ def test_cross_covariance(
     kernel: type[StationaryKernel],
     num_basis_fns: int,
     n_dims: int,
-    n_datas: Tuple[int, int],
+    n_datas: tuple[int, int],
 ):
     nd1, nd2 = n_datas
     key = jr.key(123)

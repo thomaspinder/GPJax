@@ -22,9 +22,9 @@ except ImportError:
     ValidationErrors = TypeError
 
 from typing import (
-    Callable,
     Type,
 )
+from collections.abc import Callable
 
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
@@ -80,7 +80,7 @@ def test_abstract_posterior():
 def test_prior_with_diag(
     num_datapoints: int,
     kernel: type[AbstractKernel],
-    mean_function: Type[AbstractMeanFunction],
+    mean_function: type[AbstractMeanFunction],
 ) -> None:
     # Create prior.
     prior = Prior(mean_function=mean_function(), kernel=kernel())
@@ -117,7 +117,7 @@ def test_prior_with_diag(
 def test_prior(
     num_datapoints: int,
     kernel: type[AbstractKernel],
-    mean_function: Type[AbstractMeanFunction],
+    mean_function: type[AbstractMeanFunction],
 ) -> None:
     # Create prior.
     prior = Prior(mean_function=mean_function(), kernel=kernel())
@@ -341,7 +341,7 @@ def test_nonconjugate_posterior(
 @pytest.mark.parametrize("kernel", [RBF, Matern52])
 @pytest.mark.parametrize("mean_function", [Zero, Constant])
 def test_posterior_construct(
-    likelihood: Type[AbstractLikelihood],
+    likelihood: type[AbstractLikelihood],
     num_datapoints: int,
     kernel: type[AbstractKernel],
     mean_function: type[AbstractMeanFunction],
