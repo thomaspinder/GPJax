@@ -26,10 +26,12 @@ from gpjax import (
     mean_functions,
     objectives,
     parameters,
+    typing as typing,
     variational_families,
 )
 from gpjax.citation import cite
 from gpjax.dataset import Dataset
+from gpjax.distributions import GaussianDistribution
 from gpjax.fit import (
     fit,
     fit_lbfgs,
@@ -44,6 +46,7 @@ __version__ = "0.13.5"
 
 __all__ = [
     "Dataset",
+    "GaussianDistribution",
     "cite",
     "fit",
     "fit_lbfgs",
@@ -55,5 +58,6 @@ __all__ = [
     "mean_functions",
     "objectives",
     "parameters",
+    "typing",
     "variational_families",
 ]
