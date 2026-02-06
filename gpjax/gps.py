@@ -93,14 +93,13 @@ class AbstractPrior(nnx.Module, tp.Generic[M, K]):
     ) -> GaussianDistribution:
         r"""Evaluate the Gaussian process at the given points.
 
-        The output of this function is a
-        [TensorFlow probability distribution](https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions) from which the
-        the latent function's mean and covariance can be evaluated and the distribution
-        can be sampled.
+        The output of this function is a ``GaussianDistribution`` from which
+        the latent function's mean and covariance can be evaluated and the
+        distribution can be sampled.
 
-        Under the hood, `__call__` is calling the objects `predict` method. For this
-        reasons, classes inheriting the `AbstractPrior` class, should not overwrite the
-        `__call__` method and should instead define a `predict` method.
+        Under the hood, ``__call__`` invokes the ``predict`` method. Classes
+        inheriting ``AbstractPrior`` should not overwrite ``__call__`` and
+        should instead define a ``predict`` method.
 
         Args:
             test_inputs: Input locations where the GP should be evaluated.
@@ -248,8 +247,8 @@ class Prior(AbstractPrior[M, K]):
         return_covariance_type: Literal["dense", "diagonal"] = "dense",
     ) -> GaussianDistribution:
         r"""Compute the predictive prior distribution for a given set of
-        parameters. The output of this function is a function that computes
-        a TFP distribution for a given set of inputs.
+        parameters. The output of this function is a ``GaussianDistribution``
+        for a given set of inputs.
 
         In the following example, we compute the predictive prior distribution
         and then evaluate it on the interval :math:`[0, 1]`:
@@ -416,14 +415,13 @@ class AbstractPosterior(nnx.Module, tp.Generic[P, L]):
     ) -> GaussianDistribution:
         r"""Evaluate the Gaussian process posterior at the given points.
 
-        The output of this function is a
-        [TFP distribution](https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions)
-        from which the the latent function's mean and covariance can be
-        evaluated and the distribution can be sampled.
+        The output of this function is a ``GaussianDistribution`` from which
+        the latent function's mean and covariance can be evaluated and the
+        distribution can be sampled.
 
-        Under the hood, `__call__` is calling the objects `predict` method. For this
-        reasons, classes inheriting the `AbstractPosterior` class, should not overwrite the
-        `__call__` method and should instead define a `predict` method.
+        Under the hood, ``__call__`` invokes the ``predict`` method. Classes
+        inheriting ``AbstractPosterior`` should not overwrite ``__call__`` and
+        should instead define a ``predict`` method.
 
         Args:
             test_inputs: Input locations where the GP should be evaluated.
