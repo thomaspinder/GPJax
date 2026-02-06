@@ -147,7 +147,7 @@ class Constant(AbstractMeanFunction):
             Float[Array, "1"]: The evaluated mean function.
         """
         if isinstance(self.constant, Parameter):
-            return jnp.ones((x.shape[0], 1), dtype=x.dtype) * self.constant.value
+            return jnp.ones((x.shape[0], 1), dtype=x.dtype) * self.constant[...]
         else:
             return jnp.ones((x.shape[0], 1), dtype=x.dtype) * self.constant
 

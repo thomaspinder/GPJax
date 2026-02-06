@@ -124,7 +124,7 @@ def test_init_variances(kernel: type[AbstractKernel], variance):
 
     # Check that the parameters are set correctly
     assert isinstance(k.variance, NonNegativeReal)
-    assert jnp.allclose(k.variance.value, jnp.asarray(variance))
+    assert jnp.allclose(k.variance[...], jnp.asarray(variance))
 
     # Check that error is raised if variance is not valid
     with pytest.raises(ValueError):

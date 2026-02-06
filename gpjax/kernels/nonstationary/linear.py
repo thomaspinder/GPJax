@@ -75,5 +75,5 @@ class Linear(AbstractKernel):
     ) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        K = self.variance.value * jnp.matmul(x.T, y)
+        K = self.variance[...] * jnp.matmul(x.T, y)
         return K.squeeze()

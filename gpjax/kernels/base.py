@@ -240,7 +240,7 @@ class Constant(AbstractKernel):
         Returns:
             ScalarFloat: The evaluated kernel function at the supplied inputs.
         """
-        return self.constant.value.squeeze()
+        return self.constant[...].squeeze()
 
 
 class CombinationKernel(AbstractKernel):

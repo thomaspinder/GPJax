@@ -224,15 +224,15 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
         posterior=posterior, signal_init=signal_init, noise_init=noise_init
     )
 
-    assert jnp.allclose(q.signal_variational.inducing_inputs.value, inducing_inputs)
-    assert jnp.allclose(q.noise_variational.inducing_inputs.value, noise_inducing)
+    assert jnp.allclose(q.signal_variational.inducing_inputs[...], inducing_inputs)
+    assert jnp.allclose(q.noise_variational.inducing_inputs[...], noise_inducing)
 
     # Test initialization inference (noise inferred from signal)
     q_inferred = HeteroscedasticVariationalFamily(
         posterior=posterior, signal_init=signal_init
     )
     assert jnp.allclose(
-        q_inferred.noise_variational.inducing_inputs.value, inducing_inputs
+        q_inferred.noise_variational.inducing_inputs[...], inducing_inputs
     )
 
 

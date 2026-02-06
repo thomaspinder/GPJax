@@ -42,11 +42,11 @@ class Matern52(StationaryKernel):
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
     ) -> Float[Array, ""]:
-        x = self.slice_input(x) / self.lengthscale.value
-        y = self.slice_input(y) / self.lengthscale.value
+        x = self.slice_input(x) / self.lengthscale[...]
+        y = self.slice_input(y) / self.lengthscale[...]
         tau = euclidean_distance(x, y)
         K = (
-            self.variance.value
+            self.variance[...]
             * (1.0 + jnp.sqrt(5.0) * tau + 5.0 / 3.0 * jnp.square(tau))
             * jnp.exp(-jnp.sqrt(5.0) * tau)
         )

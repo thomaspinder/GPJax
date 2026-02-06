@@ -80,9 +80,9 @@ class Periodic(StationaryKernel):
     ) -> Float[Array, ""]:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        period_val = self.period.value if hasattr(self.period, "value") else self.period
+        period_val = self.period[...] if isinstance(self.period, nnx.Variable) else self.period
         sine_squared = (
-            jnp.sin(jnp.pi * (x - y) / period_val) / self.lengthscale.value
+            jnp.sin(jnp.pi * (x - y) / period_val) / self.lengthscale[...]
         ) ** 2
-        K = self.variance.value * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
+        K = self.variance[...] * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
         return K.squeeze()

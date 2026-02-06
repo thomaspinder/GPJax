@@ -265,7 +265,7 @@ def test_nonconjugate_posterior_with_diag(
 
     # Check latent values.
     latent_values = jr.normal(posterior.key, (num_datapoints, 1))
-    assert (posterior.latent.value == latent_values).all()
+    assert (posterior.latent[...] == latent_values).all()
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
@@ -320,7 +320,7 @@ def test_nonconjugate_posterior(
 
     # Check latent values.
     latent_values = jr.normal(posterior.key, (num_datapoints, 1))
-    assert (posterior.latent.value == latent_values).all()
+    assert (posterior.latent[...] == latent_values).all()
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)

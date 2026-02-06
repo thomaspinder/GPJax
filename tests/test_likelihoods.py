@@ -68,7 +68,7 @@ def test_gaussian_likelihood(n: int, obs_stddev: float):
 
     # Check predictive mean and variance.
     assert (pred_dist.mean == latent_mean).all()
-    noise_matrix = jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev.value**2
+    noise_matrix = jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev[...]**2
     assert np.allclose(
         pred_dist.scale_tril, jnp.linalg.cholesky(latent_cov + noise_matrix)
     )

@@ -108,7 +108,7 @@ class ArcCosine(AbstractKernel):
         K = self._J(theta)
         K *= jnp.sqrt(x_x) ** self.order
         K *= jnp.sqrt(y_y) ** self.order
-        K *= self.variance.value / jnp.pi
+        K *= self.variance[...] / jnp.pi
 
         return K.squeeze()
 
@@ -124,13 +124,13 @@ class ArcCosine(AbstractKernel):
             ScalarFloat: The value of the weighted product between the two arguments``.
         """
         weight_var = (
-            self.weight_variance.value
-            if hasattr(self.weight_variance, "value")
+            self.weight_variance[...]
+            if isinstance(self.weight_variance, nnx.Variable)
             else self.weight_variance
         )
         bias_var = (
-            self.bias_variance.value
-            if hasattr(self.bias_variance, "value")
+            self.bias_variance[...]
+            if isinstance(self.bias_variance, nnx.Variable)
             else self.bias_variance
         )
         return jnp.inner(weight_var * x, y) + bias_var

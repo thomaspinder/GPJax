@@ -75,7 +75,7 @@ def test_fit_simple() -> None:
             self.bias = bias
 
         def __call__(self, x):
-            return self.weight.value * x + self.bias
+            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -120,7 +120,7 @@ def test_fit_scipy_simple():
             self.bias = bias
 
         def __call__(self, x):
-            return self.weight.value * x + self.bias
+            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -163,7 +163,7 @@ def test_fit_lbfgs_simple():
             self.bias = bias
 
         def __call__(self, x):
-            return self.weight.value * x + self.bias
+            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -380,7 +380,7 @@ def valid_model() -> nnx.Module:
             self.bias = bias
 
         def __call__(self, x: Any) -> Any:
-            return self.weight.value * x + self.bias
+            return self.weight[...] * x + self.bias
 
     return LinearModel(weight=1.0, bias=1.0)
 
@@ -524,7 +524,7 @@ def test_fit_filter_freeze_kernel_variance() -> None:
     posterior = prior * likelihood
 
     # Record initial variance value
-    initial_variance = kernel.variance.value
+    initial_variance = kernel.variance[...]
 
     # Train with filter that excludes variance (freezes it)
     filter_no_variance = nnx.filterlib.Not(nnx.filterlib.PathContains("variance"))
@@ -539,10 +539,10 @@ def test_fit_filter_freeze_kernel_variance() -> None:
     )
 
     # Assert variance has not changed
-    assert jnp.allclose(trained_posterior.prior.kernel.variance.value, initial_variance)
+    assert jnp.allclose(trained_posterior.prior.kernel.variance[...], initial_variance)
 
     # Assert lengthscale has changed
-    assert not jnp.allclose(trained_posterior.prior.kernel.lengthscale.value, 1.0)
+    assert not jnp.allclose(trained_posterior.prior.kernel.lengthscale[...], 1.0)
 
 
 def test_fit_zero_mean_function_not_trained() -> None:
@@ -595,7 +595,7 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     posterior = prior * likelihood
 
     # Record initial mean function constant
-    initial_constant = meanf.constant.value
+    initial_constant = meanf.constant[...]
 
     # Train with default filter (should train the mean function Parameter)
     trained_posterior, _ = fit(
@@ -608,7 +608,7 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     )
 
     # Assert mean function constant has changed (parameter is trainable)
-    final_constant = trained_posterior.prior.mean_function.constant.value
+    final_constant = trained_posterior.prior.mean_function.constant[...]
     assert not jnp.allclose(final_constant, initial_constant)
     # Just verify the parameter changed (direction depends on optimization dynamics)
     assert jnp.isfinite(final_constant)  # Not NaN/Inf
@@ -663,9 +663,9 @@ def test_fit_filter_by_type() -> None:
     posterior = prior * likelihood
 
     # Record initial values
-    initial_variance = kernel.variance.value
-    initial_lengthscale = kernel.lengthscale.value
-    initial_obs_stddev = likelihood.obs_stddev.value
+    initial_variance = kernel.variance[...]
+    initial_lengthscale = kernel.lengthscale[...]
+    initial_obs_stddev = likelihood.obs_stddev[...]
 
     # Train only PositiveReal parameters (should include only lengthscale)
     filter_positive_real = nnx.filterlib.OfType(PositiveReal)
@@ -681,10 +681,10 @@ def test_fit_filter_by_type() -> None:
 
     # Assert that only PositiveReal parameters (lengthscale) have changed
     # variance and obs_stddev are NonNegativeReal, so they should not change
-    assert jnp.allclose(trained_posterior.prior.kernel.variance.value, initial_variance)
+    assert jnp.allclose(trained_posterior.prior.kernel.variance[...], initial_variance)
     assert not jnp.allclose(
-        trained_posterior.prior.kernel.lengthscale.value, initial_lengthscale
+        trained_posterior.prior.kernel.lengthscale[...], initial_lengthscale
     )
     assert jnp.allclose(
-        trained_posterior.likelihood.obs_stddev.value, initial_obs_stddev
+        trained_posterior.likelihood.obs_stddev[...], initial_obs_stddev
     )

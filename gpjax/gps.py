@@ -597,7 +597,7 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
         x = train_data.X
         y = train_data.y
         # Observation noise o²
-        obs_noise = jnp.square(self.likelihood.obs_stddev.value)
+        obs_noise = jnp.square(self.likelihood.obs_stddev[...])
         mx = self.prior.mean_function(x)
         # Precompute Gram matrix, Kxx, at training inputs, x
         Kxx = self.prior.kernel.gram(x)
@@ -697,7 +697,7 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
 
         fourier_weights = jr.normal(key, [num_samples, 2 * num_features])
 
-        obs_var = self.likelihood.obs_stddev.value**2
+        obs_var = self.likelihood.obs_stddev[...]**2
         Kxx = self.prior.kernel.gram(train_data.X)
         Sigma = Dense(add_jitter(Kxx.to_dense(), obs_var + self.jitter))
         eps = jnp.sqrt(obs_var) * jr.normal(key, [train_data.n, num_samples])
@@ -815,7 +815,7 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
 
         mean_t = mean_function(t)
         # Whitened function values, wx, corresponding to the inputs, x
-        wx = self.latent.value
+        wx = self.latent[...]
 
         # μt + Ktx Lx⁻¹ wx
         mean = mean_t + jnp.matmul(Lx_inv_Kxt.T, wx)
@@ -975,7 +975,7 @@ def _build_fourier_features_fn(
 
     def eval_fourier_features(test_inputs: Float[Array, "N D"]) -> Float[Array, "N L"]:
         Phi = approximate_kernel.compute_features(x=test_inputs)
-        Phi *= jnp.sqrt(prior.kernel.variance.value / num_features)
+        Phi *= jnp.sqrt(prior.kernel.variance[...] / num_features)
         return Phi
 
     return eval_fourier_features

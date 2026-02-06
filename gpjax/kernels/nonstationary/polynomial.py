@@ -85,9 +85,9 @@ class Polynomial(AbstractKernel):
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        shift_val = self.shift.value if hasattr(self.shift, "value") else self.shift
+        shift_val = self.shift[...] if isinstance(self.shift, nnx.Variable) else self.shift
         variance_val = (
-            self.variance.value if hasattr(self.variance, "value") else self.variance
+            self.variance[...] if isinstance(self.variance, nnx.Variable) else self.variance
         )
         K = jnp.power(shift_val + variance_val * jnp.dot(x, y), self.degree)
         return K.squeeze()

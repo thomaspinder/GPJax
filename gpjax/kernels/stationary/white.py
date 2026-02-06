@@ -60,5 +60,5 @@ class White(StationaryKernel):
         super().__init__(active_dims, 1.0, variance, n_dims, compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        K = jnp.all(jnp.equal(x, y)) * self.variance.value
+        K = jnp.all(jnp.equal(x, y)) * self.variance[...]
         return K.squeeze()

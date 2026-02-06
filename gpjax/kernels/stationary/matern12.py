@@ -42,9 +42,9 @@ class Matern12(StationaryKernel):
     name: str = "Matérn12"
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        x = self.slice_input(x) / self.lengthscale.value
-        y = self.slice_input(y) / self.lengthscale.value
-        K = self.variance.value * jnp.exp(-euclidean_distance(x, y))
+        x = self.slice_input(x) / self.lengthscale[...]
+        y = self.slice_input(y) / self.lengthscale[...]
+        K = self.variance[...] * jnp.exp(-euclidean_distance(x, y))
         return K.squeeze()
 
     @property

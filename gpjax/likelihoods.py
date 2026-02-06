@@ -325,7 +325,7 @@ class Gaussian(AbstractLikelihood):
         Returns:
             npd.Normal: The likelihood function.
         """
-        return npd.Normal(loc=f, scale=self.obs_stddev.value.astype(f.dtype))
+        return npd.Normal(loc=f, scale=self.obs_stddev[...].astype(f.dtype))
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
@@ -346,7 +346,7 @@ class Gaussian(AbstractLikelihood):
         """
         n_data = dist.event_shape[0]
         cov = dist.covariance_matrix
-        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(self.obs_stddev.value**2)
+        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(self.obs_stddev[...]**2)
 
         return npd.MultivariateNormal(dist.mean, noisy_cov)
 

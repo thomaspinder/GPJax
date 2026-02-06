@@ -62,12 +62,12 @@ def calculate_heat_semigroup(kernel: GraphKernel) -> Float[Array, "N M"]:
     S = jnp.power(
         kernel.eigenvalues
         + 2
-        * kernel.smoothness.value
-        / kernel.lengthscale.value
-        / kernel.lengthscale.value,
-        -kernel.smoothness.value,
+        * kernel.smoothness[...]
+        / kernel.lengthscale[...]
+        / kernel.lengthscale[...],
+        -kernel.smoothness[...],
     )
     S = jnp.multiply(S, kernel.num_vertex / jnp.sum(S))
     # Scale the transform eigenvalues by the kernel variance
-    S = jnp.multiply(S, kernel.variance.value)
+    S = jnp.multiply(S, kernel.variance[...])
     return S

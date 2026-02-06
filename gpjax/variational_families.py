@@ -134,7 +134,7 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
     @property
     def num_inducing(self) -> int:
         """The number of inducing inputs."""
-        return self.inducing_inputs.value.shape[0]
+        return self.inducing_inputs[...].shape[0]
 
 
 class VariationalGaussian(AbstractVariationalGaussian[L]):
@@ -170,7 +170,7 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         return Kzt, Ktt
 
     def _fmt_inducing_inputs(self):
-        return self.inducing_inputs.value
+        return self.inducing_inputs[...]
 
     def prior_kl(self) -> ScalarFloat:
         r"""Compute the prior KL divergence.
@@ -192,8 +192,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        variational_mean = self.variational_mean.value
-        variational_sqrt = self.variational_root_covariance.value
+        variational_mean = self.variational_mean[...]
+        variational_sqrt = self.variational_root_covariance[...]
         inducing_inputs = self._fmt_inducing_inputs()
 
         # Unpack mean function and kernel
@@ -238,8 +238,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
                 the test inputs.
         """
         # Unpack variational parameters
-        variational_mean = self.variational_mean.value
-        variational_sqrt = self.variational_root_covariance.value
+        variational_mean = self.variational_mean[...]
+        variational_sqrt = self.variational_root_covariance[...]
         inducing_inputs = self._fmt_inducing_inputs()
 
         # Unpack mean function and kernel
@@ -318,7 +318,7 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
             variational_root_covariance,
             jitter,
         )
-        self.inducing_inputs = self.inducing_inputs.value.astype(jnp.int64)
+        self.inducing_inputs = self.inducing_inputs[...].astype(jnp.int64)
 
     def _fmt_Kzt_Ktt(self, Kzt, Ktt):
         Ktt = Ktt.to_dense() if hasattr(Ktt, "to_dense") else Ktt
@@ -365,8 +365,8 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        mu = self.variational_mean.value
-        sqrt = Triangular(self.variational_root_covariance.value)
+        mu = self.variational_mean[...]
+        sqrt = Triangular(self.variational_root_covariance[...])
 
         # S = LLᵀ
         S = sqrt @ sqrt.T
@@ -397,9 +397,9 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
                 the test inputs.
         """
         # Unpack variational parameters
-        mu = self.variational_mean.value
-        sqrt = self.variational_root_covariance.value
-        z = self.inducing_inputs.value
+        mu = self.variational_mean[...]
+        sqrt = self.variational_root_covariance[...]
+        z = self.inducing_inputs[...]
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
@@ -491,9 +491,9 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
                 the GP prior.
         """
         # Unpack variational parameters
-        natural_vector = self.natural_vector.value
-        natural_matrix = self.natural_matrix.value
-        z = self.inducing_inputs.value
+        natural_vector = self.natural_vector[...]
+        natural_matrix = self.natural_matrix[...]
+        z = self.inducing_inputs[...]
         m = self.num_inducing
 
         # Unpack mean function and kernel
@@ -545,9 +545,9 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
                 return the predictive distribution at those points.
         """
         # Unpack variational parameters
-        natural_vector = self.natural_vector.value
-        natural_matrix = self.natural_matrix.value
-        z = self.inducing_inputs.value
+        natural_vector = self.natural_vector[...]
+        natural_matrix = self.natural_matrix[...]
+        z = self.inducing_inputs[...]
         m = self.num_inducing
 
         # Unpack mean function and kernel
@@ -664,9 +664,9 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
                 the GP prior.
         """
         # Unpack variational parameters
-        expectation_vector = self.expectation_vector.value
-        expectation_matrix = self.expectation_matrix.value
-        z = self.inducing_inputs.value
+        expectation_vector = self.expectation_vector[...]
+        expectation_matrix = self.expectation_matrix[...]
+        z = self.inducing_inputs[...]
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
@@ -710,9 +710,9 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
                 test inputs $t$.
         """
         # Unpack variational parameters
-        expectation_vector = self.expectation_vector.value
-        expectation_matrix = self.expectation_matrix.value
-        z = self.inducing_inputs.value
+        expectation_vector = self.expectation_vector[...]
+        expectation_matrix = self.expectation_matrix[...]
+        z = self.inducing_inputs[...]
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
@@ -810,8 +810,8 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         x, y = train_data.X, train_data.y
 
         # Unpack variational parameters
-        noise_var = self.posterior.likelihood.obs_stddev.value**2
-        z = self.inducing_inputs.value
+        noise_var = self.posterior.likelihood.obs_stddev[...]**2
+        z = self.inducing_inputs[...]
         m = self.num_inducing
 
         # Unpack mean function and kernel
@@ -830,7 +830,7 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         Lz_inv_Kzx = solve(Lz, Kzx)
 
         # A = Lz⁻¹ Kzt / o
-        A = Lz_inv_Kzx / self.posterior.likelihood.obs_stddev.value
+        A = Lz_inv_Kzx / self.posterior.likelihood.obs_stddev[...]
 
         # AAᵀ
         AAT = jnp.matmul(A, A.T)

@@ -127,7 +127,7 @@ def _check_lengthscale_dims_compat(
     """
 
     if isinstance(lengthscale, nnx.Variable):
-        return _check_lengthscale_dims_compat(lengthscale.value, n_dims)
+        return _check_lengthscale_dims_compat(lengthscale[...], n_dims)
 
     lengthscale = jnp.asarray(lengthscale)
     ls_shape = jnp.shape(lengthscale)
@@ -150,7 +150,7 @@ def _check_lengthscale(lengthscale: tp.Any):
     """Check that the lengthscale is a valid value."""
 
     if isinstance(lengthscale, nnx.Variable):
-        _check_lengthscale(lengthscale.value)
+        _check_lengthscale(lengthscale[...])
         return
 
     if not isinstance(lengthscale, (int, float, jnp.ndarray, list, tuple)):

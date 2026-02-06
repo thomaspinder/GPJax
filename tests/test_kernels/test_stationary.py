@@ -142,7 +142,7 @@ def test_init_lengthscales(kernel: type[StationaryKernel], lengthscale):
 
     # Check that the parameters are set correctly
     assert isinstance(k.lengthscale, PositiveReal)
-    assert jnp.allclose(k.lengthscale.value, jnp.asarray(lengthscale))
+    assert jnp.allclose(k.lengthscale[...], jnp.asarray(lengthscale))
 
     # Check that error is raised if lengthscale is not valid
     with pytest.raises(ValueError):
@@ -170,7 +170,7 @@ def test_init_variances(kernel: type[StationaryKernel], variance):
 
     # Check that the parameters are set correctly
     assert isinstance(k.variance, NonNegativeReal)
-    assert jnp.allclose(k.variance.value, jnp.asarray(variance))
+    assert jnp.allclose(k.variance[...], jnp.asarray(variance))
 
     # Check that error is raised if variance is not valid
     with pytest.raises(ValueError):

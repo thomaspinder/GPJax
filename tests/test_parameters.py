@@ -47,14 +47,14 @@ def real_arrays(shape_strategy=valid_shapes(), min_value=None, max_value=None):
 def test_real_parameter(value):
     # Should accept any real value
     p = Real(value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "real"
 
 
 @given(value=real_arrays(min_value=1e-6, max_value=1e6))
 def test_positive_real_valid(value):
     p = PositiveReal(value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "positive"
 
 
@@ -67,7 +67,7 @@ def test_positive_real_invalid(value):
 @given(value=real_arrays(min_value=0.0, max_value=1e6))
 def test_non_negative_real_valid(value):
     p = NonNegativeReal(value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "non_negative"
 
 
@@ -80,7 +80,7 @@ def test_non_negative_real_invalid(value):
 @given(value=real_arrays(min_value=0.0, max_value=1.0))
 def test_sigmoid_bounded_valid(value):
     p = SigmoidBounded(value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "sigmoid"
 
 
@@ -110,7 +110,7 @@ def lower_triangular_matrices(n_min=1, n_max=5):
 @given(value=lower_triangular_matrices())
 def test_lower_triangular_valid(value):
     p = LowerTriangular(value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "lower_triangular"
 
 
@@ -166,7 +166,7 @@ def test_transform_roundtrip(param_class, data):
     inv_params = transform(t_params, DEFAULT_BIJECTION, inverse=True)
 
     # Check
-    assert jnp.allclose(inv_params["p"].value, val, atol=1e-5, rtol=1e-5)
+    assert jnp.allclose(inv_params["p"][...], val, atol=1e-5, rtol=1e-5)
 
 
 @given(n=st.integers(1, 10))
@@ -223,7 +223,7 @@ def test_parameter_construction_under_grad(param_cls, value):
     """Regression test for #592: parameter construction must accept JAX tracers."""
 
     def f(x):
-        return param_cls(x).value.sum()
+        return param_cls(x)[...].sum()
 
     grad = jax.grad(f)(value)
     assert grad.shape == value.shape

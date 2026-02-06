@@ -131,7 +131,7 @@ def transform(
         ... )
         >>> params_bijection = {'positive': npt.SoftplusTransform()}
         >>> transformed_params = transform(params, params_bijection)
-        >>> print(transformed_params["a"].value)
+        >>> print(transformed_params["a"][...])
         [1.3132617]
 
     Args:
@@ -146,9 +146,9 @@ def transform(
     def _inner(param):
         bijector = params_bijection.get(param.tag, npt.IdentityTransform())
         if inverse:
-            transformed_value = bijector.inv(param.value)
+            transformed_value = bijector.inv(param[...])
         else:
-            transformed_value = bijector(param.value)
+            transformed_value = bijector(param[...])
 
         param = param.replace(transformed_value)
         return param
@@ -199,7 +199,7 @@ class NonNegativeReal(Parameter[T]):
 
     def __init__(self, value: T, tag: ParameterTag = "non_negative", **kwargs):
         super().__init__(value=value, tag=tag, **kwargs)
-        _safe_assert(_check_is_non_negative, self.value)
+        _safe_assert(_check_is_non_negative, self[...])
 
 
 class PositiveReal(Parameter[T]):
@@ -207,7 +207,7 @@ class PositiveReal(Parameter[T]):
 
     def __init__(self, value: T, tag: ParameterTag = "positive", **kwargs):
         super().__init__(value=value, tag=tag, **kwargs)
-        _safe_assert(_check_is_positive, self.value)
+        _safe_assert(_check_is_positive, self[...])
 
 
 class Real(Parameter[T]):
@@ -230,7 +230,7 @@ class SigmoidBounded(Parameter[T]):
         ):
             _safe_assert(
                 _check_in_bounds,
-                self.value,
+                self[...],
                 low=jnp.array(0.0),
                 high=jnp.array(1.0),
             )
@@ -247,8 +247,8 @@ class LowerTriangular(Parameter[T]):
             not isinstance(value, jnp.ndarray)
             or getattr(value, "aval", None) is not None
         ):
-            _safe_assert(_check_is_square, self.value)
-            _safe_assert(_check_is_lower_triangular, self.value)
+            _safe_assert(_check_is_square, self[...])
+            _safe_assert(_check_is_lower_triangular, self[...])
 
 
 DEFAULT_BIJECTION = {

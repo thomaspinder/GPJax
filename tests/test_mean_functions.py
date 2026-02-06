@@ -268,7 +268,7 @@ def test_constant_mean_function_with_parameter():
 
     # Check that the constant is stored as a Parameter
     assert isinstance(meanf.constant, Real)
-    assert jnp.allclose(meanf.constant.value, 2.5)
+    assert jnp.allclose(meanf.constant[...], 2.5)
 
     # Test evaluation
     x = jnp.array([[1.0], [2.0], [3.0]])

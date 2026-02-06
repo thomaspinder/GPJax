@@ -82,8 +82,8 @@ class PoweredExponential(StationaryKernel):
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
     ) -> Float[Array, ""]:
-        x = self.slice_input(x) / self.lengthscale.value
-        y = self.slice_input(y) / self.lengthscale.value
-        power_val = self.power.value if hasattr(self.power, "value") else self.power
-        K = self.variance.value * jnp.exp(-(euclidean_distance(x, y) ** power_val))
+        x = self.slice_input(x) / self.lengthscale[...]
+        y = self.slice_input(y) / self.lengthscale[...]
+        power_val = self.power[...] if isinstance(self.power, nnx.Variable) else self.power
+        K = self.variance[...] * jnp.exp(-(euclidean_distance(x, y) ** power_val))
         return K.squeeze()

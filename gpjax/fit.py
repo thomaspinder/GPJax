@@ -79,7 +79,7 @@ def fit(  # noqa: PLR0913
         >>>         self.bias = bias
         >>>
         >>>     def __call__(self, x):
-        >>>         return self.weight.value * x + self.bias
+        >>>         return self.weight[...] * x + self.bias
         >>>
         >>> model = LinearModel(weight=1.0, bias=1.0)
         >>>
