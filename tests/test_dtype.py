@@ -18,18 +18,15 @@ float64.  The global ``jax_enable_x64`` flag is toggled per-test via the
 *enable_x64* fixture so these tests exercise both precision modes.
 """
 
-import jax
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 from gpjax.dataset import Dataset
 from gpjax.gps import Prior
-from gpjax.kernels.stationary import Matern32, RBF
+from gpjax.kernels.stationary import RBF, Matern32
 from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import Constant
 from gpjax.objectives import conjugate_mll
+from jax import config
+import jax.numpy as jnp
+import pytest
 
 config.update("jax_enable_x64", True)
 
