@@ -190,21 +190,37 @@ def fit_scipy(
     verbose: bool = True,
     safe: bool = True,
 ) -> tuple[Model, Array]:
-    r"""Train a Module model with respect to a supplied Objective function.
-    Optimisers used here should originate from Optax. todo
+    r"""Train a Module model with respect to a supplied Objective function
+    using SciPy's L-BFGS-B optimiser.
 
-    Args:
-        model: the model Module to be optimised.
-        objective: The objective function that we are optimising with
-            respect to.
-        train_data (Dataset): The training data to be used for the optimisation.
-        max_iters (int): The maximum number of optimisation steps to run. Defaults
-            to 500.
-        verbose (bool): Whether to print the information about the optimisation. Defaults
-            to True.
+    Parameters are transformed to unconstrained space, flattened into a
+    single vector, and passed to ``scipy.optimize.minimize``. Gradients
+    are computed via JAX's ``value_and_grad``.
 
-    Returns:
-        A tuple comprising the optimised model and training history.
+    Parameters
+    ----------
+    model : Module
+        The model to be optimised.
+    objective : Objective
+        The objective function to minimise with respect to the model
+        parameters.
+    train_data : Dataset
+        The training data used to evaluate the objective.
+    trainable : nnx.filterlib.Filter
+        Filter selecting which parameters to optimise. Defaults to all
+        ``Parameter`` instances.
+    max_iters : int
+        Maximum number of L-BFGS-B iterations. Defaults to 500.
+    verbose : bool
+        Whether to print optimisation progress. Defaults to True.
+    safe : bool
+        Whether to validate inputs before optimisation. Defaults to True.
+
+    Returns
+    -------
+    tuple[Module, Array]
+        A tuple of the optimised model and an array of objective values
+        recorded at each iteration.
     """
     if safe:
         # Check inputs.
