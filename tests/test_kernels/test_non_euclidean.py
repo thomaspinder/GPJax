@@ -11,6 +11,10 @@
 # # limitations under the License.
 
 from gpjax.kernels.non_euclidean import GraphKernel
+from gpjax.kernels.non_euclidean.utils import (
+    calculate_heat_semigroup,
+    jax_gather_nd,
+)
 from gpjax.linalg.operators import Identity
 from jax import (
     config,
@@ -19,6 +23,7 @@ from jax import (
 )
 import jax.numpy as jnp
 import networkx as nx
+import pytest
 
 # # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
@@ -112,3 +117,90 @@ def test_graph_kernel_is_jittable():
         result = jit_kernel(x, y)
         assert result.shape == expected.shape
         assert jnp.allclose(result, expected)
+
+
+# ---------------------------------------------------------------------------
+# jax_gather_nd utility
+# ---------------------------------------------------------------------------
+
+
+class TestJaxGatherNd:
+    """Tests for jax_gather_nd utility function."""
+
+    def test_basic_1d_gather(self):
+        params = jnp.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        indices = jnp.array([[0], [2], [4]])
+        result = jax_gather_nd(params, indices)
+        assert jnp.allclose(result, jnp.array([10.0, 30.0, 50.0]))
+
+    def test_2d_gather_rows(self):
+        params = jnp.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        indices = jnp.array([[0], [2]])
+        result = jax_gather_nd(params, indices)
+        expected = jnp.array([[1.0, 2.0], [5.0, 6.0]])
+        assert jnp.allclose(result, expected)
+
+    def test_single_index(self):
+        params = jnp.arange(10.0)
+        indices = jnp.array([[3]])
+        result = jax_gather_nd(params, indices)
+        assert jnp.allclose(result, jnp.array([3.0]))
+
+    def test_all_indices(self):
+        params = jnp.array([100.0, 200.0, 300.0])
+        indices = jnp.arange(3).reshape(-1, 1)
+        result = jax_gather_nd(params, indices)
+        assert jnp.allclose(result, params)
+
+    def test_repeated_indices(self):
+        params = jnp.array([10.0, 20.0, 30.0])
+        indices = jnp.array([[1], [1], [1]])
+        result = jax_gather_nd(params, indices)
+        assert jnp.allclose(result, jnp.array([20.0, 20.0, 20.0]))
+
+
+# ---------------------------------------------------------------------------
+# calculate_heat_semigroup utility
+# ---------------------------------------------------------------------------
+
+
+class TestCalculateHeatSemigroup:
+    """Tests for calculate_heat_semigroup utility function."""
+
+    @pytest.fixture()
+    def graph_kernel(self):
+        n_vertices = 10
+        graph = nx.path_graph(n_vertices)
+        laplacian = nx.laplacian_matrix(graph).toarray() + jnp.eye(n_vertices) * 1e-12
+        return GraphKernel(laplacian=laplacian)
+
+    def test_output_shape(self, graph_kernel):
+        S = calculate_heat_semigroup(graph_kernel)
+        assert S.shape == (graph_kernel.num_vertex, 1)
+
+    def test_finite_values(self, graph_kernel):
+        S = calculate_heat_semigroup(graph_kernel)
+        assert jnp.all(jnp.isfinite(S))
+
+    def test_positive_values(self, graph_kernel):
+        S = calculate_heat_semigroup(graph_kernel)
+        assert jnp.all(S > 0.0)
+
+    def test_scales_with_variance(self):
+        """Doubling kernel variance should double the semigroup values."""
+        n_vertices = 8
+        graph = nx.path_graph(n_vertices)
+        laplacian = nx.laplacian_matrix(graph).toarray() + jnp.eye(n_vertices) * 1e-12
+
+        k1 = GraphKernel(laplacian=laplacian, variance=1.0)
+        k2 = GraphKernel(laplacian=laplacian, variance=2.0)
+
+        S1 = calculate_heat_semigroup(k1)
+        S2 = calculate_heat_semigroup(k2)
+        assert jnp.allclose(S2, 2.0 * S1, atol=1e-6)
+
+    def test_sums_to_num_vertex_times_variance(self, graph_kernel):
+        """The sum of S should equal num_vertex * variance (by construction)."""
+        S = calculate_heat_semigroup(graph_kernel)
+        expected_sum = graph_kernel.num_vertex * graph_kernel.variance[...]
+        assert jnp.allclose(jnp.sum(S), expected_sum, atol=1e-5)

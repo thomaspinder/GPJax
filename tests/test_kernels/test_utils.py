@@ -23,7 +23,12 @@ if TYPE_CHECKING:
         Float,
     )
 
-from gpjax.kernels.stationary.utils import euclidean_distance
+from gpjax.kernels.stationary.utils import (
+    build_student_t_distribution,
+    euclidean_distance,
+    squared_distance,
+)
+import numpyro.distributions as npd
 import pytest
 
 
@@ -44,3 +49,65 @@ def test_euclidean_distance(
 
     # Test distance is correct to 3dp:
     assert jnp.round(euclidean_distance(a, b), 3) == distance_to_3dp
+
+
+# ---------------------------------------------------------------------------
+# squared_distance
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "expected"),
+    [
+        ([1.0], [-4.0], 25.0),
+        ([1.0, -2.0], [-4.0, 3.0], 50.0),
+        ([1.0, 2.0, 3.0], [1.0, 1.0, 1.0], 5.0),
+        ([0.0], [0.0], 0.0),
+    ],
+)
+def test_squared_distance(a: list[float], b: list[float], expected: float) -> None:
+    a_arr = jnp.array(a)
+    b_arr = jnp.array(b)
+    assert jnp.allclose(squared_distance(a_arr, b_arr), expected)
+
+
+def test_squared_distance_symmetry() -> None:
+    a = jnp.array([1.0, 2.0, 3.0])
+    b = jnp.array([4.0, 5.0, 6.0])
+    assert jnp.allclose(squared_distance(a, b), squared_distance(b, a))
+
+
+def test_euclidean_distance_is_sqrt_of_squared() -> None:
+    a = jnp.array([1.0, 2.0])
+    b = jnp.array([4.0, 6.0])
+    assert jnp.allclose(euclidean_distance(a, b) ** 2, squared_distance(a, b), atol=1e-5)
+
+
+def test_euclidean_distance_same_point() -> None:
+    """Euclidean distance of same point should be close to zero (clamped by 1e-36)."""
+    a = jnp.array([1.0, 2.0])
+    assert euclidean_distance(a, a) >= 0.0
+    assert euclidean_distance(a, a) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# build_student_t_distribution
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("nu", [1, 3, 5, 10])
+def test_build_student_t_distribution(nu: int) -> None:
+    dist = build_student_t_distribution(nu)
+    assert isinstance(dist, npd.StudentT)
+    assert dist.df == nu
+    assert dist.loc == 0.0
+    assert dist.scale == 1.0
+
+
+def test_student_t_is_sampleable() -> None:
+    import jax.random as jr
+
+    dist = build_student_t_distribution(5)
+    samples = dist.sample(jr.key(0), (100,))
+    assert samples.shape == (100,)
+    assert jnp.all(jnp.isfinite(samples))
