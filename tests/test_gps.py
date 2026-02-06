@@ -375,7 +375,7 @@ def test_posterior_construct(
 def test_prior_sample_approx(num_datapoints, kernel, mean_function):
     kern = kernel(n_dims=2, lengthscale=jnp.array([5.0, 1.0]), variance=0.1)
     p = Prior(kernel=kern, mean_function=mean_function())
-    key = jr.PRNGKey(123)
+    key = jr.key(123)
 
     with pytest.raises(ValueError):
         p.sample_approx(-1, key)

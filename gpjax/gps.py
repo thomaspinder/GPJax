@@ -349,7 +349,7 @@ class Prior(AbstractPrior[M, K]):
             >>> import gpjax as gpx
             >>> import jax.numpy as jnp
             >>> import jax.random as jr
-            >>> key = jr.PRNGKey(123)
+            >>> key = jr.key(123)
             >>>
             >>> meanf = gpx.mean_functions.Zero()
             >>> kernel = gpx.kernels.RBF(n_dims=1)
@@ -748,7 +748,7 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         likelihood: NGL,
         latent: tp.Union[Float[Array, "N 1"], Parameter, None] = None,
         jitter: float = 1e-6,
-        key: KeyArray = jr.PRNGKey(42),
+        key: KeyArray = jr.key(42),
     ):
         r"""Construct a non-conjugate Gaussian process posterior.
 

@@ -195,7 +195,7 @@ def test_arccosine_special_case(order: int):
     Kab_exact = kernel.cross_covariance(a, b)
 
     # calc cross-covariance using samples
-    weights = jax.random.normal(jr.PRNGKey(123), (10_000, 2))  # [S, d]
+    weights = jax.random.normal(jr.key(123), (10_000, 2))  # [S, d]
     weights_a = jnp.matmul(weights, a.T)  # [S, 1]
     weights_b = jnp.matmul(weights, b.T)  # [S, 1]
     H_a = jnp.heaviside(weights_a, 0.5)

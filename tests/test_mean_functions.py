@@ -75,7 +75,7 @@ def test_constant(constant: Float[Array, " Q"]) -> None:
 
 
 def test_zero_mean_remains_zero() -> None:
-    key = jr.PRNGKey(123)
+    key = jr.key(123)
 
     x = jr.uniform(key=key, minval=0, maxval=1, shape=(20, 1))
     y = jnp.full((20, 1), 50, dtype=jnp.float64)  # Dataset with non-zero mean

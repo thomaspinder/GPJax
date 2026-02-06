@@ -156,7 +156,7 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
 
     moments = transform.moments(mean_array, variance_array)
 
-    key = jr.PRNGKey(seed)
+    key = jr.key(seed)
     samples = mean_array + jnp.sqrt(variance_array) * jr.normal(key, (1000000, 1))
     transformed_samples = jax.nn.softplus(samples)
 

@@ -109,7 +109,7 @@ def test_fit_simple() -> None:
 def test_fit_scipy_simple():
     # Create dataset:
     X = jnp.linspace(0.0, 10.0, 100).reshape(-1, 1)
-    y = 2.0 * X + 1.0 + 10 * jr.normal(jr.PRNGKey(0), X.shape).reshape(-1, 1)
+    y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape).reshape(-1, 1)
     D = Dataset(X, y)
 
     # Define linear model:
@@ -152,7 +152,7 @@ def test_fit_scipy_simple():
 def test_fit_lbfgs_simple():
     # Create dataset:
     X = jnp.linspace(0.0, 10.0, 100).reshape(-1, 1)
-    y = 2.0 * X + 1.0 + 10 * jr.normal(jr.PRNGKey(0), X.shape).reshape(-1, 1)
+    y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape).reshape(-1, 1)
     D = Dataset(X, y)
 
     # Define linear model:
@@ -193,7 +193,7 @@ def test_fit_lbfgs_simple():
 @pytest.mark.parametrize("verbose", [True, False])
 def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
     # Create dataset:
-    key = jr.PRNGKey(123)
+    key = jr.key(123)
     x = jnp.sort(
         jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(n_data, 1)), axis=0
     )
@@ -213,7 +213,7 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
         optim=ox.adam(0.1),
         num_iters=15,
         verbose=verbose,
-        key=jr.PRNGKey(123),
+        key=jr.key(123),
     )
 
     # Ensure the trained model is a Gaussian process posterior
@@ -229,7 +229,7 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
 @pytest.mark.parametrize("n_data", [20])
 def test_fit_lbfgs_gp_regression(n_data: int) -> None:
     # Create dataset:
-    key = jr.PRNGKey(123)
+    key = jr.key(123)
     x = jnp.sort(
         jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(n_data, 1)), axis=0
     )

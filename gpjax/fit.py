@@ -49,7 +49,7 @@ def fit(
     optim: ox.GradientTransformation,
     params_bijection: dict[Parameter, Transform] | None = DEFAULT_BIJECTION,
     trainable: nnx.filterlib.Filter = Parameter,
-    key: KeyArray = jr.PRNGKey(42),
+    key: KeyArray = jr.key(42),
     num_iters: int = 100,
     batch_size: int = -1,
     log_rate: int = 10,
@@ -70,7 +70,7 @@ def fit(
         >>>
         >>> # (1) Create a dataset:
         >>> X = jnp.linspace(0.0, 10.0, 100)[:, None]
-        >>> y = 2.0 * X + 1.0 + 10 * jr.normal(jr.PRNGKey(0), X.shape)
+        >>> y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape)
         >>> D = gpx.Dataset(X, y)
         >>> # (2) Define your model:
         >>> class LinearModel(nnx.Module):
@@ -108,7 +108,7 @@ def fit(
         batch_size (int): The size of the mini-batch to use. Defaults to -1
             (i.e. full batch).
         key (KeyArray): The random key to use for the optimisation batch
-            selection. Defaults to jr.PRNGKey(42).
+            selection. Defaults to jr.key(42).
         log_rate (int): How frequently the objective function's value should
             be printed. Defaults to 10.
         verbose (bool): Whether to print the training loading bar. Defaults

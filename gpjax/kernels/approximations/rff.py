@@ -38,7 +38,7 @@ class RFF(AbstractKernel):
         num_basis_fns: int = 50,
         frequencies: tp.Union[Float[Array, "M D"], None] = None,
         compute_engine: BasisFunctionComputation = BasisFunctionComputation(),
-        key: KeyArray = jr.PRNGKey(0),
+        key: KeyArray = jr.key(0),
     ):
         r"""Initialise the RFF kernel.
 

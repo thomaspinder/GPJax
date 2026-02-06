@@ -47,7 +47,7 @@ def build_data(n_points: int, n_dims: int, key, binary: bool):
 @pytest.mark.parametrize("n_dims", [1, 2, 3])
 @pytest.mark.parametrize("key_val", [123, 42])
 def test_conjugate_mll(n_points: int, n_dims: int, key_val: int):
-    key = jr.PRNGKey(key_val)
+    key = jr.key(key_val)
     D = build_data(n_points, n_dims, key, binary=False)
 
     # Build model
@@ -88,7 +88,7 @@ def test_conjugate_mll(n_points: int, n_dims: int, key_val: int):
 @pytest.mark.parametrize("n_dims", [1, 2, 3])
 @pytest.mark.parametrize("key_val", [123, 42])
 def test_conjugate_loocv(n_points, n_dims, key_val):
-    key = jr.PRNGKey(key_val)
+    key = jr.key(key_val)
     D = build_data(n_points, n_dims, key, binary=False)
 
     # Build model
@@ -129,7 +129,7 @@ def test_conjugate_loocv(n_points, n_dims, key_val):
 @pytest.mark.parametrize("n_dims", [1, 2, 3])
 @pytest.mark.parametrize("key_val", [123, 42])
 def test_non_conjugate_mll(n_points, n_dims, key_val):
-    key = jr.PRNGKey(key_val)
+    key = jr.key(key_val)
     D = build_data(n_points, n_dims, key, binary=True)
 
     # Build model
@@ -170,7 +170,7 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
 @pytest.mark.parametrize("n_dims", [1, 2, 3])
 @pytest.mark.parametrize("key_val", [123, 42])
 def test_collapsed_elbo(n_points, n_dims, key_val):
-    key = jr.PRNGKey(key_val)
+    key = jr.key(key_val)
     D = build_data(n_points, n_dims, key, binary=False)
     z = jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(n_points // 2, n_dims))
 
@@ -203,7 +203,7 @@ def test_collapsed_elbo(n_points, n_dims, key_val):
 @pytest.mark.parametrize("key_val", [123, 42])
 @pytest.mark.parametrize("binary", [True, False])
 def test_elbo(n_points, n_dims, key_val, binary: bool):
-    key = jr.PRNGKey(key_val)
+    key = jr.key(key_val)
     D = build_data(n_points, n_dims, key, binary=binary)
     z = jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(n_points // 2, n_dims))
 
