@@ -185,7 +185,7 @@ skip_covered = true
 
 [tool.pytest.ini_options] # https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref
 filterwarnings = ["error", "ignore::DeprecationWarning"]
-testpaths = ["gpjax"]
+testpaths = ["tests"]
 xfail_strict = true
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
