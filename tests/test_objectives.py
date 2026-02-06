@@ -1,10 +1,4 @@
 from flax import nnx
-import jax
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import Prior
@@ -17,6 +11,11 @@ from gpjax.objectives import (
     non_conjugate_mll,
 )
 from gpjax.parameters import Parameter
+import jax
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

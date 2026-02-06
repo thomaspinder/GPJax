@@ -15,16 +15,6 @@
 
 from beartype.typing import Any
 from flax import nnx
-import jax.numpy as jnp
-import jax.random as jr
-from jaxtyping import (
-    Float,
-    Num,
-)
-import optax as ox
-import pytest
-import scipy
-
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.fit import (
@@ -59,6 +49,15 @@ from gpjax.parameters import (
 )
 from gpjax.typing import Array
 from gpjax.variational_families import VariationalGaussian
+import jax.numpy as jnp
+import jax.random as jr
+from jaxtyping import (
+    Float,
+    Num,
+)
+import optax as ox
+import pytest
+import scipy
 
 
 def test_fit_simple() -> None:

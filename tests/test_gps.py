@@ -26,12 +26,6 @@ from typing import (
     Type,
 )
 
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-from numpyro.distributions import Distribution as NumpyroDistribution
-import pytest
-
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
@@ -58,6 +52,11 @@ from gpjax.mean_functions import (
     Constant,
     Zero,
 )
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+from numpyro.distributions import Distribution as NumpyroDistribution
+import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

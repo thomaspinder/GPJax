@@ -13,16 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 from flax import nnx
-from hypothesis import (
-    given,
-    strategies as st,
-)
-import jax
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import (
@@ -46,6 +36,15 @@ from gpjax.variational_families import (
     HeteroscedasticVariationalFamily,
     VariationalGaussianInit,
 )
+from hypothesis import (
+    given,
+    strategies as st,
+)
+import jax
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 config.update("jax_enable_x64", True)
 

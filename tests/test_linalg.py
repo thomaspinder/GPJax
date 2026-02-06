@@ -1,10 +1,5 @@
 """Tests for the gpjax.linalg module."""
 
-from jax import config
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 from gpjax.linalg import (
     BlockDiag,
     Dense,
@@ -19,6 +14,10 @@ from gpjax.linalg import (
     solve,
 )
 from gpjax.linalg.utils import add_jitter
+from jax import config
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 # Enable 64-bit precision for tests
 config.update("jax_enable_x64", True)

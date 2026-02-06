@@ -14,14 +14,6 @@
 # ==============================================================================
 
 from flax import nnx
-from jax import config
-import jax.numpy as jnp
-from jaxtyping import (
-    Array,
-    Float,
-)
-import pytest
-
 from gpjax.kernels.base import (
     AbstractKernel,
     CombinationKernel,
@@ -43,6 +35,13 @@ from gpjax.parameters import (
     PositiveReal,
     Real,
 )
+from jax import config
+import jax.numpy as jnp
+from jaxtyping import (
+    Array,
+    Float,
+)
+import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

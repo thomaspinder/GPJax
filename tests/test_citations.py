@@ -2,9 +2,6 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-import jax.numpy as jnp
-import pytest
-
 import gpjax as gpx
 from gpjax.citation import (
     AbstractCitation,
@@ -25,6 +22,8 @@ from gpjax.kernels import (
 )
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.mean_functions import Zero
+import jax.numpy as jnp
+import pytest
 
 
 def _check_no_fallback(citation: AbstractCitation):

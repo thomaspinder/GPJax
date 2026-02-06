@@ -18,6 +18,17 @@ from typing import (
     Tuple,
 )
 
+import gpjax as gpx
+from gpjax.gps import AbstractPosterior
+from gpjax.variational_families import (
+    AbstractVariationalFamily,
+    CollapsedVariationalGaussian,
+    ExpectationVariationalGaussian,
+    GraphVariationalGaussian,
+    NaturalVariationalGaussian,
+    VariationalGaussian,
+    WhitenedVariationalGaussian,
+)
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -30,18 +41,6 @@ import numpy as np
 import numpyro.distributions as npd
 from numpyro.distributions import Distribution as NumpyroDistribution
 import pytest
-
-import gpjax as gpx
-from gpjax.gps import AbstractPosterior
-from gpjax.variational_families import (
-    AbstractVariationalFamily,
-    CollapsedVariationalGaussian,
-    ExpectationVariationalGaussian,
-    GraphVariationalGaussian,
-    NaturalVariationalGaussian,
-    VariationalGaussian,
-    WhitenedVariationalGaussian,
-)
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)

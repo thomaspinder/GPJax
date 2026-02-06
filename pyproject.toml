@@ -70,12 +70,9 @@ dev = [
   "absolufy-imports>=0.3.1",
   "xdoctest>=1.1.1",
   "mktestdocs>=0.2.1",
-  "isort",
   "networkx",
-  "black",
   "jupytext",
   "pytest-beartype",
-  "autoflake",
 ]
 
 [tool.uv]
@@ -94,12 +91,9 @@ dev-dependencies = [
   "absolufy-imports>=0.3.1",
   "xdoctest>=1.1.1",
   "mktestdocs>=0.2.1",
-  "isort",
   "networkx",
-  "black",
   "jupytext",
   "pytest-beartype",
-  "autoflake",
   "poethepoet>=0.37.0",
   "twine>=6.2.0",
   "hypothesis>=6.148.2",
@@ -123,21 +117,16 @@ help = "Run Github actions locally"
 # Formatting tasks
 [tool.poe.tasks.format]
 sequence = [
-  { cmd = "black ./gpjax ./tests" },
-  { cmd = "jupytext --pipe black examples/*.py" },
-  { cmd = "isort ./gpjax ./tests" },
-  { cmd = "isort examples/*.py --treat-comment-as-code '# %%' --float-to-top" },
-  { cmd = "ruff format ./gpjax ./tests ./examples" }
+  { cmd = "ruff check --select I --fix ./gpjax ./tests" },
+  { cmd = "ruff format ./gpjax ./tests" }
 ]
-help = "Format code using black, isort, and ruff"
+help = "Format code using ruff"
 
 # Linting tasks
 [tool.poe.tasks.lint]
 sequence = [
-  { cmd = "black --check --diff ./gpjax ./tests" },
-  { cmd = "isort ./gpjax ./tests -c" },
-  { cmd = "isort examples/*.py -c --treat-comment-as-code '# %%' --float-to-top" },
-  { cmd = "ruff check --fix ./gpjax ./tests ./examples" }
+  { cmd = "ruff format --check --diff ./gpjax ./tests" },
+  { cmd = "ruff check --fix ./gpjax ./tests" }
 ]
 help = "Check code formatting and style"
 
@@ -194,10 +183,6 @@ precision = 1
 show_missing = true
 skip_covered = true
 
-[tool.black] # https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html#configuration-via-a-file
-line-length = 88
-target-version = ["py311"]
-
 [tool.pytest.ini_options] # https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref
 filterwarnings = ["error", "ignore::DeprecationWarning"]
 testpaths = ["gpjax"]
@@ -218,6 +203,8 @@ select = [
   # pycodestyle
   "E",
   "W",
+  # isort
+  "I",
   # flake8-2020
   "YTT",
   # flake8-bugbear
@@ -257,6 +244,11 @@ ignore = [
 ]
 unfixable = ["ERA001", "F401", "F841", "T201", "T203"]
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+force-wrap-aliases = true
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
@@ -267,13 +259,6 @@ convention = "numpy"
 "tests/test_objectives.py" = ["PLR0913"]
 "examples/barycentres.py" = ["PLR0913"]
 "tests/*.py" = ["PLW0108"]
-
-[tool.isort]
-profile = "black"
-combine_as_imports = true
-force_sort_within_sections = true
-force_grid_wrap = 2
-skip = 'examples'
 
 [tool.interrogate]
 ignore-init-method = true

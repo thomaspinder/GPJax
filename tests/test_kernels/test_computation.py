@@ -1,6 +1,3 @@
-import jax.numpy as jnp
-import pytest
-
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import (
     ConstantDiagonalKernelComputation,
@@ -24,6 +21,8 @@ from gpjax.linalg.operators import (
     Dense,
     Diagonal,
 )
+import jax.numpy as jnp
+import pytest
 
 
 @pytest.mark.parametrize(

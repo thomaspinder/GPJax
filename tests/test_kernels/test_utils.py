@@ -26,9 +26,8 @@ if TYPE_CHECKING:
         Float,
     )
 
-import pytest
-
 from gpjax.kernels.stationary.utils import euclidean_distance
+import pytest
 
 
 @pytest.mark.parametrize(
