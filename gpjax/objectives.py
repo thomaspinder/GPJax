@@ -208,6 +208,22 @@ def log_posterior_density(
     Monte Carlo, variational inference, or Laplace approximations can then be used
     to sample from, or optimise an approximation to, the posterior distribution.
 
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> gpx.objectives.log_posterior_density(posterior, D)
+
     Args:
         posterior (NonConjugatePosterior): The posterior distribution for which
             we want to compute the marginal log-likelihood.
@@ -257,6 +273,27 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     to the prior. When batching occurs, the result is scaled by the batch size
     relative to the full dataset size.
 
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        >>> q = gpx.variational_families.VariationalGaussian(
+        ...     posterior=posterior, inducing_inputs=z
+        ... )
+
+        >>> gpx.objectives.elbo(q, D)
+
     Args:
         variational_family: The variational
             approximation for whose parameters we should maximise the ELBO with
@@ -292,6 +329,27 @@ def variational_expectation(
 
     Compute the expectation of our model's log-likelihood under our variational
     distribution. Batching can be done here to speed up computation.
+
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        >>> q = gpx.variational_families.VariationalGaussian(
+        ...     posterior=posterior, inducing_inputs=z
+        ... )
+
+        >>> gpx.objectives.variational_expectation(q, D)
 
     Args:
         variational_family: The variational family that we
@@ -338,6 +396,27 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     approximation. To this, we sum the KL divergence from the variational posterior
     to the prior. When batching occurs, the result is scaled by the batch size
     relative to the full dataset size.
+
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        >>> q = gpx.variational_families.CollapsedVariationalGaussian(
+        ...     posterior=posterior, inducing_inputs=z
+        ... )
+
+        >>> gpx.objectives.collapsed_elbo(q, D)
 
     Args:
         variational_family: The variational
