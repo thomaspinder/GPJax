@@ -20,7 +20,6 @@ from jaxtyping import (
     Num,
 )
 
-import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
 from gpjax.typing import Array
 

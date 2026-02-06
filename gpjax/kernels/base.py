@@ -309,9 +309,8 @@ def _check_dims_compat(
         f" Got {active_dims} active dimensions and {n_dims} input dimensions."
     )
 
-    if isinstance(active_dims, list) and isinstance(n_dims, int):
-        if len(active_dims) != n_dims:
-            raise err
+    if isinstance(active_dims, list) and isinstance(n_dims, int) and len(active_dims) != n_dims:
+        raise err
 
     if isinstance(active_dims, slice) and isinstance(n_dims, int):
         start = active_dims.start or 0

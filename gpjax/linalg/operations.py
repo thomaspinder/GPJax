@@ -1,7 +1,5 @@
 """Linear algebra operations for GPJax LinearOperators."""
 
-from typing import Union
-
 from jax import Array
 import jax.numpy as jnp
 import jax.scipy as jsp

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from gpjax.kernels.approximations import RFF
 from gpjax.kernels.nonstationary import (
     Linear,

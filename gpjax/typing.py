@@ -13,9 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import (
-    Union,
-)
 from collections.abc import Callable
 
 from jaxtyping import (
@@ -30,18 +27,16 @@ from numpy import ndarray as NumpyArray
 
 OldKeyArray = UInt32[JAXArray, "2"]
 JAXKeyArray = Key[JAXArray, ""]
-KeyArray = Union[
-    OldKeyArray, JAXKeyArray
-]  # for compatibility regardless of enable_custom_prng setting
+KeyArray = OldKeyArray | JAXKeyArray  # for compatibility regardless of enable_custom_prng setting
 
-Array = Union[JAXArray, NumpyArray]
+Array = JAXArray | NumpyArray
 
 ScalarArray = Float[Array, ""]
-ScalarBool = Union[bool, Bool[Array, ""]]
-ScalarInt = Union[int, Int[Array, ""]]
-ScalarFloat = Union[float, Float[Array, ""]]
+ScalarBool = bool | Bool[Array, ""]
+ScalarInt = int | Int[Array, ""]
+ScalarFloat = float | Float[Array, ""]
 
-VecNOrMatNM = Union[Float[Array, " N"], Float[Array, "N M"]]
+VecNOrMatNM = Float[Array, " N"] | Float[Array, "N M"]
 
 FunctionalSample = Callable[[Float[Array, "N D"]], Float[Array, "N B"]]
 r""" Type alias for functions representing $B$ samples from a model, to be evaluated on

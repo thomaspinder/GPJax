@@ -21,9 +21,6 @@ try:
 except ImportError:
     ValidationErrors = TypeError
 
-from typing import (
-    Type,
-)
 from collections.abc import Callable
 
 from gpjax.dataset import Dataset

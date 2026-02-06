@@ -13,9 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import (
-    Tuple,
-)
 from collections.abc import Callable
 
 from gpjax.likelihoods import (
@@ -101,7 +98,7 @@ def test_poisson_likelihood(n: int):
     assert isinstance(likelihood.link_function(x), npd.Poisson)
 
     # Construct latent function distribution.
-    latent_dist, latent_mean, latent_cov = _compute_latent_dist(n)
+    latent_dist, latent_mean, _latent_cov = _compute_latent_dist(n)
     pred_dist = likelihood(latent_dist)
     assert isinstance(pred_dist, npd.Poisson)
 

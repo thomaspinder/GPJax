@@ -197,7 +197,7 @@ src = ["gpjax", "tests"]
 target-version = "py311"
 
 [tool.ruff.lint]
-dummy-variable-rgx = "^_$"
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "F",
   # pycodestyle
@@ -223,6 +223,12 @@ select = [
   "TID",
   # implicit string concatenation
   "ISC",
+  # pyupgrade
+  "UP",
+  # flake8-simplify
+  "SIM",
+  # ruff-specific
+  "RUF",
 ]
 ignore = [
   # calls in argument defaults
@@ -241,6 +247,9 @@ ignore = [
   "F722",
   'PLR2004',
   "PLR0913",
+  # intentional math Unicode (σ, ℓ) in docstrings and comments
+  "RUF002",
+  "RUF003",
 ]
 unfixable = ["ERA001", "F401", "F841", "T201", "T203"]
 
@@ -256,6 +265,7 @@ convention = "numpy"
 "gpjax/__init__.py" = ['I', 'F401', 'E402', 'D104']
 "gpjax/scan.py" = ["PLR0913"]
 "gpjax/citation.py" = ["F811"]
+"gpjax/gps.py" = ["F811"]
 "tests/test_objectives.py" = ["PLR0913"]
 "examples/barycentres.py" = ["PLR0913"]
 "tests/*.py" = ["PLW0108"]

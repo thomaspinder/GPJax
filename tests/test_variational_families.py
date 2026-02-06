@@ -13,9 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import (
-    Tuple,
-)
 from collections.abc import Callable
 
 import gpjax as gpx
@@ -130,7 +127,7 @@ def test_variational_gaussians(
     assert q.num_inducing == n_inducing
     assert isinstance(q, AbstractVariationalFamily)
 
-    if isinstance(q, VariationalGaussian) or isinstance(q, WhitenedVariationalGaussian):
+    if isinstance(q, (VariationalGaussian, WhitenedVariationalGaussian)):
         assert q.variational_mean[...].shape == vector_shape(n_inducing)
         assert q.variational_root_covariance[...].shape == matrix_shape(n_inducing)
         assert (q.variational_mean[...] == vector_val(0.0)(n_inducing)).all()

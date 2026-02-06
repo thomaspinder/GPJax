@@ -6,9 +6,6 @@ from abc import (
 )
 from typing import (
     Any,
-    List,
-    Tuple,
-    Union,
 )
 
 from jax import Array
@@ -222,7 +219,7 @@ class BlockDiag(LinearOperator):
     """Block diagonal linear operator."""
 
     def __init__(
-        self, operators: list[LinearOperator], multiplicities: list[int] = None
+        self, operators: list[LinearOperator], multiplicities: list[int] | None = None
     ):
         super().__init__()
         self.operators = operators

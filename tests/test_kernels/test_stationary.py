@@ -113,7 +113,7 @@ def test_init_override_paramtype(kernel_request):
     k = kernel(**kwargs)
     assert isinstance(k.variance, NonNegativeReal)
 
-    for param in params.keys():
+    for param in params:
         # Parameter is now a raw value, not a Static object
         assert not isinstance(getattr(k, param), Parameter)
 

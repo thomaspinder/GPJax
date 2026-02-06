@@ -55,7 +55,7 @@ class FillTriangularTransform(npt.Transform):
             batch_shape = x.shape[:-1]
             flat_x = x.reshape((-1, L))
             out = jax.vmap(fill_single)(flat_x)
-            return out.reshape(batch_shape + (n, n))
+            return out.reshape((*batch_shape, n, n))
 
     def _inverse(self, y):
         """
@@ -76,7 +76,7 @@ class FillTriangularTransform(npt.Transform):
         n = y.shape[-1]
         if y.shape[-2] != n:
             raise ValueError(
-                "Input matrix must be square; got shape %s" % str(y.shape[-2:])
+                f"Input matrix must be square; got shape {y.shape[-2:]}"
             )
 
         row, col = jnp.tril_indices(n)
@@ -90,7 +90,7 @@ class FillTriangularTransform(npt.Transform):
             batch_shape = y.shape[:-2]
             flat_y = y.reshape((-1, n, n))
             out = jax.vmap(inv_single)(flat_y)
-            return out.reshape(batch_shape + (n * (n + 1) // 2,))
+            return out.reshape((*batch_shape, n * (n + 1) // 2))
 
     def log_abs_det_jacobian(self, x, y, intermediates=None):
         # Since the transform simply reorders the vector into a matrix, the Jacobian determinant is 1.

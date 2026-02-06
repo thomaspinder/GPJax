@@ -182,11 +182,11 @@ def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
         posterior=posterior, inducing_inputs=dataset.X, inducing_inputs_g=dataset.X[::2]
     )
 
-    mf, vf, mg, vg = variational.predict(dataset.X)
+    mf, vf, _mg, _vg = variational.predict(dataset.X)
     assert mf.shape == (dataset.n, 1)
     assert vf.shape == (dataset.n, 1)
-    assert mg.shape == (dataset.n, 1)
-    assert vg.shape == (dataset.n, 1)
+    assert _mg.shape == (dataset.n, 1)
+    assert _vg.shape == (dataset.n, 1)
 
     kl = variational.prior_kl()
     assert jnp.isfinite(kl)
@@ -266,7 +266,7 @@ def test_variational_family_predict_return_type(prior, noise_prior):
     assert hasattr(prediction, "variance_g")
 
     # Check backward compatibility (unpacking)
-    mf, vf, mg, vg = prediction
+    mf, _vf, _mg, _vg = prediction
     assert jnp.allclose(mf, prediction.mean_f)
 
 
@@ -304,7 +304,7 @@ def test_jit_prediction(prior, noise_prior, dataset):
 
     # JIT compile the predict method
     predict_jit = jax.jit(q.predict)
-    mf, vf, mg, vg = predict_jit(dataset.X)
+    mf, _vf, _mg, _vg = predict_jit(dataset.X)
 
     assert mf.shape == (dataset.n, 1)
     assert jnp.isfinite(mf).all()

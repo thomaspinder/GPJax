@@ -17,7 +17,6 @@ import beartype.typing as tp
 from jax import vmap
 from jaxtyping import Float
 
-import gpjax
 from gpjax.kernels.computations import AbstractKernelComputation
 from gpjax.linalg import (
     Diagonal,

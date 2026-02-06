@@ -172,7 +172,7 @@ def test_fit_lbfgs_simple():
         return jnp.mean((pred - data.y) ** 2)
 
     # Train with bfgs!
-    trained_model, final_loss = fit_lbfgs(
+    trained_model, _final_loss = fit_lbfgs(
         model=model,
         objective=mse,
         train_data=D,
@@ -242,7 +242,7 @@ def test_fit_lbfgs_gp_regression(n_data: int) -> None:
     posterior = prior * likelihood
 
     # Train with BFGS!
-    trained_model_bfgs, final_loss = fit_lbfgs(
+    trained_model_bfgs, _final_loss = fit_lbfgs(
         model=posterior,
         objective=conjugate_mll,
         train_data=D,
@@ -401,7 +401,7 @@ def test_check_model_invalid() -> None:
     """Test that an invalid model raises a TypeError."""
     model = "not a model"
     with pytest.raises(
-        TypeError, match="Expected model to be a subclass of nnx.Module"
+        TypeError, match=r"Expected model to be a subclass of nnx\.Module"
     ):
         _check_model(model)
 
@@ -415,7 +415,7 @@ def test_check_train_data_invalid() -> None:
     """Test that invalid training data raises a TypeError."""
     train_data = "not a dataset"
     with pytest.raises(
-        TypeError, match="Expected train_data to be of type gpjax.Dataset"
+        TypeError, match=r"Expected train_data to be of type gpjax\.Dataset"
     ):
         _check_train_data(train_data)
 
@@ -430,7 +430,7 @@ def test_check_optim_invalid() -> None:
     """Test that an invalid optimiser raises a TypeError."""
     optim = "not an optimiser"
     with pytest.raises(
-        TypeError, match="Expected optim to be of type optax.GradientTransformation"
+        TypeError, match=r"Expected optim to be of type optax\.GradientTransformation"
     ):
         _check_optim(optim)
 

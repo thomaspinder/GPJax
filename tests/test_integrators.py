@@ -14,8 +14,6 @@
 # ==============================================================================
 
 
-import typing as tp
-
 from gpjax.integrators import GHQuadratureIntegrator
 from gpjax.likelihoods import (
     Bernoulli,

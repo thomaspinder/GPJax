@@ -13,10 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import (
-    TYPE_CHECKING,
-    List,
-)
+from typing import TYPE_CHECKING
 
 import jax.numpy as jnp
 
