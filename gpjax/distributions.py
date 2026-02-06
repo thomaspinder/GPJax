@@ -40,6 +40,48 @@ from gpjax.typing import (
 
 
 class GaussianDistribution(Distribution):
+    r"""Multivariate Gaussian distribution for GP predictions.
+
+    This is the return type of all ``predict()`` methods in GPJax. It wraps a
+    mean vector and a covariance :class:`~gpjax.linalg.operators.LinearOperator`,
+    providing methods for sampling, computing log-probabilities, and evaluating
+    KL divergences.
+
+    The distribution is parameterised as
+
+    .. math::
+
+        p(\mathbf{x}) = \mathcal{N}(\mathbf{x}; \boldsymbol{\mu}, \mathbf{\Sigma})
+
+    where :math:`\boldsymbol{\mu}` is the ``loc`` (mean) vector and
+    :math:`\mathbf{\Sigma}` is represented by the ``scale``
+    :class:`~gpjax.linalg.operators.LinearOperator`. The ``scale`` is
+    automatically annotated as positive semi-definite on construction.
+
+    Parameters
+    ----------
+    loc : Float[Array, " N"]
+        Mean vector of the distribution.
+    scale : LinearOperator
+        Covariance matrix represented as a
+        :class:`~gpjax.linalg.operators.LinearOperator` (e.g.
+        :class:`~gpjax.linalg.operators.Dense` or
+        :class:`~gpjax.linalg.operators.Diagonal`).
+
+    Examples
+    --------
+    >>> import jax.numpy as jnp
+    >>> from gpjax.distributions import GaussianDistribution
+    >>> from gpjax.linalg.operators import Dense
+    >>> mu = jnp.array([0.0, 1.0])
+    >>> cov = Dense(jnp.eye(2))
+    >>> dist = GaussianDistribution(loc=mu, scale=cov)
+    >>> dist.mean
+    Array([0., 1.], dtype=float32)
+    >>> dist.variance
+    Array([1., 1.], dtype=float32)
+    """
+
     support = constraints.real_vector
 
     def __init__(
@@ -55,6 +97,30 @@ class GaussianDistribution(Distribution):
         super().__init__(batch_shape, event_shape, validate_args=validate_args)
 
     def sample(self, key, sample_shape=()):
+        r"""Draw samples from the distribution.
+
+        Generates samples via the reparameterisation trick:
+
+        .. math::
+
+            \mathbf{x} = \boldsymbol{\mu} + \mathbf{L}\mathbf{z},
+            \quad \mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+
+        where :math:`\mathbf{L}` is the lower Cholesky factor of the covariance.
+
+        Parameters
+        ----------
+        key : KeyArray
+            JAX PRNG key.
+        sample_shape : tuple of int, optional
+            Leading batch dimensions for the samples. Defaults to ``()``,
+            returning a single sample.
+
+        Returns
+        -------
+        Float[Array, "... N"]
+            Array of samples with shape ``(*sample_shape, N)``.
+        """
         assert is_prng_key(key)
         # Obtain covariance root.
         covariance_root = lower_cholesky(self.scale)
@@ -80,49 +146,73 @@ class GaussianDistribution(Distribution):
 
     @property
     def variance(self) -> Float[Array, " N"]:
-        r"""Calculates the variance."""
+        r"""Calculates the marginal variance (diagonal of the covariance)."""
         return diag(self.scale)
 
     def entropy(self) -> ScalarFloat:
-        r"""Calculates the entropy of the distribution."""
+        r"""Calculates the differential entropy of the distribution.
+
+        .. math::
+
+            H[p] = \tfrac{1}{2}\bigl(N(1 + \ln 2\pi) + \ln|\mathbf{\Sigma}|\bigr)
+
+        Returns
+        -------
+        ScalarFloat
+            Entropy in nats.
+        """
         return 0.5 * (
             self.event_shape[0] * (1.0 + jnp.log(2.0 * jnp.pi)) + logdet(self.scale)
         )
 
     def median(self) -> Float[Array, " N"]:
-        r"""Calculates the median."""
+        r"""Calculates the median (equal to the mean for a Gaussian)."""
         return self.loc
 
     def mode(self) -> Float[Array, " N"]:
-        r"""Calculates the mode."""
+        r"""Calculates the mode (equal to the mean for a Gaussian)."""
         return self.loc
 
     def covariance(self) -> Float[Array, "N N"]:
-        r"""Calculates the covariance matrix."""
+        r"""Materialises the full covariance matrix as a dense array.
+
+        Returns
+        -------
+        Float[Array, "N N"]
+            Dense covariance matrix.
+        """
         return self.scale.to_dense()
 
     @property
     def covariance_matrix(self) -> Float[Array, "N N"]:
-        r"""Calculates the covariance matrix."""
+        r"""Property alias for :meth:`covariance`."""
         return self.covariance()
 
     def stddev(self) -> Float[Array, " N"]:
-        r"""Calculates the standard deviation."""
+        r"""Calculates the marginal standard deviation."""
         return jnp.sqrt(diag(self.scale))
-
-    #     @property
-    #     def event_shape(self) -> Tuple:
-    #         r"""Returns the event shape."""
-    #         return self.loc.shape[-1:]
 
     def log_prob(self, y: Float[Array, " N"]) -> ScalarFloat:
         r"""Calculates the log pdf of the multivariate Gaussian.
 
-        Args:
-            y: the value of which to calculate the log probability.
+        .. math::
 
-        Returns:
-            The log probability of the value as a scalar array.
+            \log p(\mathbf{y}) = -\tfrac{1}{2}\bigl[
+                N\ln 2\pi + \ln|\mathbf{\Sigma}|
+                + (\mathbf{y} - \boldsymbol{\mu})^\top
+                  \mathbf{\Sigma}^{-1}
+                  (\mathbf{y} - \boldsymbol{\mu})
+            \bigr]
+
+        Parameters
+        ----------
+        y : Float[Array, " N"]
+            Point at which to evaluate the log-density.
+
+        Returns
+        -------
+        ScalarFloat
+            Log probability.
         """
         mu = self.loc
         sigma = self.scale
@@ -136,36 +226,22 @@ class GaussianDistribution(Distribution):
             n * jnp.log(2.0 * jnp.pi) + logdet(sigma) + diff.T @ solve(sigma, diff)
         )
 
-    #     def _sample_n(self, key: KeyArray, n: int) -> Float[Array, "n N"]:
-    #         r"""Samples from the distribution.
-
-    #         Args:
-    #             key (KeyArray): The key to use for sampling.
-
-    #         Returns:
-    #             The samples as an array of shape (n_samples, n_points).
-    #         """
-    #         # Obtain covariance root.
-    #         sqrt = lower_cholesky(self.scale)
-
-    #         # Gather n samples from standard normal distribution Z = [z₁, ..., zₙ]ᵀ.
-    #         Z = jr.normal(key, shape=(n, *self.event_shape))
-
-    #         # xᵢ ~ N(loc, cov) <=> xᵢ = loc + sqrt zᵢ, where zᵢ ~ N(0, I).
-    #         def affine_transformation(x):
-    #             return self.loc + sqrt @ x
-
-    #         return vmap(affine_transformation)(Z)
-
-    #     def sample(
-    #         self, seed: KeyArray, sample_shape: Tuple[int, ...]
-    #     ):  # pylint: disable=useless-super-delegation
-    #         r"""See `Distribution.sample`."""
-    #         return self._sample_n(
-    #             seed, sample_shape[0]
-    #         )  # TODO this looks weird, why ignore the second entry?
-
     def kl_divergence(self, other: "GaussianDistribution") -> ScalarFloat:
+        r"""KL divergence from ``self`` to ``other``.
+
+        Computes :math:`\operatorname{KL}[q \| p]` where ``self`` is *q* and
+        ``other`` is *p*.
+
+        Parameters
+        ----------
+        other : GaussianDistribution
+            The reference distribution *p*.
+
+        Returns
+        -------
+        ScalarFloat
+            KL divergence in nats.
+        """
         return _kl_divergence(self, other)
 
 
