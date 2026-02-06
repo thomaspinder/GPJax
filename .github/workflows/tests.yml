@@ -35,7 +35,7 @@ jobs:
       # Install the dependencies
       - name: Check docstrings
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
           uv run xdoctest ./gpjax
 
       # Run the unit tests and build the coverage report
