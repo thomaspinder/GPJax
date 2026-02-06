@@ -919,7 +919,7 @@ def construct_posterior(
 ) -> ChainedPosterior[P, AbstractHeteroscedasticLikelihood]: ...
 
 
-def construct_posterior(prior, likelihood):
+def construct_posterior(prior: AbstractPrior, likelihood: AbstractLikelihood) -> "AbstractPosterior":
     r"""Utility function for constructing a posterior object from a prior and
     likelihood. The function will automatically select the correct posterior
     object based on the likelihood.
