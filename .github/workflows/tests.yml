@@ -8,6 +8,7 @@ on:
 jobs:
   unit-tests:
     name: Run Tests
+    timeout-minutes: 30
     strategy:
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
@@ -29,6 +30,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
+          enable-cache: true
 
       # Install the dependencies
       - name: Check docstrings

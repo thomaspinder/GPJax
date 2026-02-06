@@ -9,6 +9,7 @@ jobs:
   integration-tests:
     name: Run Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         # Select the Python versions to test against
@@ -30,6 +31,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
+          enable-cache: true
 
       # Run the unit tests and build the coverage report
       - name: Run Integration Tests

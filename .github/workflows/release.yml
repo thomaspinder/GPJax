@@ -24,6 +24,7 @@ jobs:
   validate-release:
     name: "Release Validation"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.version.outputs.version }}
 
@@ -69,6 +70,7 @@ jobs:
             python-version: "3.12"
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -81,6 +83,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: |
@@ -105,6 +109,7 @@ jobs:
     name: "Pre-Release Security Scan"
     needs: validate-release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -117,6 +122,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: |
@@ -143,6 +150,7 @@ jobs:
     name: "Build Distribution Package"
     needs: [validate-release, multi-platform-tests, security-scan]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -155,6 +163,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
 
       - name: Build package
         run: |
@@ -176,6 +186,7 @@ jobs:
     name: "Generate Release Changelog"
     needs: validate-release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       changelog: ${{ steps.changelog.outputs.changelog }}
 
@@ -258,6 +269,7 @@ jobs:
     name: "Create GitHub Release"
     needs: [validate-release, build-package, generate-changelog]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -286,6 +298,7 @@ jobs:
     name: "Publish to PyPI"
     needs: [validate-release, create-release]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Only publish on actual tag push, not workflow_dispatch
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment:
