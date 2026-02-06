@@ -34,7 +34,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --extra dev
+        uv sync --frozen --extra dev
 
     - name: Run safety check
       run: |
