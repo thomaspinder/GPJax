@@ -83,7 +83,9 @@ def test_prior_predict_dtype(enable_x64):
     x = jnp.linspace(0, 1, 10, dtype=dtype)[:, None]
     prior = Prior(mean_function=Constant(), kernel=RBF())
     dist = prior.predict(x)
-    assert dist.mean.dtype == dtype, f"Mean dtype: expected {dtype}, got {dist.mean.dtype}"
+    assert dist.mean.dtype == dtype, (
+        f"Mean dtype: expected {dtype}, got {dist.mean.dtype}"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -105,7 +107,9 @@ def test_posterior_predict_dtype(enable_x64):
     posterior = prior * likelihood
 
     dist = posterior.predict(x_test, D)
-    assert dist.mean.dtype == dtype, f"Mean dtype: expected {dtype}, got {dist.mean.dtype}"
+    assert dist.mean.dtype == dtype, (
+        f"Mean dtype: expected {dtype}, got {dist.mean.dtype}"
+    )
 
 
 # --------------------------------------------------------------------------- #
