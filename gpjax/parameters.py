@@ -75,9 +75,7 @@ class FillTriangularTransform(npt.Transform):
             raise ValueError("Input to inverse must be at least two-dimensional.")
         n = y.shape[-1]
         if y.shape[-2] != n:
-            raise ValueError(
-                f"Input matrix must be square; got shape {y.shape[-2:]}"
-            )
+            raise ValueError(f"Input matrix must be square; got shape {y.shape[-2:]}")
 
         row, col = jnp.tril_indices(n)
 

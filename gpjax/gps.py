@@ -178,14 +178,10 @@ class Prior(AbstractPrior[M, K]):
         def __mul__(self, other: GL) -> "ConjugatePosterior[Prior[M, K], GL]": ...
 
         @tp.overload
-        def __mul__(
-            self, other: NGL
-        ) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
+        def __mul__(self, other: NGL) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
 
         @tp.overload
-        def __mul__(
-            self, other: L
-        ) -> "AbstractPosterior[Prior[M, K], L]": ...
+        def __mul__(self, other: L) -> "AbstractPosterior[Prior[M, K], L]": ...
 
     def __mul__(self, other):
         r"""Combine the prior with a likelihood to form a posterior distribution.
@@ -224,14 +220,10 @@ class Prior(AbstractPrior[M, K]):
         def __rmul__(self, other: GL) -> "ConjugatePosterior[Prior[M, K], GL]": ...
 
         @tp.overload
-        def __rmul__(
-            self, other: NGL
-        ) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
+        def __rmul__(self, other: NGL) -> "NonConjugatePosterior[Prior[M, K], NGL]": ...
 
         @tp.overload
-        def __rmul__(
-            self, other: L
-        ) -> "AbstractPosterior[Prior[M, K], L]": ...
+        def __rmul__(self, other: L) -> "AbstractPosterior[Prior[M, K], L]": ...
 
     def __rmul__(self, other):
         r"""Combine the prior with a likelihood to form a posterior distribution.
@@ -902,9 +894,7 @@ def construct_posterior(prior: P, likelihood: GL) -> ConjugatePosterior[P, GL]: 
 
 
 @tp.overload
-def construct_posterior(
-    prior: P, likelihood: NGL
-) -> NonConjugatePosterior[P, NGL]: ...
+def construct_posterior(prior: P, likelihood: NGL) -> NonConjugatePosterior[P, NGL]: ...
 
 
 @tp.overload
@@ -919,7 +909,9 @@ def construct_posterior(
 ) -> ChainedPosterior[P, AbstractHeteroscedasticLikelihood]: ...
 
 
-def construct_posterior(prior: AbstractPrior, likelihood: AbstractLikelihood) -> "AbstractPosterior":
+def construct_posterior(
+    prior: AbstractPrior, likelihood: AbstractLikelihood
+) -> "AbstractPosterior":
     r"""Utility function for constructing a posterior object from a prior and
     likelihood. The function will automatically select the correct posterior
     object based on the likelihood.

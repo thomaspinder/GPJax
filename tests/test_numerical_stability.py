@@ -41,7 +41,9 @@ class TestKernelGramStability:
         kernel = _make_kernel(kernel_cls, lengthscale=1e-6)
         x = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
         gram = kernel.gram(x).to_dense()
-        assert jnp.all(jnp.isfinite(gram)), f"Non-finite values in gram with small lengthscale for {kernel_cls.__name__}"
+        assert jnp.all(jnp.isfinite(gram)), (
+            f"Non-finite values in gram with small lengthscale for {kernel_cls.__name__}"
+        )
 
     @pytest.mark.parametrize("kernel_cls", KERNEL_CLASSES)
     def test_large_variance(self, kernel_cls):
@@ -49,7 +51,9 @@ class TestKernelGramStability:
         kernel = _make_kernel(kernel_cls, variance=1e6)
         x = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
         gram = kernel.gram(x).to_dense()
-        assert jnp.all(jnp.isfinite(gram)), f"Non-finite values in gram with large variance for {kernel_cls.__name__}"
+        assert jnp.all(jnp.isfinite(gram)), (
+            f"Non-finite values in gram with large variance for {kernel_cls.__name__}"
+        )
 
     @pytest.mark.parametrize("kernel_cls", KERNEL_CLASSES)
     def test_large_input_range(self, kernel_cls):
@@ -57,7 +61,9 @@ class TestKernelGramStability:
         kernel = _make_kernel(kernel_cls)
         x = jnp.linspace(-1e4, 1e4, 10).reshape(-1, 1)
         gram = kernel.gram(x).to_dense()
-        assert jnp.all(jnp.isfinite(gram)), f"Non-finite values in gram with large inputs for {kernel_cls.__name__}"
+        assert jnp.all(jnp.isfinite(gram)), (
+            f"Non-finite values in gram with large inputs for {kernel_cls.__name__}"
+        )
 
     @pytest.mark.parametrize("kernel_cls", KERNEL_CLASSES)
     def test_identical_points(self, kernel_cls):
@@ -131,7 +137,9 @@ class TestPosteriorPredictionStability:
         mean = pred_dist.mean
         cov = pred_dist.covariance()
         assert jnp.all(jnp.isfinite(mean)), f"Non-finite mean for {kernel_cls.__name__}"
-        assert jnp.all(jnp.isfinite(cov)), f"Non-finite covariance for {kernel_cls.__name__}"
+        assert jnp.all(jnp.isfinite(cov)), (
+            f"Non-finite covariance for {kernel_cls.__name__}"
+        )
 
     @pytest.mark.parametrize("kernel_cls", KERNEL_CLASSES)
     def test_predict_with_noisy_data(self, kernel_cls):
@@ -205,4 +213,6 @@ class TestPosteriorPredictionStability:
         pred_dist = posterior.predict(x_test, D)
 
         var = jnp.diag(pred_dist.covariance())
-        assert jnp.all(var >= -1e-6), f"Negative variance for {kernel_cls.__name__}: {var}"
+        assert jnp.all(var >= -1e-6), (
+            f"Negative variance for {kernel_cls.__name__}: {var}"
+        )

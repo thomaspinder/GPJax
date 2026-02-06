@@ -27,7 +27,9 @@ from numpy import ndarray as NumpyArray
 
 OldKeyArray = UInt32[JAXArray, "2"]
 JAXKeyArray = Key[JAXArray, ""]
-KeyArray = OldKeyArray | JAXKeyArray  # for compatibility regardless of enable_custom_prng setting
+KeyArray = (
+    OldKeyArray | JAXKeyArray
+)  # for compatibility regardless of enable_custom_prng setting
 
 Array = JAXArray | NumpyArray
 

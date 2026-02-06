@@ -80,7 +80,9 @@ def test_squared_distance_symmetry() -> None:
 def test_euclidean_distance_is_sqrt_of_squared() -> None:
     a = jnp.array([1.0, 2.0])
     b = jnp.array([4.0, 6.0])
-    assert jnp.allclose(euclidean_distance(a, b) ** 2, squared_distance(a, b), atol=1e-5)
+    assert jnp.allclose(
+        euclidean_distance(a, b) ** 2, squared_distance(a, b), atol=1e-5
+    )
 
 
 def test_euclidean_distance_same_point() -> None:

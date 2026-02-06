@@ -167,6 +167,7 @@ def _check_lengthscale(lengthscale: tp.Any):
                 f"Got `lengthscale` with shape {ls_shape}."
             )
 
+
 __all__ = [
     "StationaryKernel",
 ]
