@@ -153,7 +153,7 @@ def transform(
         param = param.replace(transformed_value)
         return param
 
-    gp_params, *other_params = params.split(Parameter, ...)
+    gp_params, *other_params = nnx.split_state(params, Parameter, ...)
 
     # Transform each parameter in the state
     transformed_gp_params: nnx.State = jtu.tree_map(
@@ -161,7 +161,7 @@ def transform(
         gp_params,
         is_leaf=lambda x: isinstance(x, Parameter),
     )
-    return nnx.State.merge(transformed_gp_params, *other_params)
+    return nnx.merge_state(transformed_gp_params, *other_params)
 
 
 class Parameter(nnx.Variable[T]):
