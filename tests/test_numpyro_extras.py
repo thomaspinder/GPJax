@@ -330,3 +330,98 @@ def test_resolve_prior_explicit_for_different_name_no_attached():
 
     result = resolve_prior("my_param", param, priors)
     assert result is None
+
+
+def test_register_parameters_conjugate_posterior():
+    """Integration test: register_parameters on a real ConjugatePosterior.
+
+    Verifies that:
+    - Nested modules (kernel, likelihood) are traversed correctly
+    - Shared nnx.Variable references (lengthscale shared between RBF and Periodic)
+      result in a single sample site
+    - nnx.List inside CombinationKernel is traversed properly
+    - All parameters with priors are sampled
+    - conjugate_mll can be evaluated with the sampled parameters
+    """
+    import gpjax as gpx
+
+    lengthscale_prior = dist.LogNormal(0.0, 1.0)
+    variance_prior = dist.LogNormal(0.0, 1.0)
+    period_prior = dist.LogNormal(0.0, 0.5)
+    noise_prior = dist.LogNormal(0.0, 1.0)
+
+    lengthscale = PositiveReal(1.0, prior=lengthscale_prior)
+    variance = PositiveReal(1.0, prior=variance_prior)
+    period = PositiveReal(1.0, prior=period_prior)
+    noise = NonNegativeReal(1.0, prior=noise_prior)
+
+    rbf = gpx.kernels.RBF(lengthscale=lengthscale, variance=variance)
+    periodic = gpx.kernels.Periodic(lengthscale=lengthscale, period=period)
+    kernel = rbf * periodic
+
+    meanf = gpx.mean_functions.Constant()
+    prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+    likelihood = gpx.likelihoods.Gaussian(num_datapoints=10, obs_stddev=noise)
+    posterior = prior * likelihood
+
+    def model_fn():
+        return register_parameters(posterior)
+
+    with seed(rng_seed=42):
+        tr = trace(model_fn).get_trace()
+
+    # Shared lengthscale should appear once (shared Variable → single site)
+    lengthscale_sites = [k for k in tr if "lengthscale" in k]
+    assert len(lengthscale_sites) == 1, (
+        f"Expected 1 lengthscale site, got {len(lengthscale_sites)}: {lengthscale_sites}"
+    )
+
+    # variance, period, and obs_stddev should each appear once
+    variance_sites = [k for k in tr if "variance" in k]
+    assert len(variance_sites) == 1
+
+    period_sites = [k for k in tr if "period" in k]
+    assert len(period_sites) == 1
+
+    obs_stddev_sites = [k for k in tr if "obs_stddev" in k]
+    assert len(obs_stddev_sites) == 1
+
+    # Total: 4 sampled sites (lengthscale, variance, period, obs_stddev)
+    assert len(tr) == 4, f"Expected 4 sample sites, got {len(tr)}: {list(tr.keys())}"
+
+
+def test_register_parameters_conjugate_posterior_mll():
+    """Integration test: sampled parameters flow through conjugate_mll."""
+    import jax.random as jr
+
+    import gpjax as gpx
+
+    key = jr.key(0)
+    X = jr.uniform(key, shape=(10, 1))
+    y = jnp.sin(X)
+    D = gpx.Dataset(X=X, y=y)
+
+    lengthscale = PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
+    variance = PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
+    noise = NonNegativeReal(0.5, prior=dist.LogNormal(0.0, 1.0))
+
+    kernel = gpx.kernels.RBF(lengthscale=lengthscale, variance=variance)
+    meanf = gpx.mean_functions.Constant()
+    prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+    likelihood = gpx.likelihoods.Gaussian(num_datapoints=10, obs_stddev=noise)
+    posterior = prior * likelihood
+
+    mll_value = None
+
+    def model_fn():
+        nonlocal mll_value
+        p = register_parameters(posterior)
+        mll_value = gpx.objectives.conjugate_mll(p, D)
+        return mll_value
+
+    with seed(rng_seed=42):
+        tr = trace(model_fn).get_trace()
+
+    assert len(tr) == 3  # lengthscale, variance, obs_stddev
+    assert mll_value is not None
+    assert jnp.isfinite(mll_value)

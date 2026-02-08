@@ -8,9 +8,9 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: python3
+#     display_name: .venv
 #     language: python
 #     name: python3
 # ---
@@ -145,7 +145,7 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 likelihood = gpx.likelihoods.Gaussian(
     num_datapoints=N,
-    obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=dist.LogNormal(0.0, 1.0)),
+    obs_stddev=noise,
 )
 posterior = prior * likelihood
 
@@ -185,7 +185,15 @@ def model(X, Y, X_new=None):
         latent_dist = p_posterior.predict(X_new, train_data=D_resid)
         f_new = numpyro.sample("f_new", latent_dist)
         f_new = f_new.reshape((-1, 1))
-        total_prediction = slope * X_new + intercept + f_new
+
+        # Add observation noise to get noisy predictions
+        obs_stddev = p_posterior.likelihood.obs_stddev.value
+        y_noise = numpyro.sample(
+            "y_noise",
+            dist.Normal(0.0, obs_stddev).expand(f_new.shape).to_event(f_new.ndim),
+        )
+
+        total_prediction = slope * X_new + intercept + f_new + y_noise
         numpyro.deterministic("y_pred", total_prediction)
         return total_prediction
 
