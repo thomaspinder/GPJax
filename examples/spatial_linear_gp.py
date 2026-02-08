@@ -20,27 +20,23 @@
 #
 # This notebook shows how to construct a semiparametric linear model by composing a linear model
 # in NumPyro with a GPJax Gaussian Process (GP).
-# We build two components:
-# 1.  **A Linear Component**: Encodes a global affine trend with Bayesian linear regression.
-# 2.  **A GP Residual Component**: Captures spatial structure that the linear term leaves behind.
+# We build two components: firstly, the linear component which ncodes a global affine trend with
+# Bayesian linear regression. We then define a GP residual component which is responsible for
+# capturing spatial structure that the linear term's residual.
 #
 # The example highlights the interplay between **GPJax** and **NumPyro**: `GPJax` provides the GP
 # prior and likelihood definitions, while `NumPyro` performs Hamiltonian Monte Carlo (HMC)
-# inference across all parameters in a unified model.
+# inference across all parameters in a unified model and allows us to draw upon a broader set of
+# modelling components.
 
 # %% [markdown]
-# ## Setup and Data Simulation
-#
-# First, we import the necessary libraries. We enable 64-bit precision in JAX to ensure numerical
-# stability during matrix decompositions.
+# ## Data Simulation
 #
 # We simulate a 2D spatial dataset ($N=200$) on a domain $[0, 5] \times [0, 5]$. The generative
-# process contains:
-# *   **A Linear Trend**: $y_{\text{lin}} = 2x_1 - 1x_2 + 1.5$
-# *   **A Spatial Residual**: $y_{\text{res}} = \sin(x_1) \cos(x_2)$
-# *   **Observation Noise**: $\epsilon \sim \mathcal{N}(0, 0.1^2)$
-#
-# The dominant linear trend masks a non-linear residual. Composing models lets us represent both
+# process contains a linear trend: $y_{\text{lin}} = 2x_1 - 1x_2 + 1.5$ with an additive spatial
+# residual: $y_{\text{res}} = \sin(x_1) \cos(x_2)$. To this, we add simulate an additive
+# homoscedastic noise component $\epsilon \sim \mathcal{N}(0, 0.1^2)$. The dominant linear trend
+# masks a non-linear residual. Composing models lets us represent both
 # behaviours without forcing a single mechanism to fit every feature of the data.
 
 # %%
@@ -91,15 +87,16 @@ y = latent_signal + noise_stddev * jr.normal(keys[1], shape=latent_signal.shape)
 # %% [markdown]
 # ## Linear Component
 #
-# We start by defining a Bayesian linear regression model in NumPyro. This component encodes the
-# large-scale affine structure of the field and will later be combined with a GP residual.
+# We begin by defining a Bayesian linear regression model in NumPyro. This component
+# will later be combined with a GP residual, but for now, we'll establish a baseline model
+# through ordinary linear regression.
 #
 # $$\begin{aligned} \mathbf{w} &\sim \mathcal{N}(\mathbf{0}, 5\mathbf{I}) \\
 # b &\sim \mathcal{N}(0, 5) \\
 # \sigma &\sim \text{LogNormal}(0, 1) \\
 # \mathbf{y} &\sim \mathcal{N}(\mathbf{X}\mathbf{w} + b, \sigma^2 \mathbf{I}) \end{aligned} $$
 #
-# We use the No-U-Turn Sampler (NUTS) to estimate the posterior distributions of the slope
+# We use the No-U-Turn Sampler (NUTS) to draw samples from the posterior distributions of the slope
 # $\mathbf{w}$, intercept $b$, and noise $\sigma$.
 
 
@@ -122,15 +119,14 @@ mcmc_lin.print_summary()
 # %% [markdown]
 # ## Composing the Linear Component with a GP
 #
-# We now augment the linear component with a GP fit to the residual. This allows
-# the final model captures both global and local structure.
+# We now augment the linear component with a GP tasked with modelling the residual.
 #
 # $$ y(\mathbf{x}) = \underbrace{\mathbf{w}^T \mathbf{x} + b}_{\text{Linear Mean}} +
 # \underbrace{f(\mathbf{x})}_{\text{GP Residual}} + \epsilon $$
 #
 # ### GPJax and NumPyro Integration
 #
-# We define the GP prior in `GPJax` using an RBF kernel and a zero mean function
+# We define the GP prior in `GPJax` using an second-order Matérn kernel and a constant mean function
 # (since the linear trend is handled explicitly). We attach `dist.LogNormal` priors to
 # the kernel's hyperparameters (lengthscale and variance) directly within the GPJax object.
 # We then register the parameters by calling
@@ -145,8 +141,10 @@ mcmc_lin.print_summary()
 lengthscale = gpx.parameters.PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
 variance = gpx.parameters.PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
 
-kernel = gpx.kernels.RBF(active_dims=[0, 1], lengthscale=lengthscale, variance=variance)
-meanf = gpx.mean_functions.Zero()
+kernel = gpx.kernels.Matern32(
+    active_dims=[0, 1], lengthscale=lengthscale, variance=variance
+)
+meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 obs_stddev = gpx.parameters.NonNegativeReal(0.1, prior=dist.LogNormal(0.0, 1.0))
@@ -250,7 +248,11 @@ c0 = axes[0].tricontourf(
 axes[0].set_title("True Signal")
 
 c1 = axes[1].tricontourf(
-    X_grid[:, 0], X_grid[:, 1], mean_pred_lin_grid.flatten(), levels=levels, cmap="magma"
+    X_grid[:, 0],
+    X_grid[:, 1],
+    mean_pred_lin_grid.flatten(),
+    levels=levels,
+    cmap="magma",
 )
 axes[1].set_title(f"Linear Model (RMSE: {rmse_lin:.2f})")
 

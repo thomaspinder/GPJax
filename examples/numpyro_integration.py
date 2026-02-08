@@ -20,8 +20,8 @@
 #
 # In this notebook, we demonstrate how to use [Numpyro](https://num.pyro.ai/) to perform fully
 # Bayesian inference over the hyperparameters of a Gaussian process model.  We will look at a
-# scenario where we have a structured mean function (a linear model) and a GP capturing the
-# residuals. We will infer the parameters of both the linear model and the GP jointly.
+# scenario where we have a structured mean function in the form of a linear model, and a GP
+# capturing the residuals. We will infer the parameters of both the linear model and the GP jointly.
 
 # %%
 from jax import config
@@ -54,8 +54,9 @@ keys = jr.split(key, 4)
 #
 # We generate a synthetic dataset that consists of a linear trend together with a locally periodic
 # residual signal whose amplitude varies over time, an additional high-frequency component, and a
-# local bump. This richer structure highlights how a GP can capture deviations from the explicit
-# linear model.
+# local bump. This data generating process is purposefully designed to illustrate the benefit of
+# incorporating a Gaussian process into a larger Bayesian model; however, such structures are
+# common.
 
 # %%
 N = 200
@@ -92,18 +93,21 @@ ax.legend()
 # %% [markdown]
 # ## Model Definition
 #
-# We define a GP model with a generic mean function (zero for now, as we will handle the linear
-# trend explicitly in the Numpyro model) and a kernel that is the product of a periodic kernel and
-# an RBF kernel. This choice reflects our prior knowledge that the signal is locally periodic. For
-# a more in-depth look at how complex kernels can be designed, see our
+# We define a GP model with a zero mean function, as we will handle the linear
+# trend explicitly in the Numpyro model. Naturally, one could parameterise the GP with a
+# linear mean function; however, this design is purely pedagogical. For the kernel, we specify a
+# product of a periodic kernel and an RBF kernel. This choice reflects our prior knowledge that
+# the signal is locally periodic. For a more in-depth look at how complex kernels can be designed,
+# see our
 # [Introduction to Kernels](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/)
 # notebook.
 #
-# We may see from the below that priors are specified on the parameters' constrained space. For
+# We see in the below that priors are specified on the parameters' constrained space. For
 # example, the lengthscale parameter must be strictly positive and, therefore, a unit-Gaussian
 # would be a poor choice of prior. Instead, we opt for the log-Gaussian as the prior distribution
 # as its support matches that of our lengthscale parameter. Attaching a prior to a parameter is
-# straightforward using the `prior` argument in the parameter's class.
+# straightforward using the `prior` argument in the parameter's class and specifying any
+# [numpyro distribution](https://num.pyro.ai/en/stable/distributions.html).
 
 # %%
 # Define priors
@@ -121,7 +125,7 @@ noise = gpx.parameters.NonNegativeReal(1.0, prior=noise_prior)
 # %% [markdown]
 #
 # Now that all of our parameters are defined, we'll proceed to construct the Gaussian process in
-# the ordinary fashion. For a deeper look at this, our
+# the ordinary fashion. For a deeper look at how this is done, our
 # [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/)
 # notebook is a good starting point.
 
@@ -141,7 +145,7 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
 likelihood = gpx.likelihoods.Gaussian(
     num_datapoints=N,
-    obs_stddev=gpx.parameters.NonNegativeReal(1.0, prior=dist.LogNormal(0.0, 1.0)),
+    obs_stddev=noise,
 )
 posterior = prior * likelihood
 
@@ -149,7 +153,7 @@ posterior = prior * likelihood
 # ## Joint Inference Loop
 #
 # With a GPJax Posterior object now defined, the only outstanding task is to integrate
-# it into a full Numpyro. This notebook is not designed to be a full introduction to
+# it into a full Numpyro model. This notebook is not designed to be a full introduction to
 # Numpyro (for that, see the excellent
 # [Numpyro Documentation](https://num.pyro.ai/en/stable/)); however, in the below
 # model we first sample the slope and intercept parameters of the linear component.
@@ -181,7 +185,15 @@ def model(X, Y, X_new=None):
         latent_dist = p_posterior.predict(X_new, train_data=D_resid)
         f_new = numpyro.sample("f_new", latent_dist)
         f_new = f_new.reshape((-1, 1))
-        total_prediction = slope * X_new + intercept + f_new
+
+        # Add observation noise to get noisy predictions
+        obs_stddev = p_posterior.likelihood.obs_stddev.value
+        y_noise = numpyro.sample(
+            "y_noise",
+            dist.Normal(0.0, obs_stddev).expand(f_new.shape).to_event(f_new.ndim),
+        )
+
+        total_prediction = slope * X_new + intercept + f_new + y_noise
         numpyro.deterministic("y_pred", total_prediction)
         return total_prediction
 
@@ -199,8 +211,8 @@ nuts_kernel = NUTS(model)
 # In practice, one should run more samples from multiple chains.
 mcmc = MCMC(
     nuts_kernel,
-    num_warmup=1500,
-    num_samples=1000,
+    num_warmup=500,
+    num_samples=500,
 )
 mcmc.run(keys[2], x, y)
 mcmc.print_summary()
@@ -252,7 +264,7 @@ ax.legend()
 # presentation given here is designed to best illustrate *how* the two libraries
 # integrate. For a closer look at the more complex models that one may build by
 # integrating Numpyro and GPJax, see our
-# [Spatial Semi-Linear Model](https://docs.jaxgaussianprocesses.com/_examples/spatial_linear)
+# [Spatial Semi-Linear Model](https://docs.jaxgaussianprocesses.com/_examples/spatial_linear_gp)
 # notebook.
 
 

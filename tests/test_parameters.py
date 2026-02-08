@@ -49,6 +49,12 @@ def test_real_parameter(value):
     assert jnp.array_equal(p[...], value)
     assert p.tag == "real"
 
+@given(value=real_arrays())
+def test_real_parameter(value):
+    # Should accept any real value
+    p = Real(value)
+    assert jnp.array_equal(p.value, value)
+    assert p.tag == "real"
 
 @given(value=real_arrays(min_value=1e-6, max_value=1e6))
 def test_positive_real_valid(value):
@@ -94,6 +100,40 @@ def test_sigmoid_bounded_invalid_low(value):
     with pytest.raises(ValueError):
         SigmoidBounded(value)
 
+@given(
+    param_class=st.sampled_from([NonNegativeReal, PositiveReal, Real, SigmoidBounded]),
+    data=st.data(),
+)
+def test_transform_roundtrip(param_class, data):
+    # Generate valid value for the parameter type
+    if param_class == NonNegativeReal:
+        val = data.draw(real_arrays(min_value=0.0, max_value=10.0))
+    elif param_class == PositiveReal:
+        val = data.draw(real_arrays(min_value=1e-3, max_value=10.0))
+    elif param_class == Real:
+        val = data.draw(real_arrays(min_value=-10.0, max_value=10.0))
+    elif param_class == SigmoidBounded:
+        val = data.draw(real_arrays(min_value=1e-3, max_value=1.0 - 1e-3))
+    else:
+        return  # Should not happen
+
+    params = nnx.State({"p": param_class(val)})
+
+    # Forward
+    t_params = transform(params, DEFAULT_BIJECTION, inverse=False)
+
+    # Inverse
+    inv_params = transform(t_params, DEFAULT_BIJECTION, inverse=True)
+
+    # Check
+    assert jnp.allclose(inv_params["p"].value, val, atol=1e-5, rtol=1e-5)
+
+
+@given(n=st.integers(1, 10))
+def test_fill_triangular_shapes(n):
+    k = n * (n + 1) // 2
+    vec = jnp.zeros(k)
+    ft = FillTriangularTransform()
 
 # Strategy for lower triangular matrices
 def lower_triangular_matrices(n_min=1, n_max=5):
