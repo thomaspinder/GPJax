@@ -3650,8 +3650,8 @@ marginal log-likelihood.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.conjugate_mll--returns">Returns<a class="headerlink" href="#gpjax.objectives.conjugate_mll--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>ScalarFloat: The marginal log-likelihood of the Gaussian process.
-</code></pre></div>
+<p>ScalarFloat
+    The marginal log-likelihood of the Gaussian process.</p>
 
 
     </div>
@@ -3745,8 +3745,8 @@ marginal log-likelihood.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.conjugate_loocv--returns">Returns<a class="headerlink" href="#gpjax.objectives.conjugate_loocv--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>ScalarFloat: The marginal log-likelihood of the Gaussian process.
-</code></pre></div>
+<p>ScalarFloat
+    The marginal log-likelihood of the Gaussian process.</p>
 
 
     </div>
@@ -3784,6 +3784,27 @@ Monte Carlo, variational inference, or Laplace approximations can then be used
 to sample from, or optimise an approximation to, the posterior distribution.</p>
 
 
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>gpx.objectives.log_posterior_density(posterior, D)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
@@ -3811,8 +3832,8 @@ marginal log-likelihood.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.log_posterior_density--returns">Returns<a class="headerlink" href="#gpjax.objectives.log_posterior_density--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>ScalarFloat: The log-posterior density of the Gaussian process.
-</code></pre></div>
+<p>ScalarFloat
+    The log-posterior density of the Gaussian process.</p>
 
 
     </div>
@@ -3839,6 +3860,31 @@ approximation. To this, we sum the KL divergence from the variational posterior
 to the prior. When batching occurs, the result is scaled by the batch size
 relative to the full dataset size.</p>
 
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+q = gpx.variational_families.VariationalGaussian(
+...     posterior=posterior, inducing_inputs=z
+... )</p>
+<p>gpx.objectives.elbo(q, D)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
@@ -3868,8 +3914,8 @@ ELBO with respect to.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.elbo--returns">Returns<a class="headerlink" href="#gpjax.objectives.elbo--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>ScalarFloat: The evidence lower bound of the variational approximation.
-</code></pre></div>
+<p>ScalarFloat
+    The evidence lower bound of the variational approximation.</p>
 
 
     </div>
@@ -3895,6 +3941,31 @@ ELBO with respect to.</p>
 <p>Compute the expectation of our model's log-likelihood under our variational
 distribution. Batching can be done here to speed up computation.</p>
 
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+q = gpx.variational_families.VariationalGaussian(
+...     posterior=posterior, inducing_inputs=z
+... )</p>
+<p>gpx.objectives.variational_expectation(q, D)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
@@ -3922,9 +3993,9 @@ are using to approximate the posterior.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.variational_expectation--returns">Returns<a class="headerlink" href="#gpjax.objectives.variational_expectation--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>Array: The expectation of the model&#39;s log-likelihood under our variational
-    distribution.
-</code></pre></div>
+<p>Array
+    The expectation of the model's log-likelihood under our variational
+    distribution.</p>
 
 
     </div>
@@ -3954,6 +4025,31 @@ to the prior. When batching occurs, the result is scaled by the batch size
 relative to the full dataset size.</p>
 
 
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+q = gpx.variational_families.CollapsedVariationalGaussian(
+...     posterior=posterior, inducing_inputs=z
+... )</p>
+<p>gpx.objectives.collapsed_elbo(q, D)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
@@ -3982,8 +4078,8 @@ ELBO with respect to.</p>
         </li>
     </ul>
         <h4 id="gpjax.objectives.collapsed_elbo--returns">Returns<a class="headerlink" href="#gpjax.objectives.collapsed_elbo--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>ScalarFloat: The evidence lower bound of the variational approximation.
-</code></pre></div>
+<p>ScalarFloat
+    The evidence lower bound of the variational approximation.</p>
 
 
     </div>

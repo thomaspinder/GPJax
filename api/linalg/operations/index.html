@@ -3308,8 +3308,8 @@ efficient implementations for different operator structures.</p>
 </h2>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">solve</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">b</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">],</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">]],</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">],</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">]]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">b</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3331,7 +3331,7 @@ efficient implementations for different operator structures.</p>
         </li>
         <li class="doc-section-item field-body">
             <b><code>b</code></b>
-              (<code><span title="typing.Union">Union</span>[<span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;], <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]]</code>)
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;] | <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]</code>)
           –
           <div class="doc-md-description">
             <p>The right-hand side vector or matrix.</p>
@@ -3343,7 +3343,7 @@ efficient implementations for different operator structures.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="typing.Union">Union</span>[<span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;], <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]]</code>
+              <code><span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;] | <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]</code>
           –
           <div class="doc-md-description">
             <p>The solution x to the linear system.</p>

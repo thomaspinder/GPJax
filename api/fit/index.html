@@ -1663,6 +1663,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label=" fit_scipy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_scipy--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_scipy--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1673,6 +1701,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label=" fit_lbfgs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_lbfgs--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_lbfgs--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3193,6 +3249,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label=" fit_scipy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_scipy--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_scipy--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3203,6 +3287,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label=" fit_lbfgs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_lbfgs--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.fit.fit_lbfgs--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3297,18 +3409,17 @@
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">optim</span><span class="p">:</span> <span class="n">GradientTransformation</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">params_bijection</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="nb">dict</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">Transform</span><span class="p">],</span> <span class="kc">None</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">trainable</span><span class="p">:</span> <span class="n">Filter</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">num_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">log_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">unroll</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">params_bijection</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">Transform</span><span class="p">]</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">trainable</span><span class="p">:</span> <span class="n">Filter</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">num_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">log_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">unroll</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3324,7 +3435,7 @@ Optimisers used here should originate from Optax.</p>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">    &gt;&gt;&gt;</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">    &gt;&gt;&gt; # (1) Create a dataset:</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">    &gt;&gt;&gt; X = jnp.linspace(0.0, 10.0, 100)[:, None]</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">    &gt;&gt;&gt; y = 2.0 * X + 1.0 + 10 * jr.normal(jr.PRNGKey(0), X.shape)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">    &gt;&gt;&gt; y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape)</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">    &gt;&gt;&gt; D = gpx.Dataset(X, y)</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">    &gt;&gt;&gt; # (2) Define your model:</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">    &gt;&gt;&gt; class LinearModel(nnx.Module):</span>
@@ -3333,7 +3444,7 @@ Optimisers used here should originate from Optax.</p>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">    &gt;&gt;&gt;         self.bias = bias</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="go">    &gt;&gt;&gt;</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="go">    &gt;&gt;&gt;     def __call__(self, x):</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="go">    &gt;&gt;&gt;         return self.weight.value * x + self.bias</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="go">    &gt;&gt;&gt;         return self.weight[...] * x + self.bias</span>
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="go">    &gt;&gt;&gt;</span>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="go">    &gt;&gt;&gt; model = LinearModel(weight=1.0, bias=1.0)</span>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="go">    &gt;&gt;&gt;</span>
@@ -3426,12 +3537,12 @@ to 100.</p>
         <li class="doc-section-item field-body">
             <b><code>key</code></b>
               (<code><span title="gpjax.typing.KeyArray">KeyArray</span></code>, default:
-                  <code><span title="jax.random.PRNGKey">PRNGKey</span>(42)</code>
+                  <code><span title="jax.random.key">key</span>(42)</code>
 )
           –
           <div class="doc-md-description">
             <p>The random key to use for the optimisation batch
-selection. Defaults to jr.PRNGKey(42).</p>
+selection. Defaults to jr.key(42).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3502,84 +3613,63 @@ Defaults to 1.</p>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">trainable</span><span class="p">:</span> <span class="n">Filter</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">max_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="n">Array</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Train a Module model with respect to a supplied Objective function.
-Optimisers used here should originate from Optax. todo</p>
+        <p>Train a Module model with respect to a supplied Objective function
+using SciPy's L-BFGS-B optimiser.</p>
+<p>Parameters are transformed to unconstrained space, flattened into a
+single vector, and passed to <code>scipy.optimize.minimize</code>. Gradients
+are computed via JAX's <code>value_and_grad</code>.</p>
+<h4 id="gpjax.fit.fit_scipy--parameters">Parameters<a class="headerlink" href="#gpjax.fit.fit_scipy--parameters" title="Permanent link"></a></h4>
+<p>model : Module
+    The model to be optimised.
+objective : Objective
+    The objective function to minimise with respect to the model
+    parameters.
+train_data : Dataset
+    The training data used to evaluate the objective.
+trainable : nnx.filterlib.Filter
+    Filter selecting which parameters to optimise. Defaults to all
+    <code>Parameter</code> instances.
+max_iters : int
+    Maximum number of L-BFGS-B iterations. Defaults to 500.
+verbose : bool
+    Whether to print optimisation progress. Defaults to True.
+safe : bool
+    Whether to validate inputs before optimisation. Defaults to True.</p>
+<h4 id="gpjax.fit.fit_scipy--returns">Returns<a class="headerlink" href="#gpjax.fit.fit_scipy--returns" title="Permanent link"></a></h4>
+<p>tuple[Module, Array]
+    A tuple of the optimised model and an array of objective values
+    recorded at each iteration.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>model</code></b>
-              (<code><span title="gpjax.fit.Model">Model</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>the model Module to be optimised.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>objective</code></b>
-              (<code><span title="gpjax.objectives.Objective">Objective</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>The objective function that we are optimising with
-respect to.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>train_data</code></b>
-              (<code><a class="autorefs autorefs-internal" title="Dataset
-
-
-  
-      dataclass
-   (gpjax.dataset.Dataset)" href="../dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>The training data to be used for the optimisation.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>max_iters</code></b>
-              (<code><span title="int">int</span></code>, default:
-                  <code>500</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>The maximum number of optimisation steps to run. Defaults
-to 500.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>verbose</code></b>
-              (<code><span title="bool">bool</span></code>, default:
-                  <code>True</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Whether to print the information about the optimisation. Defaults
-to True.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="tuple">tuple</span>[<span title="gpjax.fit.Model">Model</span>, <span title="gpjax.typing.Array">Array</span>]</code>
-          –
-          <div class="doc-md-description">
-            <p>A tuple comprising the optimised model and training history.</p>
-          </div>
-        </li>
-    </ul>
-
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
+trained_model, history = gpx.fit_scipy(
+...     model=posterior, objective=nmll, train_data=D
+... )</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
     </div>
 
@@ -3598,36 +3688,70 @@ to True.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">objective</span><span class="p">:</span> <span class="n">Objective</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">params_bijection</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="nb">dict</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">Transform</span><span class="p">],</span> <span class="kc">None</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">trainable</span><span class="p">:</span> <span class="n">Filter</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">max_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">max_linesearch_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">gtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-05</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">params_bijection</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Parameter</span><span class="p">,</span> <span class="n">Transform</span><span class="p">]</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">trainable</span><span class="p">:</span> <span class="n">Filter</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">max_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">safe</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">max_linesearch_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">gtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-05</span><span class="p">,</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Model</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Train a Module model with respect to a supplied Objective function.</p>
-<p>Uses Optax's LBFGS implementation and a jax.lax.while loop.</p>
-<p>Args:
-     model: the model Module to be optimised.
-     objective: The objective function that we are optimising with
-         respect to.
-     train_data (Dataset): The training data to be used for the optimisation.
-     max_iters (int): The maximum number of optimisation steps to run. Defaults
-         to 500.
-     safe (bool): Whether to check the types of the inputs.
-     max_linesearch_steps (int): The maximum number of linesearch steps to use
-        for finding the stepsize.
-    gtol (float): Terminate the optimisation if the L2 norm of the gradient is
-        below this threshold.</p>
-<p>Returns:
-     A tuple comprising the optimised model and final loss.</p>
+<p>Uses Optax's L-BFGS implementation with a <code>jax.lax.while_loop</code>.</p>
+<h4 id="gpjax.fit.fit_lbfgs--parameters">Parameters<a class="headerlink" href="#gpjax.fit.fit_lbfgs--parameters" title="Permanent link"></a></h4>
+<p>model : Module
+    The model to be optimised.
+objective : Objective
+    The objective function to minimise.
+train_data : Dataset
+    The training data used to evaluate the objective.
+params_bijection : dict[Parameter, Transform] | None
+    Bijection used to transform parameters to unconstrained space.
+    Defaults to <code>DEFAULT_BIJECTION</code>.
+trainable : nnx.filterlib.Filter
+    Filter selecting which parameters to optimise. Defaults to all
+    <code>Parameter</code> instances.
+max_iters : int
+    Maximum number of L-BFGS iterations. Defaults to 100.
+safe : bool
+    Whether to validate inputs before optimisation. Defaults to True.
+max_linesearch_steps : int
+    Maximum number of line-search steps per iteration. Defaults to 32.
+gtol : float
+    Terminate if the L2 norm of the gradient falls below this
+    threshold. Defaults to 1e-5.</p>
+<h4 id="gpjax.fit.fit_lbfgs--returns">Returns<a class="headerlink" href="#gpjax.fit.fit_lbfgs--returns" title="Permanent link"></a></h4>
+<p>tuple[Module, Array]
+    A tuple of the optimised model and the final loss value.</p>
 
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp</p>
+<p>xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+ytrain = jnp.sin(xtrain)
+D = gpx.Dataset(X=xtrain, y=ytrain)</p>
+<p>meanf = gpx.mean_functions.Constant()
+kernel = gpx.kernels.RBF()
+likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+posterior = prior * likelihood</p>
+<p>nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
+trained_model, final_loss = gpx.fit_lbfgs(
+...     model=posterior, objective=nmll, train_data=D
+... )</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
     </div>
 
@@ -3683,9 +3807,27 @@ to True.</p>
           </div>
         </li>
     </ul>
-        <h4 id="gpjax.fit.get_batch--returns">Returns<a class="headerlink" href="#gpjax.fit.get_batch--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>Dataset: The batched dataset.
-</code></pre></div>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp
+import jax.random as jr</p>
+<p>X = jnp.linspace(0, 1, 100).reshape(-1, 1)
+y = jnp.sin(X)
+D = gpx.Dataset(X=X, y=y)</p>
+<p>from gpjax.fit import get_batch
+batch = get_batch(D, batch_size=16, key=jr.key(0))</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>        <h4 id="gpjax.fit.get_batch--returns">Returns<a class="headerlink" href="#gpjax.fit.get_batch--returns" title="Permanent link"></a></h4>
+<p>Dataset
+    The batched dataset.</p>
 
 
     </div>

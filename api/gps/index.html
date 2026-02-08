@@ -3918,20 +3918,19 @@
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TensorFlow probability distribution</a> from which the
-the latent function's mean and covariance can be evaluated and the distribution
-can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPrior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPrior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3994,7 +3993,7 @@ of the Gaussian process.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
@@ -4204,15 +4203,15 @@ Args:
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Compute the predictive prior distribution for a given set of
-parameters. The output of this function is a function that computes
-a TFP distribution for a given set of inputs.</p>
+parameters. The output of this function is a <code>GaussianDistribution</code>
+for a given set of inputs.</p>
 <p>In the following example, we compute the predictive prior distribution
 and then evaluate it on the interval :math:<code>[0, 1]</code>:</p>
 <p>Example:
@@ -4308,7 +4307,7 @@ build and evaluate an approximate sample.</p>
 <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">    &gt;&gt;&gt; import gpjax as gpx</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">    &gt;&gt;&gt; import jax.numpy as jnp</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">    &gt;&gt;&gt; import jax.random as jr</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">    &gt;&gt;&gt; key = jr.PRNGKey(123)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">    &gt;&gt;&gt; key = jr.key(123)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">    &gt;&gt;&gt;</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">    &gt;&gt;&gt; meanf = gpx.mean_functions.Zero()</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">    &gt;&gt;&gt; kernel = gpx.kernels.RBF(n_dims=1)</span>
@@ -4386,20 +4385,19 @@ Gaussian process prior.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TensorFlow probability distribution</a> from which the
-the latent function's mean and covariance can be evaluated and the distribution
-can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPrior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPrior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4547,20 +4545,19 @@ covariance matrix to ensure numerical stability.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4637,7 +4634,7 @@ of the Gaussian process.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
@@ -4804,20 +4801,19 @@ covariance matrix to ensure numerical stability.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5025,7 +5021,7 @@ covariance matrix to ensure numerical stability.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
@@ -5231,20 +5227,19 @@ process prior.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5327,7 +5322,7 @@ of the Gaussian process.</p>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N 1&quot;</span><span class="p">],</span> <span class="n">Parameter</span><span class="p">,</span> <span class="kc">None</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">jitter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-06</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span></code></pre></div>
 
@@ -5415,7 +5410,7 @@ covariance matrix to ensure numerical stability.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
@@ -5470,20 +5465,19 @@ a <code>dx.Distribution</code>.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5611,20 +5605,19 @@ to variational families and specialised objectives.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5750,20 +5743,19 @@ of the Gaussian process.</p>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">return_covariance_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;dense&quot;</span><span class="p">,</span> <span class="s2">&quot;diagonal&quot;</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dense&quot;</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Evaluate the Gaussian process posterior at the given points.</p>
-<p>The output of this function is a
-<a href="https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax/distributions">TFP distribution</a>
-from which the the latent function's mean and covariance can be
-evaluated and the distribution can be sampled.</p>
-<p>Under the hood, <code>__call__</code> is calling the objects <code>predict</code> method. For this
-reasons, classes inheriting the <code>AbstractPosterior</code> class, should not overwrite the
-<code>__call__</code> method and should instead define a <code>predict</code> method.</p>
+<p>The output of this function is a <code>GaussianDistribution</code> from which
+the latent function's mean and covariance can be evaluated and the
+distribution can be sampled.</p>
+<p>Under the hood, <code>__call__</code> invokes the <code>predict</code> method. Classes
+inheriting <code>AbstractPosterior</code> should not overwrite <code>__call__</code> and
+should instead define a <code>predict</code> method.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5839,7 +5831,9 @@ of the Gaussian process.</p>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">construct_posterior</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">construct_posterior</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">prior</span><span class="p">:</span> <span class="n">AbstractPrior</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">:</span> <span class="n">AbstractLikelihood</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractPosterior</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5870,10 +5864,10 @@ beliefs around the distribution of the data.</p>
         </li>
     </ul>
         <h4 id="gpjax.gps.construct_posterior--returns">Returns<a class="headerlink" href="#gpjax.gps.construct_posterior--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>AbstractPosterior: A posterior distribution. If the likelihood is
-    Gaussian, then a `ConjugatePosterior` will be returned. Otherwise,
-    a `NonConjugatePosterior` will be returned.
-</code></pre></div>
+<p>AbstractPosterior
+    A posterior distribution. If the likelihood is Gaussian, then a
+    <code>ConjugatePosterior</code> will be returned. Otherwise, a
+    <code>NonConjugatePosterior</code> will be returned.</p>
 
 
     </div>

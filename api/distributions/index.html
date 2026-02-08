@@ -1628,6 +1628,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gpjax.distributions.GaussianDistribution.mean" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1654,6 +1676,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;covariance_matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution.sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample
       
     </span>
   </a>
@@ -1720,6 +1753,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_prob
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution.kl_divergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;kl_divergence
       
     </span>
   </a>
@@ -3241,6 +3285,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#gpjax.distributions.GaussianDistribution.mean" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3267,6 +3333,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;covariance_matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution.sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample
       
     </span>
   </a>
@@ -3333,6 +3410,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;log_prob
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.distributions.GaussianDistribution.kl_divergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;kl_divergence
       
     </span>
   </a>
@@ -3414,6 +3502,45 @@
 
 
 
+        <p>Multivariate Gaussian distribution for GP predictions.</p>
+<p>This is the return type of all <code>predict()</code> methods in GPJax. It wraps a
+mean vector and a covariance :class:<code>~gpjax.linalg.operators.LinearOperator</code>,
+providing methods for sampling, computing log-probabilities, and evaluating
+KL divergences.</p>
+<p>The distribution is parameterised as</p>
+<p>.. math::</p>
+<div class="language-text highlight"><pre><span></span><code>p(\mathbf{x}) = \mathcal{N}(\mathbf{x}; \boldsymbol{\mu}, \mathbf{\Sigma})
+</code></pre></div>
+<p>where :math:<code>\boldsymbol{\mu}</code> is the <code>loc</code> (mean) vector and
+:math:<code>\mathbf{\Sigma}</code> is represented by the <code>scale</code>
+:class:<code>~gpjax.linalg.operators.LinearOperator</code>. The <code>scale</code> is
+automatically annotated as positive semi-definite on construction.</p>
+<h4 id="gpjax.distributions.GaussianDistribution--parameters">Parameters<a class="headerlink" href="#gpjax.distributions.GaussianDistribution--parameters" title="Permanent link"></a></h4>
+<p>loc : Float[Array, " N"]
+    Mean vector of the distribution.
+scale : LinearOperator
+    Covariance matrix represented as a
+    :class:<code>~gpjax.linalg.operators.LinearOperator</code> (e.g.
+    :class:<code>~gpjax.linalg.operators.Dense</code> or
+    :class:<code>~gpjax.linalg.operators.Diagonal</code>).</p>
+<h4 id="gpjax.distributions.GaussianDistribution--examples">Examples<a class="headerlink" href="#gpjax.distributions.GaussianDistribution--examples" title="Permanent link"></a></h4>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>import jax.numpy as jnp
+from gpjax.distributions import GaussianDistribution
+from gpjax.linalg.operators import Dense
+mu = jnp.array([0.0, 1.0])
+cov = Dense(jnp.eye(2))
+dist = GaussianDistribution(loc=mu, scale=cov)
+dist.mean
+Array([0., 1.], dtype=float32)
+dist.variance
+Array([1., 1.], dtype=float32)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
 
 
 
@@ -3474,7 +3601,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the variance.</p>
+        <p>Calculates the marginal variance (diagonal of the covariance).</p>
 
     </div>
 
@@ -3498,7 +3625,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the covariance matrix.</p>
+        <p>Property alias for :meth:<code>covariance</code>.</p>
 
     </div>
 
@@ -3506,6 +3633,41 @@
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gpjax.distributions.GaussianDistribution.sample" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">sample</span>
+
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">sample_shape</span><span class="o">=</span><span class="p">())</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Draw samples from the distribution.</p>
+<p>Generates samples via the reparameterisation trick:</p>
+<p>.. math::</p>
+<div class="language-text highlight"><pre><span></span><code>\mathbf{x} = \boldsymbol{\mu} + \mathbf{L}\mathbf{z},
+\quad \mathbf{z} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+</code></pre></div>
+<p>where :math:<code>\mathbf{L}</code> is the lower Cholesky factor of the covariance.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.sample--parameters">Parameters<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.sample--parameters" title="Permanent link"></a></h5>
+<p>key : KeyArray
+    JAX PRNG key.
+sample_shape : tuple of int, optional
+    Leading batch dimensions for the samples. Defaults to <code>()</code>,
+    returning a single sample.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.sample--returns">Returns<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.sample--returns" title="Permanent link"></a></h5>
+<p>Float[Array, "... N"]
+    Array of samples with shape <code>(*sample_shape, N)</code>.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
@@ -3520,7 +3682,13 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the entropy of the distribution.</p>
+        <p>Calculates the differential entropy of the distribution.</p>
+<p>.. math::</p>
+<div class="language-text highlight"><pre><span></span><code>H[p] = \tfrac{1}{2}\bigl(N(1 + \ln 2\pi) + \ln|\mathbf{\Sigma}|\bigr)
+</code></pre></div>
+<h5 id="gpjax.distributions.GaussianDistribution.entropy--returns">Returns<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.entropy--returns" title="Permanent link"></a></h5>
+<p>ScalarFloat
+    Entropy in nats.</p>
 
 
     </div>
@@ -3540,7 +3708,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the median.</p>
+        <p>Calculates the median (equal to the mean for a Gaussian).</p>
 
 
     </div>
@@ -3560,7 +3728,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the mode.</p>
+        <p>Calculates the mode (equal to the mean for a Gaussian).</p>
 
 
     </div>
@@ -3580,7 +3748,10 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the covariance matrix.</p>
+        <p>Materialises the full covariance matrix as a dense array.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.covariance--returns">Returns<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.covariance--returns" title="Permanent link"></a></h5>
+<p>Float[Array, "N N"]
+    Dense covariance matrix.</p>
 
 
     </div>
@@ -3600,7 +3771,7 @@
 
     <div class="doc doc-contents ">
 
-        <p>Calculates the standard deviation.</p>
+        <p>Calculates the marginal standard deviation.</p>
 
 
     </div>
@@ -3621,31 +3792,48 @@
     <div class="doc doc-contents ">
 
         <p>Calculates the log pdf of the multivariate Gaussian.</p>
+<p>.. math::</p>
+<div class="language-text highlight"><pre><span></span><code>\log p(\mathbf{y}) = -\tfrac{1}{2}\bigl[
+    N\ln 2\pi + \ln|\mathbf{\Sigma}|
+    + (\mathbf{y} - \boldsymbol{\mu})^\top
+      \mathbf{\Sigma}^{-1}
+      (\mathbf{y} - \boldsymbol{\mu})
+\bigr]
+</code></pre></div>
+<h5 id="gpjax.distributions.GaussianDistribution.log_prob--parameters">Parameters<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.log_prob--parameters" title="Permanent link"></a></h5>
+<p>y : Float[Array, " N"]
+    Point at which to evaluate the log-density.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.log_prob--returns">Returns<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.log_prob--returns" title="Permanent link"></a></h5>
+<p>ScalarFloat
+    Log probability.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>y</code></b>
-              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39; N&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the value of which to calculate the log probability.</p>
-          </div>
-        </li>
-    </ul>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="gpjax.typing.ScalarFloat">ScalarFloat</span></code>
-          –
-          <div class="doc-md-description">
-            <p>The log probability of the value as a scalar array.</p>
-          </div>
-        </li>
-    </ul>
+<h3 id="gpjax.distributions.GaussianDistribution.kl_divergence" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">kl_divergence</span>
+
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">kl_divergence</span><span class="p">(</span><span class="n">other</span><span class="p">:</span> <span class="n">GaussianDistribution</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>KL divergence from <code>self</code> to <code>other</code>.</p>
+<p>Computes :math:<code>\operatorname{KL}[q \| p]</code> where <code>self</code> is <em>q</em> and
+<code>other</code> is <em>p</em>.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.kl_divergence--parameters">Parameters<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.kl_divergence--parameters" title="Permanent link"></a></h5>
+<p>other : GaussianDistribution
+    The reference distribution <em>p</em>.</p>
+<h5 id="gpjax.distributions.GaussianDistribution.kl_divergence--returns">Returns<a class="headerlink" href="#gpjax.distributions.GaussianDistribution.kl_divergence--returns" title="Permanent link"></a></h5>
+<p>ScalarFloat
+    KL divergence in nats.</p>
 
 
     </div>
