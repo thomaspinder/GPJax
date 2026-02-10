@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/kernels/stationary/periodic/">
+        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/kernels/multioutput/computation/">
       
       
-        <link rel="prev" href="../matern52/">
+        <link rel="prev" href="../base/">
       
       
-        <link rel="next" href="../powered_exponential/">
+        <link rel="next" href="../icm/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Periodic - GPJax</title>
+        <title>Computation - GPJax</title>
       
     
     
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gpjax.kernels.stationary.periodic.Periodic" class="md-skip">
+        <a href="#gpjax.kernels.multioutput.computation.MultiOutputKernelComputation" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Periodic
+              Computation
             
           </span>
         </div>
@@ -2090,6 +2090,8 @@
                 
   
   
+    
+  
   
   
     
@@ -2099,13 +2101,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_7_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_7_4" checked>
         
           
           <label class="md-nav__link" for="__nav_8_1_7_4" id="__nav_8_1_7_4_label" tabindex="0">
@@ -2126,7 +2126,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_7_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_7_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_8_1_7_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2144,7 +2144,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../multioutput/base/" class="md-nav__link">
+      <a href="../base/" class="md-nav__link">
         
   
   
@@ -2169,10 +2169,35 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../multioutput/computation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Computation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2188,6 +2213,52 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.kernels.multioutput.computation.MultiOutputKernelComputation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MultiOutputKernelComputation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" MultiOutputKernelComputation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.kernels.multioutput.computation.MultiOutputKernelComputation.cross_covariance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;cross_covariance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2200,7 +2271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../multioutput/icm/" class="md-nav__link">
+      <a href="../icm/" class="md-nav__link">
         
   
   
@@ -2491,8 +2562,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2502,11 +2571,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_7_7" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_7_7" >
         
           
           <label class="md-nav__link" for="__nav_8_1_7_7" id="__nav_8_1_7_7_label" tabindex="0">
@@ -2527,7 +2598,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_7_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_8_1_7_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_1_7_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2545,7 +2616,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../base/" class="md-nav__link">
+      <a href="../../stationary/base/" class="md-nav__link">
         
   
   
@@ -2573,7 +2644,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../matern12/" class="md-nav__link">
+      <a href="../../stationary/matern12/" class="md-nav__link">
         
   
   
@@ -2601,7 +2672,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../matern32/" class="md-nav__link">
+      <a href="../../stationary/matern32/" class="md-nav__link">
         
   
   
@@ -2629,7 +2700,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../matern52/" class="md-nav__link">
+      <a href="../../stationary/matern52/" class="md-nav__link">
         
   
   
@@ -2654,35 +2725,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Periodic
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../stationary/periodic/" class="md-nav__link">
         
   
   
@@ -2698,118 +2744,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Periodic
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Periodic">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.spectral_density" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;spectral_density
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.cross_covariance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;cross_covariance
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.gram" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;gram
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.diagonal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;diagonal
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.slice_input" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;slice_input
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2822,7 +2756,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../powered_exponential/" class="md-nav__link">
+      <a href="../../stationary/powered_exponential/" class="md-nav__link">
         
   
   
@@ -2850,7 +2784,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rational_quadratic/" class="md-nav__link">
+      <a href="../../stationary/rational_quadratic/" class="md-nav__link">
         
   
   
@@ -2878,7 +2812,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbf/" class="md-nav__link">
+      <a href="../../stationary/rbf/" class="md-nav__link">
         
   
   
@@ -2906,7 +2840,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../utils/" class="md-nav__link">
+      <a href="../../stationary/utils/" class="md-nav__link">
         
   
   
@@ -2934,7 +2868,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../white/" class="md-nav__link">
+      <a href="../../stationary/white/" class="md-nav__link">
         
   
   
@@ -3378,88 +3312,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic" class="md-nav__link">
+  <a href="#gpjax.kernels.multioutput.computation.MultiOutputKernelComputation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Periodic
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MultiOutputKernelComputation
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" Periodic">
+    <nav class="md-nav" aria-label=" MultiOutputKernelComputation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.spectral_density" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;spectral_density
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.cross_covariance" class="md-nav__link">
+  <a href="#gpjax.kernels.multioutput.computation.MultiOutputKernelComputation.cross_covariance" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;cross_covariance
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.gram" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;gram
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.diagonal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;diagonal
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.slice_input" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;slice_input
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.kernels.stationary.periodic.Periodic.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
       
     </span>
   </a>
@@ -3491,7 +3359,7 @@
   
 
 
-  <h1>Periodic</h1>
+  <h1>Computation</h1>
 
 <div class="doc doc-object doc-module">
 
@@ -3523,109 +3391,22 @@
 
 
 
-<h2 id="gpjax.kernels.stationary.periodic.Periodic" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Periodic</span>
+<h2 id="gpjax.kernels.multioutput.computation.MultiOutputKernelComputation" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">MultiOutputKernelComputation</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Periodic</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">active_dims</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">slice</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">lengthscale</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">LengthscaleCompatible</span><span class="p">,</span> <span class="n">Variable</span><span class="p">[</span><span class="n">Lengthscale</span><span class="p">]</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">variance</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">ScalarFloat</span><span class="p">,</span> <span class="n">Variable</span><span class="p">[</span><span class="n">ScalarArray</span><span class="p">]</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">period</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ScalarFloat</span><span class="p">,</span> <span class="n">Variable</span><span class="p">[</span><span class="n">ScalarArray</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">n_dims</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">compute_engine</span><span class="p">:</span> <span class="n">AbstractKernelComputation</span> <span class="o">=</span> <span class="n">DenseKernelComputation</span><span class="p">(),</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
-</span></code></pre></div>
+
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="StationaryKernel (gpjax.kernels.stationary.base.StationaryKernel)" href="../base/#gpjax.kernels.stationary.base.StationaryKernel">StationaryKernel</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="AbstractKernelComputation (gpjax.kernels.computations.base.AbstractKernelComputation)" href="../../computations/base/#gpjax.kernels.computations.base.AbstractKernelComputation">AbstractKernelComputation</a></code></p>
 
 
 
-        <p>The periodic kernel.</p>
-<p>Computes the covariance for pairs of inputs <span class="arithmatex">\((x, y)\)</span> with length-scale
-parameter <span class="arithmatex">\(\ell\)</span>, variance <span class="arithmatex">\(\sigma^2\)</span> and period <span class="arithmatex">\(p\)</span>.
-$$
-k(x, y) = \sigma^2 \exp \left( -\frac{1}{2} \sum_{i=1}^{D} \left(\frac{\sin (\pi (x_i - y_i)/p)}{\ell}\right)^2 \right)
-$$
-Key reference is MacKay 1998 - "Introduction to Gaussian processes".</p>
-
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>active_dims</code></b>
-              (<code><span title="beartype.typing.Union">Union</span>[<span title="list">list</span>[<span title="int">int</span>], <span title="slice">slice</span>, None]</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the indices of the input dimensions that the kernel operates on.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>lengthscale</code></b>
-              (<code><span title="beartype.typing.Union">Union</span>[<span title="gpjax.kernels.stationary.periodic.LengthscaleCompatible">LengthscaleCompatible</span>, <span title="flax.nnx.Variable">Variable</span>[<span title="gpjax.kernels.stationary.periodic.Lengthscale">Lengthscale</span>]]</code>, default:
-                  <code>1.0</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the lengthscale(s) of the kernel ℓ. If a scalar or an array of
-length 1, the kernel is isotropic, meaning that the same lengthscale is
-used for all input dimensions. If an array with length &gt; 1, the kernel is
-anisotropic, meaning that a different lengthscale is used for each input.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>variance</code></b>
-              (<code><span title="beartype.typing.Union">Union</span>[<span title="gpjax.typing.ScalarFloat">ScalarFloat</span>, <span title="flax.nnx.Variable">Variable</span>[<span title="gpjax.typing.ScalarArray">ScalarArray</span>]]</code>, default:
-                  <code>1.0</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the variance of the kernel σ.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>period</code></b>
-              (<code><span title="beartype.typing.Union">Union</span>[<span title="gpjax.typing.ScalarFloat">ScalarFloat</span>, <span title="flax.nnx.Variable">Variable</span>[<span title="gpjax.typing.ScalarArray">ScalarArray</span>]]</code>, default:
-                  <code>1.0</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the period of the kernel p.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>n_dims</code></b>
-              (<code><span title="beartype.typing.Union">Union</span>[<span title="int">int</span>, None]</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the number of input dimensions. If <code>lengthscale</code> is an array, this
-argument is ignored.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>compute_engine</code></b>
-              (<code><a class="autorefs autorefs-internal" title="AbstractKernelComputation (gpjax.kernels.computations.AbstractKernelComputation)" href="../../computations/base/#gpjax.kernels.computations.base.AbstractKernelComputation">AbstractKernelComputation</a></code>, default:
-                  <code><a class="autorefs autorefs-internal" title="DenseKernelComputation (gpjax.kernels.computations.DenseKernelComputation)" href="../../computations/dense/#gpjax.kernels.computations.dense.DenseKernelComputation">DenseKernelComputation</a>()</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>the computation engine that the kernel uses to compute the
-covariance matrix.</p>
-          </div>
-        </li>
-    </ul>
+        <p>Compute engine for multi-output kernels.</p>
+<p>Dispatches on kernel type to build structured covariance matrices.
+Currently supports ICMKernel (Kronecker structure).</p>
 
 
 
@@ -3645,316 +3426,25 @@ covariance matrix.</p>
 
 
 
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.spectral_density" class="doc doc-heading">
-            <span class="doc doc-object-name doc-attribute-name">spectral_density</span>
-
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spectral_density</span><span class="p">:</span> <span class="n">Normal</span> <span class="o">|</span> <span class="n">StudentT</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>The spectral density of the kernel.</p>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="numpyro.distributions.Normal">Normal</span> | <span title="numpyro.distributions.StudentT">StudentT</span></code>
-          –
-          <div class="doc-md-description">
-            <p>Callable[[Float[Array, "D"]], Float[Array, "D"]]: The spectral density function.</p>
-          </div>
-        </li>
-    </ul>
-
-    </div>
-
-</div>
-
 
 
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.cross_covariance" class="doc doc-heading">
+<h3 id="gpjax.kernels.multioutput.computation.MultiOutputKernelComputation.cross_covariance" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">cross_covariance</span>
 
 
 </h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cross_covariance</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;M D&quot;</span><span class="p">]</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N M&quot;</span><span class="p">]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kernel</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;M D&quot;</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Compute the cross-covariance matrix of the kernel.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>x</code></b>
-              (<code><span title="jaxtyping.Num">Num</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N D&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the first input matrix of shape <code>(N, D)</code>.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>y</code></b>
-              (<code><span title="jaxtyping.Num">Num</span>[<span title="gpjax.typing.Array">Array</span>, &#39;M D&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the second input matrix of shape <code>(M, D)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N M&#39;]</code>
-          –
-          <div class="doc-md-description">
-            <p>The cross-covariance matrix of the kernel of shape <code>(N, M)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.gram" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">gram</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">gram</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N D&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">LinearOperator</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the gram matrix of the kernel.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>x</code></b>
-              (<code><span title="jaxtyping.Num">Num</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N D&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the input matrix of shape <code>(N, D)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.LinearOperator)" href="../../../linalg/operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>
-          –
-          <div class="doc-md-description">
-            <p>The gram matrix of the kernel of shape <code>(N, N)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.diagonal" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">diagonal</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diagonal</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N D&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">LinearOperator</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the diagonal of the gram matrix of the kernel.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>x</code></b>
-              (<code><span title="jaxtyping.Num">Num</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N D&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the input matrix of shape <code>(N, D)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.LinearOperator)" href="../../../linalg/operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>
-          –
-          <div class="doc-md-description">
-            <p>The diagonal of the gram matrix of the kernel of shape <code>(N,)</code>.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.slice_input" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">slice_input</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">slice_input</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;... D&quot;</span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;... Q&quot;</span><span class="p">]</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Slice out the relevant columns of the input matrix.</p>
-<p>Select the relevant columns of the supplied matrix to be used within the
-kernel's evaluation.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>x</code></b>
-              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;... D&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>the matrix or vector that is to be sliced.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;... Q&#39;]</code>
-          –
-          <div class="doc-md-description">
-            <p>The sliced form of the input matrix.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">other</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AbstractKernel</span><span class="p">,</span> <span class="n">ScalarFloat</span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractKernel</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Add two kernels together.
-Args:
-    other (AbstractKernel): The kernel to be added to the current kernel.</p>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-<b><code>AbstractKernel</code></b> (              <code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a></code>
-)          –
-          <div class="doc-md-description">
-            <p>A new kernel that is the sum of the two kernels.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.kernels.stationary.periodic.Periodic.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">other</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">AbstractKernel</span><span class="p">,</span> <span class="n">ScalarFloat</span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractKernel</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Multiply two kernels together.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>other</code></b>
-              (<code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>The kernel to be multiplied with the current kernel.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-<b><code>AbstractKernel</code></b> (              <code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a></code>
-)          –
-          <div class="doc-md-description">
-            <p>A new kernel that is the product of the two kernels.</p>
-          </div>
-        </li>
-    </ul>
+        <p>Override to bypass [N, M] return type annotation for multi-output.</p>
 
 
     </div>

@@ -73,6 +73,10 @@
          <lastmod>2026-02-10</lastmod>
     </url>
     <url>
+         <loc>https://docs.jaxgaussianprocesses.com/_examples/multioutput/</loc>
+         <lastmod>2026-02-10</lastmod>
+    </url>
+    <url>
          <loc>https://docs.jaxgaussianprocesses.com/_examples/numpyro_integration/</loc>
          <lastmod>2026-02-10</lastmod>
     </url>
@@ -190,6 +194,18 @@
     </url>
     <url>
          <loc>https://docs.jaxgaussianprocesses.com/api/kernels/computations/eigen/</loc>
+         <lastmod>2026-02-10</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.jaxgaussianprocesses.com/api/kernels/multioutput/base/</loc>
+         <lastmod>2026-02-10</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.jaxgaussianprocesses.com/api/kernels/multioutput/computation/</loc>
+         <lastmod>2026-02-10</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.jaxgaussianprocesses.com/api/kernels/multioutput/icm/</loc>
          <lastmod>2026-02-10</lastmod>
     </url>
     <url>
