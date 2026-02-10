@@ -544,5 +544,30 @@ class TestMultiOutputPosteriorPredict:
         assert jnp.mean(residual) < 1.0  # Loose bound
 
 
+class TestMultiOutputValidation:
+    def test_mo_likelihood_with_so_kernel_raises(self):
+        """MultiOutputGaussian + single-output kernel raises ValueError."""
+        from gpjax.likelihoods import MultiOutputGaussian
+
+        kernel = RBF()
+        prior = Prior(mean_function=Zero(), kernel=kernel)
+        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=2)
+        with pytest.raises(ValueError, match="multi-output kernel"):
+            prior * lik
+
+    def test_mo_kernel_with_so_likelihood_raises(self):
+        """Multi-output kernel + Gaussian (not MultiOutput) raises ValueError."""
+        from gpjax.kernels.multioutput.icm import ICMKernel
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jr.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=2, rank=1, key=key)
+        kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
+        prior = Prior(mean_function=Zero(), kernel=kernel)
+        lik = Gaussian(num_datapoints=10)
+        with pytest.raises(ValueError, match="MultiOutputGaussian"):
+            prior * lik
+
+
 if __name__ == "__main__":
     test_conjugate_posterior_sample_approx(10, RBF, Zero)

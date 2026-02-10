@@ -967,6 +967,23 @@ def construct_posterior(
         `ConjugatePosterior` will be returned. Otherwise, a
         `NonConjugatePosterior` will be returned.
     """
+    # Multi-output validation
+    from gpjax.kernels.multioutput.base import MultiOutputKernel
+    from gpjax.likelihoods import MultiOutputGaussian
+
+    is_mo_kernel = isinstance(prior.kernel, MultiOutputKernel)
+    is_mo_likelihood = isinstance(likelihood, MultiOutputGaussian)
+
+    if is_mo_likelihood and not is_mo_kernel:
+        raise ValueError(
+            "MultiOutputGaussian likelihood requires a multi-output kernel "
+            "(e.g., ICMKernel)."
+        )
+    if is_mo_kernel and not is_mo_likelihood:
+        raise ValueError(
+            "Multi-output kernels require a MultiOutputGaussian likelihood."
+        )
+
     if isinstance(likelihood, Gaussian):
         return ConjugatePosterior(prior=prior, likelihood=likelihood)
 
