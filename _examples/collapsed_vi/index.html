@@ -3389,7 +3389,7 @@ part of the model's parameters. Using a gradient-based optimiser, we can then
 </span><span id="__span-7-58"><a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a><span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$f(x)$&quot;</span><span class="p">)</span>
 </span><span id="__span-7-59"><a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3029/1432928184.py:4: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
+<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3010/1432928184.py:4: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
 
   variable[...]
 
@@ -3412,12 +3412,12 @@ full model.</p>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">nmll</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">full_rank_model</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nmll</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>172 ms ± 2.28 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>171 ms ± 2.01 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">nelbo</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">collapsed_elbo</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nelbo</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>1.47 ms ± 424 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>1.47 ms ± 415 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <p>As we can see, the sparse approximation given here is much faster when
 compared against a full-rank model.</p>
