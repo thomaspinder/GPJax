@@ -44,3 +44,78 @@ class TestICMKernel:
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         from gpjax.kernels.base import AbstractKernel
         assert isinstance(kernel, AbstractKernel)
+
+
+class TestMultiOutputKernelComputation:
+    @pytest.fixture
+    def icm_setup(self):
+        key = jax.random.PRNGKey(0)
+        N, D, P = 10, 2, 3
+        X = jax.random.normal(key, (N, D))
+        coreg = CoregionalizationMatrix(num_outputs=P, rank=2, key=key)
+        base = RBF(n_dims=D)
+        kernel = ICMKernel(base_kernel=base, coregionalization_matrix=coreg)
+        return kernel, X, N, P
+
+    def test_gram_shape(self, icm_setup):
+        """gram() returns [NP, NP] operator."""
+        kernel, X, N, P = icm_setup
+        K = kernel.gram(X)
+        assert K.shape == (N * P, N * P)
+
+    def test_gram_is_kronecker(self, icm_setup):
+        """gram() returns a Kronecker operator."""
+        kernel, X, N, P = icm_setup
+        from gpjax.linalg import Kronecker
+        K = kernel.gram(X)
+        assert isinstance(K, Kronecker)
+
+    def test_gram_equals_manual_kronecker(self, icm_setup):
+        """gram() matches manual kron(B, K_input)."""
+        kernel, X, N, P = icm_setup
+        K_input = kernel.base_kernel.gram(X).to_dense()
+        B = kernel.coregionalization_matrix.B
+        expected = jnp.kron(B, K_input)
+        actual = kernel.gram(X).to_dense()
+        assert jnp.allclose(actual, expected, atol=1e-6)
+
+    def test_gram_psd(self, icm_setup):
+        """gram() is positive semi-definite."""
+        kernel, X, N, P = icm_setup
+        K = kernel.gram(X).to_dense()
+        eigvals = jnp.linalg.eigvalsh(K)
+        assert jnp.all(eigvals >= -1e-6)
+
+    def test_cross_covariance_shape(self, icm_setup):
+        """cross_covariance() returns [NP, MP]."""
+        kernel, X, N, P = icm_setup
+        key = jax.random.PRNGKey(1)
+        M = 5
+        Y = jax.random.normal(key, (M, X.shape[1]))
+        Kxy = kernel.cross_covariance(X, Y)
+        assert Kxy.shape == (N * P, M * P)
+
+    def test_cross_covariance_equals_manual(self, icm_setup):
+        """cross_covariance() matches manual kron(B, K_xy)."""
+        kernel, X, N, P = icm_setup
+        key = jax.random.PRNGKey(1)
+        M = 5
+        Y = jax.random.normal(key, (M, X.shape[1]))
+        K_xy = kernel.base_kernel.cross_covariance(X, Y)
+        B = kernel.coregionalization_matrix.B
+        expected = jnp.kron(B, K_xy)
+        actual = kernel.cross_covariance(X, Y)
+        assert jnp.allclose(actual, expected, atol=1e-6)
+
+    def test_diagonal_shape(self, icm_setup):
+        """diagonal() returns Diagonal operator with NP entries."""
+        kernel, X, N, P = icm_setup
+        diag_op = kernel.diagonal(X)
+        assert diag_op.shape == (N * P, N * P)
+
+    def test_diagonal_matches_gram_diagonal(self, icm_setup):
+        """diagonal() matches the diagonal of the full gram matrix."""
+        kernel, X, N, P = icm_setup
+        gram_diag = jnp.diag(kernel.gram(X).to_dense())
+        diag_op = kernel.diagonal(X)
+        assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)

@@ -1,6 +1,10 @@
 from abc import abstractmethod
 
+import jax.numpy as jnp
+from jaxtyping import Float, Num
+
 from gpjax.kernels.base import AbstractKernel
+from gpjax.typing import Array
 
 
 class MultiOutputKernel(AbstractKernel):
@@ -29,6 +33,16 @@ class MultiOutputKernel(AbstractKernel):
     def latent_kernels(self) -> tuple[AbstractKernel, ...]:
         """Tuple of latent kernels."""
         ...
+
+    def cross_covariance(
+        self, x: Num[Array, "N D"], y: Num[Array, "M D"]
+    ) -> Float[Array, "..."]:
+        """Cross-covariance for multi-output kernels.
+
+        Returns shape [NP, MP] where P is num_outputs — overrides the
+        single-output [N, M] annotation.
+        """
+        return self.compute_engine.cross_covariance(self, x, y)
 
     def __call__(self, x, y):
         raise NotImplementedError(
