@@ -105,3 +105,42 @@ def test_poisson_likelihood(n: int):
     # Check predictive mean and variance.
     rate = jnp.exp(latent_mean)
     assert (pred_dist.mean == rate).all()
+
+
+class TestMultiOutputGaussian:
+    def test_init_scalar_noise(self):
+        """Scalar obs_stddev broadcasts to [P] vector."""
+        from gpjax.likelihoods import MultiOutputGaussian
+        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=0.5)
+        assert lik.obs_stddev[...].shape == (3,)
+        assert jnp.allclose(lik.obs_stddev[...], jnp.full(3, 0.5))
+
+    def test_init_vector_noise(self):
+        """Vector obs_stddev is accepted directly."""
+        from gpjax.likelihoods import MultiOutputGaussian
+        noise = jnp.array([0.1, 0.2, 0.3])
+        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=noise)
+        assert jnp.allclose(lik.obs_stddev[...], noise)
+
+    def test_noise_vector_shape(self):
+        """noise_vector() returns [NP] in output-major order."""
+        from gpjax.likelihoods import MultiOutputGaussian
+        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=1.0)
+        nv = lik.noise_vector(10)
+        assert nv.shape == (30,)
+
+    def test_noise_vector_ordering(self):
+        """noise_vector() repeats per-output variance in output-major order."""
+        from gpjax.likelihoods import MultiOutputGaussian
+        noise = jnp.array([1.0, 2.0])
+        lik = MultiOutputGaussian(num_datapoints=3, num_outputs=2, obs_stddev=noise)
+        nv = lik.noise_vector(3)
+        # Output-major: [σ₁² repeated N, σ₂² repeated N]
+        expected = jnp.array([1.0, 1.0, 1.0, 4.0, 4.0, 4.0])
+        assert jnp.allclose(nv, expected)
+
+    def test_is_gaussian_subclass(self):
+        """MultiOutputGaussian is a Gaussian subclass for posterior dispatch."""
+        from gpjax.likelihoods import MultiOutputGaussian
+        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=2)
+        assert isinstance(lik, Gaussian)

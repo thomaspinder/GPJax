@@ -355,6 +355,39 @@ class Gaussian(AbstractLikelihood):
         return npd.MultivariateNormal(dist.mean, noisy_cov)
 
 
+class MultiOutputGaussian(Gaussian):
+    """Gaussian likelihood with per-output noise variance.
+
+    Args:
+        num_datapoints: Total number of observations (N, not N*P).
+        num_outputs: Number of output dimensions (P).
+        obs_stddev: Per-output noise standard deviation. Scalar broadcasts to [P].
+    """
+
+    def __init__(
+        self,
+        num_datapoints: int,
+        num_outputs: int,
+        obs_stddev: tp.Union[float, Float[Array, " P"]] = 1.0,
+    ):
+        if isinstance(obs_stddev, (int, float)):
+            obs_stddev = jnp.full(num_outputs, float(obs_stddev))
+        self.num_outputs = num_outputs
+        super().__init__(
+            num_datapoints=num_datapoints,
+            obs_stddev=NonNegativeReal(jnp.asarray(obs_stddev)),
+        )
+
+    def noise_vector(self, n: int) -> Float[Array, " NP"]:
+        """Per-observation noise variance in output-major (Kronecker) order.
+
+        Returns sigma_p^2 with each output's variance repeated N times,
+        concatenated across outputs: [σ₁²...σ₁², σ₂²...σ₂², ...].
+        """
+        per_output_var = jnp.square(self.obs_stddev[...])  # [P]
+        return jnp.repeat(per_output_var, n)  # [NP]
+
+
 class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
     def predict(
         self,
@@ -505,6 +538,7 @@ __all__ = [
     "Gaussian",
     "HeteroscedasticGaussian",
     "LogNormalTransform",
+    "MultiOutputGaussian",
     "NoiseMoments",
     "NonGaussian",
     "Poisson",
