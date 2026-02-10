@@ -32,6 +32,7 @@ from gpjax.kernels.computations import (
 )
 from gpjax.kernels.multioutput import (
     ICMKernel,
+    LCMKernel,
     MultiOutputKernel,
     MultiOutputKernelComputation,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "EigenKernelComputation",
     "GraphKernel",
     "ICMKernel",
+    "LCMKernel",
     "Linear",
     "Matern12",
     "Matern32",

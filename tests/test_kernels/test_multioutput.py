@@ -317,6 +317,7 @@ def test_public_imports():
     import gpjax as gpx
 
     assert hasattr(gpx.kernels, "ICMKernel")
+    assert hasattr(gpx.kernels, "LCMKernel")
     assert hasattr(gpx.kernels, "MultiOutputKernel")
     assert hasattr(gpx.kernels, "MultiOutputKernelComputation")
     assert hasattr(gpx.parameters, "CoregionalizationMatrix")
