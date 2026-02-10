@@ -488,11 +488,11 @@ class TestMultiOutputPosteriorPredict:
     @pytest.fixture
     def mo_setup(self):
         from gpjax.kernels.multioutput.icm import ICMKernel
-        from gpjax.parameters import CoregionalizationMatrix
         from gpjax.likelihoods import MultiOutputGaussian
+        from gpjax.parameters import CoregionalizationMatrix
 
         key = jr.PRNGKey(42)
-        N, D, P = 20, 1, 2
+        N, P = 20, 2
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jnp.column_stack([jnp.sin(X.squeeze()), jnp.cos(X.squeeze())])
         data = Dataset(X=X, y=y)
@@ -505,7 +505,7 @@ class TestMultiOutputPosteriorPredict:
 
     def test_predict_mean_shape(self, mo_setup):
         """Posterior mean is [M*P] (flat joint vector)."""
-        posterior, data, N, P = mo_setup
+        posterior, data, _N, P = mo_setup
         M = 5
         Xtest = jnp.linspace(0, 1, M).reshape(-1, 1)
         pred = posterior.predict(Xtest, data)
@@ -513,7 +513,7 @@ class TestMultiOutputPosteriorPredict:
 
     def test_predict_covariance_shape(self, mo_setup):
         """Posterior covariance is [MP, MP]."""
-        posterior, data, N, P = mo_setup
+        posterior, data, _N, P = mo_setup
         M = 5
         Xtest = jnp.linspace(0, 1, M).reshape(-1, 1)
         pred = posterior.predict(Xtest, data)
@@ -521,14 +521,14 @@ class TestMultiOutputPosteriorPredict:
 
     def test_predict_mean_finite(self, mo_setup):
         """Posterior mean is finite."""
-        posterior, data, N, P = mo_setup
+        posterior, data, _N, _P = mo_setup
         Xtest = jnp.linspace(0, 1, 5).reshape(-1, 1)
         pred = posterior.predict(Xtest, data)
         assert jnp.all(jnp.isfinite(pred.mean))
 
     def test_predict_covariance_psd(self, mo_setup):
         """Posterior covariance is positive semi-definite."""
-        posterior, data, N, P = mo_setup
+        posterior, data, _N, _P = mo_setup
         Xtest = jnp.linspace(0, 1, 5).reshape(-1, 1)
         pred = posterior.predict(Xtest, data)
         eigvals = jnp.linalg.eigvalsh(pred.covariance())

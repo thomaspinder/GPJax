@@ -2,7 +2,6 @@
 
 import jax
 import jax.numpy as jnp
-import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -17,23 +16,20 @@ class TestICMEndToEnd:
 
         # Generate training data
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
-        y = jnp.column_stack([jnp.sin(2 * jnp.pi * X.squeeze()),
-                               jnp.cos(2 * jnp.pi * X.squeeze())])
+        y = jnp.column_stack(
+            [jnp.sin(2 * jnp.pi * X.squeeze()), jnp.cos(2 * jnp.pi * X.squeeze())]
+        )
         D = gpx.Dataset(X=X, y=y)
 
         # Build model
-        coreg = gpx.parameters.CoregionalizationMatrix(
-            num_outputs=P, rank=1, key=key
-        )
+        coreg = gpx.parameters.CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
         kernel = gpx.kernels.ICMKernel(
             base_kernel=gpx.kernels.RBF(),
             coregionalization_matrix=coreg,
         )
         meanf = gpx.mean_functions.Zero()
         prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(
-            num_datapoints=N, num_outputs=P
-        )
+        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
         posterior = prior * lik
 
         # Verify MLL is computable and finite
@@ -59,7 +55,7 @@ class TestICMEndToEnd:
 
         key = jax.random.PRNGKey(0)
         X = jnp.linspace(0, 1, 15).reshape(-1, 1)
-        y = jnp.column_stack([jnp.sin(X.squeeze()), X.squeeze()**2])
+        y = jnp.column_stack([jnp.sin(X.squeeze()), X.squeeze() ** 2])
         D = gpx.Dataset(X=X, y=y)
 
         for base_cls in [gpx.kernels.RBF, gpx.kernels.Matern32, gpx.kernels.Matern52]:
@@ -70,7 +66,9 @@ class TestICMEndToEnd:
                 base_kernel=base_cls(),
                 coregionalization_matrix=coreg,
             )
-            prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
+            prior = gpx.gps.Prior(
+                mean_function=gpx.mean_functions.Zero(), kernel=kernel
+            )
             lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=15, num_outputs=2)
             posterior = prior * lik
 
@@ -84,26 +82,22 @@ class TestICMEndToEnd:
         key = jax.random.PRNGKey(0)
         N, P = 20, 3
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
-        y = jnp.column_stack([
-            jnp.sin(X.squeeze()),
-            jnp.cos(X.squeeze()),
-            X.squeeze()**2,
-        ])
+        y = jnp.column_stack(
+            [
+                jnp.sin(X.squeeze()),
+                jnp.cos(X.squeeze()),
+                X.squeeze() ** 2,
+            ]
+        )
         D = gpx.Dataset(X=X, y=y)
 
-        coreg = gpx.parameters.CoregionalizationMatrix(
-            num_outputs=P, rank=2, key=key
-        )
+        coreg = gpx.parameters.CoregionalizationMatrix(num_outputs=P, rank=2, key=key)
         kernel = gpx.kernels.ICMKernel(
             base_kernel=gpx.kernels.RBF(),
             coregionalization_matrix=coreg,
         )
-        prior = gpx.gps.Prior(
-            mean_function=gpx.mean_functions.Zero(), kernel=kernel
-        )
-        lik = gpx.likelihoods.MultiOutputGaussian(
-            num_datapoints=N, num_outputs=P
-        )
+        prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
         posterior = prior * lik
 
         mll = gpx.objectives.conjugate_mll(posterior, D)

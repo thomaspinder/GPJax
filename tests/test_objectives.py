@@ -250,15 +250,16 @@ class TestMultiOutputConjugateMLL:
     @pytest.fixture
     def mo_setup(self):
         key = jax.random.PRNGKey(42)
-        N, D, P = 20, 1, 2
+        N, P = 20, 2
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jnp.column_stack([jnp.sin(X.squeeze()), jnp.cos(X.squeeze())])
         data = Dataset(X=X, y=y)
         from gpjax.kernels.multioutput.icm import ICMKernel
         from gpjax.kernels.stationary import RBF
-        from gpjax.parameters import CoregionalizationMatrix
         from gpjax.likelihoods import MultiOutputGaussian
         from gpjax.mean_functions import Zero
+        from gpjax.parameters import CoregionalizationMatrix
+
         coreg = CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         meanf = Zero()
@@ -290,6 +291,7 @@ class TestMultiOutputConjugateMLL:
         data = Dataset(X=X, y=y)
         from gpjax.kernels.stationary import RBF
         from gpjax.mean_functions import Zero
+
         kernel = RBF()
         prior = Prior(mean_function=Zero(), kernel=kernel)
         lik = Gaussian(num_datapoints=20)

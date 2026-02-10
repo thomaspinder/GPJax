@@ -585,50 +585,14 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
         """
         from gpjax.kernels.multioutput.base import MultiOutputKernel
 
-        x = train_data.X
-        y = train_data.y
         kernel = self.prior.kernel
-        is_mo = isinstance(kernel, MultiOutputKernel)
+        if isinstance(kernel, MultiOutputKernel):
+            return self._predict_multi_output(test_inputs, train_data)
 
-        if is_mo:
-            P = kernel.num_outputs
-            # Reshape to output-major long format
-            y_long = y.T.reshape(-1, 1)  # [N, P] -> [NP, 1]
-            mx = self.prior.mean_function(x)
-            mx_long = jnp.tile(mx, (P, 1))  # [NP, 1]
-
-            # Per-output noise
-            noise = self.likelihood.noise_vector(train_data.n)  # [NP]
-
-            # Gram matrix [NP, NP]
-            Kxx = kernel.gram(x)
-            Kxx_dense = add_jitter(Kxx.to_dense(), self.jitter)
-            Sigma_dense = Kxx_dense + jnp.diag(noise)
-            Sigma = psd(Dense(Sigma_dense))
-            L_sigma = lower_cholesky(Sigma)
-
-            # Cross-covariance [NP, MP]
-            Kxt = kernel.cross_covariance(x, test_inputs)
-
-            L_inv_Kxt = solve(L_sigma, Kxt)
-            L_inv_y_diff = solve(L_sigma, y_long - mx_long)
-
-            # Test-point mean [MP, 1]
-            mean_t = jnp.tile(self.prior.mean_function(test_inputs), (P, 1))
-            mean = mean_t + jnp.matmul(L_inv_Kxt.T, L_inv_y_diff)
-
-            # Covariance [MP, MP]
-            Ktt = kernel.gram(test_inputs)
-            covariance = Ktt.to_dense() - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
-            covariance = add_jitter(covariance, self.prior.jitter)
-            covariance = psd(Dense(covariance))
-
-            # Flatten mean to [MP] for GaussianDistribution
-            mean_flat = mean.squeeze()  # [MP]
-
-            return GaussianDistribution(loc=mean_flat, scale=covariance)
         else:
             # Original single-output path — unchanged
+            x = train_data.X
+            y = train_data.y
             obs_noise = jnp.square(self.likelihood.obs_stddev[...])
             mx = self.prior.mean_function(x)
             Kxx = kernel.gram(x)
@@ -675,6 +639,53 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             )
 
             return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=cov)
+
+    def _predict_multi_output(
+        self,
+        test_inputs: Num[Array, "M D"],
+        train_data: Dataset,
+    ) -> GaussianDistribution:
+        """Multi-output predict using Kronecker structure."""
+        x = train_data.X
+        y = train_data.y
+        kernel = self.prior.kernel
+        P = kernel.num_outputs
+
+        # Reshape to output-major long format
+        y_long = y.T.reshape(-1, 1)  # [N, P] -> [NP, 1]
+        mx = self.prior.mean_function(x)
+        mx_long = jnp.tile(mx, (P, 1))  # [NP, 1]
+
+        # Per-output noise
+        noise = self.likelihood.noise_vector(train_data.n)  # [NP]
+
+        # Gram matrix [NP, NP]
+        Kxx = kernel.gram(x)
+        Kxx_dense = add_jitter(Kxx.to_dense(), self.jitter)
+        Sigma_dense = Kxx_dense + jnp.diag(noise)
+        Sigma = psd(Dense(Sigma_dense))
+        L_sigma = lower_cholesky(Sigma)
+
+        # Cross-covariance [NP, MP]
+        Kxt = kernel.cross_covariance(x, test_inputs)
+
+        L_inv_Kxt = solve(L_sigma, Kxt)
+        L_inv_y_diff = solve(L_sigma, y_long - mx_long)
+
+        # Test-point mean [MP, 1]
+        mean_t = jnp.tile(self.prior.mean_function(test_inputs), (P, 1))
+        mean = mean_t + jnp.matmul(L_inv_Kxt.T, L_inv_y_diff)
+
+        # Covariance [MP, MP]
+        Ktt = kernel.gram(test_inputs)
+        covariance = Ktt.to_dense() - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
+        covariance = add_jitter(covariance, self.prior.jitter)
+        covariance = psd(Dense(covariance))
+
+        # Flatten mean to [MP] for GaussianDistribution
+        mean_flat = mean.squeeze()  # [MP]
+
+        return GaussianDistribution(loc=mean_flat, scale=covariance)
 
     def sample_approx(
         self,

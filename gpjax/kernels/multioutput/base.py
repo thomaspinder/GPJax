@@ -1,6 +1,5 @@
 from abc import abstractmethod
 
-import jax.numpy as jnp
 from jaxtyping import Float, Num
 
 from gpjax.kernels.base import AbstractKernel

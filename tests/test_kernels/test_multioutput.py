@@ -1,10 +1,9 @@
-import jax
-import jax.numpy as jnp
-import pytest
-from gpjax.kernels.multioutput.base import MultiOutputKernel
 from gpjax.kernels.multioutput.icm import ICMKernel
 from gpjax.kernels.stationary import RBF
 from gpjax.parameters import CoregionalizationMatrix
+import jax
+import jax.numpy as jnp
+import pytest
 
 
 class TestMultiOutputKernel:
@@ -43,6 +42,7 @@ class TestICMKernel:
         coreg = CoregionalizationMatrix(num_outputs=2, rank=1, key=key)
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         from gpjax.kernels.base import AbstractKernel
+
         assert isinstance(kernel, AbstractKernel)
 
 
@@ -65,14 +65,15 @@ class TestMultiOutputKernelComputation:
 
     def test_gram_is_kronecker(self, icm_setup):
         """gram() returns a Kronecker operator."""
-        kernel, X, N, P = icm_setup
+        kernel, X, _N, _P = icm_setup
         from gpjax.linalg import Kronecker
+
         K = kernel.gram(X)
         assert isinstance(K, Kronecker)
 
     def test_gram_equals_manual_kronecker(self, icm_setup):
         """gram() matches manual kron(B, K_input)."""
-        kernel, X, N, P = icm_setup
+        kernel, X, _N, _P = icm_setup
         K_input = kernel.base_kernel.gram(X).to_dense()
         B = kernel.coregionalization_matrix.B
         expected = jnp.kron(B, K_input)
@@ -81,7 +82,7 @@ class TestMultiOutputKernelComputation:
 
     def test_gram_psd(self, icm_setup):
         """gram() is positive semi-definite."""
-        kernel, X, N, P = icm_setup
+        kernel, X, _N, _P = icm_setup
         K = kernel.gram(X).to_dense()
         eigvals = jnp.linalg.eigvalsh(K)
         assert jnp.all(eigvals >= -1e-6)
@@ -97,7 +98,7 @@ class TestMultiOutputKernelComputation:
 
     def test_cross_covariance_equals_manual(self, icm_setup):
         """cross_covariance() matches manual kron(B, K_xy)."""
-        kernel, X, N, P = icm_setup
+        kernel, X, _N, _P = icm_setup
         key = jax.random.PRNGKey(1)
         M = 5
         Y = jax.random.normal(key, (M, X.shape[1]))
@@ -115,7 +116,7 @@ class TestMultiOutputKernelComputation:
 
     def test_diagonal_matches_gram_diagonal(self, icm_setup):
         """diagonal() matches the diagonal of the full gram matrix."""
-        kernel, X, N, P = icm_setup
+        kernel, X, _N, _P = icm_setup
         gram_diag = jnp.diag(kernel.gram(X).to_dense())
         diag_op = kernel.diagonal(X)
         assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
@@ -123,10 +124,10 @@ class TestMultiOutputKernelComputation:
 
 def test_public_imports():
     """Multi-output classes are importable from gpjax and gpjax.kernels."""
-    from gpjax.kernels import ICMKernel, MultiOutputKernel
-    from gpjax.kernels.multioutput import MultiOutputKernelComputation
     import gpjax as gpx
-    assert hasattr(gpx.parameters, "CoregionalizationMatrix")
+
     assert hasattr(gpx.kernels, "ICMKernel")
     assert hasattr(gpx.kernels, "MultiOutputKernel")
+    assert hasattr(gpx.kernels, "MultiOutputKernelComputation")
+    assert hasattr(gpx.parameters, "CoregionalizationMatrix")
     assert hasattr(gpx.likelihoods, "MultiOutputGaussian")
