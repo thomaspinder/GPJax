@@ -11,33 +11,21 @@ from gpjax.typing import Array
 class MultiOutputKernelComputation(AbstractKernelComputation):
     """Compute engine for multi-output kernels.
 
-    Dispatches on kernel type to build structured covariance matrices.
-    Supports ICMKernel (Kronecker) and LCMKernel (Kronecker for Q=1, Dense for Q>1).
+    Iterates over kernel.components — a sequence of (CoregionalizationMatrix,
+    kernel) pairs — to build structured covariance matrices.  Single-component
+    kernels (ICM) retain Kronecker structure; multi-component kernels (LCM)
+    materialise the sum to Dense.
     """
 
     def gram(self, kernel, x: Num[Array, "N D"]) -> LinearOperator:
-        from gpjax.kernels.multioutput.icm import ICMKernel
-        from gpjax.kernels.multioutput.lcm import LCMKernel
-
-        if isinstance(kernel, ICMKernel):
-            K_input = kernel.base_kernel.gram(x)
-            B = Dense(kernel.coregionalization_matrix.B)
+        components = kernel.components
+        if len(components) == 1:
+            cm, k = components[0]
+            K_input = k.gram(x)
+            B = Dense(cm.B)
             return psd(Kronecker([B, K_input]))
-        if isinstance(kernel, LCMKernel):
-            if kernel.num_latent_gps == 1:
-                K_input = kernel.latent_kernels[0].gram(x)
-                B = Dense(kernel.coregionalization_matrices[0].B)
-                return psd(Kronecker([B, K_input]))
-            K = sum(
-                jnp.kron(cm.B, k.gram(x).to_dense())
-                for cm, k in zip(
-                    kernel.coregionalization_matrices,
-                    kernel.latent_kernels,
-                    strict=True,
-                )
-            )
-            return psd(Dense(K))
-        raise NotImplementedError(f"No gram implementation for {type(kernel).__name__}")
+        K = sum(jnp.kron(cm.B, k.gram(x).to_dense()) for cm, k in components)
+        return psd(Dense(K))
 
     def cross_covariance(
         self, kernel, x: Num[Array, "N D"], y: Num[Array, "M D"]
@@ -48,44 +36,13 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
     def _cross_covariance(
         self, kernel, x: Num[Array, "N D"], y: Num[Array, "M D"]
     ) -> Float[Array, "..."]:
-        from gpjax.kernels.multioutput.icm import ICMKernel
-        from gpjax.kernels.multioutput.lcm import LCMKernel
-
-        if isinstance(kernel, ICMKernel):
-            Kxy = kernel.base_kernel.cross_covariance(x, y)
-            B = kernel.coregionalization_matrix.B
-            return jnp.kron(B, Kxy)
-        if isinstance(kernel, LCMKernel):
-            return sum(
-                jnp.kron(cm.B, k.cross_covariance(x, y))
-                for cm, k in zip(
-                    kernel.coregionalization_matrices,
-                    kernel.latent_kernels,
-                    strict=True,
-                )
-            )
-        raise NotImplementedError(
-            f"No cross_covariance implementation for {type(kernel).__name__}"
+        return sum(
+            jnp.kron(cm.B, k.cross_covariance(x, y)) for cm, k in kernel.components
         )
 
     def diagonal(self, kernel, inputs: Num[Array, "N D"]) -> Diagonal:
-        from gpjax.kernels.multioutput.icm import ICMKernel
-        from gpjax.kernels.multioutput.lcm import LCMKernel
-
-        if isinstance(kernel, ICMKernel):
-            k_diag = kernel.base_kernel.diagonal(inputs).diagonal
-            b_diag = jnp.diag(kernel.coregionalization_matrix.B)
-            return psd(Diagonal(jnp.kron(b_diag, k_diag)))
-        if isinstance(kernel, LCMKernel):
-            diag_sum = sum(
-                jnp.kron(jnp.diag(cm.B), k.diagonal(inputs).diagonal)
-                for cm, k in zip(
-                    kernel.coregionalization_matrices,
-                    kernel.latent_kernels,
-                    strict=True,
-                )
-            )
-            return psd(Diagonal(diag_sum))
-        raise NotImplementedError(
-            f"No diagonal implementation for {type(kernel).__name__}"
+        diag_sum = sum(
+            jnp.kron(jnp.diag(cm.B), k.diagonal(inputs).diagonal)
+            for cm, k in kernel.components
         )
+        return psd(Diagonal(diag_sum))

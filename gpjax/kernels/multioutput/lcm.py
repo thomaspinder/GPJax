@@ -53,6 +53,12 @@ class LCMKernel(MultiOutputKernel):
     def latent_kernels(self) -> tuple[AbstractKernel, ...]:
         return tuple(self.base_kernels)
 
+    @property
+    def components(self):
+        return tuple(
+            zip(self.coregionalization_matrices, self.base_kernels, strict=True)
+        )
+
     @classmethod
     def from_icm_components(cls, icm_kernels: list) -> "LCMKernel":
         """Build an LCM from a list of ICMKernel instances.

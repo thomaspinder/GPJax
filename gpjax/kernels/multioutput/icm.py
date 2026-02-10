@@ -35,3 +35,7 @@ class ICMKernel(MultiOutputKernel):
     @property
     def latent_kernels(self) -> tuple[AbstractKernel, ...]:
         return (self.base_kernel,)
+
+    @property
+    def components(self):
+        return ((self.coregionalization_matrix, self.base_kernel),)

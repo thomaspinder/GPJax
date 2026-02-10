@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
 from jaxtyping import Float, Num
 
 from gpjax.kernels.base import AbstractKernel
 from gpjax.typing import Array
+
+if TYPE_CHECKING:
+    from gpjax.parameters import CoregionalizationMatrix
 
 
 class MultiOutputKernel(AbstractKernel):
@@ -33,9 +39,17 @@ class MultiOutputKernel(AbstractKernel):
         """Tuple of latent kernels."""
         ...
 
+    @property
+    @abstractmethod
+    def components(
+        self,
+    ) -> tuple[tuple[CoregionalizationMatrix, AbstractKernel], ...]:
+        """Paired (coregionalization_matrix, kernel) components."""
+        ...
+
     def cross_covariance(
         self, x: Num[Array, "N D"], y: Num[Array, "M D"]
-    ) -> Float[Array, "..."]:
+    ) -> Float[Array, ...]:
         """Cross-covariance for multi-output kernels.
 
         Returns shape [NP, MP] where P is num_outputs — overrides the
