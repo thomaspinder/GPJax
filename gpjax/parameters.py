@@ -5,6 +5,7 @@ from flax import nnx
 import jax
 from jax.experimental import checkify
 import jax.numpy as jnp
+import jax.random as jr
 import jax.tree_util as jtu
 from jax.typing import ArrayLike
 import numpyro.distributions as dist
@@ -247,6 +248,32 @@ class LowerTriangular(Parameter[T]):
         ):
             _safe_assert(_check_is_square, self[...])
             _safe_assert(_check_is_lower_triangular, self[...])
+
+
+class CoregionalizationMatrix(nnx.Module):
+    """Parameterises a PSD output-correlation matrix B = WW^T + diag(kappa).
+
+    Args:
+        num_outputs: Number of output dimensions (P).
+        rank: Rank of the low-rank factor W. Controls expressiveness.
+        key: JAX PRNG key for W initialisation.
+    """
+
+    def __init__(
+        self,
+        num_outputs: int,
+        rank: int,
+        key: jax.Array,
+    ):
+        self.num_outputs = num_outputs
+        self.rank = rank
+        self.W = Real(jr.normal(key, (num_outputs, rank)) * 0.1)
+        self.kappa = PositiveReal(jnp.ones(num_outputs))
+
+    @property
+    def B(self) -> jnp.ndarray:
+        """PSD coregionalization matrix [P, P]."""
+        return self.W[...] @ self.W[...].T + jnp.diag(self.kappa[...])
 
 
 DEFAULT_BIJECTION = {

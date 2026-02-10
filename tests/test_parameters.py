@@ -285,3 +285,59 @@ class TestParameterPriorStorage:
         p2 = p.replace(jnp.array(2.0))
         numpyro_props = getattr(p2, "numpyro_properties", {})
         assert numpyro_props.get("prior") is prior
+
+
+class TestCoregionalizationMatrix:
+    def test_init_shape(self):
+        """W is [P, R] and kappa is [P]."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=3, rank=2, key=key)
+        assert coreg.W[...].shape == (3, 2)
+        assert coreg.kappa[...].shape == (3,)
+
+    def test_B_shape_and_symmetry(self):
+        """B is [P, P] and symmetric."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=3, rank=2, key=key)
+        B = coreg.B
+        assert B.shape == (3, 3)
+        assert jnp.allclose(B, B.T)
+
+    def test_B_positive_semi_definite(self):
+        """All eigenvalues of B are non-negative."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=4, rank=2, key=key)
+        eigvals = jnp.linalg.eigvalsh(coreg.B)
+        assert jnp.all(eigvals >= 0.0)
+
+    def test_B_positive_definite_with_kappa(self):
+        """B has strictly positive eigenvalues because kappa > 0."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=3, rank=1, key=key)
+        eigvals = jnp.linalg.eigvalsh(coreg.B)
+        assert jnp.all(eigvals > 0.0)
+
+    def test_rank_one(self):
+        """Rank-1 W produces rank-1 WW^T; B has rank >= 1 from kappa."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=3, rank=1, key=key)
+        assert coreg.W[...].shape == (3, 1)
+        assert coreg.B.shape == (3, 3)
+
+    def test_full_rank(self):
+        """Rank P coregionalization matrix."""
+        from gpjax.parameters import CoregionalizationMatrix
+
+        key = jax.random.PRNGKey(0)
+        coreg = CoregionalizationMatrix(num_outputs=3, rank=3, key=key)
+        assert coreg.W[...].shape == (3, 3)
