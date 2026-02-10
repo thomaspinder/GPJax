@@ -213,6 +213,105 @@ class TestLCMKernel:
         assert kernel.coregionalization_matrices[0] is coreg1
 
 
+class TestLCMKernelComputation:
+    @pytest.fixture
+    def lcm_setup(self):
+        """LCM with Q=2 components, P=3 outputs, N=10 points."""
+        key = jax.random.PRNGKey(0)
+        N, D, P = 10, 2, 3
+        k1, k2, k3 = jax.random.split(key, 3)
+        X = jax.random.normal(k1, (N, D))
+        coreg1 = CoregionalizationMatrix(num_outputs=P, rank=2, key=k2)
+        coreg2 = CoregionalizationMatrix(num_outputs=P, rank=1, key=k3)
+        kernel = LCMKernel(
+            kernels=[RBF(n_dims=D), Matern52(n_dims=D)],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        return kernel, X, N, P
+
+    @pytest.fixture
+    def lcm_single_setup(self):
+        """LCM with Q=1 component (should behave like ICM)."""
+        key = jax.random.PRNGKey(0)
+        N, D, P = 10, 2, 3
+        k1, k2 = jax.random.split(key)
+        X = jax.random.normal(k1, (N, D))
+        coreg = CoregionalizationMatrix(num_outputs=P, rank=2, key=k2)
+        kernel = LCMKernel(
+            kernels=[RBF(n_dims=D)],
+            coregionalization_matrices=[coreg],
+        )
+        return kernel, X, N, P, coreg
+
+    def test_gram_shape(self, lcm_setup):
+        kernel, X, N, P = lcm_setup
+        K = kernel.gram(X)
+        assert K.shape == (N * P, N * P)
+
+    def test_gram_equals_manual_sum(self, lcm_setup):
+        """gram() matches manual Σ_q kron(B_q, K_q)."""
+        kernel, X, _N, _P = lcm_setup
+        expected = sum(
+            jnp.kron(cm.B, k.gram(X).to_dense())
+            for cm, k in zip(
+                kernel.coregionalization_matrices, kernel.latent_kernels
+            )
+        )
+        actual = kernel.gram(X).to_dense()
+        assert jnp.allclose(actual, expected, atol=1e-6)
+
+    def test_gram_psd(self, lcm_setup):
+        kernel, X, _N, _P = lcm_setup
+        K = kernel.gram(X).to_dense()
+        eigvals = jnp.linalg.eigvalsh(K)
+        assert jnp.all(eigvals >= -1e-6)
+
+    def test_gram_q1_is_kronecker(self, lcm_single_setup):
+        """Q=1 LCM returns Kronecker operator (ICM efficiency)."""
+        from gpjax.linalg import Kronecker
+        kernel, X, _N, _P, _coreg = lcm_single_setup
+        K = kernel.gram(X)
+        assert isinstance(K, Kronecker)
+
+    def test_gram_q2_is_dense(self, lcm_setup):
+        """Q>1 LCM returns Dense operator."""
+        from gpjax.linalg import Dense
+        kernel, X, _N, _P = lcm_setup
+        K = kernel.gram(X)
+        assert isinstance(K, Dense)
+
+    def test_cross_covariance_shape(self, lcm_setup):
+        kernel, X, N, P = lcm_setup
+        M = 5
+        Y = jax.random.normal(jax.random.PRNGKey(1), (M, X.shape[1]))
+        Kxy = kernel.cross_covariance(X, Y)
+        assert Kxy.shape == (N * P, M * P)
+
+    def test_cross_covariance_equals_manual(self, lcm_setup):
+        kernel, X, _N, _P = lcm_setup
+        M = 5
+        Y = jax.random.normal(jax.random.PRNGKey(1), (M, X.shape[1]))
+        expected = sum(
+            jnp.kron(cm.B, k.cross_covariance(X, Y))
+            for cm, k in zip(
+                kernel.coregionalization_matrices, kernel.latent_kernels
+            )
+        )
+        actual = kernel.cross_covariance(X, Y)
+        assert jnp.allclose(actual, expected, atol=1e-6)
+
+    def test_diagonal_shape(self, lcm_setup):
+        kernel, X, N, P = lcm_setup
+        diag_op = kernel.diagonal(X)
+        assert diag_op.shape == (N * P, N * P)
+
+    def test_diagonal_matches_gram_diagonal(self, lcm_setup):
+        kernel, X, _N, _P = lcm_setup
+        gram_diag = jnp.diag(kernel.gram(X).to_dense())
+        diag_op = kernel.diagonal(X)
+        assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
+
+
 def test_public_imports():
     """Multi-output classes are importable from gpjax and gpjax.kernels."""
     import gpjax as gpx
