@@ -168,6 +168,7 @@ class TestLCMKernel:
             coregionalization_matrices=[coreg1, coreg2],
         )
         from gpjax.kernels.multioutput.base import MultiOutputKernel
+
         assert isinstance(kernel, MultiOutputKernel)
 
     def test_point_pair_raises(self):
@@ -197,7 +198,9 @@ class TestLCMKernel:
         coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
         coreg2 = CoregionalizationMatrix(num_outputs=3, rank=1, key=k2)
         with pytest.raises(ValueError, match="num_outputs"):
-            LCMKernel(kernels=[RBF(), Matern52()], coregionalization_matrices=[coreg1, coreg2])
+            LCMKernel(
+                kernels=[RBF(), Matern52()], coregionalization_matrices=[coreg1, coreg2]
+            )
 
     def test_from_icm_components(self):
         key = jax.random.PRNGKey(0)
@@ -254,7 +257,7 @@ class TestLCMKernelComputation:
         expected = sum(
             jnp.kron(cm.B, k.gram(X).to_dense())
             for cm, k in zip(
-                kernel.coregionalization_matrices, kernel.latent_kernels
+                kernel.coregionalization_matrices, kernel.latent_kernels, strict=True
             )
         )
         actual = kernel.gram(X).to_dense()
@@ -269,6 +272,7 @@ class TestLCMKernelComputation:
     def test_gram_q1_is_kronecker(self, lcm_single_setup):
         """Q=1 LCM returns Kronecker operator (ICM efficiency)."""
         from gpjax.linalg import Kronecker
+
         kernel, X, _N, _P, _coreg = lcm_single_setup
         K = kernel.gram(X)
         assert isinstance(K, Kronecker)
@@ -276,6 +280,7 @@ class TestLCMKernelComputation:
     def test_gram_q2_is_dense(self, lcm_setup):
         """Q>1 LCM returns Dense operator."""
         from gpjax.linalg import Dense
+
         kernel, X, _N, _P = lcm_setup
         K = kernel.gram(X)
         assert isinstance(K, Dense)
@@ -294,7 +299,7 @@ class TestLCMKernelComputation:
         expected = sum(
             jnp.kron(cm.B, k.cross_covariance(X, Y))
             for cm, k in zip(
-                kernel.coregionalization_matrices, kernel.latent_kernels
+                kernel.coregionalization_matrices, kernel.latent_kernels, strict=True
             )
         )
         actual = kernel.cross_covariance(X, Y)

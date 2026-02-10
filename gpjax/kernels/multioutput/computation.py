@@ -31,7 +31,9 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
             K = sum(
                 jnp.kron(cm.B, k.gram(x).to_dense())
                 for cm, k in zip(
-                    kernel.coregionalization_matrices, kernel.latent_kernels
+                    kernel.coregionalization_matrices,
+                    kernel.latent_kernels,
+                    strict=True,
                 )
             )
             return psd(Dense(K))
@@ -57,7 +59,9 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
             return sum(
                 jnp.kron(cm.B, k.cross_covariance(x, y))
                 for cm, k in zip(
-                    kernel.coregionalization_matrices, kernel.latent_kernels
+                    kernel.coregionalization_matrices,
+                    kernel.latent_kernels,
+                    strict=True,
                 )
             )
         raise NotImplementedError(
@@ -76,7 +80,9 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
             diag_sum = sum(
                 jnp.kron(jnp.diag(cm.B), k.diagonal(inputs).diagonal)
                 for cm, k in zip(
-                    kernel.coregionalization_matrices, kernel.latent_kernels
+                    kernel.coregionalization_matrices,
+                    kernel.latent_kernels,
+                    strict=True,
                 )
             )
             return psd(Diagonal(diag_sum))

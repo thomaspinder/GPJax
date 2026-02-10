@@ -117,7 +117,7 @@ class TestLCMEndToEnd:
 
         key = jax.random.PRNGKey(42)
         N, P = 30, 2
-        k1, k2, k3 = jax.random.split(key, 3)
+        k1, k2, _k3 = jax.random.split(key, 3)
 
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jnp.column_stack(
@@ -153,7 +153,7 @@ class TestLCMEndToEnd:
 
         key = jax.random.PRNGKey(0)
         N, P = 20, 2
-        k1, k2, k3 = jax.random.split(key, 3)
+        k1, k2, _k3 = jax.random.split(key, 3)
 
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jnp.column_stack([jnp.sin(X.squeeze()), X.squeeze() ** 2])
@@ -201,9 +201,7 @@ class TestLCMEndToEnd:
             kernels=kernels, coregionalization_matrices=coregs
         )
 
-        prior = gpx.gps.Prior(
-            mean_function=gpx.mean_functions.Zero(), kernel=kernel
-        )
+        prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
         lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
         posterior = prior * lik
 
