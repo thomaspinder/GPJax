@@ -1,0 +1,116 @@
+"""End-to-end integration tests for multi-output GP (ICM)."""
+
+import jax
+import jax.numpy as jnp
+import pytest
+
+jax.config.update("jax_enable_x64", True)
+
+
+class TestICMEndToEnd:
+    def test_fit_and_predict(self):
+        """Full ICM workflow: build, fit, predict."""
+        import gpjax as gpx
+
+        key = jax.random.PRNGKey(42)
+        N, P = 30, 2
+
+        # Generate training data
+        X = jnp.linspace(0, 1, N).reshape(-1, 1)
+        y = jnp.column_stack([jnp.sin(2 * jnp.pi * X.squeeze()),
+                               jnp.cos(2 * jnp.pi * X.squeeze())])
+        D = gpx.Dataset(X=X, y=y)
+
+        # Build model
+        coreg = gpx.parameters.CoregionalizationMatrix(
+            num_outputs=P, rank=1, key=key
+        )
+        kernel = gpx.kernels.ICMKernel(
+            base_kernel=gpx.kernels.RBF(),
+            coregionalization_matrix=coreg,
+        )
+        meanf = gpx.mean_functions.Zero()
+        prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        lik = gpx.likelihoods.MultiOutputGaussian(
+            num_datapoints=N, num_outputs=P
+        )
+        posterior = prior * lik
+
+        # Verify MLL is computable and finite
+        mll = gpx.objectives.conjugate_mll(posterior, D)
+        assert jnp.isfinite(mll)
+
+        # Predict
+        M = 10
+        Xtest = jnp.linspace(0, 1, M).reshape(-1, 1)
+        pred = posterior.predict(Xtest, D)
+
+        # Shape checks — mean is flat [MP], covariance is [MP, MP]
+        assert pred.mean.shape == (M * P,)
+        assert pred.covariance().shape == (M * P, M * P)
+
+        # Finite checks
+        assert jnp.all(jnp.isfinite(pred.mean))
+        assert jnp.all(jnp.isfinite(pred.covariance()))
+
+    def test_different_base_kernels(self):
+        """ICM works with different base kernels."""
+        import gpjax as gpx
+
+        key = jax.random.PRNGKey(0)
+        X = jnp.linspace(0, 1, 15).reshape(-1, 1)
+        y = jnp.column_stack([jnp.sin(X.squeeze()), X.squeeze()**2])
+        D = gpx.Dataset(X=X, y=y)
+
+        for base_cls in [gpx.kernels.RBF, gpx.kernels.Matern32, gpx.kernels.Matern52]:
+            coreg = gpx.parameters.CoregionalizationMatrix(
+                num_outputs=2, rank=1, key=key
+            )
+            kernel = gpx.kernels.ICMKernel(
+                base_kernel=base_cls(),
+                coregionalization_matrix=coreg,
+            )
+            prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
+            lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=15, num_outputs=2)
+            posterior = prior * lik
+
+            mll = gpx.objectives.conjugate_mll(posterior, D)
+            assert jnp.isfinite(mll), f"MLL not finite for {base_cls.__name__}"
+
+    def test_three_outputs(self):
+        """ICM with 3 outputs and rank-2 coregionalization."""
+        import gpjax as gpx
+
+        key = jax.random.PRNGKey(0)
+        N, P = 20, 3
+        X = jnp.linspace(0, 1, N).reshape(-1, 1)
+        y = jnp.column_stack([
+            jnp.sin(X.squeeze()),
+            jnp.cos(X.squeeze()),
+            X.squeeze()**2,
+        ])
+        D = gpx.Dataset(X=X, y=y)
+
+        coreg = gpx.parameters.CoregionalizationMatrix(
+            num_outputs=P, rank=2, key=key
+        )
+        kernel = gpx.kernels.ICMKernel(
+            base_kernel=gpx.kernels.RBF(),
+            coregionalization_matrix=coreg,
+        )
+        prior = gpx.gps.Prior(
+            mean_function=gpx.mean_functions.Zero(), kernel=kernel
+        )
+        lik = gpx.likelihoods.MultiOutputGaussian(
+            num_datapoints=N, num_outputs=P
+        )
+        posterior = prior * lik
+
+        mll = gpx.objectives.conjugate_mll(posterior, D)
+        assert jnp.isfinite(mll)
+
+        M = 8
+        Xtest = jnp.linspace(0, 1, M).reshape(-1, 1)
+        pred = posterior.predict(Xtest, D)
+        assert pred.mean.shape == (M * P,)
+        assert pred.covariance().shape == (M * P, M * P)
