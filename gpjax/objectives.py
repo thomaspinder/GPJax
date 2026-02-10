@@ -104,45 +104,28 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
     kernel = posterior.prior.kernel
     mx = posterior.prior.mean_function(x)
 
-    if data.multi_output:
-        if not isinstance(kernel, MultiOutputKernel):
-            raise ValueError("Multi-output data requires a MultiOutputKernel.")
+    # Validation for multi-output models (user-facing error messages)
+    if isinstance(kernel, MultiOutputKernel):
+        if not data.multi_output:
+            raise ValueError("MultiOutputKernel requires multi-output data.")
         if data.num_outputs != kernel.num_outputs:
             raise ValueError(
                 f"Dataset has {data.num_outputs} outputs "
                 f"but kernel expects {kernel.num_outputs}."
             )
 
-        P = kernel.num_outputs
+    # Unified path — prepare_targets is identity for single-output,
+    # output-major reshape for multi-output
+    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
+    noise = posterior.likelihood.noise_vector(data.n)
 
-        # Reshape to output-major long format for Kronecker ordering
-        y_long = y.T.reshape(-1, 1)  # [N, P] -> [NP, 1]
-        mx_long = jnp.tile(mx, (P, 1))  # [NP, 1]
+    Kxx = kernel.gram(x)
+    Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
+    Sigma_dense = Kxx_dense + jnp.diag(noise)
+    Sigma = psd(Dense(Sigma_dense))
 
-        # Gram matrix: Kronecker(B, K_input) -> [NP, NP]
-        Kxx = kernel.gram(x)
-        Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
-
-        # Per-output noise
-        noise = posterior.likelihood.noise_vector(data.n)
-        Sigma_dense = Kxx_dense + jnp.diag(noise)
-        Sigma = psd(Dense(Sigma_dense))
-
-        mll = GaussianDistribution(jnp.atleast_1d(mx_long.squeeze()), Sigma)
-        return mll.log_prob(jnp.atleast_1d(y_long.squeeze())).squeeze()
-    else:
-        # Original single-output path — unchanged
-        obs_noise = posterior.likelihood.obs_stddev[...] ** 2
-
-        # Σ = (Kxx + Io²) = LLᵀ
-        Kxx = kernel.gram(x)
-        Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
-        Sigma_dense = Kxx_dense + jnp.eye(Kxx.shape[0]) * obs_noise
-        Sigma = psd(Dense(Sigma_dense))
-
-        # p(y | x, θ), where θ are the model hyperparameters:
-        mll = GaussianDistribution(jnp.atleast_1d(mx.squeeze()), Sigma)
-        return mll.log_prob(jnp.atleast_1d(y.squeeze())).squeeze()
+    mll = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
+    return mll.log_prob(jnp.atleast_1d(y_flat.squeeze())).squeeze()
 
 
 def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
