@@ -1,5 +1,6 @@
 from gpjax.kernels.multioutput.icm import ICMKernel
-from gpjax.kernels.stationary import RBF
+from gpjax.kernels.multioutput.lcm import LCMKernel
+from gpjax.kernels.stationary import RBF, Matern52
 from gpjax.parameters import CoregionalizationMatrix
 import jax
 import jax.numpy as jnp
@@ -120,6 +121,96 @@ class TestMultiOutputKernelComputation:
         gram_diag = jnp.diag(kernel.gram(X).to_dense())
         diag_op = kernel.diagonal(X)
         assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
+
+
+class TestLCMKernel:
+    def test_num_outputs(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=3, rank=2, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=3, rank=1, key=k2)
+        kernel = LCMKernel(
+            kernels=[RBF(), Matern52()],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        assert kernel.num_outputs == 3
+
+    def test_num_latent_gps(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        kernel = LCMKernel(
+            kernels=[RBF(), Matern52()],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        assert kernel.num_latent_gps == 2
+
+    def test_latent_kernels(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        base1, base2 = RBF(), Matern52()
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        kernel = LCMKernel(
+            kernels=[base1, base2],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        assert kernel.latent_kernels == (base1, base2)
+
+    def test_is_multi_output_kernel(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        kernel = LCMKernel(
+            kernels=[RBF(), Matern52()],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        from gpjax.kernels.multioutput.base import MultiOutputKernel
+        assert isinstance(kernel, MultiOutputKernel)
+
+    def test_point_pair_raises(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        kernel = LCMKernel(
+            kernels=[RBF(), Matern52()],
+            coregionalization_matrices=[coreg1, coreg2],
+        )
+        x = jnp.array([1.0])
+        with pytest.raises(NotImplementedError, match="point-pair"):
+            kernel(x, x)
+
+    def test_mismatched_lengths_raises(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        with pytest.raises(ValueError, match="same length"):
+            LCMKernel(kernels=[RBF()], coregionalization_matrices=[coreg1, coreg2])
+
+    def test_mismatched_num_outputs_raises(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=3, rank=1, key=k2)
+        with pytest.raises(ValueError, match="num_outputs"):
+            LCMKernel(kernels=[RBF(), Matern52()], coregionalization_matrices=[coreg1, coreg2])
+
+    def test_from_icm_components(self):
+        key = jax.random.PRNGKey(0)
+        k1, k2 = jax.random.split(key)
+        coreg1 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k1)
+        coreg2 = CoregionalizationMatrix(num_outputs=2, rank=1, key=k2)
+        icm1 = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg1)
+        icm2 = ICMKernel(base_kernel=Matern52(), coregionalization_matrix=coreg2)
+        kernel = LCMKernel.from_icm_components([icm1, icm2])
+        assert kernel.num_outputs == 2
+        assert kernel.num_latent_gps == 2
+        assert kernel.latent_kernels[0] is icm1.base_kernel
+        assert kernel.coregionalization_matrices[0] is coreg1
 
 
 def test_public_imports():
