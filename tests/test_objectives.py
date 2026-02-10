@@ -244,3 +244,55 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
     loss_grad = jax.grad(loss)
     grad_res = loss_grad(state)
     assert isinstance(grad_res, nnx.State)
+
+
+class TestMultiOutputConjugateMLL:
+    @pytest.fixture
+    def mo_setup(self):
+        key = jax.random.PRNGKey(42)
+        N, D, P = 20, 1, 2
+        X = jnp.linspace(0, 1, N).reshape(-1, 1)
+        y = jnp.column_stack([jnp.sin(X.squeeze()), jnp.cos(X.squeeze())])
+        data = Dataset(X=X, y=y)
+        from gpjax.kernels.multioutput.icm import ICMKernel
+        from gpjax.kernels.stationary import RBF
+        from gpjax.parameters import CoregionalizationMatrix
+        from gpjax.likelihoods import MultiOutputGaussian
+        from gpjax.mean_functions import Zero
+        coreg = CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
+        kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
+        meanf = Zero()
+        prior = Prior(mean_function=meanf, kernel=kernel)
+        lik = MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        posterior = prior * lik
+        return posterior, data
+
+    def test_mll_returns_scalar(self, mo_setup):
+        posterior, data = mo_setup
+        mll = conjugate_mll(posterior, data)
+        assert mll.shape == ()
+
+    def test_mll_is_finite(self, mo_setup):
+        posterior, data = mo_setup
+        mll = conjugate_mll(posterior, data)
+        assert jnp.isfinite(mll)
+
+    def test_mll_is_negative(self, mo_setup):
+        """Log-likelihood of real data should be finite and typically negative."""
+        posterior, data = mo_setup
+        mll = conjugate_mll(posterior, data)
+        assert mll < 0.0
+
+    def test_single_output_unchanged(self):
+        """Existing single-output path is unaffected."""
+        X = jnp.linspace(0, 1, 20).reshape(-1, 1)
+        y = jnp.sin(X)
+        data = Dataset(X=X, y=y)
+        from gpjax.kernels.stationary import RBF
+        from gpjax.mean_functions import Zero
+        kernel = RBF()
+        prior = Prior(mean_function=Zero(), kernel=kernel)
+        lik = Gaussian(num_datapoints=20)
+        posterior = prior * lik
+        mll = conjugate_mll(posterior, data)
+        assert jnp.isfinite(mll)
