@@ -119,3 +119,14 @@ class TestMultiOutputKernelComputation:
         gram_diag = jnp.diag(kernel.gram(X).to_dense())
         diag_op = kernel.diagonal(X)
         assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
+
+
+def test_public_imports():
+    """Multi-output classes are importable from gpjax and gpjax.kernels."""
+    from gpjax.kernels import ICMKernel, MultiOutputKernel
+    from gpjax.kernels.multioutput import MultiOutputKernelComputation
+    import gpjax as gpx
+    assert hasattr(gpx.parameters, "CoregionalizationMatrix")
+    assert hasattr(gpx.kernels, "ICMKernel")
+    assert hasattr(gpx.kernels, "MultiOutputKernel")
+    assert hasattr(gpx.likelihoods, "MultiOutputGaussian")

@@ -30,6 +30,11 @@ from gpjax.kernels.computations import (
     DiagonalKernelComputation,
     EigenKernelComputation,
 )
+from gpjax.kernels.multioutput import (
+    ICMKernel,
+    MultiOutputKernel,
+    MultiOutputKernelComputation,
+)
 from gpjax.kernels.non_euclidean import GraphKernel
 from gpjax.kernels.nonstationary import (
     ArcCosine,
@@ -59,6 +64,9 @@ __all__ = [
     "DiagonalKernelComputation",
     "EigenKernelComputation",
     "GraphKernel",
+    "ICMKernel",
+    "MultiOutputKernel",
+    "MultiOutputKernelComputation",
     "Linear",
     "Matern12",
     "Matern32",
