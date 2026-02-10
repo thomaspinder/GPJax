@@ -96,7 +96,7 @@ key, subkey1, subkey2 = jr.split(key, 3)
 x = jnp.sort(jr.uniform(subkey1, shape=(N,), minval=0.0, maxval=1.0)).reshape(-1, 1)
 
 f1 = lambda x: jnp.sin(2 * jnp.pi * x)
-f2 = lambda x: 0.5 * jnp.sin(2 * jnp.pi * x) + 0.5 * jnp.cos(2 * jnp.pi * x)
+f2 = lambda x: 0.5 * f1(x) + 0.5 * jnp.cos(2 * jnp.pi * x)
 
 y1 = f1(x) + jr.normal(subkey1, shape=x.shape) * noise_stds[0]
 y2 = f2(x) + jr.normal(subkey2, shape=x.shape) * noise_stds[1]

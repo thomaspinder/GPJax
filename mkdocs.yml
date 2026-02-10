@@ -26,8 +26,9 @@ nav:
     - Graph kernels: _examples/graph_kernels.md
     - Sparse GPs: _examples/collapsed_vi.md
     - Stochastic sparse GPs: _examples/uncollapsed_vi.md
-    - Multi-output GPs for Ocean Modelling: _examples/oceanmodelling.md
+    - Vector-Field GPs : _examples/oceanmodelling.md
     - Heteroscedastic Inference: _examples/heteroscedastic_inference.md
+    - Multi-output GPs: _examples/multioutput.md
   - 🧪 Experimental:
     - Numpyro Integration: _examples/numpyro_integration.md
     - Spatial Linear Gaussian Process: _examples/spatial_linear_gp.md
