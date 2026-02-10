@@ -78,6 +78,20 @@ class Dataset:
         r"""Dimension of the inputs, $X$."""
         return self.X.shape[1]
 
+    @property
+    def multi_output(self) -> bool:
+        """True if the dataset has more than one output dimension."""
+        if self.y is None or self.y.ndim < 2:
+            return False
+        return self.y.shape[1] > 1
+
+    @property
+    def num_outputs(self) -> int:
+        """Number of output dimensions."""
+        if self.y is None or self.y.ndim < 2:
+            return 1
+        return self.y.shape[1]
+
     def tree_flatten(self):
         return (self.X, self.y), None
 
