@@ -2292,6 +2292,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lcm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lcm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3405,8 +3433,10 @@
 
 
         <p>Compute engine for multi-output kernels.</p>
-<p>Dispatches on kernel type to build structured covariance matrices.
-Currently supports ICMKernel (Kronecker structure).</p>
+<p>Iterates over kernel.components — a sequence of (CoregionalizationMatrix,
+kernel) pairs — to build structured covariance matrices.  Single-component
+kernels (ICM) retain Kronecker structure; multi-component kernels (LCM)
+materialise the sum to Dense.</p>
 
 
 
