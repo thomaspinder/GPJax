@@ -41,7 +41,7 @@
 # log marginal likelihood, and visualises the model's predictions.
 
 # %%
-from examples.utils import use_mpl_style
+from examples.utils import use_mpl_style, plot_output_panel
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -76,9 +76,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # Given $n$ input locations, we stack all observations into a vector
 # $\bar{\mathbf{y}} \in \mathbb{R}^{np}$. Its joint covariance is
-# $$
+# \begin{align}
 # \operatorname{cov}[\bar{\mathbf{y}}] = (\mathbf{H} \otimes \mathbf{I}_n)\, \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\, (\mathbf{H} \otimes \mathbf{I}_n)^\top \sigma^2\,\mathbf{I}_{np},
-# $$
+# \end{align}
 # where $\mathbf{K}_i$ is the $n \times n$ Gram matrix of the $i$-th latent
 # kernel. Inverting this $np \times np$ matrix naively costs
 # $\mathcal{O}(n^3 p^3)$, which is impractical when $p$ is even moderately large.
@@ -226,20 +226,9 @@ train_data = gpx.Dataset(X=X_train, y=y_train)
 fig, axes = plt.subplots(num_outputs, 1, figsize=(10, 1.5 * num_outputs), sharex=True)
 
 for p in range(num_outputs):
-    ax = axes[p]
-    ax.plot(
-        X_train,
-        y_train[:, p],
-        "o",
-        color=cols[p % len(cols)],
-        alpha=0.5,
-        ms=3,
-        label="Observations",
-    )
-    ax.plot(X_train, y_clean[:, p], "--", color="grey", label="Noiseless signal")
-    ax.set_ylabel(f"Output {p + 1}")
+    plot_output_panel(axes[p], p, X_train, y_train, y_clean, cols)
     if p == 0:
-        ax.legend(loc="upper right", fontsize=7)
+        axes[p].legend(loc="upper right", fontsize=7)
 
 axes[-1].set_xlabel(r"$t$")
 plt.suptitle(
@@ -336,36 +325,19 @@ pre_obs_std = jnp.sqrt(pre_opt_std**2 + pre_obs_noise_var[None, :])
 fig, axes = plt.subplots(num_outputs, 1, figsize=(10, 1.8 * num_outputs), sharex=True)
 
 for p in range(num_outputs):
-    ax = axes[p]
-    ax.scatter(
+    plot_output_panel(
+        axes[p],
+        p,
         X_train,
-        y_train[:, p],
-        alpha=0.4,
-        s=15,
-        color=cols[p % len(cols)],
-        label="Training data",
-    )
-    ax.plot(
-        X_train, y_clean[:, p], "--", color="grey", alpha=0.6, label="Noiseless signal"
-    )
-    ax.plot(
+        y_train,
+        y_clean,
+        cols,
         X_test,
-        pre_opt_mean[:, p],
-        color=cols[p % len(cols)],
-        linewidth=2,
-        label="Predictive mean",
+        pre_opt_mean,
+        func_std=pre_opt_std,
     )
-    ax.fill_between(
-        X_test.squeeze(),
-        pre_opt_mean[:, p] - 2 * pre_opt_std[:, p],
-        pre_opt_mean[:, p] + 2 * pre_opt_std[:, p],
-        alpha=0.2,
-        color=cols[p % len(cols)],
-        label="Two sigma",
-    )
-    ax.set_ylabel(f"Output {p + 1}")
     if p == 0:
-        ax.legend(loc="upper right", fontsize=7)
+        axes[p].legend(loc="upper right", fontsize=7)
 
 axes[-1].set_xlabel(r"$t$")
 plt.suptitle("Before Optimisation", fontsize=13)
@@ -456,34 +428,17 @@ post_obs_std = jnp.sqrt(post_opt_std**2 + post_obs_noise_var[None, :])
 fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 1.8 * num_outputs), sharex=True)
 
 for p in range(num_outputs):
-    col = cols[p % len(cols)]
-
     for j, (mean, std, title) in enumerate(
         [
             (pre_opt_mean, pre_opt_std, "Before Optimisation"),
             (post_opt_mean, post_opt_std, "After Optimisation"),
         ]
     ):
-        ax = axes[p, j]
-        ax.scatter(
-            X_train,
-            y_train[:, p],
-            alpha=0.3,
-            s=10,
-            color=col,
+        plot_output_panel(
+            axes[p, j], p, X_train, y_train, y_clean, cols, X_test, mean, func_std=std
         )
-        ax.plot(X_train, y_clean[:, p], "--", color="grey", alpha=0.6)
-        ax.plot(X_test, mean[:, p], color=col, linewidth=2)
-        ax.fill_between(
-            X_test.squeeze(),
-            mean[:, p] - 2 * std[:, p],
-            mean[:, p] + 2 * std[:, p],
-            alpha=0.2,
-            color=col,
-        )
-        ax.set_ylabel(f"Output {p + 1}")
         if p == 0:
-            ax.set_title(title, fontsize=11)
+            axes[p, j].set_title(title, fontsize=11)
 
 axes[-1, 0].set_xlabel(r"$t$")
 axes[-1, 1].set_xlabel(r"$t$")
@@ -506,45 +461,28 @@ plt.suptitle("OILMM Predictions: Default Parameters vs Optimised", fontsize=13, 
 fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 1.8 * num_outputs), sharex=True)
 
 for p in range(num_outputs):
-    col = cols[p % len(cols)]
-
-    for j, (mean, func_std, obs_std, title) in enumerate(
+    for j, (mean, fstd, ostd, title) in enumerate(
         [
             (pre_opt_mean, pre_opt_std, pre_obs_std, "Before Optimisation"),
             (post_opt_mean, post_opt_std, post_obs_std, "After Optimisation"),
         ]
     ):
-        ax = axes[p, j]
-        ax.scatter(
+        plot_output_panel(
+            axes[p, j],
+            p,
             X_train,
-            y_train[:, p],
-            alpha=0.3,
-            s=10,
-            color=col,
+            y_train,
+            y_clean,
+            cols,
+            X_test,
+            mean,
+            func_std=fstd,
+            obs_std=ostd,
         )
-        ax.plot(X_train, y_clean[:, p], "--", color="grey", alpha=0.6)
-        ax.plot(X_test, mean[:, p], color=col, linewidth=2)
-        ax.fill_between(
-            X_test.squeeze(),
-            mean[:, p] - 2 * obs_std[:, p],
-            mean[:, p] + 2 * obs_std[:, p],
-            alpha=0.14,
-            color=col,
-            label="Two sigma - Observaed Output",
-        )
-        ax.fill_between(
-            X_test.squeeze(),
-            mean[:, p] - 2 * func_std[:, p],
-            mean[:, p] + 2 * func_std[:, p],
-            alpha=0.26,
-            color=col,
-            label="Two sigma - Latent Function",
-        )
-        ax.set_ylabel(f"Output {p + 1}")
         if p == 0:
-            ax.set_title(title, fontsize=11)
+            axes[p, j].set_title(title, fontsize=11)
         if p == 0 and j == 1:
-            ax.legend(loc="upper right", fontsize=7)
+            axes[p, j].legend(loc="upper right", fontsize=7)
 
 axes[-1, 0].set_xlabel(r"$t$")
 axes[-1, 1].set_xlabel(r"$t$")

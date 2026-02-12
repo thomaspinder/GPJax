@@ -78,3 +78,49 @@ def clean_legend(ax):
 def use_mpl_style():
     style_file = Path(__file__).parent / "gpjax.mplstyle"
     plt.style.use(style_file)
+
+
+def plot_output_panel(
+    ax,
+    p,
+    X_train,
+    y_train,
+    y_clean,
+    cols,
+    X_test=None,
+    mean=None,
+    func_std=None,
+    obs_std=None,
+):
+    col = cols[p % len(cols)]
+    ax.scatter(
+        X_train, y_train[:, p], alpha=0.4, s=12, color=col, label="Training data"
+    )
+    ax.plot(
+        X_train, y_clean[:, p], "--", color="grey", alpha=0.6, label="Noiseless signal"
+    )
+    if mean is not None:
+        ax.plot(X_test, mean[:, p], color=col, linewidth=2, label="Predictive mean")
+        if obs_std is not None:
+            ax.fill_between(
+                X_test.squeeze(),
+                mean[:, p] - 2 * obs_std[:, p],
+                mean[:, p] + 2 * obs_std[:, p],
+                alpha=0.14,
+                color=col,
+                label="Two sigma - Observed Output",
+            )
+        if func_std is not None:
+            alpha = 0.26 if obs_std is not None else 0.2
+            label = (
+                "Two sigma - Latent Function" if obs_std is not None else "Two sigma"
+            )
+            ax.fill_between(
+                X_test.squeeze(),
+                mean[:, p] - 2 * func_std[:, p],
+                mean[:, p] + 2 * func_std[:, p],
+                alpha=alpha,
+                color=col,
+                label=label,
+            )
+    ax.set_ylabel(f"Output {p + 1}")
