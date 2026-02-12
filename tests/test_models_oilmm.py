@@ -19,10 +19,10 @@ class TestOrthogonalMixingMatrix:
 
         assert mix.num_outputs == 5
         assert mix.num_latent_gps == 2
-        assert mix.U_latent.value.shape == (5, 2)
-        assert mix.S.value.shape == (2,)
-        assert mix.obs_noise_variance.value.shape == ()
-        assert mix.latent_noise_variance.value.shape == (2,)
+        assert mix.U_latent[...].shape == (5, 2)
+        assert mix.S[...].shape == (2,)
+        assert mix.obs_noise_variance[...].shape == ()
+        assert mix.latent_noise_variance[...].shape == (2,)
 
     def test_U_orthonormality(self):
         """Test that U has orthonormal columns via SVD."""
@@ -50,7 +50,7 @@ class TestOrthogonalMixingMatrix:
 
         # Check H = U * sqrt(S) (broadcasting)
         U = mix.U
-        sqrt_S = jnp.sqrt(mix.S.value)
+        sqrt_S = jnp.sqrt(mix.S[...])
         expected_H = U * sqrt_S[None, :]
         assert jnp.allclose(H, expected_H, atol=1e-10)
 
@@ -77,9 +77,9 @@ class TestOrthogonalMixingMatrix:
         mix = OrthogonalMixingMatrix(num_outputs=6, num_latent_gps=2, key=key)
 
         # Set specific noise values for testing
-        mix.obs_noise_variance.value = jnp.array(0.5)
-        mix.latent_noise_variance.value = jnp.array([0.1, 0.2])
-        mix.S.value = jnp.array([2.0, 4.0])
+        mix.obs_noise_variance[...] = jnp.array(0.5)
+        mix.latent_noise_variance[...] = jnp.array([0.1, 0.2])
+        mix.S[...] = jnp.array([2.0, 4.0])
 
         proj_noise = mix.projected_noise_variance
 
@@ -188,9 +188,9 @@ class TestOILMMModel:
         )
 
         # Set known noise values
-        model.mixing_matrix.obs_noise_variance.value = jnp.array(0.5)
-        model.mixing_matrix.latent_noise_variance.value = jnp.array([0.1, 0.2, 0.3])
-        model.mixing_matrix.S.value = jnp.array([1.0, 2.0, 4.0])
+        model.mixing_matrix.obs_noise_variance[...] = jnp.array(0.5)
+        model.mixing_matrix.latent_noise_variance[...] = jnp.array([0.1, 0.2, 0.3])
+        model.mixing_matrix.S[...] = jnp.array([1.0, 2.0, 4.0])
 
         # Create data and condition
         N = 15
@@ -202,12 +202,12 @@ class TestOILMMModel:
 
         # Verify each posterior has correct noise.
         # Gaussian likelihood wraps obs_stddev in NonNegativeReal, so
-        # we access .value to get the raw array, then square to get variance.
+        # we access [...] to get the raw array, then square to get variance.
         expected_noise_vars = model.mixing_matrix.projected_noise_variance
         for i in range(3):
             lik = posterior.latent_posteriors[i].likelihood
             # lik.obs_stddev is a NonNegativeReal — get raw value
-            obs_var = lik.obs_stddev.value**2
+            obs_var = lik.obs_stddev[...] ** 2
             expected = expected_noise_vars[i]
             assert jnp.allclose(obs_var, expected, atol=1e-6), (
                 f"Latent GP {i}: expected noise var {expected}, got {obs_var}"
@@ -654,9 +654,9 @@ class TestOILMMMLL:
         )
 
         # Fix parameters for deterministic comparison
-        model.mixing_matrix.obs_noise_variance.value = jnp.array(0.1)
-        model.mixing_matrix.latent_noise_variance.value = jnp.zeros(m)
-        model.mixing_matrix.S.value = jnp.array([2.0, 1.5])
+        model.mixing_matrix.obs_noise_variance[...] = jnp.array(0.1)
+        model.mixing_matrix.latent_noise_variance[...] = jnp.zeros(m)
+        model.mixing_matrix.S[...] = jnp.array([2.0, 1.5])
 
         X = jnp.linspace(0, 1, n).reshape(-1, 1)
         y = jr.normal(key, (n, p))
@@ -666,7 +666,7 @@ class TestOILMMMLL:
 
         # Brute-force: compute full NP×NP covariance
         H = model.mixing_matrix.H  # [P, M]
-        sigma2 = model.mixing_matrix.obs_noise_variance.value
+        sigma2 = model.mixing_matrix.obs_noise_variance[...]
 
         # Compute each latent kernel matrix
         latent_Ks = []
@@ -742,16 +742,16 @@ class TestKernelIndependence:
         )
 
         # Modify latent_priors[0].kernel.lengthscale
-        original_ls_1 = model.latent_priors[1].kernel.lengthscale.value.copy()
-        model.latent_priors[0].kernel.lengthscale.value = jnp.array(99.0)
+        original_ls_1 = model.latent_priors[1].kernel.lengthscale[...].copy()
+        model.latent_priors[0].kernel.lengthscale[...] = jnp.array(99.0)
 
         # latent_priors[1] should be unchanged
         assert jnp.allclose(
-            model.latent_priors[1].kernel.lengthscale.value, original_ls_1
+            model.latent_priors[1].kernel.lengthscale[...], original_ls_1
         )
         assert not jnp.allclose(
-            model.latent_priors[0].kernel.lengthscale.value,
-            model.latent_priors[1].kernel.lengthscale.value,
+            model.latent_priors[0].kernel.lengthscale[...],
+            model.latent_priors[1].kernel.lengthscale[...],
         )
 
     def test_list_of_kernels_used_directly(self):
@@ -822,7 +822,7 @@ class TestSInitialization:
         idx = jnp.argsort(eigvals)[::-1]
         expected_S = jnp.maximum(eigvals[idx[:2]], 1e-6)
 
-        assert jnp.allclose(model.mixing_matrix.S.value, expected_S, atol=1e-6)
+        assert jnp.allclose(model.mixing_matrix.S[...], expected_S, atol=1e-6)
 
     def test_create_from_data_clamps_small_eigenvalues(self):
         """Near-zero eigenvalues are clamped to 1e-6."""
@@ -845,7 +845,7 @@ class TestSInitialization:
 
         model = create_oilmm_from_data(dataset=dataset, num_latent_gps=3, key=key)
 
-        assert jnp.all(model.mixing_matrix.S.value >= 1e-6)
+        assert jnp.all(model.mixing_matrix.S[...] >= 1e-6)
 
 
 class TestCovarianceEquivalence:

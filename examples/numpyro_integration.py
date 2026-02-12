@@ -187,7 +187,7 @@ def model(X, Y, X_new=None):
         f_new = f_new.reshape((-1, 1))
 
         # Add observation noise to get noisy predictions
-        obs_stddev = p_posterior.likelihood.obs_stddev.value
+        obs_stddev = p_posterior.likelihood.obs_stddev[...]
         y_noise = numpyro.sample(
             "y_noise",
             dist.Normal(0.0, obs_stddev).expand(f_new.shape).to_event(f_new.ndim),

@@ -94,18 +94,18 @@ class OrthogonalMixingMatrix(nnx.Module):
         Uses SVD to project U_latent onto the Stiefel manifold (orthonormal columns).
         This ensures U^T U = I_m exactly.
         """
-        U_svd, _, Vt_svd = jnp.linalg.svd(self.U_latent.value, full_matrices=False)
+        U_svd, _, Vt_svd = jnp.linalg.svd(self.U_latent[...], full_matrices=False)
         return U_svd @ Vt_svd
 
     @property
     def sqrt_S(self) -> Float[Array, " M"]:
         """Square root of S diagonal: S^(1/2)."""
-        return jnp.sqrt(self.S.value)
+        return jnp.sqrt(self.S[...])
 
     @property
     def inv_sqrt_S(self) -> Float[Array, " M"]:
         """Inverse square root of S diagonal: S^(-1/2)."""
-        return 1.0 / jnp.sqrt(self.S.value)
+        return 1.0 / jnp.sqrt(self.S[...])
 
     @property
     def H(self) -> Float[Array, "P M"]:
@@ -147,8 +147,8 @@ class OrthogonalMixingMatrix(nnx.Module):
             Array of shape [M] with noise variance for each latent GP.
         """
         return (
-            self.obs_noise_variance.value * self.inv_sqrt_S**2
-            + self.latent_noise_variance.value
+            self.obs_noise_variance[...] * self.inv_sqrt_S**2
+            + self.latent_noise_variance[...]
         )
 
 
@@ -422,8 +422,8 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
     mix = model.mixing_matrix
 
     U = mix.U  # [P, M]
-    S = mix.S.value  # [M]
-    sigma2 = mix.obs_noise_variance.value  # scalar
+    S = mix.S[...]  # [M]
+    sigma2 = mix.obs_noise_variance[...]  # scalar
 
     # --- Correction term 1: -(n/2) log|S| ---
     # |S| = prod(S_i), so log|S| = sum(log(S_i))
@@ -621,7 +621,7 @@ def create_oilmm_from_data(
 
     # Initialize U_latent such that U will be close to these eigenvectors
     # Since U = U_svd @ V^T from SVD(U_latent), we can just set U_latent = eigvecs
-    model.mixing_matrix.U_latent.value = top_m_eigvecs
-    model.mixing_matrix.S.value = top_m_eigvals
+    model.mixing_matrix.U_latent[...] = top_m_eigvecs
+    model.mixing_matrix.S[...] = top_m_eigvals
 
     return model

@@ -189,9 +189,9 @@ print(f"Acceptance rate: {acceptance_rate:.2f}")
 
 # %%
 fig, (ax0, ax1, ax2) = plt.subplots(ncols=3, figsize=(10, 3))
-ax0.plot(states.position.prior.kernel.lengthscale.value)
-ax1.plot(states.position.prior.kernel.variance.value)
-ax2.plot(states.position.latent.value[:, 1, :])
+ax0.plot(states.position.prior.kernel.lengthscale[...])
+ax1.plot(states.position.prior.kernel.variance[...])
+ax2.plot(states.position.latent[...][:, 1, :])
 ax0.set_title("Kernel Lengthscale")
 ax1.set_title("Kernel Variance")
 ax2.set_title("Latent Function (index = 1)")

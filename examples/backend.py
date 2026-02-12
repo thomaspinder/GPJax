@@ -293,7 +293,7 @@ class LinearMeanFunction(AbstractMeanFunction):
             self.slope = Real(jnp.array(slope))
 
     def __call__(self, x: Num[Array, "N D"]) -> Float[Array, "N O"]:
-        return self.intercept.value + jnp.dot(x, self.slope.value)
+        return self.intercept[...] + jnp.dot(x, self.slope[...])
 
 
 # %% [markdown]

@@ -162,7 +162,7 @@ ax.set(xlabel="Training iterate", ylabel="ELBO")
 latent_dist = opt_posterior(xtest, train_data=D)
 predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
 
-inducing_points = opt_posterior.inducing_inputs.value
+inducing_points = opt_posterior.inducing_inputs[...]
 
 samples = latent_dist.sample(key=key, sample_shape=(20,))
 

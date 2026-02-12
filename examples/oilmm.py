@@ -69,14 +69,13 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # where
 # - $\mathbf{x}(t) = \bigl(x_1(t),\ldots,x_m(t)\bigr)^\top$ collects $m$
 #   independent latent GPs, each with kernel $k_i$,
-# - $\mathbf{H} \in \mathbb{R}^{p \times m}$ is the **mixing matrix** that maps
+# - $\mathbf{H} \in \mathbb{R}^{p \times m}$ is the mixing matrix that maps
 #   from latent space to output space, and
 # - $\boldsymbol{\varepsilon}(t) \sim \mathcal{N}\bigl(\mathbf{0},\,\sigma^2
 #   \mathbf{I}_p\bigr)$ is i.i.d. observation noise.
 #
 # Given $n$ input locations, we stack all observations into a vector
 # $\bar{\mathbf{y}} \in \mathbb{R}^{np}$. Its joint covariance is
-#
 # $$
 # \operatorname{cov}[\bar{\mathbf{y}}]
 # = (\mathbf{H} \otimes \mathbf{I}_n)\,
@@ -84,7 +83,6 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #   (\mathbf{H} \otimes \mathbf{I}_n)^\top
 # + \sigma^2\,\mathbf{I}_{np},
 # $$
-#
 # where $\mathbf{K}_i$ is the $n \times n$ Gram matrix of the $i$-th latent
 # kernel. Inverting this $np \times np$ matrix naively costs
 # $\mathcal{O}(n^3 p^3)$, which is impractical when $p$ is even moderately large.
@@ -92,20 +90,17 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # %% [markdown]
 # ## The OILMM parameterisation
 #
-# OILMM constrains $\mathbf{H}$ to have **orthogonal columns** by writing
-#
+# OILMM constrains $\mathbf{H}$ to have orthogonal columns by writing
 # $$
 # \mathbf{H} = \mathbf{U}\,\mathbf{S}^{1/2},
 # $$
-#
 # where $\mathbf{U} \in \mathbb{R}^{p \times m}$ has orthonormal columns
 # ($\mathbf{U}^\top\mathbf{U} = \mathbf{I}_m$) and
 # $\mathbf{S} = \operatorname{diag}(s_1,\ldots,s_m)$ with each $s_i > 0$ is a
 # positive diagonal scaling matrix.
 #
-# The corresponding **projection matrix** is the left pseudo-inverse of
+# The corresponding projection matrix is the left pseudo-inverse of
 # $\mathbf{H}$:
-#
 # $$
 # \mathbf{T} = \mathbf{S}^{-1/2}\,\mathbf{U}^\top
 # \qquad\Longrightarrow\qquad
@@ -115,10 +110,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #   \mathbf{S}^{1/2}
 # = \mathbf{I}_m.
 # $$
-#
 # Applying $\mathbf{T}$ to the observed outputs projects them into the latent
 # space:
-#
 # $$
 # \tilde{\mathbf{y}}(t)
 # = \mathbf{T}\,\mathbf{y}(t)
@@ -132,8 +125,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # The crux of OILMM is that the projected noise
 # $\tilde{\boldsymbol{\varepsilon}} = \mathbf{T}\,\boldsymbol{\varepsilon}$ has a
-# **diagonal** covariance:
-#
+# diagonal covariance:
 # $$
 # \operatorname{cov}[\tilde{\boldsymbol{\varepsilon}}]
 # = \sigma^2\,\mathbf{T}\,\mathbf{T}^\top
@@ -142,7 +134,6 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #   \mathbf{S}^{-1/2}
 # = \sigma^2\,\mathbf{S}^{-1}.
 # $$
-#
 # Because $\mathbf{S}$ is diagonal, the projected noise components are
 # independent: the $i$-th latent observation has noise variance $\sigma^2/s_i$.
 # This is the result that makes OILMM tractable.
@@ -150,12 +141,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # GPJax additionally supports per-latent heterogeneous noise
 # $\mathbf{D} = \operatorname{diag}(d_1,\ldots,d_m)$ with each $d_i \geq 0$.
 # Including this term, the full projected noise covariance is
-#
 # $$
-# \boldsymbol{\Sigma}_{\mathbf{T}}
-# = \sigma^2\,\mathbf{S}^{-1} + \mathbf{D},
+# \boldsymbol{\Sigma}_{\mathbf{T}} = \sigma^2\,\mathbf{S}^{-1} + \mathbf{D},
 # $$
-#
 # which remains diagonal.
 
 # %% [markdown]
@@ -163,7 +151,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # Because the projected noise is diagonal, each projected observation
 # $\tilde{y}_i(t) = x_i(t) + \tilde{\varepsilon}_i(t)$ constitutes a standard
-# **single-output** GP regression problem with known noise variance
+# single-output GP regression problem with known noise variance
 # $\sigma^2/s_i + d_i$. We can therefore condition each latent GP independently
 # using the standard conjugate formulae.
 #
@@ -179,7 +167,6 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # covariances $\boldsymbol{\Sigma}_i$ for each latent GP at $n_*$ test locations.
 # The output-space predictive distribution is recovered by applying the mixing
 # matrix:
-#
 # \begin{align}
 # \boldsymbol{\mu}_{\mathbf{y}}
 # &= \mathbf{H}\,
@@ -194,35 +181,31 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # When only marginal variances are needed, the Kronecker product need not be
 # formed explicitly. The marginal variance of output $j$ at test point $t$ is
-#
 # $$
 # \operatorname{var}\bigl[y_j(t)\bigr]
 # = \sum_{i=1}^{m} H_{ji}^2\,\operatorname{var}\bigl[x_i(t)\bigr],
 # $$
-#
 # which costs only $\mathcal{O}(n_* p\, m)$.
 
 # %% [markdown]
 # ## Synthetic dataset
 #
 # We construct a five-output dataset driven by two latent functions:
-#
-# - $x_1(t) = \sin(t)$, a smooth oscillation,
-# - $x_2(t) = \cos(t/2)$, a slower oscillation.
+# $x_1(t) = \sin(t)$, a smooth oscillation, and $x_2(t) = \cos(t/2)$,
+# a slower oscillation.
 #
 # The observed outputs are linear mixtures
-# $\mathbf{y}(t) = \mathbf{H}_{\text{true}}\,\mathbf{x}(t)
-# + \boldsymbol{\varepsilon}$ with noise standard deviation $\sigma = 0.2$. We
-# set $m = 2$ latent GPs and $p = 5$ outputs.
+# $\mathbf{y}(t) = \mathbf{H}_{\text{true}}\,\mathbf{x}(t) + \boldsymbol{\varepsilon}$
+# with observation noise of standard deviation $\sigma = 0.2$. We set $m = 2$ latent GPs
+# and $p = 5$ outputs.
 
 # %%
-N = 100  # Training points
-P = 5  # Output dimensions
-M = 2  # Latent GPs
+num_data = 100
+num_outputs = 5
+num_latent = 2
 
-X_train = jnp.linspace(0, 10, N).reshape(-1, 1)
+X_train = jnp.linspace(0, 10, num_data).reshape(-1, 1)
 
-# Two latent functions
 latent1 = jnp.sin(X_train.squeeze())
 latent2 = jnp.cos(0.5 * X_train.squeeze())
 
@@ -237,23 +220,20 @@ true_H = jnp.array(
     ]
 )
 
-# Generate observations: y = H x + ε
-latent_values = jnp.column_stack([latent1, latent2])  # [N, 2]
-y_clean = latent_values @ true_H.T  # [N, 5]
+latent_values = jnp.column_stack([latent1, latent2])
+y_clean = latent_values @ true_H.T
 y_train = y_clean + jr.normal(key, y_clean.shape) * 0.2
 
 train_data = gpx.Dataset(X=X_train, y=y_train)
-
-print(f"Training data: {N} points, {P} outputs, {M} latent sources")
 
 # %% [markdown]
 # Each of the five outputs is a different weighted combination of the two
 # underlying latent functions. We plot them alongside the noiseless signal.
 
 # %%
-fig, axes = plt.subplots(P, 1, figsize=(10, 1.8 * P), sharex=True)
+fig, axes = plt.subplots(num_outputs, 1, figsize=(10, 1.5 * num_outputs), sharex=True)
 
-for p in range(P):
+for p in range(num_outputs):
     ax = axes[p]
     ax.plot(
         X_train,
@@ -270,69 +250,61 @@ for p in range(P):
         ax.legend(loc="upper right", fontsize=7)
 
 axes[-1].set_xlabel(r"$t$")
-plt.suptitle(f"{P} Observed Outputs from {M} Latent Sources", fontsize=13)
-plt.tight_layout()
+plt.suptitle(
+    f"{num_outputs} Observed Outputs from {num_latent} Latent Sources", fontsize=13
+)
 
 # %% [markdown]
 # ## Constructing the OILMM
 #
 # GPJax provides `create_oilmm_from_data`, which initialises the mixing matrix
-# using the empirical correlation structure of the outputs. Concretely, it
-#
-# 1. computes the empirical covariance matrix
-#    $\hat{\boldsymbol{\Sigma}} =
-#    \tfrac{1}{n}\,\mathbf{Y}_c^\top\mathbf{Y}_c$,
-#    where $\mathbf{Y}_c$ is the column-centred observation matrix;
-# 2. extracts the top $m$ eigenvectors **and eigenvalues** of
-#    $\hat{\boldsymbol{\Sigma}}$;
-# 3. sets $\mathbf{U}_{\text{latent}}$ to the eigenvectors, so that after SVD
-#    orthogonalisation the columns of $\mathbf{U}$ align with the principal
-#    directions of output variation; and
-# 4. sets $\mathbf{S}$ to the corresponding eigenvalues (clamped to $10^{-6}$
-#    for numerical stability), giving the scaling an informative starting point.
+# using the empirical correlation structure of the outputs. Under the hood it
+# first computes the empirical covariance matrix
+# $$
+# \hat{\boldsymbol{\Sigma}} = \tfrac{1}{n}\,\mathbf{Y}_c^\top\mathbf{Y}_c
+# $$,
+# where $\mathbf{Y}_c$ is the column-centred observation matrix. The next step
+# extracts the top $m$ eigenvectors and eigenvalues of $\hat{\boldsymbol{\Sigma}}$.
+# The function then sets $\mathbf{U}_{\text{latent}}$ to the eigenvectors. This
+# ensures that after SVD orthogonalisation the columns of $\mathbf{U}$ align with
+# the principal directions of output variation. Finally, $\mathbf{S}$ is set to
+# the corresponding eigenvalues  giving the scaling an informative starting point.
+# In this final step, the eigenvalues are clamped to $10^{-6}$ for numerical stability.
 #
 # This is analogous to initialising with PCA: the first $m$ principal components
-# capture the most variance and provide a sensible starting point for
-# $\mathbf{H}$.
+# capture the most variance and provide a reasonable starting point for $\mathbf{H}$.
 
 # %%
 model = gpx.models.create_oilmm_from_data(
     dataset=train_data,
-    num_latent_gps=M,
+    num_latent_gps=num_latent,
     key=key,
     kernel=gpx.kernels.Matern52(),
 )
 
-print(f"Outputs (p): {model.num_outputs}")
-print(f"Latent GPs (m): {model.num_latent_gps}")
-
 # %% [markdown]
 # ### Enforcing orthogonality via SVD
 #
-# The `OrthogonalMixingMatrix` stores an unconstrained matrix
+# The `OrthogonalMixingMatrix` parameter stores an unconstrained matrix
 # $\mathbf{U}_{\text{latent}} \in \mathbb{R}^{p \times m}$ and projects it onto
 # the Stiefel manifold (the set of matrices with orthonormal columns) at each
-# forward pass using the SVD:
-#
+# forward pass using SVD:
 # $$
 # \mathbf{U}_{\text{SVD}},\,\_,\,\mathbf{V}^\top
 # = \operatorname{SVD}(\mathbf{U}_{\text{latent}}),
 # \qquad
 # \mathbf{U} = \mathbf{U}_{\text{SVD}}\,\mathbf{V}^\top.
 # $$
-#
 # This ensures $\mathbf{U}^\top\mathbf{U} = \mathbf{I}_m$ exactly, regardless
-# of the optimiser's updates to the unconstrained representation. We verify this
-# numerically.
+# of the optimiser's updates to the unconstrained representation.
 
 # %%
 U = model.mixing_matrix.U
 UtU = U.T @ U
-print("U^T U (should be I_m):")
 print(jnp.round(UtU, decimals=6))
 
 # %% [markdown]
-# ## Conditioning on observations (before optimisation)
+# ## Conditioning on observations
 #
 # Before optimising any parameters, we condition with the PCA-initialised
 # defaults to establish a baseline. Calling `condition_on_observations` executes
@@ -348,10 +320,9 @@ print(jnp.round(UtU, decimals=6))
 
 # %%
 posterior = model.condition_on_observations(train_data)
-print(f"Conditioned {model.num_latent_gps} independent latent GPs on {N} points")
 
 # %% [markdown]
-# ## Baseline predictions (before optimisation)
+# ## Baseline predictions
 #
 # We first inspect the model's output-space predictions using the default
 # PCA-initialised parameters. This serves as a baseline against which we can
@@ -362,17 +333,17 @@ N_test = 200
 X_test = jnp.linspace(0, 10, N_test).reshape(-1, 1)
 
 pre_pred = posterior.predict(X_test, return_full_cov=False)
-pre_opt_mean = pre_pred.mean.reshape(N_test, P)
-pre_opt_std = jnp.sqrt(jnp.diag(pre_pred.covariance())).reshape(N_test, P)
+pre_opt_mean = pre_pred.mean.reshape(N_test, num_outputs)
+pre_opt_std = jnp.sqrt(jnp.diag(pre_pred.covariance())).reshape(N_test, num_outputs)
 pre_obs_noise_var = (
-    model.mixing_matrix.obs_noise_variance.value
-    + model.mixing_matrix.H_squared @ model.mixing_matrix.latent_noise_variance.value
+    model.mixing_matrix.obs_noise_variance[...]
+    + model.mixing_matrix.H_squared @ model.mixing_matrix.latent_noise_variance[...]
 )
 pre_obs_std = jnp.sqrt(pre_opt_std**2 + pre_obs_noise_var[None, :])
 
-fig, axes = plt.subplots(P, 1, figsize=(10, 1.8 * P), sharex=True)
+fig, axes = plt.subplots(num_outputs, 1, figsize=(10, 1.8 * num_outputs), sharex=True)
 
-for p in range(P):
+for p in range(num_outputs):
     ax = axes[p]
     ax.scatter(
         X_train,
@@ -398,7 +369,7 @@ for p in range(P):
         pre_opt_mean[:, p] + 2 * pre_opt_std[:, p],
         alpha=0.2,
         color=cols[p % len(cols)],
-        label="95% credible interval",
+        label="Two sigma",
     )
     ax.set_ylabel(f"Output {p + 1}")
     if p == 0:
@@ -406,15 +377,12 @@ for p in range(P):
 
 axes[-1].set_xlabel(r"$t$")
 plt.suptitle("Before Optimisation", fontsize=13)
-plt.tight_layout()
 
 # %% [markdown]
 # ## OILMM log marginal likelihood
 #
-# To move beyond the PCA-initialised defaults, we optimise the model parameters
-# by maximising the OILMM log marginal likelihood. Proposition 9 of
-# Bruinsma et al. (2020) gives the exact expression:
-#
+# We optimise the model's parameters by maximising the OILMM log marginal likelihood.
+# Proposition 9 of Bruinsma et al. (2020) gives the exact expression:
 # $$
 # \log p(\mathbf{Y})
 # = \underbrace{-\tfrac{n}{2}\log|\mathbf{S}|}_{\text{scaling penalty}}
@@ -428,7 +396,7 @@ plt.tight_layout()
 #   marginal likelihood}}.
 # $$
 #
-# The first three terms are **correction factors** that account for the
+# The first three terms are correction factors that account for the
 # deterministic projection from output space to latent space:
 #
 # - **Scaling penalty**: penalises very large or small $s_i$ values, preventing
@@ -442,21 +410,19 @@ plt.tight_layout()
 # marginal likelihoods, each evaluated on the projected data.
 #
 # GPJax implements this in `oilmm_mll(model, data)`, which takes the
-# **pre-conditioning** `OILMMModel` (not a posterior) together with the training
+# pre-conditioning `OILMMModel` (not a posterior) together with the training
 # `Dataset`. We negate it for minimisation with `fit_scipy`.
 
 # %%
 initial_mll = gpx.models.oilmm_mll(model, train_data)
-print(f"Initial OILMM MLL: {initial_mll:.3f}")
 
 # %% [markdown]
 # ## Optimisation
 #
 # We maximise the OILMM log marginal likelihood using L-BFGS via `fit_scipy`.
 # The optimiser tunes all `Parameter` leaves: the kernel hyperparameters
-# (length-scale, variance) of each latent GP, the unconstrained mixing matrix
-# $\mathbf{U}_{\text{latent}}$, the diagonal scaling $\mathbf{S}$, and the noise
-# variances ($\sigma^2$ and $\mathbf{D}$).
+# of each latent GP, the unconstrained mixing matrix $\mathbf{U}_{\text{latent}}$,
+#  the diagonal scaling $\mathbf{S}$, and the noise variances ($\sigma^2$ and $\mathbf{D}$).
 
 # %%
 opt_model, history = gpx.fit_scipy(
@@ -469,25 +435,22 @@ opt_model, history = gpx.fit_scipy(
 opt_mll = gpx.models.oilmm_mll(opt_model, train_data)
 print(f"Initial MLL: {initial_mll:.3f}")
 print(f"Optimised MLL: {opt_mll:.3f}")
-print(f"Improvement: {opt_mll - initial_mll:.3f}")
 
 # %% [markdown]
 # ## Post-optimisation predictions
 #
 # We re-condition the optimised model on the training data, then predict at the
-# same test locations. Because the kernel hyperparameters, mixing matrix, and
-# noise parameters have all been tuned, we expect substantially tighter credible
-# intervals and more accurate predictive means.
+# same test locations.
 
 # %%
 opt_posterior = opt_model.condition_on_observations(train_data)
 post_pred = opt_posterior.predict(X_test, return_full_cov=False)
-post_opt_mean = post_pred.mean.reshape(N_test, P)
-post_opt_std = jnp.sqrt(jnp.diag(post_pred.covariance())).reshape(N_test, P)
+post_opt_mean = post_pred.mean.reshape(N_test, num_outputs)
+post_opt_std = jnp.sqrt(jnp.diag(post_pred.covariance())).reshape(N_test, num_outputs)
 post_obs_noise_var = (
-    opt_model.mixing_matrix.obs_noise_variance.value
+    opt_model.mixing_matrix.obs_noise_variance[...]
     + opt_model.mixing_matrix.H_squared
-    @ opt_model.mixing_matrix.latent_noise_variance.value
+    @ opt_model.mixing_matrix.latent_noise_variance[...]
 )
 post_obs_std = jnp.sqrt(post_opt_std**2 + post_obs_noise_var[None, :])
 
@@ -498,9 +461,9 @@ post_obs_std = jnp.sqrt(post_opt_std**2 + post_obs_noise_var[None, :])
 # for each output. The grey dashed line shows the noiseless ground-truth signal.
 
 # %%
-fig, axes = plt.subplots(P, 2, figsize=(14, 1.8 * P), sharex=True)
+fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 1.8 * num_outputs), sharex=True)
 
-for p in range(P):
+for p in range(num_outputs):
     col = cols[p % len(cols)]
 
     for j, (mean, std, title) in enumerate(
@@ -533,27 +496,24 @@ for p in range(P):
 axes[-1, 0].set_xlabel(r"$t$")
 axes[-1, 1].set_xlabel(r"$t$")
 plt.suptitle("OILMM Predictions: Default Parameters vs Optimised", fontsize=13, y=1.01)
-plt.tight_layout()
 
 # %% [markdown]
-# ## Predictive intervals with observation noise
+# ## Predictive uncertainty: latent function vs noisy observations
 #
 # The previous figure shows uncertainty over the latent noise-free function
 # $\mathbf{f}(t) = \mathbf{H}\mathbf{x}(t)$. To visualise uncertainty over
 # observed outputs $\mathbf{y}(t)$, we add output-space noise:
-#
 # $$
 # \operatorname{var}[y_j(t)] = \operatorname{var}[f_j(t)]
 # + \sigma^2 + \sum_{i=1}^m H_{ji}^2 d_i.
 # $$
-#
-# The wider band below is the 95% predictive interval for noisy observations,
-# while the narrower band is the latent-function interval.
+# The wider band below is the predictive standard devatiation of the noisy observations,
+# while the narrower band is the latent function's standard deviation.
 
 # %%
-fig, axes = plt.subplots(P, 2, figsize=(14, 1.8 * P), sharex=True)
+fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 1.8 * num_outputs), sharex=True)
 
-for p in range(P):
+for p in range(num_outputs):
     col = cols[p % len(cols)]
 
     for j, (mean, func_std, obs_std, title) in enumerate(
@@ -578,7 +538,7 @@ for p in range(P):
             mean[:, p] + 2 * obs_std[:, p],
             alpha=0.14,
             color=col,
-            label="95% interval (with noise)",
+            label="Two sigma - Observaed Output",
         )
         ax.fill_between(
             X_test.squeeze(),
@@ -586,7 +546,7 @@ for p in range(P):
             mean[:, p] + 2 * func_std[:, p],
             alpha=0.26,
             color=col,
-            label="95% interval (latent f)",
+            label="Two sigma - Latent Function",
         )
         ax.set_ylabel(f"Output {p + 1}")
         if p == 0:
@@ -601,66 +561,6 @@ plt.suptitle(
     fontsize=13,
     y=1.01,
 )
-plt.tight_layout()
-
-# %% [markdown]
-# ## Learned parameters
-#
-# We now inspect what the optimiser has learned. The mixing matrix $\mathbf{H}$
-# should approximate the true mixing weights (up to a rotation/sign ambiguity
-# inherent to the latent decomposition). We also examine the scaling values
-# $\mathbf{S}$, the observation noise $\sigma^2$, the per-latent noise
-# $\mathbf{D}$, and the kernel hyperparameters.
-
-# %%
-# Learned mixing matrix H
-H_learned = opt_model.mixing_matrix.H
-
-fig, ax = plt.subplots(figsize=(4, 5))
-im = ax.imshow(
-    H_learned,
-    cmap="RdBu_r",
-    vmin=-jnp.max(jnp.abs(H_learned)),
-    vmax=jnp.max(jnp.abs(H_learned)),
-    aspect="auto",
-)
-for row in range(P):
-    for col_idx in range(M):
-        ax.text(
-            col_idx,
-            row,
-            f"{H_learned[row, col_idx]:.2f}",
-            ha="center",
-            va="center",
-            fontsize=10,
-        )
-ax.set_xticks(range(M))
-ax.set_xticklabels([f"Latent {i + 1}" for i in range(M)])
-ax.set_yticks(range(P))
-ax.set_yticklabels([f"Output {i + 1}" for i in range(P)])
-ax.set_title(r"Learned $\mathbf{H}$")
-fig.colorbar(im, ax=ax, shrink=0.7)
-
-# %%
-# Scalar parameters
-S_vals = opt_model.mixing_matrix.S.value
-sigma2 = opt_model.mixing_matrix.obs_noise_variance.value
-D_vals = opt_model.mixing_matrix.latent_noise_variance.value
-
-print("Scaling S:")
-for i in range(M):
-    print(f"  s_{i + 1} = {S_vals[i]:.4f}")
-print(f"\nObservation noise sigma^2 = {sigma2:.6f}")
-print("\nPer-latent noise D:")
-for i in range(M):
-    print(f"  d_{i + 1} = {D_vals[i]:.6f}")
-
-print("\nPer-latent kernel hyperparameters:")
-for i, prior in enumerate(opt_model.latent_priors):
-    k = prior.kernel
-    ls = k.lengthscale.value
-    var = k.variance.value
-    print(f"  Latent GP {i + 1}: lengthscale = {ls:.4f}, variance = {var:.4f}")
 
 # %% [markdown]
 # ## Latent space after optimisation
@@ -676,16 +576,12 @@ for i, prior in enumerate(opt_model.latent_priors):
 # leaves the output-space predictions unchanged.
 
 # %%
-fig, axes = plt.subplots(1, M, figsize=(5 * M, 3), sharey=False)
+fig, axes = plt.subplots(1, num_latent, figsize=(5 * num_latent, 3), sharey=False)
 
-for i in range(M):
+for i in range(num_latent):
     ax = axes[i]
-
-    # Projected training observations for this latent GP
     lat_y = opt_posterior.latent_datasets[i].y.squeeze()
     ax.plot(X_train, lat_y, "o", color=cols[i], alpha=0.4, ms=3, label="Projected data")
-
-    # Latent posterior prediction
     lat_pred = opt_posterior.latent_posteriors[i].predict(
         X_test, train_data=opt_posterior.latent_datasets[i]
     )
@@ -699,17 +595,15 @@ for i in range(M):
         lat_mean + 2 * lat_std,
         color=cols[i],
         alpha=0.2,
-        label="95% credible interval",
+        label="Two sigma",
     )
     ax.set_xlabel(r"$t$")
     ax.set_title(f"Latent GP {i + 1}")
     ax.legend(loc="best", fontsize=7)
 
-plt.tight_layout()
-
 # %% [markdown]
 # Each latent GP has learned a smooth function that explains the projected
-# observations. The credible intervals are narrow where data is dense and widen
+# observations. The prediction intervals are narrow where data is dense and widen
 # towards the boundaries. Crucially, these $m$ regression problems were solved
 # independently, with total cost $\mathcal{O}(n^3 m)$.
 
@@ -717,7 +611,7 @@ plt.tight_layout()
 # ## Heterogeneous kernels
 #
 # By default, passing a single kernel to `OILMMModel` deep-copies it $m$ times
-# so that each latent GP has **independent** hyperparameters. If the latent
+# so that each latent GP has independent hyperparameters. If the latent
 # processes operate at fundamentally different characteristic scales, you can go
 # further and assign entirely different kernel families:
 #

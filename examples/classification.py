@@ -225,7 +225,7 @@ Kxx = opt_posterior.prior.kernel.gram(x)
 Kxx += identity_matrix(D.n) * jitter
 Kxx = PSD(Kxx)
 Lx = lower_cholesky(Kxx)
-f_hat = Lx @ opt_posterior.latent.value
+f_hat = Lx @ opt_posterior.latent[...]
 
 # Negative Hessian,  H = -∇²p_tilde(y|f):
 graphdef, params, *static_state = nnx.split(opt_posterior, Parameter, ...)
@@ -237,7 +237,7 @@ def loss(params, D):
 
 
 jacobian = jax.jacfwd(jax.jacrev(loss))(params, D)
-H = jacobian["latent"].value["latent"].value[:, 0, :, 0]
+H = jacobian["latent"][...]["latent"][...][:, 0, :, 0]
 L = jnp.linalg.cholesky(H + identity_matrix(D.n) * jitter)
 
 # H⁻¹ = H⁻¹ I = (LLᵀ)⁻¹ I = L⁻ᵀL⁻¹ I

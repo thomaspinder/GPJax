@@ -268,9 +268,9 @@ class Polar(gpx.kernels.AbstractKernel):
     ) -> Float[Array, "1"]:
         c = self.period / 2.0
         t = angular_distance(x, y, c)
-        K = (1 + self.tau.value * t / c) * jnp.clip(
-            1 - t / c, 0, jnp.inf
-        ) ** self.tau.value
+        K = (1 + self.tau[...] * t / c) * jnp.clip(1 - t / c, 0, jnp.inf) ** self.tau[
+            ...
+        ]
         return K.squeeze()
 
 

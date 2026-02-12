@@ -47,7 +47,7 @@ def test_real_parameter(value):
     # Should accept any real value
     p = Real(value)
     assert jnp.array_equal(p[...], value)
-    assert jnp.array_equal(p.value, value)
+    assert jnp.array_equal(p[...], value)
     assert p.tag == "real"
 
 
@@ -122,7 +122,7 @@ def test_transform_roundtrip(param_class, data):
     inv_params = transform(t_params, DEFAULT_BIJECTION, inverse=True)
 
     # Check both access patterns
-    assert jnp.allclose(inv_params["p"].value, val, atol=1e-5, rtol=1e-5)
+    assert jnp.allclose(inv_params["p"][...], val, atol=1e-5, rtol=1e-5)
     assert jnp.allclose(inv_params["p"][...], val, atol=1e-5, rtol=1e-5)
 
 
