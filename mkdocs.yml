@@ -28,7 +28,8 @@ nav:
     - Stochastic sparse GPs: _examples/uncollapsed_vi.md
     - Vector-Field GPs : _examples/oceanmodelling.md
     - Heteroscedastic Inference: _examples/heteroscedastic_inference.md
-    - Multi-output GPs: _examples/multioutput.md
+    - Multi-Output GPs: _examples/multioutput.md
+    - Accelerated Multi-Output GPs: _examples/oilmm.md
   - 🧪 Experimental:
     - Numpyro Integration: _examples/numpyro_integration.md
     - Spatial Linear Gaussian Process: _examples/spatial_linear_gp.md
