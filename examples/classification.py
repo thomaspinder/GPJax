@@ -237,7 +237,7 @@ def loss(params, D):
 
 
 jacobian = jax.jacfwd(jax.jacrev(loss))(params, D)
-H = jacobian["latent"][...]["latent"][...][:, 0, :, 0]
+H = jacobian["latent"]["latent"][...][:, 0, :, 0]
 L = jnp.linalg.cholesky(H + identity_matrix(D.n) * jitter)
 
 # H⁻¹ = H⁻¹ I = (LLᵀ)⁻¹ I = L⁻ᵀL⁻¹ I
