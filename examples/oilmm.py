@@ -77,11 +77,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Given $n$ input locations, we stack all observations into a vector
 # $\bar{\mathbf{y}} \in \mathbb{R}^{np}$. Its joint covariance is
 # $$
-# \operatorname{cov}[\bar{\mathbf{y}}]
-# = (\mathbf{H} \otimes \mathbf{I}_n)\,
-#   \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\,
-#   (\mathbf{H} \otimes \mathbf{I}_n)^\top
-# + \sigma^2\,\mathbf{I}_{np},
+# \operatorname{cov}[\bar{\mathbf{y}}] = (\mathbf{H} \otimes \mathbf{I}_n)\, \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\, (\mathbf{H} \otimes \mathbf{I}_n)^\top \sigma^2\,\mathbf{I}_{np},
 # $$
 # where $\mathbf{K}_i$ is the $n \times n$ Gram matrix of the $i$-th latent
 # kernel. Inverting this $np \times np$ matrix naively costs
@@ -101,15 +97,11 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # The corresponding projection matrix is the left pseudo-inverse of
 # $\mathbf{H}$:
-# $$
-# \mathbf{T} = \mathbf{S}^{-1/2}\,\mathbf{U}^\top
-# \qquad\Longrightarrow\qquad
-# \mathbf{T}\,\mathbf{H}
-# = \mathbf{S}^{-1/2}\,
-#   \underbrace{\mathbf{U}^\top\mathbf{U}}_{\mathbf{I}_m}\,
-#   \mathbf{S}^{1/2}
-# = \mathbf{I}_m.
-# $$
+# \begin{align}
+# \mathbf{T} & = \mathbf{S}^{-1/2}\,\mathbf{U}^\top \qquad\Longrightarrow\qquad \mathbf{T}\,\mathbf{H}
+# & = \mathbf{S}^{-1/2}\, \underbrace{\mathbf{U}^\top\mathbf{U}}_{\mathbf{I}_m}\, \mathbf{S}^{1/2}
+# & = \mathbf{I}_m.
+# \end{align}
 # Applying $\mathbf{T}$ to the observed outputs projects them into the latent
 # space:
 # $$
