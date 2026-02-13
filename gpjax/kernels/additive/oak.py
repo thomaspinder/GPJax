@@ -133,6 +133,10 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         order_variances: Initial order variances of shape (max_order + 1,).
             Entry 0 is the offset variance, entry d is the d-th order
             interaction variance. Defaults to ones.
+        fix_base_variance: If True (default), pin every base-kernel
+            variance to 1 so that ``order_variances`` alone control
+            per-order scaling.  This avoids over-parameterisation and
+            matches the reference (Lu et al. 2022, §3.2).
         compute_engine: Kernel computation engine. Defaults to
             DenseKernelComputation.
     """
@@ -144,6 +148,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         base_kernels: list[AbstractKernel],
         max_order: tp.Union[int, None] = None,
         order_variances: tp.Union[Float[Array, " D_tilde_plus_1"], None] = None,
+        fix_base_variance: bool = True,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
         if len(base_kernels) == 0:
@@ -162,6 +167,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
 
         self.base_kernels = nnx.List(base_kernels)
         self.max_order = max_order
+        self.fix_base_variance = fix_base_variance
 
         if order_variances is None:
             order_variances = jnp.ones(max_order + 1)
@@ -178,7 +184,13 @@ class OrthogonalAdditiveKernel(AbstractKernel):
 
     @property
     def _variances(self) -> Float[Array, " D"]:
-        """Stack base kernel variances into a single array."""
+        """Per-dimension base-kernel variances.
+
+        Returns ones when ``fix_base_variance`` is ``True`` (default),
+        otherwise stacks the learnable base-kernel variance parameters.
+        """
+        if self.fix_base_variance:
+            return jnp.ones(len(self.base_kernels))
         return jnp.stack([k.variance[...].squeeze() for k in self.base_kernels])
 
     def __call__(

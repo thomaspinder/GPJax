@@ -41,9 +41,16 @@ def _sobol_integral_matrix(
 
     All four terms are computed in closed form via broadcasting (no loops).
     """
+    N = x_train.shape[0]
     ls = lengthscale
     ls_sq = jnp.square(ls)
     sigma_sq = variance
+
+    # When the lengthscale or variance is negligible the base kernel is
+    # effectively inactive and contributes nothing to the Sobol index.
+    # Return zeros to avoid inf/nan from divisions by near-zero ls_sq.
+    _EPS = 1e-6
+    inactive = (ls < _EPS) | (sigma_sq < _EPS)
 
     a = x_train[:, None]  # (N, 1)
     b = x_train[None, :]  # (1, N)
@@ -87,7 +94,8 @@ def _sobol_integral_matrix(
         * jnp.sqrt((ls_sq + 1.0) / (ls_sq + 3.0))
     )
 
-    return term1 - term2 - term3 + term4
+    result = term1 - term2 - term3 + term4
+    return jnp.where(inactive, jnp.zeros((N, N)), result)
 
 
 def _newton_girard_matrices(
