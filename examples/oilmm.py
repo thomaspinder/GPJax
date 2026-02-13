@@ -76,9 +76,11 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # Given $n$ input locations, we stack all observations into a vector
 # $\bar{\mathbf{y}} \in \mathbb{R}^{np}$. Its joint covariance is
+# $$
 # \begin{align}
 # \operatorname{cov}[\bar{\mathbf{y}}] = (\mathbf{H} \otimes \mathbf{I}_n)\, \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\, (\mathbf{H} \otimes \mathbf{I}_n)^\top \sigma^2\,\mathbf{I}_{np},
 # \end{align}
+# $$
 # where $\mathbf{K}_i$ is the $n \times n$ Gram matrix of the $i$-th latent
 # kernel. Inverting this $np \times np$ matrix naively costs
 # $\mathcal{O}(n^3 p^3)$, which is impractical when $p$ is even moderately large.
@@ -97,11 +99,13 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # The corresponding projection matrix is the left pseudo-inverse of
 # $\mathbf{H}$:
+# $$
 # \begin{align}
 # \mathbf{T} & = \mathbf{S}^{-1/2}\,\mathbf{U}^\top \qquad\Longrightarrow\qquad \mathbf{T}\,\mathbf{H}
 # & = \mathbf{S}^{-1/2}\, \underbrace{\mathbf{U}^\top\mathbf{U}}_{\mathbf{I}_m}\, \mathbf{S}^{1/2}
 # & = \mathbf{I}_m.
 # \end{align}
+# $$
 # Applying $\mathbf{T}$ to the observed outputs projects them into the latent
 # space:
 # $$
@@ -159,6 +163,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # covariances $\boldsymbol{\Sigma}_i$ for each latent GP at $n_*$ test locations.
 # The output-space predictive distribution is recovered by applying the mixing
 # matrix:
+# $$
 # \begin{align}
 # \boldsymbol{\mu}_{\mathbf{y}}
 # &= \mathbf{H}\,
@@ -170,6 +175,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #    \boldsymbol{\Sigma}_m)\,
 #    (\mathbf{H} \otimes \mathbf{I}_{n_*})^\top.
 # \end{align}
+# $$
 #
 # When only marginal variances are needed, the Kronecker product need not be
 # formed explicitly. The marginal variance of output $j$ at test point $t$ is
