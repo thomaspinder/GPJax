@@ -6,7 +6,7 @@ Reference:
 """
 
 import jax
-import jax.lax as lax
+from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
@@ -35,19 +35,17 @@ def _constrained_se_kernel(
     Returns:
         Scalar constrained kernel value.
     """
-    l = lengthscale
-    l_sq = jnp.square(l)
+    ls = lengthscale
+    ls_sq = jnp.square(ls)
 
     # Base SE kernel: k(x, y) = sigma^2 * exp(-(x - y)^2 / (2 * l^2))
-    k_base = variance * jnp.exp(-0.5 * jnp.square(x - y) / l_sq)
+    k_base = variance * jnp.exp(-0.5 * jnp.square(x - y) / ls_sq)
 
     # Projection term (Eq. 10 of Lu et al. 2022 with mu=0, delta^2=1):
     # k_hat(x, y) = sigma^2 * l * sqrt(l^2 + 2) / (l^2 + 1)
     #               * exp(-(x^2 + y^2) / (2(l^2 + 1)))
-    coeff = variance * l * jnp.sqrt(l_sq + 2.0) / (l_sq + 1.0)
-    k_hat = coeff * jnp.exp(
-        -(jnp.square(x) + jnp.square(y)) / (2.0 * (l_sq + 1.0))
-    )
+    coeff = variance * ls * jnp.sqrt(ls_sq + 2.0) / (ls_sq + 1.0)
+    k_hat = coeff * jnp.exp(-(jnp.square(x) + jnp.square(y)) / (2.0 * (ls_sq + 1.0)))
 
     return k_base - k_hat
 
@@ -176,16 +174,12 @@ class OrthogonalAdditiveKernel(AbstractKernel):
     @property
     def _lengthscales(self) -> Float[Array, " D"]:
         """Stack base kernel lengthscales into a single array."""
-        return jnp.stack(
-            [k.lengthscale[...].squeeze() for k in self.base_kernels]
-        )
+        return jnp.stack([k.lengthscale[...].squeeze() for k in self.base_kernels])
 
     @property
     def _variances(self) -> Float[Array, " D"]:
         """Stack base kernel variances into a single array."""
-        return jnp.stack(
-            [k.variance[...].squeeze() for k in self.base_kernels]
-        )
+        return jnp.stack([k.variance[...].squeeze() for k in self.base_kernels])
 
     def __call__(
         self,
@@ -205,9 +199,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
             Scalar kernel value.
         """
         # vmap constrained kernel over all D dimensions simultaneously
-        z = jax.vmap(_constrained_se_kernel)(
-            x, y, self._lengthscales, self._variances
-        )
+        z = jax.vmap(_constrained_se_kernel)(x, y, self._lengthscales, self._variances)
 
         # Newton-Girard recursion (uses lax.fori_loop internally)
         e = _newton_girard(z, self.max_order)

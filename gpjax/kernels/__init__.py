@@ -16,6 +16,9 @@
 """JaxKern."""
 
 from gpjax.kernels import stationary
+from gpjax.kernels.additive import (
+    OrthogonalAdditiveKernel,
+)
 from gpjax.kernels.approximations import RFF
 from gpjax.kernels.base import (
     AbstractKernel,
@@ -29,9 +32,6 @@ from gpjax.kernels.computations import (
     DenseKernelComputation,
     DiagonalKernelComputation,
     EigenKernelComputation,
-)
-from gpjax.kernels.additive import (
-    OrthogonalAdditiveKernel,
 )
 from gpjax.kernels.multioutput import (
     ICMKernel,
@@ -63,7 +63,6 @@ __all__ = [
     "ArcCosine",
     "BasisFunctionComputation",
     "Constant",
-    "OrthogonalAdditiveKernel",
     "ConstantDiagonalKernelComputation",
     "DenseKernelComputation",
     "DiagonalKernelComputation",
@@ -77,6 +76,7 @@ __all__ = [
     "Matern52",
     "MultiOutputKernel",
     "MultiOutputKernelComputation",
+    "OrthogonalAdditiveKernel",
     "Periodic",
     "Polynomial",
     "PoweredExponential",

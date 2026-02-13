@@ -13,7 +13,7 @@ from __future__ import annotations
 import typing as tp
 
 import jax
-import jax.lax as lax
+from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
@@ -41,42 +41,41 @@ def _sobol_integral_matrix(
 
     All four terms are computed in closed form via broadcasting (no loops).
     """
-    l = lengthscale
-    l_sq = jnp.square(l)
+    ls = lengthscale
+    ls_sq = jnp.square(ls)
     sigma_sq = variance
 
     a = x_train[:, None]  # (N, 1)
     b = x_train[None, :]  # (1, N)
 
     # --- Term 1 (Eq. 44): \int p(x) k(x,a) k(x,b) dx ---
-    term1_coeff = sigma_sq**2 * l / jnp.sqrt(2.0 + l_sq)
+    term1_coeff = sigma_sq**2 * ls / jnp.sqrt(2.0 + ls_sq)
     term1 = term1_coeff * jnp.exp(
-        -jnp.square(a - b) / (4.0 * l_sq)
-        - jnp.square(a + b) / (4.0 * (2.0 + l_sq))
+        -jnp.square(a - b) / (4.0 * ls_sq) - jnp.square(a + b) / (4.0 * (2.0 + ls_sq))
     )
 
     # --- Projection coefficient for k_hat ---
-    proj_coeff = sigma_sq * l * jnp.sqrt(l_sq + 2.0) / (l_sq + 1.0)
+    proj_coeff = sigma_sq * ls * jnp.sqrt(ls_sq + 2.0) / (ls_sq + 1.0)
 
     # --- Term 2 (Eq. 45): \int p(x) k(x,a) k_hat(x,b) dx ---
-    M2 = 1.0 + 1.0 / l_sq + 1.0 / (l_sq + 1.0)
-    c2 = (a / l_sq) / M2
-    C2 = jnp.square(a) / l_sq - jnp.square(c2) * M2
+    M2 = 1.0 + 1.0 / ls_sq + 1.0 / (ls_sq + 1.0)
+    c2 = (a / ls_sq) / M2
+    C2 = jnp.square(a) / ls_sq - jnp.square(c2) * M2
     term2 = (
         sigma_sq
         * proj_coeff
-        * jnp.exp(-jnp.square(b) / (2.0 * (l_sq + 1.0)))
+        * jnp.exp(-jnp.square(b) / (2.0 * (ls_sq + 1.0)))
         * jnp.exp(-C2 / 2.0)
         / jnp.sqrt(M2)
     )
 
     # --- Term 3 (Eq. 46): symmetric to term 2 with a <-> b ---
-    c3 = (b / l_sq) / M2
-    C3 = jnp.square(b) / l_sq - jnp.square(c3) * M2
+    c3 = (b / ls_sq) / M2
+    C3 = jnp.square(b) / ls_sq - jnp.square(c3) * M2
     term3 = (
         sigma_sq
         * proj_coeff
-        * jnp.exp(-jnp.square(a) / (2.0 * (l_sq + 1.0)))
+        * jnp.exp(-jnp.square(a) / (2.0 * (ls_sq + 1.0)))
         * jnp.exp(-C3 / 2.0)
         / jnp.sqrt(M2)
     )
@@ -84,8 +83,8 @@ def _sobol_integral_matrix(
     # --- Term 4 (Eq. 47): \int p(x) k_hat(x,a) k_hat(x,b) dx ---
     term4 = (
         proj_coeff**2
-        * jnp.exp(-(jnp.square(a) + jnp.square(b)) / (2.0 * (l_sq + 1.0)))
-        * jnp.sqrt((l_sq + 1.0) / (l_sq + 3.0))
+        * jnp.exp(-(jnp.square(a) + jnp.square(b)) / (2.0 * (ls_sq + 1.0)))
+        * jnp.sqrt((ls_sq + 1.0) / (ls_sq + 3.0))
     )
 
     return term1 - term2 - term3 + term4
@@ -103,15 +102,11 @@ def _newton_girard_matrices(
     This is the matrix-level analogue of _newton_girard in oak.py, using
     lax.fori_loop for JAX compatibility.
     """
-    D, N, _ = matrices.shape
+    _, N, _ = matrices.shape
 
     # Power sums: S[k, i, j] = sum_{d=0}^{D-1} matrices[d, i, j]^{k+1}
-    powers = jnp.arange(1, max_order + 1)[
-        :, None, None, None
-    ]  # (max_order, 1, 1, 1)
-    S = jnp.sum(
-        matrices[None, :, :, :] ** powers, axis=1
-    )  # (max_order, N, N)
+    powers = jnp.arange(1, max_order + 1)[:, None, None, None]  # (max_order, 1, 1, 1)
+    S = jnp.sum(matrices[None, :, :, :] ** powers, axis=1)  # (max_order, N, N)
 
     signs = (-1.0) ** jnp.arange(max_order)
     signed_S = signs[:, None, None] * S  # (max_order, N, N)
@@ -132,7 +127,7 @@ def _newton_girard_matrices(
 
 
 def sobol_indices(
-    kernel: "OrthogonalAdditiveKernel",
+    kernel: OrthogonalAdditiveKernel,
     x_train: Float[Array, "N D"],
     y_train: Float[Array, "N 1"],
     noise_variance: float,
@@ -157,7 +152,7 @@ def sobol_indices(
         Array of shape (max_order,) with normalized Sobol indices
         for orders 1 through max_order.
     """
-    N, D = x_train.shape
+    N, _D = x_train.shape
     max_order = kernel.max_order
     ov = kernel.order_variances[...]
 
@@ -183,9 +178,7 @@ def sobol_indices(
     ov_orders = ov[1:]  # (max_order,)
 
     # Vectorized quadratic forms: alpha^T E_d alpha for each order d
-    quad_forms = jax.vmap(lambda E_d: alpha @ E_d @ alpha)(
-        E_orders
-    )  # (max_order,)
+    quad_forms = jax.vmap(lambda E_d: alpha @ E_d @ alpha)(E_orders)  # (max_order,)
     raw_sobol = jnp.square(ov_orders) * quad_forms
 
     # Normalize to sum to 1

@@ -4,11 +4,6 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-import jax
-import jax.numpy as jnp
-import jax.random as jr
-import pytest
-
 from gpjax.kernels import RBF
 from gpjax.kernels.additive.oak import (
     OrthogonalAdditiveKernel,
@@ -16,6 +11,10 @@ from gpjax.kernels.additive.oak import (
     _newton_girard,
 )
 from gpjax.parameters import NonNegativeReal
+import jax
+import jax.numpy as jnp
+import jax.random as jr
+import pytest
 
 
 class TestConstrainedSEKernel:
@@ -34,9 +33,9 @@ class TestConstrainedSEKernel:
     def test_symmetric(self):
         """k_tilde(x, y) == k_tilde(y, x)."""
         x, y = jnp.array(0.5), jnp.array(-0.3)
-        l, v = jnp.array(1.0), jnp.array(1.0)
-        k_xy = _constrained_se_kernel(x, y, l, v)
-        k_yx = _constrained_se_kernel(y, x, l, v)
+        ls, v = jnp.array(1.0), jnp.array(1.0)
+        k_xy = _constrained_se_kernel(x, y, ls, v)
+        k_yx = _constrained_se_kernel(y, x, ls, v)
         assert jnp.allclose(k_xy, k_yx, atol=1e-12)
 
     def test_orthogonality_constraint(self):
@@ -48,11 +47,11 @@ class TestConstrainedSEKernel:
         key = jr.PRNGKey(42)
         x_samples = jr.normal(key, shape=(50_000,))
         x_prime = jnp.array(0.7)
-        l, v = jnp.array(1.5), jnp.array(1.0)
+        ls, v = jnp.array(1.5), jnp.array(1.0)
 
-        k_vals = jax.vmap(
-            lambda x: _constrained_se_kernel(x, x_prime, l, v)
-        )(x_samples)
+        k_vals = jax.vmap(lambda x: _constrained_se_kernel(x, x_prime, ls, v))(
+            x_samples
+        )
         mean_val = jnp.mean(k_vals)
         assert jnp.abs(mean_val) < 0.01, f"Expected ~0, got {mean_val}"
 
@@ -62,9 +61,9 @@ class TestConstrainedSEKernel:
         Since we subtract a non-negative projection term, k_tilde(x,x) <= k(x,x).
         """
         x = jnp.array(0.0)
-        l, v = jnp.array(1.0), jnp.array(1.0)
-        k_tilde_xx = _constrained_se_kernel(x, x, l, v)
-        k_xx = v * jnp.exp(-0.5 * jnp.square(x - x) / jnp.square(l))
+        ls, v = jnp.array(1.0), jnp.array(1.0)
+        k_tilde_xx = _constrained_se_kernel(x, x, ls, v)
+        k_xx = v * jnp.exp(-0.5 * jnp.square(x - x) / jnp.square(ls))
         assert k_tilde_xx <= k_xx + 1e-10
 
 
@@ -136,9 +135,7 @@ class TestOrthogonalAdditiveKernelInit:
         """User can provide initial order variances."""
         base_kernels = [RBF(active_dims=[i]) for i in range(3)]
         ov = jnp.array([0.5, 1.0, 0.5, 0.1])
-        kernel = OrthogonalAdditiveKernel(
-            base_kernels=base_kernels, order_variances=ov
-        )
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, order_variances=ov)
         assert jnp.allclose(kernel.order_variances[...], ov)
 
     def test_order_variances_are_trainable(self):
@@ -199,9 +196,7 @@ class TestOrthogonalAdditiveKernelCall:
         # Manually compute: sigma^2_0 * 1 + sigma^2_1 * sum(k_tilde_d)
         manual = 1.0  # sigma^2_0 * e_0
         for d in range(3):
-            manual += _constrained_se_kernel(
-                x[d], y[d], jnp.array(1.0), jnp.array(1.0)
-            )
+            manual += _constrained_se_kernel(x[d], y[d], jnp.array(1.0), jnp.array(1.0))
         assert jnp.allclose(result, manual, atol=1e-10)
 
     def test_brute_force_d3_full_order(self):
@@ -211,18 +206,18 @@ class TestOrthogonalAdditiveKernelCall:
             RBF(active_dims=[i], lengthscale=ls[i], variance=1.0) for i in range(3)
         ]
         ov = jnp.array([0.5, 1.0, 0.8, 0.3])
-        kernel = OrthogonalAdditiveKernel(
-            base_kernels=base_kernels, order_variances=ov
-        )
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, order_variances=ov)
         x = jnp.array([0.5, -0.3, 0.1])
         y = jnp.array([0.2, 0.4, -0.6])
         result = kernel(x, y)
 
         # Brute-force computation
-        z = jnp.array([
-            _constrained_se_kernel(x[d], y[d], jnp.array(ls[d]), jnp.array(1.0))
-            for d in range(3)
-        ])
+        z = jnp.array(
+            [
+                _constrained_se_kernel(x[d], y[d], jnp.array(ls[d]), jnp.array(1.0))
+                for d in range(3)
+            ]
+        )
         # e_0 = 1
         # e_1 = z0 + z1 + z2
         # e_2 = z0*z1 + z0*z2 + z1*z2
