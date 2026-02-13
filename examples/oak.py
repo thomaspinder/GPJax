@@ -323,54 +323,48 @@ for i, (s, c) in enumerate(zip(si, cumulative)):
 
 # %%
 oak_kern = opt_posterior.prior.kernel
+num_top_features = 5
 
-# Rank features by first-order importance and pick the top 4.
 feature_scores = rank_first_order(oak_kern, X_train, y_train, float(noise_var))
-top4 = jnp.argsort(-feature_scores)[:4]
+top_features = jnp.argsort(-feature_scores)[:num_top_features]
 
 n_grid = 300
-fig, axes = plt.subplots(2, 2, figsize=(10, 7), tight_layout=True)
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12, 5))
 
 for idx, ax in enumerate(axes.flat):
-    dim = int(top4[idx])
+    dim = int(top_features[idx])
     fname = feature_names[dim]
 
-    # 1-D grid for this feature
-    lo = float(X_train[:, dim].min()) - 0.1
-    hi = float(X_train[:, dim].max()) + 0.1
-    x_grid = jnp.linspace(lo, hi, n_grid)
+    x_low = float(X_train[:, dim].min())
+    x_high = float(X_train[:, dim].max())
+    x_grid = jnp.linspace(x_low, x_high, n_grid)
 
-    # Posterior mean and variance for this first-order component.
     f_mean, f_var = predict_first_order(
         oak_kern, X_train, y_train, float(noise_var), dim, x_grid
     )
     f_std = jnp.sqrt(f_var)
 
-    # Map the transformed grid back to original feature units for plotting
     x_grid_orig = flows[dim].inv(x_grid)
 
-    # Plot posterior mean and +/- 2 sigma band (x-axis in original units)
     ax.plot(x_grid_orig, f_mean, color=cols[0], linewidth=2, label="Posterior mean")
     ax.fill_between(
         x_grid_orig,
         f_mean - 2 * f_std,
         f_mean + 2 * f_std,
         alpha=0.2,
-        color=cols[0],
+        color=cols[1],
         label=r"$\pm 2\sigma$",
     )
 
-    # Histogram of raw training inputs on a twin axis
     ax2 = ax.twinx()
     ax2.hist(
         X_train_original[:, dim],
         bins=30,
         alpha=0.15,
-        color=cols[1],
+        color=cols[0],
         density=True,
     )
     ax2.set_yticks([])
-
     ax.set_xlabel(fname)
     ax.set_ylabel("Effect")
     ax.set_title(f"{fname} (dim {dim})")
