@@ -1044,7 +1044,35 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accelerated Multi-Output GPs
   
 
     
@@ -3147,6 +3175,93 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../api/numpyro_extras/" class="md-nav__link">
         
@@ -3531,7 +3646,7 @@ part of the model's parameters. Using a gradient-based optimiser, we can then
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">latent_dist</span> <span class="o">=</span> <span class="n">opt_posterior</span><span class="p">(</span><span class="n">xtest</span><span class="p">,</span> <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">)</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">predictive_dist</span> <span class="o">=</span> <span class="n">opt_posterior</span><span class="o">.</span><span class="n">posterior</span><span class="o">.</span><span class="n">likelihood</span><span class="p">(</span><span class="n">latent_dist</span><span class="p">)</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">inducing_points</span> <span class="o">=</span> <span class="n">opt_posterior</span><span class="o">.</span><span class="n">inducing_inputs</span><span class="o">.</span><span class="n">value</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">inducing_points</span> <span class="o">=</span> <span class="n">opt_posterior</span><span class="o">.</span><span class="n">inducing_inputs</span><span class="p">[</span><span class="o">...</span><span class="p">]</span>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">samples</span> <span class="o">=</span> <span class="n">latent_dist</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">sample_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,))</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
@@ -3588,17 +3703,7 @@ part of the model's parameters. Using a gradient-based optimiser, we can then
 </span><span id="__span-7-58"><a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a><span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$x$&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;$f(x)$&quot;</span><span class="p">)</span>
 </span><span id="__span-7-59"><a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3017/1432928184.py:4: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  inducing_points = opt_posterior.inducing_inputs.value
-</code></pre></div>
-<p><img alt="png" src="../collapsed_vi_files/collapsed_vi_14_1.png" /></p>
+<p><img alt="png" src="../collapsed_vi_files/collapsed_vi_14_0.png" /></p>
 <h2 id="runtime-comparison">Runtime comparison<a class="headerlink" href="#runtime-comparison" title="Permanent link"></a></h2>
 <p>Given the size of the data being considered here, inference in a GP with a full-rank
 covariance matrix is possible, albeit quite slow. We can therefore compare the
@@ -3611,12 +3716,12 @@ full model.</p>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">nmll</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">full_rank_model</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nmll</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>173 ms ± 2.61 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>169 ms ± 2.79 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">nelbo</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">collapsed_elbo</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nelbo</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>1.14 ms ± 72.5 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>1.53 ms ± 138 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <p>As we can see, the sparse approximation given here is much faster when
 compared against a full-rank model.</p>
@@ -3626,7 +3731,7 @@ compared against a full-rank model.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Daniel Dodd
 
-Last updated: Wed, 11 Feb 2026
+Last updated: Fri, 13 Feb 2026
 
 Python implementation: CPython
 Python version       : 3.11.14

@@ -1105,7 +1105,35 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accelerated Multi-Output GPs
   
 
     
@@ -3208,6 +3236,93 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../api/numpyro_extras/" class="md-nav__link">
         
@@ -3773,7 +3888,7 @@ example, see the
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Two sigma&quot;</span><span class="p">,</span>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">)</span>
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">ax</span><span class="o">.</span><span class="n">vlines</span><span class="p">(</span>
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="n">opt_posterior</span><span class="o">.</span><span class="n">inducing_inputs</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="n">opt_posterior</span><span class="o">.</span><span class="n">inducing_inputs</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
 </span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="n">ymin</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
 </span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>    <span class="n">ymax</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
 </span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
@@ -3783,30 +3898,16 @@ example, see the
 </span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="p">)</span>
 </span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3803/3335161759.py:19: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  opt_posterior.inducing_inputs.value,
-
-
-
-
-
-&lt;matplotlib.legend.Legend at 0x7f398c284790&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f06cc2d02d0&gt;
 </code></pre></div>
-<p><img alt="png" src="../uncollapsed_vi_files/uncollapsed_vi_14_2.png" /></p>
+<p><img alt="png" src="../uncollapsed_vi_files/uncollapsed_vi_14_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">%</span><span class="n">reload_ext</span> <span class="n">watermark</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">%</span><span class="n">watermark</span> <span class="o">-</span><span class="n">n</span> <span class="o">-</span><span class="n">u</span> <span class="o">-</span><span class="n">v</span> <span class="o">-</span><span class="n">iv</span> <span class="o">-</span><span class="n">w</span> <span class="o">-</span><span class="n">a</span> <span class="s1">&#39;Thomas Pinder, Daniel Dodd &amp; Zeel B Patel&#39;</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder, Daniel Dodd &amp; Zeel B Patel
 
-Last updated: Wed, 11 Feb 2026
+Last updated: Fri, 13 Feb 2026
 
 Python implementation: CPython
 Python version       : 3.11.14

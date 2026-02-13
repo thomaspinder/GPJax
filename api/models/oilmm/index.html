@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/linalg/operators/">
+        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/models/oilmm/">
       
       
-        <link rel="prev" href="../operations/">
+        <link rel="prev" href="../../mean_functions/">
       
       
-        <link rel="next" href="../utils/">
+        <link rel="next" href="../../numpyro_extras/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Operators - GPJax</title>
+        <title>Oilmm - GPJax</title>
       
     
     
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gpjax.linalg.operators.LinearOperator" class="md-skip">
+        <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix" class="md-skip">
           Skip to content
         </a>
       
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Operators
+              Oilmm
             
           </span>
         </div>
@@ -2922,8 +2922,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2933,11 +2931,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_9" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_9" >
         
           
           <label class="md-nav__link" for="__nav_8_1_9" id="__nav_8_1_9_label" tabindex="0">
@@ -2958,7 +2958,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_9_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_1_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2976,7 +2976,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../operations/" class="md-nav__link">
+      <a href="../../linalg/operations/" class="md-nav__link">
         
   
   
@@ -3001,35 +3001,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operators
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../linalg/operators/" class="md-nav__link">
         
   
   
@@ -3045,341 +3020,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;LinearOperator
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" LinearOperator">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;shape
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.dtype" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;dtype
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.T" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;T
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.to_dense" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_dense
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Dense
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Dense">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Diagonal
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Diagonal">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Identity
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Identity">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Triangular
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Triangular">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BlockDiag
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" BlockDiag">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Kronecker
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" Kronecker">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3392,7 +3032,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../utils/" class="md-nav__link">
+      <a href="../../linalg/utils/" class="md-nav__link">
         
   
   
@@ -3453,6 +3093,8 @@
                 
   
   
+    
+  
   
   
     
@@ -3462,13 +3104,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_11" checked>
         
           
           <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
@@ -3489,7 +3129,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_8_1_11">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3504,10 +3144,35 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../models/oilmm/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3523,6 +3188,218 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OrthogonalMixingMatrix
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" OrthogonalMixingMatrix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.U" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;U
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.sqrt_S" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;sqrt_S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.inv_sqrt_S" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;inv_sqrt_S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.H" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;H
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.T" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;T
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.H_squared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;H_squared
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.projected_noise_variance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;projected_noise_variance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OILMMModel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OILMMModel
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" OILMMModel">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OILMMModel.condition_on_observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;condition_on_observations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OILMMPosterior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OILMMPosterior
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" OILMMPosterior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OILMMPosterior.predict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;predict
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.oilmm_mll" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;oilmm_mll
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.create_oilmm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.create_oilmm_with_kernels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm_with_kernels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.create_oilmm_from_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm_from_data
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3744,22 +3621,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;LinearOperator
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OrthogonalMixingMatrix
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" LinearOperator">
+    <nav class="md-nav" aria-label=" OrthogonalMixingMatrix">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.shape" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.U" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;shape
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;U
       
     </span>
   </a>
@@ -3767,10 +3644,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.dtype" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.sqrt_S" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;dtype
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;sqrt_S
       
     </span>
   </a>
@@ -3778,7 +3655,29 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.T" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.inv_sqrt_S" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;inv_sqrt_S
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.H" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;H
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.T" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;T
@@ -3789,10 +3688,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.to_dense" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.H_squared" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;to_dense
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;H_squared
       
     </span>
   </a>
@@ -3800,21 +3699,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.__add__" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OrthogonalMixingMatrix.projected_noise_variance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.LinearOperator.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;projected_noise_variance
       
     </span>
   </a>
@@ -3827,33 +3715,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OILMMModel" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Dense
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OILMMModel
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" Dense">
+    <nav class="md-nav" aria-label=" OILMMModel">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense.__add__" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OILMMModel.condition_on_observations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Dense.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;condition_on_observations
       
     </span>
   </a>
@@ -3866,33 +3743,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OILMMPosterior" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Diagonal
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;OILMMPosterior
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" Diagonal">
+    <nav class="md-nav" aria-label=" OILMMPosterior">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal.__add__" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.OILMMPosterior.predict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Diagonal.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;predict
       
     </span>
   </a>
@@ -3905,158 +3771,46 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.oilmm_mll" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Identity
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;oilmm_mll
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" Identity">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Identity.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.create_oilmm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Triangular
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" Triangular">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Triangular.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.create_oilmm_with_kernels" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BlockDiag
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm_with_kernels
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" BlockDiag">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.BlockDiag.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker" class="md-nav__link">
+  <a href="#gpjax.models.oilmm.create_oilmm_from_data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Kronecker
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;create_oilmm_from_data
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" Kronecker">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker.__add__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__add__
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.operators.Kronecker.__mul__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__mul__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -4080,7 +3834,7 @@
   
 
 
-  <h1>Operators</h1>
+  <h1>Oilmm</h1>
 
 <div class="doc doc-object doc-module">
 
@@ -4089,8 +3843,18 @@
 
     <div class="doc doc-contents first">
 
-        <p>Linear operator abstractions for GPJax.</p>
+        <p>Orthogonal Instantaneous Linear Mixing Model (OILMM) for multi-output GPs.</p>
+<p>OILMM achieves O(n³m) complexity instead of O(n³m³) by constraining the mixing
+matrix to have orthogonal columns, which causes the projected noise to be
+diagonal and enables inference to decompose into m independent single-output
+GP problems.</p>
 
+
+<details class="reference" open>
+  <summary>Reference</summary>
+  <p>Bruinsma et al. (2020). "Scalable Exact Inference in Multi-Output Gaussian
+Processes." ICML.</p>
+</details>
 
 
 
@@ -4114,21 +3878,111 @@
 
 
 
-<h2 id="gpjax.linalg.operators.LinearOperator" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">LinearOperator</span>
+<h2 id="gpjax.models.oilmm.OrthogonalMixingMatrix" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">OrthogonalMixingMatrix</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LinearOperator</span><span class="p">()</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OrthogonalMixingMatrix</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_outputs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_latent_gps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Array</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="abc.ABC">ABC</span></code></p>
+              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
 
 
 
-        <p>Abstract base class for linear operators.</p>
+        <p>Mixing matrix H = U S^(1/2) with orthogonal columns.</p>
+<p>Parameterizes an orthogonal mixing matrix for OILMM where:
+- U ∈ ℝ^(p×m) has orthonormal columns (U^T U = I_m)
+- S &gt; 0 is a diagonal scaling matrix (m × m)
+- H = U S^(1/2) is the mixing matrix
+- T = S^(-1/2) U^T is the projection matrix</p>
+
+
+<details class="the-orthogonality-of-u-ensures-that-the-projected-noise-is-diagonal" open>
+  <summary>The orthogonality of U ensures that the projected noise is diagonal</summary>
+  <p>Σ_T = T Σ T^T = σ²S^(-1) + D</p>
+</details>        <p>where σ² is observation noise and D is latent noise.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.num_outputs">num_outputs</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.num_latent_gps">num_latent_gps</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GP functions (m)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.U_latent">U_latent</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Unconstrained matrix for SVD orthogonalization</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.S">S</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Positive diagonal scaling</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.obs_noise_variance">obs_noise_variance</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Homogeneous observation noise (σ²)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.latent_noise_variance">latent_noise_variance</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Per-latent heterogeneous noise (D), non-negative</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>num_outputs</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>num_latent_gps</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m), must satisfy m ≤ p</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>key</code></b>
+              (<code><span title="jaxtyping.Array">Array</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>JAX PRNG key for initialization</p>
+          </div>
+        </li>
+    </ul>
 
 
 
@@ -4152,22 +4006,23 @@
 
 
 
-<h3 id="gpjax.linalg.operators.LinearOperator.shape" class="doc doc-heading">
-            <span class="doc doc-object-name doc-attribute-name">shape</span>
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.U" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">U</span>
 
 
   <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">U</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;P M&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Return the shape of the operator.</p>
+        <p>Orthonormal columns via SVD.</p>
+<p>Uses SVD to project U_latent onto the Stiefel manifold (orthonormal columns).
+This ensures U^T U = I_m exactly.</p>
 
     </div>
 
@@ -4177,22 +4032,21 @@
 
 
 
-<h3 id="gpjax.linalg.operators.LinearOperator.dtype" class="doc doc-heading">
-            <span class="doc doc-object-name doc-attribute-name">dtype</span>
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.sqrt_S" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">sqrt_S</span>
 
 
   <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
       <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">dtype</span><span class="p">:</span> <span class="n">dtype</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sqrt_S</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39; M&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Return the data type of the operator.</p>
+        <p>Square root of S diagonal: S^(1/2).</p>
 
     </div>
 
@@ -4202,7 +4056,57 @@
 
 
 
-<h3 id="gpjax.linalg.operators.LinearOperator.T" class="doc doc-heading">
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.inv_sqrt_S" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">inv_sqrt_S</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">inv_sqrt_S</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39; M&#39;</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Inverse square root of S diagonal: S^(-1/2).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.H" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">H</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">H</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;P M&#39;</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Mixing matrix H = U S^(1/2).</p>
+<p>Maps from latent space (m dimensions) to output space (p dimensions).
+Each column is an orthogonal basis vector scaled by sqrt(S_i).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.T" class="doc doc-heading">
             <span class="doc doc-object-name doc-attribute-name">T</span>
 
 
@@ -4211,83 +4115,87 @@
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">T</span><span class="p">:</span> <span class="n">LinearOperator</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">T</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;M P&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Return the transpose of the operator.</p>
+        <p>Projection matrix T = S^(-1/2) U^T.</p>
+<p>Projects from output space (p dimensions) to latent space (m dimensions).
+This is the left pseudo-inverse of H: T @ H = I_m.</p>
 
     </div>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
 
 
 
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.LinearOperator.to_dense" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">to_dense</span>
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.H_squared" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">H_squared</span>
 
 
   <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">to_dense</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;M N&#39;</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">H_squared</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;P M&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Convert the operator to a dense JAX array.</p>
-
+        <p>Element-wise H² for fast diagonal variance reconstruction.</p>
+<p>When computing marginal variances, we need H² @ latent_vars:
+    var_p = sum_m H²_pm * var_m
+This property caches H² to avoid recomputation.</p>
 
     </div>
 
 </div>
 
-<div class="doc doc-object doc-function">
+<div class="doc doc-object doc-attribute">
 
 
-<h3 id="gpjax.linalg.operators.LinearOperator.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
 
+<h3 id="gpjax.models.oilmm.OrthogonalMixingMatrix.projected_noise_variance" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">projected_noise_variance</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">projected_noise_variance</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39; M&#39;</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Diagonal projected noise: Σ_T = σ²S^(-1) + D.</p>
+<p>This is the noise variance for each independent latent GP after projection.
+The orthogonality of U ensures this is diagonal, which is what makes
+OILMM tractable.</p>
 
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, &#39; M&#39;]</code>
+          –
+          <div class="doc-md-description">
+            <p>Array of shape [M] with noise variance for each latent GP.</p>
+          </div>
+        </li>
+    </ul>
 
     </div>
 
 </div>
 
-<div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.LinearOperator.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
-
-
-    </div>
-
-</div>
 
 
 
@@ -4301,21 +4209,123 @@
 
 
 
-<h2 id="gpjax.linalg.operators.Dense" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Dense</span>
+<h2 id="gpjax.models.oilmm.OILMMModel" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">OILMMModel</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Dense</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;M N&#39;</span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OILMMModel</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_outputs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">num_latent_gps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">AbstractKernel</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractKernel</span><span class="p">],</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">mean_function</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
+              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
 
 
 
-        <p>Dense linear operator wrapping a JAX array.</p>
+        <p>Orthogonal Instantaneous Linear Mixing Model.</p>
+<p>OILMM decomposes multi-output GP inference into M independent single-output
+GP problems by using an orthogonal mixing matrix. This achieves O(n³m)
+complexity instead of O(n³m³).</p>
+
+
+<details class="the-generative-model-is" open>
+  <summary>The generative model is</summary>
+  <p>x_i ~ GP(0, K(t,t'))          for i=1..M (latent GPs)
+f(t) = H x(t)                  (mixing)
+y | f ~ N(f(t), Σ)             (noise: Σ = σ²I + HDH^T)</p>
+</details>        <p>The orthogonality constraint (U^T U = I) ensures the projected noise is diagonal:
+    Σ_T = T Σ T^T = σ²S^(-1) + D
+enabling independent inference for each latent GP.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMModel.num_outputs">num_outputs</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMModel.num_latent_gps">num_latent_gps</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMModel.mixing_matrix">mixing_matrix</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>OrthogonalMixingMatrix containing H, T, noise params</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMModel.latent_priors">latent_priors</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Tuple of M independent Prior objects</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>num_outputs</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>num_latent_gps</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m), must satisfy m ≤ p</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>kernel</code></b>
+              (<code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a> | <span title="list">list</span>[<a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Kernel for latent GPs. If a single kernel, it is deep-copied
+M times so each latent GP has independent hyperparameters. If a
+list of M kernels, each is used directly.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>key</code></b>
+              (<code><span title="jaxtyping.Array">Array</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>JAX PRNG key</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>mean_function</code></b>
+              (<code><span title="typing.Any">Any</span></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Mean function for latent GPs (default: Zero)</p>
+          </div>
+        </li>
+    </ul>
 
 
 
@@ -4341,37 +4351,53 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.Dense.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
+<h3 id="gpjax.models.oilmm.OILMMModel.condition_on_observations" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">condition_on_observations</span>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">condition_on_observations</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OILMMPosterior</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Condition on observations to create posterior.</p>
+<p>This implements the core OILMM inference algorithm:
+1. Project observations: y_latent = T @ y
+2. Condition M independent GPs on projected data
+3. Return OILMMPosterior wrapping the M posteriors</p>
 
 
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Dense.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>dataset</code></b>
+              (<code><a class="autorefs autorefs-internal" title="Dataset
 
 
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
+  
+      dataclass
+   (gpjax.dataset.Dataset)" href="../../dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Training data with X [N, D] and y [N, P]</p>
+          </div>
+        </li>
+    </ul>
 
-    <div class="doc doc-contents ">
 
-        <p>Scalar multiplication (self * scalar).</p>
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="OILMMPosterior (gpjax.models.oilmm.OILMMPosterior)" href="#gpjax.models.oilmm.OILMMPosterior">OILMMPosterior</a></code>
+          –
+          <div class="doc-md-description">
+            <p>OILMMPosterior containing M independent posteriors</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -4390,21 +4416,91 @@
 
 
 
-<h2 id="gpjax.linalg.operators.Diagonal" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Diagonal</span>
+<h2 id="gpjax.models.oilmm.OILMMPosterior" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">OILMMPosterior</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Diagonal</span><span class="p">(</span><span class="n">diagonal</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39; N&#39;</span><span class="p">])</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OILMMPosterior</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">latent_posteriors</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">latent_datasets</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">mixing_matrix</span><span class="p">:</span> <span class="n">OrthogonalMixingMatrix</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
 
 
 
-        <p>Diagonal linear operator.</p>
+        <p>Posterior distribution for OILMM.</p>
+<p>Wraps M independent ConjugatePosterior objects and provides a unified
+predict() interface that reconstructs predictions in output space.</p>
+<p>This is a plain class (not nnx.Module) because it holds Dataset objects
+which are not JAX pytree nodes. The latent posteriors and mixing matrix
+are still nnx.Modules and participate in JAX transformations when accessed.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMPosterior.latent_posteriors">latent_posteriors</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Tuple of M independent ConjugatePosterior objects</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMPosterior.latent_datasets">latent_datasets</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Tuple of M projected training Datasets (one per latent GP)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMPosterior.mixing_matrix">mixing_matrix</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>OrthogonalMixingMatrix for reconstruction</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+          <b><code><span title="gpjax.models.oilmm.OILMMPosterior.num_latent_gps">num_latent_gps</span></code></b>
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m)</p>
+          </div>
+        </li>
+    </ul>
+
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>latent_posteriors</code></b>
+              (<code><span title="tuple">tuple</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Tuple of M ConjugatePosterior objects</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>latent_datasets</code></b>
+              (<code><span title="tuple">tuple</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Tuple of M Dataset objects (projected training data)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>mixing_matrix</code></b>
+              (<code><a class="autorefs autorefs-internal" title="OrthogonalMixingMatrix (gpjax.models.oilmm.OrthogonalMixingMatrix)" href="#gpjax.models.oilmm.OrthogonalMixingMatrix">OrthogonalMixingMatrix</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>OrthogonalMixingMatrix containing H, T</p>
+          </div>
+        </li>
+    </ul>
 
 
 
@@ -4430,37 +4526,62 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.Diagonal.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
+<h3 id="gpjax.models.oilmm.OILMMPosterior.predict" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">predict</span>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">predict</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">test_inputs</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">return_full_cov</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GaussianDistribution</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Predict at test locations.</p>
+<p>Reconstructs predictions in output space from M independent latent posteriors:
+1. Predict each latent GP independently
+2. Reconstruct mean: f_mean = H @ latent_means
+3. Reconstruct covariance: Σ_f = (H ⊗ I) Σ_x (H ⊗ I)^T</p>
 
 
-    </div>
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>test_inputs</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="jaxtyping.Array">Array</span>, &#39;N D&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Test input locations [N, D]</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>return_full_cov</code></b>
+              (<code><span title="bool">bool</span></code>, default:
+                  <code>True</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>If True, return full [NP, NP] covariance.
+           If False, return diagonal covariance matrix.</p>
+          </div>
+        </li>
+    </ul>
 
-</div>
 
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Diagonal.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="GaussianDistribution (gpjax.distributions.GaussianDistribution)" href="../../distributions/#gpjax.distributions.GaussianDistribution">GaussianDistribution</a></code>
+          –
+          <div class="doc-md-description">
+            <p>GaussianDistribution with:
+- loc: [NP] flattened output-major
+- scale: Dense [NP, NP] covariance (full or diagonal)</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -4475,61 +4596,64 @@
 
 </div>
 
-<div class="doc doc-object doc-class">
+
+<div class="doc doc-object doc-function">
 
 
-
-<h2 id="gpjax.linalg.operators.Identity" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Identity</span>
+<h2 id="gpjax.models.oilmm.oilmm_mll" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">oilmm_mll</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Identity</span><span class="p">(</span><span class="n">shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
-
-
-
-        <p>Identity linear operator.</p>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Identity.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">oilmm_mll</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OILMMModel</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Log marginal likelihood for the OILMM.</p>
+<p>Implements Prop. 9 from Bruinsma et al. (2020):</p>
+<div class="language-text highlight"><pre><span></span><code>log p(Y) = correction_terms + Σᵢ log N((TY)ᵢ | 0, Kᵢ + noise_i Iₙ)
+</code></pre></div>
+<p>The correction terms prevent the projection from collapsing and account
+for data in the (p - m) dimensions orthogonal to the mixing matrix.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>model</code></b>
+              (<code><a class="autorefs autorefs-internal" title="OILMMModel (gpjax.models.oilmm.OILMMModel)" href="#gpjax.models.oilmm.OILMMModel">OILMMModel</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>OILMMModel with parameters to evaluate.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>data</code></b>
+              (<code><a class="autorefs autorefs-internal" title="Dataset
+
+
+  
+      dataclass
+   (gpjax.dataset.Dataset)" href="../../dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Training data with X [N, D] and y [N, P].</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="gpjax.typing.ScalarFloat">ScalarFloat</span></code>
+          –
+          <div class="doc-md-description">
+            <p>Scalar log marginal likelihood.</p>
+          </div>
+        </li>
+    </ul>
 
 
     </div>
@@ -4539,87 +4663,105 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.Identity.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gpjax.linalg.operators.Triangular" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Triangular</span>
+<h2 id="gpjax.models.oilmm.create_oilmm" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_oilmm</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Triangular</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N N&#39;</span><span class="p">],</span> <span class="n">lower</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
-
-
-
-        <p>Triangular linear operator.</p>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Triangular.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_oilmm</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_outputs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">num_latent_gps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">AbstractKernel</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractKernel</span><span class="p">]</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">mean_function</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OILMMModel</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Create OILMM model with shared kernel across latents.</p>
 
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>num_outputs</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>num_latent_gps</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>key</code></b>
+              (<code><span title="jaxtyping.Array">Array</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>JAX PRNG key</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>kernel</code></b>
+              (<code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a> | <span title="list">list</span>[<a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a>] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Kernel for latent GPs (default: RBF)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>mean_function</code></b>
+              (<code><span title="typing.Any">Any</span></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Mean function for latent GPs (default: Zero)</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="OILMMModel (gpjax.models.oilmm.OILMMModel)" href="#gpjax.models.oilmm.OILMMModel">OILMMModel</a></code>
+          –
+          <div class="doc-md-description">
+            <p>Initialized OILMMModel</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.random as jr
+model = gpx.models.create_oilmm(
+...     num_outputs=5,
+...     num_latent_gps=2,
+...     key=jr.key(42),
+...     kernel=gpx.kernels.Matern52()
+... )</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
     </div>
 
@@ -4628,90 +4770,91 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.Triangular.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gpjax.linalg.operators.BlockDiag" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">BlockDiag</span>
+<h2 id="gpjax.models.oilmm.create_oilmm_with_kernels" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_oilmm_with_kernels</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BlockDiag</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">operators</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">LinearOperator</span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">multiplicities</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
-
-
-
-        <p>Block diagonal linear operator.</p>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.BlockDiag.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_oilmm_with_kernels</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">latent_kernels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AbstractKernel</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">num_outputs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">mean_function</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OILMMModel</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Create OILMM with custom kernel per latent GP.</p>
 
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>latent_kernels</code></b>
+              (<code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a>]</code>)
+          –
+          <div class="doc-md-description">
+            <p>List of M kernels, one per latent GP</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>num_outputs</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of output dimensions (p)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>key</code></b>
+              (<code><span title="jaxtyping.Array">Array</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>JAX PRNG key</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>mean_function</code></b>
+              (<code><span title="typing.Any">Any</span></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Mean function (shared, default: Zero)</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="OILMMModel (gpjax.models.oilmm.OILMMModel)" href="#gpjax.models.oilmm.OILMMModel">OILMMModel</a></code>
+          –
+          <div class="doc-md-description">
+            <p>OILMMModel with heterogeneous latent kernels</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.random as jr
+model = gpx.models.create_oilmm_with_kernels(
+...     latent_kernels=[gpx.kernels.RBF(), gpx.kernels.Matern52()],
+...     num_outputs=6,
+...     key=jr.key(42)
+... )</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
     </div>
 
@@ -4720,120 +4863,127 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="gpjax.linalg.operators.BlockDiag.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gpjax.linalg.operators.Kronecker" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">Kronecker</span>
+<h2 id="gpjax.models.oilmm.create_oilmm_from_data" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_oilmm_from_data</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Kronecker</span><span class="p">(</span><span class="n">operators</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">LinearOperator</span><span class="p">])</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code></p>
-
-
-
-        <p>Kronecker product linear operator.</p>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Kronecker.__add__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__add__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_oilmm_from_data</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">num_latent_gps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">AbstractKernel</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">mean_function</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OILMMModel</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Addition with another array or operator.</p>
+        <p>Create OILMM with data-informed initialization of mixing matrix.</p>
+<p>Initializes U to the top M eigenvectors and S to the top M eigenvalues of
+the empirical covariance matrix of the outputs. Near-zero eigenvalues are
+clamped to 1e-6 for numerical stability. This can provide better
+initialization than random, especially when outputs have clear correlation
+structure.</p>
 
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>dataset</code></b>
+              (<code><a class="autorefs autorefs-internal" title="Dataset
+
+
+  
+      dataclass
+   (gpjax.dataset.Dataset)" href="../../dataset/#gpjax.dataset.Dataset">Dataset</a></code>)
+          –
+          <div class="doc-md-description">
+            <p>Training data with y [N, P]</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>num_latent_gps</code></b>
+              (<code><span title="int">int</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>Number of latent GPs (m)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>key</code></b>
+              (<code><span title="jaxtyping.Array">Array</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>JAX PRNG key</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>kernel</code></b>
+              (<code><a class="autorefs autorefs-internal" title="AbstractKernel (gpjax.kernels.base.AbstractKernel)" href="../../kernels/base/#gpjax.kernels.base.AbstractKernel">AbstractKernel</a></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Kernel for latent GPs (default: RBF)</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>mean_function</code></b>
+              (<code><span title="typing.Any">Any</span></code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Mean function (default: Zero)</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="OILMMModel (gpjax.models.oilmm.OILMMModel)" href="#gpjax.models.oilmm.OILMMModel">OILMMModel</a></code>
+          –
+          <div class="doc-md-description">
+            <p>OILMMModel with U initialized to top M eigenvectors and S to</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><a class="autorefs autorefs-internal" title="OILMMModel (gpjax.models.oilmm.OILMMModel)" href="#gpjax.models.oilmm.OILMMModel">OILMMModel</a></code>
+          –
+          <div class="doc-md-description">
+            <p>top M eigenvalues</p>
+          </div>
+        </li>
+    </ul>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+import jax.numpy as jnp
+import jax.random as jr
+X = jnp.linspace(0, 1, 50).reshape(-1, 1)
+y = jnp.column_stack([jnp.sin(X), jnp.cos(X)])
+data = gpx.Dataset(X=X, y=y)
+model = gpx.models.create_oilmm_from_data(
+...     dataset=data,
+...     num_latent_gps=2,
+...     key=jr.key(42)
+... )</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
 
     </div>
 
 </div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.operators.Kronecker.__mul__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__mul__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Scalar multiplication (self * scalar).</p>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
 
 
 

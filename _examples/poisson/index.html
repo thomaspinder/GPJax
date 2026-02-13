@@ -1094,7 +1094,35 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accelerated Multi-Output GPs
   
 
     
@@ -3197,6 +3225,93 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../api/numpyro_extras/" class="md-nav__link">
         
@@ -3569,7 +3684,7 @@ GPJax <code>Dataset</code>.</p>
 
 
 
-&lt;matplotlib.legend.Legend at 0x7f3390f8c550&gt;
+&lt;matplotlib.legend.Legend at 0x7f85e0be3790&gt;
 </code></pre></div>
 <p><img alt="png" src="../poisson_files/poisson_3_2.png" /></p>
 <h2 id="gaussian-process-definition">Gaussian Process definition<a class="headerlink" href="#gaussian-process-definition" title="Permanent link"></a></h2>
@@ -3658,48 +3773,16 @@ proposed sample, divided by the total number of steps run by the chain).</p>
 <div class="language-text highlight"><pre><span></span><code>Acceptance rate: 1.00
 </code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax0</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">ncols</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">ax0</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">variance</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">latent</span><span class="o">.</span><span class="n">value</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:])</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">ax0</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">variance</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">states</span><span class="o">.</span><span class="n">position</span><span class="o">.</span><span class="n">latent</span><span class="p">[</span><span class="o">...</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">:])</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">ax0</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Kernel Lengthscale&quot;</span><span class="p">)</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Kernel Variance&quot;</span><span class="p">)</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Latent Function (index = 1)&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3676/1404135146.py:2: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  ax0.plot(states.position.prior.kernel.lengthscale.value)
-/tmp/ipykernel_3676/1404135146.py:3: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  ax1.plot(states.position.prior.kernel.variance.value)
-/tmp/ipykernel_3676/1404135146.py:4: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  ax2.plot(states.position.latent.value[:, 1, :])
-
-
-
-
-
-Text(0.5, 1.0, &#39;Latent Function (index = 1)&#39;)
+<div class="language-text highlight"><pre><span></span><code>Text(0.5, 1.0, &#39;Latent Function (index = 1)&#39;)
 </code></pre></div>
-<p><img alt="png" src="../poisson_files/poisson_13_2.png" /></p>
+<p><img alt="png" src="../poisson_files/poisson_13_1.png" /></p>
 <h2 id="prediction">Prediction<a class="headerlink" href="#prediction" title="Permanent link"></a></h2>
 <p>Having obtained samples from the posterior, we draw ten instances from our model's
 predictive distribution per MCMC sample. Using these draws, we will be able to
@@ -3744,7 +3827,7 @@ against the observed data.</p>
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;95% CI&quot;</span><span class="p">,</span>
 </span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.collections.FillBetweenPolyCollection at 0x7f336c3c69d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.collections.FillBetweenPolyCollection at 0x7f85b0d15210&gt;
 </code></pre></div>
 <p><img alt="png" src="../poisson_files/poisson_17_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>
@@ -3753,7 +3836,7 @@ against the observed data.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Francesco Zanetta
 
-Last updated: Wed, 11 Feb 2026
+Last updated: Fri, 13 Feb 2026
 
 Python implementation: CPython
 Python version       : 3.11.14

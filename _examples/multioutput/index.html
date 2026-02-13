@@ -16,7 +16,7 @@
         <link rel="prev" href="../heteroscedastic_inference/">
       
       
-        <link rel="next" href="../numpyro_integration/">
+        <link rel="next" href="../oilmm/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Multi-output GPs - GPJax</title>
+        <title>Multi-Output GPs - GPJax</title>
       
     
     
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Multi-output GPs
+              Multi-Output GPs
             
           </span>
         </div>
@@ -973,7 +973,7 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
   
 
     
@@ -991,7 +991,7 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
   
 
     
@@ -1202,6 +1202,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accelerated Multi-Output GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3296,6 +3324,93 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../api/numpyro_extras/" class="md-nav__link">
         
@@ -3711,39 +3826,44 @@ in GPJax. We construct a synthetic dataset with two correlated outputs, fit an I
 model by optimising the marginal log-likelihood, and inspect the learned
 coregionalization matrix to see what the model has discovered about the output
 structure.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Enable Float64 for more stable matrix inversions.</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">examples.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">use_mpl_style</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jr</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaxtyping</span><span class="w"> </span><span class="kn">import</span> <span class="n">install_import_hook</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mpl</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">with</span> <span class="n">install_import_hook</span><span class="p">(</span><span class="s2">&quot;gpjax&quot;</span><span class="p">,</span> <span class="s2">&quot;beartype.beartype&quot;</span><span class="p">):</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">gpjax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpx</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">key</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">use_mpl_style</span><span class="p">()</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.prop_cycle&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">by_key</span><span class="p">()[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">examples.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">use_mpl_style</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jr</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaxtyping</span><span class="w"> </span><span class="kn">import</span> <span class="n">install_import_hook</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mpl</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">with</span> <span class="n">install_import_hook</span><span class="p">(</span><span class="s2">&quot;gpjax&quot;</span><span class="p">,</span> <span class="s2">&quot;beartype.beartype&quot;</span><span class="p">):</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">gpjax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpx</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">key</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">use_mpl_style</span><span class="p">()</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s2">&quot;axes.prop_cycle&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">by_key</span><span class="p">()[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 <h2 id="the-intrinsic-coregionalization-model">The Intrinsic Coregionalization Model<a class="headerlink" href="#the-intrinsic-coregionalization-model" title="Permanent link"></a></h2>
 <p>The ICM assumes that all outputs share a single latent Gaussian process, weighted
 differently for each output through a positive semi-definite coregionalization
 matrix <span class="arithmatex">\(\mathbf{B} \in \mathbb{R}^{P \times P}\)</span>. Given an input-space kernel
 <span class="arithmatex">\(k(\mathbf{x}, \mathbf{x}')\)</span>, the multi-output covariance between output <span class="arithmatex">\(p\)</span> at
-input <span class="arithmatex">\(\mathbf{x}\)</span> and output <span class="arithmatex">\(q\)</span> at input <span class="arithmatex">\(\mathbf{x}'\)</span> is</p>
-<div class="arithmatex">\[\operatorname{cov}\bigl(f_p(\mathbf{x}),\, f_q(\mathbf{x}')\bigr) = B_{pq}\, k(\mathbf{x}, \mathbf{x}').\]</div>
-<p>Stacking all <span class="arithmatex">\(N\)</span> observations across <span class="arithmatex">\(P\)</span> outputs into a single vector of length
-<span class="arithmatex">\(NP\)</span>, the joint covariance matrix takes the Kronecker form</p>
-<div class="arithmatex">\[\mathbf{K} = \mathbf{B} \otimes \mathbf{K}_{\mathbf{x}\mathbf{x}},\]</div>
-<p>where <span class="arithmatex">\(\mathbf{K}_{\mathbf{x}\mathbf{x}}\)</span> is the <span class="arithmatex">\(N \times N\)</span> Gram matrix of the
+input <span class="arithmatex">\(\mathbf{x}\)</span> and output <span class="arithmatex">\(q\)</span> at input <span class="arithmatex">\(\mathbf{x}'\)</span> is
+$$
+\operatorname{cov}\bigl(f_p(\mathbf{x}),\, f_q(\mathbf{x}')\bigr) = B_{pq}\, k(\mathbf{x}, \mathbf{x}').
+$$
+Stacking all <span class="arithmatex">\(N\)</span> observations across <span class="arithmatex">\(P\)</span> outputs into a single vector of length
+<span class="arithmatex">\(NP\)</span>, the joint covariance matrix takes the Kronecker form
+$$
+\mathbf{K} = \mathbf{B} \otimes \mathbf{K}_{\mathbf{x}\mathbf{x}},
+$$
+where <span class="arithmatex">\(\mathbf{K}_{\mathbf{x}\mathbf{x}}\)</span> is the <span class="arithmatex">\(N \times N\)</span> Gram matrix of the
 base kernel.</p>
-<p>The coregionalization matrix is parameterised as</p>
-<div class="arithmatex">\[\mathbf{B} = \mathbf{W}\mathbf{W}^\top + \operatorname{diag}(\boldsymbol{\kappa}),\]</div>
-<p>where <span class="arithmatex">\(\mathbf{W} \in \mathbb{R}^{P \times R}\)</span> is a low-rank factor of rank <span class="arithmatex">\(R\)</span>
+<p>The coregionalization matrix is parameterised as
+$$
+\mathbf{B} = \mathbf{W}\mathbf{W}^\top + \operatorname{diag}(\boldsymbol{\kappa}),
+$$
+where <span class="arithmatex">\(\mathbf{W} \in \mathbb{R}^{P \times R}\)</span> is a low-rank factor of rank <span class="arithmatex">\(R\)</span>
 and <span class="arithmatex">\(\boldsymbol{\kappa} \in \mathbb{R}^P_{&gt;0}\)</span> is a positive diagonal. The rank
 parameter controls how many latent sources of correlation the model can express.
 When <span class="arithmatex">\(R = 1\)</span> and <span class="arithmatex">\(P = 2\)</span>, the model captures a single shared direction of
@@ -3854,8 +3974,8 @@ the joint covariance.</p>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">pred_var</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">covariance</span><span class="p">())</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">M</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [M, P]</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">pred_std</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">pred_var</span><span class="p">)</span>
 </span></code></pre></div>
-<p>We now plot the predictive distribution for each output. The shaded region shows a
-95% credible interval.</p>
+<p>We now plot the predictive distribution for each output. The shaded region shows the
+predictive uncertainty of the model.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">axes</span><span class="p">):</span>
@@ -3868,7 +3988,7 @@ the joint covariance.</p>
 </span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="n">pred_mean</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pred_std</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span>
 </span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
 </span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;95</span><span class="si">% c</span><span class="s2">redible interval&quot;</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Two sigma&quot;</span><span class="p">,</span>
 </span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="p">)</span>
 </span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">output_labels</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 </span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x$&quot;</span><span class="p">)</span>
@@ -3914,7 +4034,7 @@ input kernel.</p>
 </span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Learned $\mathbf</span><span class="si">{B}</span><span class="s2">$&quot;</span><span class="p">)</span>
 </span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f8f28fcb4d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7fc53448e390&gt;
 </code></pre></div>
 <p><img alt="png" src="../multioutput_files/multioutput_18_1.png" /></p>
 <p>Because <span class="arithmatex">\(f_2\)</span> is defined as a mixture that includes a scaled copy of <span class="arithmatex">\(f_1\)</span>, we
@@ -3937,18 +4057,18 @@ characteristics to different sources of inter-output coupling.</p>
 <p>Given <span class="arithmatex">\(Q\)</span> latent kernels <span class="arithmatex">\(\{k_q\}_{q=1}^{Q}\)</span> and <span class="arithmatex">\(Q\)</span> coregionalization matrices
 <span class="arithmatex">\(\{\mathbf{B}^{(q)}\}_{q=1}^{Q}\)</span>, each of size <span class="arithmatex">\(P \times P\)</span>, the LCM defines the
 multi-output covariance between output <span class="arithmatex">\(p\)</span> at input <span class="arithmatex">\(\mathbf{x}\)</span> and output <span class="arithmatex">\(r\)</span> at
-input <span class="arithmatex">\(\mathbf{x}'\)</span> as</p>
-<div class="arithmatex">\[
+input <span class="arithmatex">\(\mathbf{x}'\)</span> as
+$$
 \operatorname{cov}\bigl(f_p(\mathbf{x}),\, f_r(\mathbf{x}')\bigr)
 = \sum_{q=1}^{Q} B^{(q)}_{pr}\, k_q(\mathbf{x}, \mathbf{x}').
-\]</div>
+$$</p>
 <p>Stacking all <span class="arithmatex">\(N\)</span> observations across <span class="arithmatex">\(P\)</span> outputs into a single vector of length
-<span class="arithmatex">\(NP\)</span>, the joint covariance matrix is the <strong>sum of Kronecker products</strong></p>
-<div class="arithmatex">\[
+<span class="arithmatex">\(NP\)</span>, the joint covariance matrix is the <strong>sum of Kronecker products</strong>
+$$
 \mathbf{K} = \sum_{q=1}^{Q} \mathbf{B}^{(q)} \otimes
              \mathbf{K}^{(q)}_{\mathbf{x}\mathbf{x}},
-\]</div>
-<p>where <span class="arithmatex">\(\mathbf{K}^{(q)}_{\mathbf{x}\mathbf{x}}\)</span> is the <span class="arithmatex">\(N \times N\)</span> Gram matrix
+$$
+where <span class="arithmatex">\(\mathbf{K}^{(q)}_{\mathbf{x}\mathbf{x}}\)</span> is the <span class="arithmatex">\(N \times N\)</span> Gram matrix
 of the <span class="arithmatex">\(q\)</span>-th latent kernel.</p>
 <h3 id="relationship-to-icm">Relationship to ICM<a class="headerlink" href="#relationship-to-icm" title="Permanent link"></a></h3>
 <p>Setting <span class="arithmatex">\(Q = 1\)</span> recovers the ICM exactly: there is one kernel, one
@@ -3960,10 +4080,12 @@ closed-form Kronecker inverse, so GPJax materialises the full <span class="arith
 matrix and solves via a standard Cholesky factorisation in
 <span class="arithmatex">\(\mathcal{O}((NP)^3)\)</span>.</p>
 <h3 id="per-component-coregionalization">Per-component coregionalization<a class="headerlink" href="#per-component-coregionalization" title="Permanent link"></a></h3>
-<p>Each coregionalization matrix is parameterised as before:</p>
-<div class="arithmatex">\[\mathbf{B}^{(q)} = \mathbf{W}^{(q)}{\mathbf{W}^{(q)}}^\top
-  + \operatorname{diag}(\boldsymbol{\kappa}^{(q)}),\]</div>
-<p>where <span class="arithmatex">\(\mathbf{W}^{(q)} \in \mathbb{R}^{P \times R_q}\)</span> is a low-rank factor and
+<p>Each coregionalization matrix is parameterised as before:
+$$
+\mathbf{B}^{(q)} = \mathbf{W}^{(q)}{\mathbf{W}^{(q)}}^\top
+  + \operatorname{diag}(\boldsymbol{\kappa}^{(q)}),
+$$
+where <span class="arithmatex">\(\mathbf{W}^{(q)} \in \mathbb{R}^{P \times R_q}\)</span> is a low-rank factor and
 <span class="arithmatex">\(\boldsymbol{\kappa}^{(q)} \in \mathbb{R}^P_{&gt;0}\)</span> a positive diagonal. The rank
 <span class="arithmatex">\(R_q\)</span> of each component can be chosen independently. A component with rank 1
 captures one direction of inter-output correlation at the length-scale determined
@@ -3975,13 +4097,13 @@ with three outputs driven by <strong>two</strong> distinct latent functions:</p>
 <li><span class="arithmatex">\(g_1(x) = \sin(2\pi x)\)</span> — a smooth, low-frequency oscillation,</li>
 <li><span class="arithmatex">\(g_2(x) = \cos(4\pi x)\)</span> — a faster oscillation at double the frequency.</li>
 </ul>
-<p>The three observed outputs are mixtures of these latent functions:</p>
-<div class="arithmatex">\[\begin{align}
-f_1(x) &amp;= g_1(x), \\
-f_2(x) &amp;= 0.5\,g_1(x) + 0.5\,g_2(x), \\
+<p>The three observed outputs are mixtures of these latent functions:
+\begin{align}
+f_1(x) &amp;= g_1(x), \
+f_2(x) &amp;= 0.5\,g_1(x) + 0.5\,g_2(x), \
 f_3(x) &amp;= g_2(x).
-\end{align}\]</div>
-<p>Outputs 1 and 3 are each dominated by a single latent source, while output 2 is a
+\end{align}
+Outputs 1 and 3 are each dominated by a single latent source, while output 2 is a
 balanced mixture of both. A single-component ICM kernel would struggle here because
 it cannot separate the two frequency scales. An LCM with <span class="arithmatex">\(Q = 2\)</span> components —
 each learning a different length-scale — should recover the latent structure.</p>
@@ -4100,12 +4222,12 @@ output 2, then output 3. We reshape accordingly.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">M_lcm</span> <span class="o">=</span> <span class="n">xtest_lcm</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">pred_lcm</span> <span class="o">=</span> <span class="n">opt_posterior_lcm</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">xtest_lcm</span><span class="p">,</span> <span class="n">train_data</span><span class="o">=</span><span class="n">D_lcm</span><span class="p">)</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">pred_mean_lcm</span> <span class="o">=</span> <span class="n">pred_lcm</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">P_lcm</span><span class="p">,</span> <span class="n">M_lcm</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [M, P]</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">pred_var_lcm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">pred_lcm</span><span class="o">.</span><span class="n">covariance</span><span class="p">())</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">P_lcm</span><span class="p">,</span> <span class="n">M_lcm</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># [M, P]</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">pred_mean_lcm</span> <span class="o">=</span> <span class="n">pred_lcm</span><span class="o">.</span><span class="n">mean</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">P_lcm</span><span class="p">,</span> <span class="n">M_lcm</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">pred_var_lcm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">pred_lcm</span><span class="o">.</span><span class="n">covariance</span><span class="p">())</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">P_lcm</span><span class="p">,</span> <span class="n">M_lcm</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
 </span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="n">pred_std_lcm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">pred_var_lcm</span><span class="p">)</span>
 </span></code></pre></div>
 <p>We now plot the predictive distribution for each of the three outputs. The shaded
-region shows a 95% credible interval.</p>
+region shows the predictive uncertainty.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ax</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">axes</span><span class="p">):</span>
@@ -4126,7 +4248,7 @@ region shows a 95% credible interval.</p>
 </span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>        <span class="n">pred_mean_lcm</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pred_std_lcm</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span>
 </span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a>        <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
 </span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a>        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;95</span><span class="si">% c</span><span class="s2">redible interval&quot;</span><span class="p">,</span>
+</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Two sigma&quot;</span><span class="p">,</span>
 </span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a>    <span class="p">)</span>
 </span><span id="__span-15-23"><a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">output_labels_lcm</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 </span><span id="__span-15-24"><a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;$x$&quot;</span><span class="p">)</span>
@@ -4186,7 +4308,7 @@ weight in both matrices — exactly as expected.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Wed, 11 Feb 2026
+Last updated: Fri, 13 Feb 2026
 
 Python implementation: CPython
 Python version       : 3.11.14

@@ -964,7 +964,35 @@
   <span class="md-ellipsis">
     
   
-    Multi-output GPs
+    Multi-Output GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accelerated Multi-Output GPs
   
 
     
@@ -3197,6 +3225,93 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_11" id="__nav_8_1_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/models/oilmm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Oilmm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../api/numpyro_extras/" class="md-nav__link">
         
@@ -3629,7 +3744,7 @@ Notebook</a> to
 see how you can define your own bijectors and parameter types.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">DEFAULT_BIJECTION</span><span class="p">[</span><span class="n">constant_param</span><span class="o">.</span><span class="n">tag</span><span class="p">])</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;numpyro.distributions.transforms.SoftplusTransform object at 0x7f16777bd2d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;numpyro.distributions.transforms.SoftplusTransform object at 0x7fc2337556d0&gt;
 </code></pre></div>
 <p>We see here that the Softplus bijector is specified as the default for strictly
 positive parameters. To apply this, we must first realise the <em>state</em> of our model.
@@ -3675,7 +3790,7 @@ explanation of this model.).</p>
     [38;2;156;220;254mkernel[0m[38;2;212;212;212m=[0m[38;2;79;201;177mMatern32[0m[38;2;255;213;3m([0m[38;2;105;105;105m # PositiveReal: 1 (8 B), NonNegativeReal: 1 (8 B), Total: 2 (16 B)[0m
       [38;2;156;220;254mactive_dims[0m[38;2;212;212;212m=[0mslice(None, None, None),
       [38;2;156;220;254mn_dims[0m[38;2;212;212;212m=[0m[38;2;86;156;214mNone[0m,
-      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f16776d7dd0&gt;,
+      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fc230393150&gt;,
       [38;2;156;220;254mlengthscale[0m[38;2;212;212;212m=[0m[38;2;79;201;177mPositiveReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
         [38;2;156;220;254mvalue[0m[38;2;212;212;212m=[0mArray(1., dtype=float64, weak_type=True),
         [38;2;156;220;254mtag[0m[38;2;212;212;212m=[0m[38;2;207;144;120m&#39;positive&#39;[0m,
@@ -3700,7 +3815,7 @@ explanation of this model.).</p>
     [38;2;255;213;3m)[0m,
     [38;2;156;220;254mnum_outputs[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1[0m,
     [38;2;156;220;254mnum_datapoints[0m[38;2;212;212;212m=[0m[38;2;182;207;169m100[0m,
-    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f167760e550&gt;
+    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fc23360cb50&gt;
   [38;2;255;213;3m)[0m,
   [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m
 [38;2;255;213;3m)[0m
@@ -3784,7 +3899,7 @@ the updated state.</p>
 <div class="language-text highlight"><pre><span></span><code>[38;2;79;201;177mConjugatePosterior[0m[38;2;255;213;3m([0m[38;2;105;105;105m # NonNegativeReal: 2 (16 B), PositiveReal: 1 (8 B), Total: 3 (24 B)[0m
   [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m,
   [38;2;156;220;254mlikelihood[0m[38;2;212;212;212m=[0m[38;2;79;201;177mGaussian[0m[38;2;255;213;3m([0m[38;2;105;105;105m # NonNegativeReal: 1 (8 B)[0m
-    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f167760e550&gt;,
+    [38;2;156;220;254mintegrator[0m[38;2;212;212;212m=[0m&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fc23360cb50&gt;,
     [38;2;156;220;254mnum_datapoints[0m[38;2;212;212;212m=[0m[38;2;182;207;169m100[0m,
     [38;2;156;220;254mnum_outputs[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1[0m,
     [38;2;156;220;254mobs_stddev[0m[38;2;212;212;212m=[0m[38;2;79;201;177mNonNegativeReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
@@ -3797,7 +3912,7 @@ the updated state.</p>
     [38;2;156;220;254mjitter[0m[38;2;212;212;212m=[0m[38;2;182;207;169m1e-06[0m,
     [38;2;156;220;254mkernel[0m[38;2;212;212;212m=[0m[38;2;79;201;177mMatern32[0m[38;2;255;213;3m([0m[38;2;105;105;105m # PositiveReal: 1 (8 B), NonNegativeReal: 1 (8 B), Total: 2 (16 B)[0m
       [38;2;156;220;254mactive_dims[0m[38;2;212;212;212m=[0mslice(None, None, None),
-      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f16776d7dd0&gt;,
+      [38;2;156;220;254mcompute_engine[0m[38;2;212;212;212m=[0m&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fc230393150&gt;,
       [38;2;156;220;254mlengthscale[0m[38;2;212;212;212m=[0m[38;2;79;201;177mPositiveReal[0m[38;2;255;213;3m([0m[38;2;105;105;105m # 1 (8 B)[0m
         [38;2;156;220;254mvalue[0m[38;2;212;212;212m=[0mArray(2., dtype=float64, weak_type=True),
         [38;2;156;220;254mnumpyro_properties[0m[38;2;212;212;212m=[0m[38;2;255;213;3m{[0m[38;2;255;213;3m}[0m,
@@ -3912,7 +4027,7 @@ mean function. Let's now implement that using the new NNX backend.</p>
 </span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">slope</span> <span class="o">=</span> <span class="n">Real</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">slope</span><span class="p">))</span>
 </span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>
 </span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N O&quot;</span><span class="p">]:</span>
-</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slope</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">intercept</span><span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slope</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
 </span></code></pre></div>
 <p>As we can see, the implementation is straightforward and concise. The
 <code>AbstractMeanFunction</code> module is a subclass of <code>nnx.Module</code> and may, therefore, be
@@ -3928,23 +4043,9 @@ a linearly spaced set of inputs.</p>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">meanf</span> <span class="o">=</span> <span class="n">LinearMeanFunction</span><span class="p">(</span><span class="n">intercept</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">slope</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">meanf</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3344/2522322147.py:18: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  return self.intercept.value + jnp.dot(x, self.slope.value)
-
-
-
-
-
-[&lt;matplotlib.lines.Line2D at 0x7f1648527e10&gt;]
+<div class="language-text highlight"><pre><span></span><code>[&lt;matplotlib.lines.Line2D at 0x7fc270519390&gt;]
 </code></pre></div>
-<p><img alt="png" src="../backend_files/backend_36_2.png" /></p>
+<p><img alt="png" src="../backend_files/backend_36_1.png" /></p>
 <p>Looks good! To conclude this section, let's now parameterise a GP with our new mean
 function and see how gradients may be computed.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">y</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
@@ -3968,16 +4069,6 @@ the unconstrained state of the kernel, mean function, and likelihood parameters.
 </span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>
 </span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="n">param_grads</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">loss_fn</span><span class="p">)(</span><span class="n">params</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3344/2522322147.py:18: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  return self.intercept.value + jnp.dot(x, self.slope.value)
-</code></pre></div>
 <p>In practice, you would wish to perform multiple iterations of gradient descent to
 learn the optimal parameter values. However, for the purposes of illustration, we use
 another <code>tree_map</code> in the below to update the parameters' state using their previously
@@ -3999,23 +4090,9 @@ invoke the model as normal.</p>
 </span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="n">ax</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">&quot;m(x)&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/tmp/ipykernel_3344/2522322147.py:18: DeprecationWarning: &#39;.value&#39; access is now deprecated. For Variable[Array] instances use:
-
-  variable[...]
-
-For other Variable types use:
-
-  variable.get_value()
-
-  return self.intercept.value + jnp.dot(x, self.slope.value)
-
-
-
-
-
-[Text(0.5, 0, &#39;x&#39;), Text(0, 0.5, &#39;m(x)&#39;)]
+<div class="language-text highlight"><pre><span></span><code>[Text(0.5, 0, &#39;x&#39;), Text(0, 0.5, &#39;m(x)&#39;)]
 </code></pre></div>
-<p><img alt="png" src="../backend_files/backend_44_2.png" /></p>
+<p><img alt="png" src="../backend_files/backend_44_1.png" /></p>
 <h2 id="conclusions">Conclusions<a class="headerlink" href="#conclusions" title="Permanent link"></a></h2>
 <p>In this notebook we have explored how GPJax's Flax-based backend may be easily
 manipulated and extended. For a more applied look at this, see how we construct a
@@ -4028,7 +4105,7 @@ notebook.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Wed, 11 Feb 2026
+Last updated: Fri, 13 Feb 2026
 
 Python implementation: CPython
 Python version       : 3.11.14
