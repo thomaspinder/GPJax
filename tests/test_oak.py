@@ -308,3 +308,43 @@ class TestOrthogonalAdditiveKernelProperties:
         ov_grad = grads.order_variances.value
         assert jnp.all(jnp.isfinite(ov_grad))
         assert not jnp.allclose(ov_grad, 0.0)
+
+
+class TestSobolIndices:
+    """Tests for Sobol index computation."""
+
+    def test_returns_correct_shape(self):
+        """Sobol indices have shape (max_order,) -- one per interaction order."""
+        from gpjax.kernels.additive.sobol import sobol_indices
+
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(20, 3))
+        y = jr.normal(jr.PRNGKey(1), shape=(20, 1))
+        indices = sobol_indices(kernel, x, y, noise_variance=0.1)
+        assert indices.shape == (3,)  # orders 1, 2, 3 (not offset)
+
+    def test_normalized_to_sum_to_one(self):
+        """Normalized Sobol indices sum to 1."""
+        from gpjax.kernels.additive.sobol import sobol_indices
+
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(20, 3))
+        y = jr.normal(jr.PRNGKey(1), shape=(20, 1))
+        indices = sobol_indices(kernel, x, y, noise_variance=0.1)
+        assert jnp.allclose(jnp.sum(indices), 1.0, atol=1e-6)
+
+    def test_non_negative(self):
+        """All Sobol indices are non-negative."""
+        from gpjax.kernels.additive.sobol import sobol_indices
+
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(20, 3))
+        y = jr.normal(jr.PRNGKey(1), shape=(20, 1))
+        indices = sobol_indices(kernel, x, y, noise_variance=0.1)
+        assert jnp.all(indices >= -1e-10)
