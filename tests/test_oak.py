@@ -9,7 +9,13 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from gpjax.kernels.additive.oak import _constrained_se_kernel, _newton_girard
+from gpjax.kernels import RBF
+from gpjax.kernels.additive.oak import (
+    OrthogonalAdditiveKernel,
+    _constrained_se_kernel,
+    _newton_girard,
+)
+from gpjax.parameters import NonNegativeReal
 
 
 class TestConstrainedSEKernel:
@@ -106,3 +112,48 @@ class TestNewtonGirard:
         assert e.shape == (3,)  # e_0, e_1, e_2
         assert jnp.allclose(e[1], 10.0)
         assert jnp.allclose(e[2], 35.0)
+
+
+class TestOrthogonalAdditiveKernelInit:
+    """Tests for OAK construction."""
+
+    def test_basic_construction(self):
+        """Construct a 3D OAK with default settings."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        assert kernel.max_order == 3
+        assert len(kernel.base_kernels) == 3
+        assert kernel.order_variances[...].shape == (4,)  # includes sigma^2_0
+
+    def test_custom_max_order(self):
+        """max_order < D truncates interaction orders."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(5)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, max_order=2)
+        assert kernel.max_order == 2
+        assert kernel.order_variances[...].shape == (3,)  # e_0, e_1, e_2
+
+    def test_custom_order_variances(self):
+        """User can provide initial order variances."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        ov = jnp.array([0.5, 1.0, 0.5, 0.1])
+        kernel = OrthogonalAdditiveKernel(
+            base_kernels=base_kernels, order_variances=ov
+        )
+        assert jnp.allclose(kernel.order_variances[...], ov)
+
+    def test_order_variances_are_trainable(self):
+        """Order variances should be NonNegativeReal parameters."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        assert isinstance(kernel.order_variances, NonNegativeReal)
+
+    def test_max_order_exceeds_D_raises(self):
+        """max_order > D is invalid."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        with pytest.raises(ValueError, match="max_order"):
+            OrthogonalAdditiveKernel(base_kernels=base_kernels, max_order=5)
+
+    def test_empty_base_kernels_raises(self):
+        """Must provide at least one base kernel."""
+        with pytest.raises(ValueError, match="at least one"):
+            OrthogonalAdditiveKernel(base_kernels=[])

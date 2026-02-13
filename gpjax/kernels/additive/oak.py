@@ -100,5 +100,82 @@ def _newton_girard(
     return e
 
 
-class OrthogonalAdditiveKernel:
-    """Placeholder - will be implemented in Task 4."""
+import beartype.typing as tp
+from flax import nnx
+
+from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.kernels.computations.base import AbstractKernelComputation
+from gpjax.parameters import NonNegativeReal
+
+
+class OrthogonalAdditiveKernel(AbstractKernel):
+    r"""Orthogonal Additive Kernel (OAK).
+
+    Wraps D one-dimensional SE base kernels with an orthogonality constraint
+    (under standard normal input density) and combines them via Newton-Girard
+    into an additive kernel with configurable maximum interaction order.
+
+    The kernel decomposes as:
+        K = sum_{l=0}^{D_tilde} sigma^2_l * E_l
+
+    where E_l is the l-th elementary symmetric polynomial of the D constrained
+    base kernel evaluations, and sigma^2_l are learnable order variances.
+
+    Reference:
+        Lu, X., Boukouvalas, A., & Hensman, J. (2022).
+        Additive Gaussian Processes Revisited. ICML.
+
+    Args:
+        base_kernels: List of D one-dimensional base kernels (typically RBF
+            with active_dims=[i] for each dimension i). Each must have
+            lengthscale and variance attributes.
+        max_order: Maximum interaction order (D_tilde). Defaults to D.
+            Must be <= D.
+        order_variances: Initial order variances of shape (max_order + 1,).
+            Entry 0 is the offset variance, entry d is the d-th order
+            interaction variance. Defaults to ones.
+        compute_engine: Kernel computation engine. Defaults to
+            DenseKernelComputation.
+    """
+
+    name: str = "Orthogonal Additive"
+
+    def __init__(
+        self,
+        base_kernels: list[AbstractKernel],
+        max_order: tp.Union[int, None] = None,
+        order_variances: tp.Union[Float[Array, " D_tilde_plus_1"], None] = None,
+        compute_engine: AbstractKernelComputation = DenseKernelComputation(),
+    ):
+        if len(base_kernels) == 0:
+            raise ValueError("Must provide at least one base kernel.")
+
+        D = len(base_kernels)
+
+        if max_order is None:
+            max_order = D
+        if max_order > D:
+            raise ValueError(
+                f"max_order ({max_order}) must be <= number of base kernels ({D})."
+            )
+
+        super().__init__(compute_engine=compute_engine)
+
+        self.base_kernels = nnx.List(base_kernels)
+        self.max_order = max_order
+
+        if order_variances is None:
+            order_variances = jnp.ones(max_order + 1)
+
+        if isinstance(order_variances, NonNegativeReal):
+            self.order_variances = order_variances
+        else:
+            self.order_variances = NonNegativeReal(order_variances)
+
+    def __call__(
+        self,
+        x: Float[Array, " D"],
+        y: Float[Array, " D"],
+    ) -> ScalarFloat:
+        raise NotImplementedError("TODO: Task 5")
