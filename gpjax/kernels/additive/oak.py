@@ -173,9 +173,44 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         else:
             self.order_variances = NonNegativeReal(order_variances)
 
+    @property
+    def _lengthscales(self) -> Float[Array, " D"]:
+        """Stack base kernel lengthscales into a single array."""
+        return jnp.stack(
+            [k.lengthscale[...].squeeze() for k in self.base_kernels]
+        )
+
+    @property
+    def _variances(self) -> Float[Array, " D"]:
+        """Stack base kernel variances into a single array."""
+        return jnp.stack(
+            [k.variance[...].squeeze() for k in self.base_kernels]
+        )
+
     def __call__(
         self,
         x: Float[Array, " D"],
         y: Float[Array, " D"],
     ) -> ScalarFloat:
-        raise NotImplementedError("TODO: Task 5")
+        r"""Evaluate the OAK kernel on a pair of inputs.
+
+        Computes constrained kernel values per dimension via vmap, then
+        combines via Newton-Girard recursion weighted by order variances.
+
+        Args:
+            x: Left input of shape (D,).
+            y: Right input of shape (D,).
+
+        Returns:
+            Scalar kernel value.
+        """
+        # vmap constrained kernel over all D dimensions simultaneously
+        z = jax.vmap(_constrained_se_kernel)(
+            x, y, self._lengthscales, self._variances
+        )
+
+        # Newton-Girard recursion (uses lax.fori_loop internally)
+        e = _newton_girard(z, self.max_order)
+
+        # Weighted sum over interaction orders
+        return jnp.dot(self.order_variances[...], e)

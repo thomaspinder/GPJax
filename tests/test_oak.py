@@ -157,3 +157,79 @@ class TestOrthogonalAdditiveKernelInit:
         """Must provide at least one base kernel."""
         with pytest.raises(ValueError, match="at least one"):
             OrthogonalAdditiveKernel(base_kernels=[])
+
+
+class TestOrthogonalAdditiveKernelCall:
+    """Tests for OAK __call__ (scalar pair evaluation)."""
+
+    def test_returns_scalar(self):
+        """Calling the kernel on two points returns a scalar."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        x = jnp.array([0.5, -0.3, 0.1])
+        y = jnp.array([0.2, 0.4, -0.6])
+        result = kernel(x, y)
+        assert result.shape == ()
+
+    def test_symmetric(self):
+        """k(x, y) == k(y, x)."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        x = jnp.array([0.5, -0.3, 0.1])
+        y = jnp.array([0.2, 0.4, -0.6])
+        assert jnp.allclose(kernel(x, y), kernel(y, x), atol=1e-12)
+
+    def test_max_order_1_is_gam(self):
+        """With max_order=1, kernel is offset + sum of 1D constrained kernels.
+
+        k(x,y) = sigma^2_0 + sigma^2_1 * sum_d k_tilde_d(x_d, y_d)
+        """
+        base_kernels = [
+            RBF(active_dims=[i], lengthscale=1.0, variance=1.0) for i in range(3)
+        ]
+        kernel = OrthogonalAdditiveKernel(
+            base_kernels=base_kernels,
+            max_order=1,
+            order_variances=jnp.ones(2),
+        )
+        x = jnp.array([0.5, -0.3, 0.1])
+        y = jnp.array([0.2, 0.4, -0.6])
+        result = kernel(x, y)
+
+        # Manually compute: sigma^2_0 * 1 + sigma^2_1 * sum(k_tilde_d)
+        manual = 1.0  # sigma^2_0 * e_0
+        for d in range(3):
+            manual += _constrained_se_kernel(
+                x[d], y[d], jnp.array(1.0), jnp.array(1.0)
+            )
+        assert jnp.allclose(result, manual, atol=1e-10)
+
+    def test_brute_force_d3_full_order(self):
+        """D=3, max_order=3: compare against explicit enumeration of all subsets."""
+        ls = [1.0, 1.5, 0.8]
+        base_kernels = [
+            RBF(active_dims=[i], lengthscale=ls[i], variance=1.0) for i in range(3)
+        ]
+        ov = jnp.array([0.5, 1.0, 0.8, 0.3])
+        kernel = OrthogonalAdditiveKernel(
+            base_kernels=base_kernels, order_variances=ov
+        )
+        x = jnp.array([0.5, -0.3, 0.1])
+        y = jnp.array([0.2, 0.4, -0.6])
+        result = kernel(x, y)
+
+        # Brute-force computation
+        z = jnp.array([
+            _constrained_se_kernel(x[d], y[d], jnp.array(ls[d]), jnp.array(1.0))
+            for d in range(3)
+        ])
+        # e_0 = 1
+        # e_1 = z0 + z1 + z2
+        # e_2 = z0*z1 + z0*z2 + z1*z2
+        # e_3 = z0*z1*z2
+        e0 = 1.0
+        e1 = z[0] + z[1] + z[2]
+        e2 = z[0] * z[1] + z[0] * z[2] + z[1] * z[2]
+        e3 = z[0] * z[1] * z[2]
+        expected = ov[0] * e0 + ov[1] * e1 + ov[2] * e2 + ov[3] * e3
+        assert jnp.allclose(result, expected, atol=1e-10)
