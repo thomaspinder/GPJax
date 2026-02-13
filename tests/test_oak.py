@@ -233,3 +233,78 @@ class TestOrthogonalAdditiveKernelCall:
         e3 = z[0] * z[1] * z[2]
         expected = ov[0] * e0 + ov[1] * e1 + ov[2] * e2 + ov[3] * e3
         assert jnp.allclose(result, expected, atol=1e-10)
+
+
+class TestOrthogonalAdditiveKernelProperties:
+    """Tests for gram matrix, PSD, JIT, gradients."""
+
+    @pytest.fixture
+    def kernel_and_data(self):
+        """3D OAK kernel with small dataset."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(10, 3))
+        return kernel, x
+
+    def test_gram_shape(self, kernel_and_data):
+        """Gram matrix has shape (N, N)."""
+        kernel, x = kernel_and_data
+        K = kernel.gram(x)
+        assert K.to_dense().shape == (10, 10)
+
+    def test_gram_symmetric(self, kernel_and_data):
+        """Gram matrix is symmetric."""
+        kernel, x = kernel_and_data
+        K = kernel.gram(x).to_dense()
+        assert jnp.allclose(K, K.T, atol=1e-10)
+
+    def test_gram_psd(self, kernel_and_data):
+        """Gram matrix eigenvalues are non-negative."""
+        kernel, x = kernel_and_data
+        K = kernel.gram(x).to_dense()
+        eigvals = jnp.linalg.eigvalsh(K)
+        assert jnp.all(eigvals > -1e-6), f"Negative eigenvalue: {eigvals.min()}"
+
+    def test_cross_covariance_shape(self, kernel_and_data):
+        """Cross-covariance has shape (N, M)."""
+        kernel, x = kernel_and_data
+        key = jr.PRNGKey(1)
+        y = jr.normal(key, shape=(7, 3))
+        Kxy = kernel.cross_covariance(x, y)
+        assert Kxy.shape == (10, 7)
+
+    def test_cross_covariance_matches_gram_diagonal(self, kernel_and_data):
+        """cross_covariance(x, x) diagonal matches gram diagonal."""
+        kernel, x = kernel_and_data
+        K_gram = kernel.gram(x).to_dense()
+        K_cross = kernel.cross_covariance(x, x)
+        assert jnp.allclose(jnp.diag(K_gram), jnp.diag(K_cross), atol=1e-10)
+
+    def test_jit_compatible(self, kernel_and_data):
+        """Kernel gram computation works under jax.jit."""
+        kernel, x = kernel_and_data
+        K_eager = kernel.gram(x).to_dense()
+        K_jit = jax.jit(lambda xx: kernel.gram(xx).to_dense())(x)
+        assert jnp.allclose(K_eager, K_jit, atol=1e-10)
+
+    def test_gradient_flows(self):
+        """Gradients w.r.t. kernel parameters are finite and non-zero."""
+        from flax import nnx
+
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
+        x = jr.normal(jr.PRNGKey(0), shape=(5, 3))
+
+        graphdef, state = nnx.split(kernel)
+
+        def loss_fn(state):
+            k = nnx.merge(graphdef, state)
+            K = k.gram(x).to_dense()
+            return jnp.sum(K)
+
+        grads = jax.grad(loss_fn)(state)
+        # Check order_variances gradient exists and is finite
+        ov_grad = grads.order_variances.value
+        assert jnp.all(jnp.isfinite(ov_grad))
+        assert not jnp.allclose(ov_grad, 0.0)
