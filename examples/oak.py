@@ -267,11 +267,6 @@ latent_dist = opt_posterior.predict(
 predictive_dist = opt_posterior.likelihood(latent_dist)
 oak_pred_mean = predictive_dist.mean
 
-oak_rmse = jnp.sqrt(jnp.mean(jnp.square(oak_pred_mean - y_test.squeeze())))
-oak_rmse_orig = float(oak_rmse) * float(y_std.squeeze())
-print(f"OAK GP test RMSE (standardised): {oak_rmse:.4f}")
-print(f"OAK GP test RMSE (original mpg): {oak_rmse_orig:.2f}")
-
 # %% [markdown]
 # ## Sobol indices
 #
@@ -288,7 +283,6 @@ si = sobol_indices(
     float(noise_var),
 )
 
-# %%
 fig, ax = plt.subplots(figsize=(7, 3))
 orders = jnp.arange(1, len(si) + 1)
 ax.bar(orders, si, color=cols[0])
@@ -296,11 +290,6 @@ ax.set_xlabel("Interaction order")
 ax.set_ylabel("Sobol index")
 ax.set_title("Sobol indices by interaction order")
 ax.set_xticks(np.arange(1, len(si) + 1))
-
-cumulative = jnp.cumsum(si)
-print("Sobol indices per interaction order:")
-for i, (s, c) in enumerate(zip(si, cumulative)):
-    print(f"  Order {i + 1}: {s:.4f}  (cumulative: {c:.4f})")
 
 # %% [markdown]
 # Typically the first-order (main) effects dominate, with higher-order
@@ -323,13 +312,16 @@ for i, (s, c) in enumerate(zip(si, cumulative)):
 
 # %%
 oak_kern = opt_posterior.prior.kernel
-num_top_features = 5
+num_top_features = 3
 
 feature_scores = rank_first_order(oak_kern, X_train, y_train, float(noise_var))
 top_features = jnp.argsort(-feature_scores)[:num_top_features]
 
 n_grid = 300
-fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12, 5))
+n_cols = 3
+fig, axes = plt.subplots(
+    nrows=num_top_features // n_cols, ncols=n_cols, figsize=(12, 3)
+)
 
 for idx, ax in enumerate(axes.flat):
     dim = int(top_features[idx])
@@ -370,7 +362,7 @@ for idx, ax in enumerate(axes.flat):
     ax.set_title(f"{fname} (dim {dim})")
     ax.legend(loc="best", fontsize=8)
 
-fig.suptitle("Top 4 first-order main effects", fontsize=14, y=1.02)
+fig.suptitle(f"Top {num_top_features} first-order main effects", fontsize=14, y=1.02)
 
 # %% [markdown]
 # Each panel shows how the OAK model attributes predictive variation to
