@@ -5,6 +5,8 @@ Reference:
     Additive Gaussian Processes Revisited. ICML.
 """
 
+import jax
+import jax.lax as lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
@@ -48,6 +50,54 @@ def _constrained_se_kernel(
     )
 
     return k_base - k_hat
+
+
+def _newton_girard(
+    z: Float[Array, " D"],
+    max_order: int,
+) -> Float[Array, " D_tilde_plus_1"]:
+    """Compute elementary symmetric polynomials via Newton-Girard recursion.
+
+    Given values z_1, ..., z_D, computes e_0, e_1, ..., e_{max_order} where:
+    - e_0 = 1
+    - e_1 = sum(z_i)
+    - e_2 = sum_{i<j} z_i * z_j
+    - e_n = (1/n) sum_{k=1}^{n} (-1)^{k-1} e_{n-k} s_k
+
+    and s_k = sum(z_i^k) are power sums.
+
+    Uses jax.lax.fori_loop for JAX compatibility (no Python for loops).
+
+    Args:
+        z: Array of D values (one per dimension).
+        max_order: Maximum order of elementary symmetric polynomial to compute.
+
+    Returns:
+        Array of shape (max_order + 1,) containing e_0 through e_{max_order}.
+    """
+    # Vectorized power sums: s[k] = sum_{d=1}^D z_d^{k+1}
+    powers = jnp.arange(1, max_order + 1)[:, None]  # (max_order, 1)
+    s = jnp.sum(z[None, :] ** powers, axis=1)  # (max_order,)
+
+    # Precompute signed power sums: (-1)^{k-1} * s_k
+    signs = (-1.0) ** jnp.arange(max_order)  # [1, -1, 1, -1, ...]
+    signed_s = signs * s  # (max_order,)
+
+    e = jnp.zeros(max_order + 1)
+    e = e.at[0].set(1.0)
+
+    def body_fn(ell, e):
+        # e_ell = (1/ell) * sum_{k=1}^{ell} (-1)^{k-1} * e[ell-k] * s[k-1]
+        # Rewrite as masked dot product of reversed e-slice with signed_s
+        k = jnp.arange(max_order)
+        e_idx = (ell - 1 - k).clip(0)  # indices into e, clipped for safety
+        mask = k < ell  # only include k=0..ell-1
+        e_vals = jnp.where(mask, e[e_idx], 0.0)
+        val = jnp.dot(e_vals, signed_s) / ell
+        return e.at[ell].set(val)
+
+    e = lax.fori_loop(1, max_order + 1, body_fn, e)
+    return e
 
 
 class OrthogonalAdditiveKernel:

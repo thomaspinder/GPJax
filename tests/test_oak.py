@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from gpjax.kernels.additive.oak import _constrained_se_kernel
+from gpjax.kernels.additive.oak import _constrained_se_kernel, _newton_girard
 
 
 class TestConstrainedSEKernel:
@@ -60,3 +60,49 @@ class TestConstrainedSEKernel:
         k_tilde_xx = _constrained_se_kernel(x, x, l, v)
         k_xx = v * jnp.exp(-0.5 * jnp.square(x - x) / jnp.square(l))
         assert k_tilde_xx <= k_xx + 1e-10
+
+
+class TestNewtonGirard:
+    """Tests for Newton-Girard elementary symmetric polynomial computation."""
+
+    def test_order_1_is_sum(self):
+        """e_1(z1, z2, z3) = z1 + z2 + z3."""
+        z = jnp.array([2.0, 3.0, 5.0])
+        e = _newton_girard(z, max_order=1)
+        # e[0] = 1 (e_0), e[1] = sum(z)
+        assert jnp.allclose(e[0], 1.0)
+        assert jnp.allclose(e[1], 10.0)
+
+    def test_order_2_is_pairwise_products(self):
+        """e_2(z1, z2, z3) = z1*z2 + z1*z3 + z2*z3."""
+        z = jnp.array([2.0, 3.0, 5.0])
+        e = _newton_girard(z, max_order=2)
+        expected_e2 = 2.0 * 3.0 + 2.0 * 5.0 + 3.0 * 5.0  # 31.0
+        assert jnp.allclose(e[2], expected_e2)
+
+    def test_order_3_is_triple_product(self):
+        """e_3(z1, z2, z3) = z1*z2*z3."""
+        z = jnp.array([2.0, 3.0, 5.0])
+        e = _newton_girard(z, max_order=3)
+        assert jnp.allclose(e[3], 30.0)
+
+    def test_full_order_4d(self):
+        """Full check for D=4 against brute-force."""
+        z = jnp.array([1.0, 2.0, 3.0, 4.0])
+        e = _newton_girard(z, max_order=4)
+        # e_1 = 1+2+3+4 = 10
+        assert jnp.allclose(e[1], 10.0)
+        # e_2 = 1*2+1*3+1*4+2*3+2*4+3*4 = 35
+        assert jnp.allclose(e[2], 35.0)
+        # e_3 = 1*2*3+1*2*4+1*3*4+2*3*4 = 50
+        assert jnp.allclose(e[3], 50.0)
+        # e_4 = 1*2*3*4 = 24
+        assert jnp.allclose(e[4], 24.0)
+
+    def test_truncated_order(self):
+        """max_order < D returns only up to that order."""
+        z = jnp.array([1.0, 2.0, 3.0, 4.0])
+        e = _newton_girard(z, max_order=2)
+        assert e.shape == (3,)  # e_0, e_1, e_2
+        assert jnp.allclose(e[1], 10.0)
+        assert jnp.allclose(e[2], 35.0)
