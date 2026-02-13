@@ -305,6 +305,154 @@ class TestOrthogonalAdditiveKernelProperties:
         assert not jnp.allclose(ov_grad, 0.0)
 
 
+class TestRankFirstOrder:
+    """Tests for rank_first_order decomposition utility."""
+
+    @pytest.fixture
+    def kernel_and_data(self):
+        """3D OAK kernel with small dataset."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, max_order=2)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(20, 3))
+        y = jr.normal(jr.PRNGKey(1), shape=(20, 1))
+        return kernel, x, y
+
+    def test_shape(self, kernel_and_data):
+        """Returns shape (D,)."""
+        from gpjax.kernels.additive.decompose import rank_first_order
+
+        kernel, x, y = kernel_and_data
+        scores = rank_first_order(kernel, x, y, noise_variance=0.1)
+        assert scores.shape == (3,)
+
+    def test_non_negative(self, kernel_and_data):
+        """All scores are non-negative."""
+        from gpjax.kernels.additive.decompose import rank_first_order
+
+        kernel, x, y = kernel_and_data
+        scores = rank_first_order(kernel, x, y, noise_variance=0.1)
+        assert jnp.all(scores >= -1e-10)
+
+    def test_matches_manual(self, kernel_and_data):
+        """Matches manual computation via _sobol_integral_matrix."""
+        from gpjax.kernels.additive.decompose import rank_first_order
+        from gpjax.kernels.additive.sobol import _sobol_integral_matrix
+
+        kernel, x, y = kernel_and_data
+        scores = rank_first_order(kernel, x, y, noise_variance=0.1)
+
+        # Manual computation
+        N = x.shape[0]
+        K = kernel.gram(x).to_dense()
+        K_noisy = K + 0.1 * jnp.eye(N)
+        alpha = jnp.linalg.solve(K_noisy, y.squeeze())
+        ov = kernel.order_variances[...]
+        ls = kernel._lengthscales
+        vs = kernel._variances
+        M_stack = jax.vmap(_sobol_integral_matrix)(x.T, ls, vs)
+        manual = jnp.square(ov[1]) * jax.vmap(lambda M: alpha @ M @ alpha)(M_stack)
+        assert jnp.allclose(scores, manual, atol=1e-10)
+
+    def test_jit_compatible(self, kernel_and_data):
+        """Works under jax.jit."""
+        from gpjax.kernels.additive.decompose import rank_first_order
+
+        kernel, x, y = kernel_and_data
+        eager = rank_first_order(kernel, x, y, noise_variance=0.1)
+        jitted = jax.jit(lambda xx, yy: rank_first_order(kernel, xx, yy, 0.1))(x, y)
+        assert jnp.allclose(eager, jitted, atol=1e-10)
+
+
+class TestPredictFirstOrder:
+    """Tests for predict_first_order decomposition utility."""
+
+    @pytest.fixture
+    def kernel_and_data(self):
+        """3D OAK kernel with small dataset and grid."""
+        base_kernels = [RBF(active_dims=[i]) for i in range(3)]
+        kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, max_order=2)
+        key = jr.PRNGKey(0)
+        x = jr.normal(key, shape=(20, 3))
+        y = jr.normal(jr.PRNGKey(1), shape=(20, 1))
+        x_grid = jnp.linspace(-2.0, 2.0, 50)
+        return kernel, x, y, x_grid
+
+    def test_shapes(self, kernel_and_data):
+        """Returns (M,) mean and (M,) variance."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+
+        kernel, x, y, x_grid = kernel_and_data
+        mean, var = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+        assert mean.shape == (50,)
+        assert var.shape == (50,)
+
+    def test_non_negative_variance(self, kernel_and_data):
+        """Variance is non-negative."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+
+        kernel, x, y, x_grid = kernel_and_data
+        _, var = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+        assert jnp.all(var >= 0.0)
+
+    def test_finite_mean(self, kernel_and_data):
+        """Mean values are finite."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+
+        kernel, x, y, x_grid = kernel_and_data
+        mean, _ = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+        assert jnp.all(jnp.isfinite(mean))
+
+    def test_matches_manual(self, kernel_and_data):
+        """Matches manual computation."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+        from gpjax.kernels.additive.oak import _constrained_se_kernel
+
+        kernel, x, y, x_grid = kernel_and_data
+        mean, _var = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+
+        # Manual
+        N = x.shape[0]
+        K = kernel.gram(x).to_dense()
+        K_noisy = K + 0.1 * jnp.eye(N)
+        alpha = jnp.linalg.solve(K_noisy, y.squeeze())
+        ls_d = kernel._lengthscales[0]
+        var_d = kernel._variances[0]
+        ov = kernel.order_variances[...]
+
+        K_star = jax.vmap(
+            jax.vmap(
+                lambda xg, xt: _constrained_se_kernel(xg, xt, ls_d, var_d),
+                in_axes=(None, 0),
+            ),
+            in_axes=(0, None),
+        )(x_grid, x[:, 0])
+        K_star = ov[1] * K_star
+        manual_mean = K_star @ alpha
+        assert jnp.allclose(mean, manual_mean, atol=1e-10)
+
+    def test_jit_compatible(self, kernel_and_data):
+        """Works under jax.jit."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+
+        kernel, x, y, x_grid = kernel_and_data
+        mean_e, var_e = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+        mean_j, var_j = jax.jit(
+            lambda xx, yy, xg: predict_first_order(kernel, xx, yy, 0.1, 0, xg)
+        )(x, y, x_grid)
+        assert jnp.allclose(mean_e, mean_j, atol=1e-10)
+        assert jnp.allclose(var_e, var_j, atol=1e-10)
+
+    def test_different_dims_differ(self, kernel_and_data):
+        """Different dimensions produce different predictions."""
+        from gpjax.kernels.additive.decompose import predict_first_order
+
+        kernel, x, y, x_grid = kernel_and_data
+        mean0, _ = predict_first_order(kernel, x, y, 0.1, dim=0, x_grid=x_grid)
+        mean1, _ = predict_first_order(kernel, x, y, 0.1, dim=1, x_grid=x_grid)
+        assert not jnp.allclose(mean0, mean1, atol=1e-6)
+
+
 class TestSobolIndices:
     """Tests for Sobol index computation."""
 

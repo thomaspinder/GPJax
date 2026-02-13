@@ -17,18 +17,18 @@
 # %% [markdown]
 # # Orthogonal Additive Kernels
 #
-# In this notebook we demonstrate the **Orthogonal Additive Kernel (OAK)** of
+# In this notebook we demonstrate the Orthogonal Additive Kernel (OAK) of
 # [Lu, Boukouvalas & Hensman (2022)](https://proceedings.mlr.press/v162/lu22b.html).
 # OAK provides an interpretable additive Gaussian process model that decomposes
 # the target function into main effects and interaction terms, whilst remaining
-# a valid positive-definite kernel.  The key ingredients are:
+# a valid positive-definite kernel. The key ingredients are:
 #
-# 1. A per-dimension **constrained SE kernel** that is orthogonal to the
+# 1. A per-dimension constrained SE kernel that is orthogonal to the
 #    constant function under the input density.
-# 2. **Newton--Girard recursion** to efficiently combine these constrained
+# 2. Newton-Girard recursion to efficiently combine these constrained
 #    kernels into elementary symmetric polynomials up to a chosen interaction
 #    order.
-# 3. **Analytic Sobol indices** that quantify the relative importance of each
+# 3. Analytic Sobol indices that quantify the relative importance of each
 #    interaction order, enabling practitioners to understand which features
 #    and feature interactions drive the model's predictions.
 #
@@ -52,13 +52,15 @@ from examples.utils import use_mpl_style
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.kernels.additive import OrthogonalAdditiveKernel, sobol_indices
-    from gpjax.kernels.additive.oak import _constrained_se_kernel
+    from gpjax.kernels.additive import (
+        OrthogonalAdditiveKernel,
+        predict_first_order,
+        rank_first_order,
+        sobol_indices,
+    )
     from gpjax.parameters import Parameter
 
-key = jr.key(42)
-
-# set the default style for plotting
+key = jr.key(123)
 use_mpl_style()
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
@@ -68,7 +70,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # ### Additive GP decomposition
 #
 # A standard GP with a single kernel $k(\mathbf{x}, \mathbf{x}')$ treats all
-# input dimensions jointly.  An **additive** GP instead decomposes the latent
+# input dimensions jointly.  An additive GP instead decomposes the latent
 # function as
 #
 # $$
@@ -86,10 +88,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # ### The identifiability problem
 #
-# A naive additive decomposition is **not identifiable**: one can freely shift
+# A naive additive decomposition is unidentifiable: one can freely shift
 # mass between the constant term and a main effect, or between a main effect
 # and an interaction.  Lu et al. resolve this by requiring each component to
-# be **orthogonal** to all lower-order components under the input density
+# be orthogonal to all lower-order components under the input density
 # $p(\mathbf{x})$.  In particular, the first-order components satisfy
 #
 # $$
@@ -99,8 +101,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # ### Constrained SE kernel
 #
 # Assuming a standard normal input density $p(x_d) = \mathcal{N}(0, 1)$, the
-# orthogonality constraint can be enforced analytically.  The **constrained
-# SE kernel** is (Eq. 10 of Lu et al.)
+# orthogonality constraint can be enforced analytically.  The constrained
+# SE kernel is
 #
 # $$
 # \tilde{k}(x, y)
@@ -116,7 +118,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # The subtracted projection term removes the component of $k$ that lies along
 # the constant function under the $\mathcal{N}(0,1)$ measure.
 #
-# ### Newton--Girard recursion
+# ### Newton-Girard recursion
 #
 # The additive kernel across all interaction orders up to $\tilde{D}$ is
 #
@@ -127,10 +129,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #   \bigr),
 # $$
 #
-# where $e_\ell$ denotes the $\ell$-th **elementary symmetric polynomial**
+# where $e_\ell$ denotes the $\ell$-th elementary symmetric polynomial
 # and $\sigma_\ell^2$ are learnable order variances.  Computing
 # $e_\ell$ directly via the combinatorial definition would be prohibitively
-# expensive; instead GPJax uses the **Newton--Girard identities** which
+# expensive; instead GPJax uses the Newton-Girard identities which
 # express $e_\ell$ recursively in terms of power sums
 # $s_k = \sum_{d=1}^D z_d^k$:
 #
@@ -142,7 +144,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # ### Sobol indices
 #
 # Once the model is fitted, the relative importance of each interaction order
-# can be quantified via **Sobol indices**.  The Sobol index for order $d$ is
+# can be quantified via Sobol indices.  The Sobol index for order $d$ is
 #
 # $$
 # S_d
@@ -169,7 +171,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Because the OAK kernel's constrained form assumes a standard normal input
 # density ($\mu = 0$, $\sigma^2 = 1$), we fit a per-feature normalising flow
 # that maps each marginal to an approximately standard normal distribution.
-# Targets are z-score standardised.
+# Targets are z-score standardised. This transformation of the inputs data
+# is crucial for the OAK model to work correctly, as the orthogonality
+# constraint is defined with respect to the input density.
 
 # %%
 from ucimlrepo import fetch_ucirepo
@@ -202,11 +206,9 @@ from gpjax.kernels.additive.transforms import fit_all_normalising_flows
 
 
 # %%
-# Z-score standardise targets only
 y_mean, y_std = y_np.mean(axis=0), y_np.std(axis=0)
 y_scaled = (y_np - y_mean) / y_std
 
-# 80/20 train/test split (split BEFORE fitting the flow to avoid data leakage)
 N = y_scaled.shape[0]
 key, split_key = jr.split(key)
 perm = jr.permutation(split_key, N)
@@ -218,23 +220,19 @@ test_idx = perm[n_train:]
 y_train = jnp.array(y_scaled[train_idx])
 y_test = jnp.array(y_scaled[test_idx])
 
-# Keep raw X for plotting later
-X_train_raw = X_np[train_idx]
-X_test_raw = X_np[test_idx]
+X_train_original = X_np[train_idx]
+X_test_original = X_np[test_idx]
 
-# Fit per-feature normalising flow on training data only
-flows = fit_all_normalising_flows(jnp.asarray(X_train_raw))
-
+flows = fit_all_normalising_flows(jnp.asarray(X_train_original))
 X_train = jnp.column_stack(
-    [flows[d](jnp.asarray(X_train_raw[:, d])) for d in range(D)]
+    [flows[d](jnp.asarray(X_train_original[:, d])) for d in range(D)]
 )
 X_test = jnp.column_stack(
-    [flows[d](jnp.asarray(X_test_raw[:, d])) for d in range(D)]
+    [flows[d](jnp.asarray(X_test_original[:, d])) for d in range(D)]
 )
 
 train_data = gpx.Dataset(X=X_train, y=y_train)
 test_data = gpx.Dataset(X=X_test, y=y_test)
-print(f"\nTraining points: {X_train.shape[0]}, Test points: {X_test.shape[0]}")
 
 # %% [markdown]
 # ## Fitting an OAK GP
@@ -248,7 +246,7 @@ print(f"\nTraining points: {X_train.shape[0]}, Test points: {X_test.shape[0]}")
 
 # %%
 base_kernels = [gpx.kernels.RBF(active_dims=[i]) for i in range(D)]
-oak_kernel = OrthogonalAdditiveKernel(base_kernels, max_order=D)
+oak_kernel = OrthogonalAdditiveKernel(base_kernels, max_order=3)
 
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=oak_kernel)
@@ -263,7 +261,6 @@ opt_posterior, history = gpx.fit_scipy(
     trainable=Parameter,
 )
 
-# Evaluate on test set
 latent_dist = opt_posterior.predict(
     X_test, train_data=train_data, return_covariance_type="diagonal"
 )
@@ -274,44 +271,6 @@ oak_rmse = jnp.sqrt(jnp.mean(jnp.square(oak_pred_mean - y_test.squeeze())))
 oak_rmse_orig = float(oak_rmse) * float(y_std.squeeze())
 print(f"OAK GP test RMSE (standardised): {oak_rmse:.4f}")
 print(f"OAK GP test RMSE (original mpg): {oak_rmse_orig:.2f}")
-
-# %% [markdown]
-# ## RBF baseline
-#
-# For comparison we fit a standard ARD-RBF GP on the same data.  This kernel
-# has a single lengthscale per dimension but models all interactions implicitly.
-
-# %%
-ard_kernel = gpx.kernels.RBF(
-    active_dims=list(range(D)),
-    lengthscale=jnp.ones(D),
-)
-ard_prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=ard_kernel)
-ard_likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train)
-ard_posterior = ard_prior * ard_likelihood
-
-opt_ard_posterior, ard_history = gpx.fit_scipy(
-    model=ard_posterior,
-    objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
-    train_data=train_data,
-    trainable=Parameter,
-)
-
-ard_latent = opt_ard_posterior.predict(
-    X_test, train_data=train_data, return_covariance_type="diagonal"
-)
-ard_pred_dist = opt_ard_posterior.likelihood(ard_latent)
-ard_pred_mean = ard_pred_dist.mean
-
-ard_rmse = jnp.sqrt(jnp.mean(jnp.square(ard_pred_mean - y_test.squeeze())))
-ard_rmse_orig = float(ard_rmse) * float(y_std.squeeze())
-print(f"ARD-RBF GP test RMSE (standardised): {ard_rmse:.4f}  ({ard_rmse_orig:.2f} mpg)")
-print(f"OAK GP test RMSE (standardised):     {oak_rmse:.4f}  ({oak_rmse_orig:.2f} mpg)")
-
-# %% [markdown]
-# The OAK model achieves competitive predictive performance with the
-# full ARD-RBF GP, whilst additionally providing the interpretability
-# benefits shown below.
 
 # %% [markdown]
 # ## Sobol indices
@@ -338,7 +297,6 @@ ax.set_ylabel("Sobol index")
 ax.set_title("Sobol indices by interaction order")
 ax.set_xticks(np.arange(1, len(si) + 1))
 
-# Print cumulative values
 cumulative = jnp.cumsum(si)
 print("Sobol indices per interaction order:")
 for i, (s, c) in enumerate(zip(si, cumulative)):
@@ -365,77 +323,27 @@ for i, (s, c) in enumerate(zip(si, cumulative)):
 
 # %%
 oak_kern = opt_posterior.prior.kernel
-lengthscales = oak_kern._lengthscales
-variances = oak_kern._variances
-order_var = oak_kern.order_variances[...]
 
-# Build the full training kernel and solve for alpha.
-K_train = oak_kern.gram(X_train).to_dense()
-K_train_noisy = K_train + float(noise_var) * jnp.eye(n_train)
-alpha = jnp.linalg.solve(K_train_noisy, y_train.squeeze())  # (N,)
-
-# Rank features by their first-order Sobol contribution.
-# sobol_d = sigma_1^4 * alpha^T L_d alpha,  where L_d is the per-dimension
-# integral matrix.  This directly measures the variance explained by
-# each feature's main effect.
-from gpjax.kernels.additive.sobol import _sobol_integral_matrix
-
-M_stack = jax.vmap(_sobol_integral_matrix)(X_train.T, lengthscales, variances)
-feature_scores = jax.vmap(lambda M_d: alpha @ M_d @ alpha)(M_stack)
-feature_scores = jnp.square(order_var[1]) * feature_scores
+# Rank features by first-order importance and pick the top 4.
+feature_scores = rank_first_order(oak_kern, X_train, y_train, float(noise_var))
 top4 = jnp.argsort(-feature_scores)[:4]
 
-print("Learned lengthscales and first-order Sobol contributions:")
-for i in jnp.argsort(-feature_scores):
-    print(
-        f"  {feature_names[int(i)]}: ls={lengthscales[int(i)]:.4f}, "
-        f"sobol={feature_scores[int(i)]:.6f}"
-    )
-print()
-
-n_grid = 200
-
+n_grid = 300
 fig, axes = plt.subplots(2, 2, figsize=(10, 7), tight_layout=True)
 
 for idx, ax in enumerate(axes.flat):
     dim = int(top4[idx])
-    ls_d = lengthscales[dim]
-    var_d = variances[dim]
     fname = feature_names[dim]
 
     # 1-D grid for this feature
-    lo = float(X_train[:, dim].min()) - 0.5
-    hi = float(X_train[:, dim].max()) + 0.5
+    lo = float(X_train[:, dim].min()) - 0.1
+    hi = float(X_train[:, dim].max()) + 0.1
     x_grid = jnp.linspace(lo, hi, n_grid)
 
-    # Compute constrained kernel between grid and training points.
-    # Use a closure-creating function to avoid late-binding in vmap.
-    def make_k_fn(ls, var):
-        return lambda xg, xt: _constrained_se_kernel(xg, xt, ls, var)
-
-    k_fn = make_k_fn(ls_d, var_d)
-    # K_star: (n_grid, n_train) via double vmap
-    K_star = jax.vmap(jax.vmap(k_fn, in_axes=(None, 0)), in_axes=(0, None))(
-        x_grid, X_train[:, dim]
+    # Posterior mean and variance for this first-order component.
+    f_mean, f_var = predict_first_order(
+        oak_kern, X_train, y_train, float(noise_var), dim, x_grid
     )
-
-    # Scale by order-1 variance
-    K_star = order_var[1] * K_star
-
-    # Posterior mean for this component
-    f_mean = K_star @ alpha
-
-    # Posterior variance: use the diagonal of K_star K_inv K_star^T
-    # K_star_Kinv = K_star @ K_train_noisy^{-1}
-    K_star_Kinv = jnp.linalg.solve(K_train_noisy, K_star.T).T  # (n_grid, n_train)
-
-    # Self-kernel on the grid: k_tilde(x*, x*) for the diagonal
-    k_self_fn = make_k_fn(ls_d, var_d)
-    k_diag = jax.vmap(lambda x: k_self_fn(x, x))(x_grid)
-    k_diag = order_var[1] * k_diag
-
-    f_var = k_diag - jnp.sum(K_star_Kinv * K_star, axis=1)
-    f_var = jnp.maximum(f_var, 0.0)
     f_std = jnp.sqrt(f_var)
 
     # Map the transformed grid back to original feature units for plotting
@@ -455,7 +363,7 @@ for idx, ax in enumerate(axes.flat):
     # Histogram of raw training inputs on a twin axis
     ax2 = ax.twinx()
     ax2.hist(
-        X_train_raw[:, dim],
+        X_train_original[:, dim],
         bins=30,
         alpha=0.15,
         color=cols[1],
