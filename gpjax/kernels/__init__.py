@@ -30,6 +30,9 @@ from gpjax.kernels.computations import (
     DiagonalKernelComputation,
     EigenKernelComputation,
 )
+from gpjax.kernels.additive import (
+    OrthogonalAdditiveKernel,
+)
 from gpjax.kernels.multioutput import (
     ICMKernel,
     LCMKernel,
@@ -60,6 +63,7 @@ __all__ = [
     "ArcCosine",
     "BasisFunctionComputation",
     "Constant",
+    "OrthogonalAdditiveKernel",
     "ConstantDiagonalKernelComputation",
     "DenseKernelComputation",
     "DiagonalKernelComputation",
