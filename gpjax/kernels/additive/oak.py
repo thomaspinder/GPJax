@@ -5,11 +5,17 @@ Reference:
     Additive Gaussian Processes Revisited. ICML.
 """
 
+import beartype.typing as tp
+from flax import nnx
 import jax
 from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
+from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.kernels.computations.base import AbstractKernelComputation
+from gpjax.parameters import NonNegativeReal
 from gpjax.typing import Array, ScalarFloat
 
 
@@ -35,17 +41,18 @@ def _constrained_se_kernel(
     Returns:
         Scalar constrained kernel value.
     """
-    ls = lengthscale
-    ls_sq = jnp.square(ls)
+    ell_sq = jnp.square(lengthscale)
 
     # Base SE kernel: k(x, y) = sigma^2 * exp(-(x - y)^2 / (2 * l^2))
-    k_base = variance * jnp.exp(-0.5 * jnp.square(x - y) / ls_sq)
+    k_base = variance * jnp.exp(-0.5 * jnp.square(x - y) / ell_sq)
 
     # Projection term (Eq. 10 of Lu et al. 2022 with mu=0, delta^2=1):
     # k_hat(x, y) = sigma^2 * l * sqrt(l^2 + 2) / (l^2 + 1)
     #               * exp(-(x^2 + y^2) / (2(l^2 + 1)))
-    coeff = variance * ls * jnp.sqrt(ls_sq + 2.0) / (ls_sq + 1.0)
-    k_hat = coeff * jnp.exp(-(jnp.square(x) + jnp.square(y)) / (2.0 * (ls_sq + 1.0)))
+    projection_coeff = variance * lengthscale * jnp.sqrt(ell_sq + 2.0) / (ell_sq + 1.0)
+    k_hat = projection_coeff * jnp.exp(
+        -(jnp.square(x) + jnp.square(y)) / (2.0 * (ell_sq + 1.0))
+    )
 
     return k_base - k_hat
 
@@ -73,38 +80,28 @@ def _newton_girard(
     Returns:
         Array of shape (max_order + 1,) containing e_0 through e_{max_order}.
     """
-    # Vectorized power sums: s[k] = sum_{d=1}^D z_d^{k+1}
-    powers = jnp.arange(1, max_order + 1)[:, None]  # (max_order, 1)
-    s = jnp.sum(z[None, :] ** powers, axis=1)  # (max_order,)
+    # Power sums: s[k] = sum_{d=1}^D z_d^{k+1}  (vectorised over k)
+    exponents = jnp.arange(1, max_order + 1)[:, None]
+    power_sums = jnp.sum(z[None, :] ** exponents, axis=1)
 
-    # Precompute signed power sums: (-1)^{k-1} * s_k
-    signs = (-1.0) ** jnp.arange(max_order)  # [1, -1, 1, -1, ...]
-    signed_s = signs * s  # (max_order,)
+    # Precompute sign-alternating power sums: (-1)^{k-1} * s_k
+    signs = (-1.0) ** jnp.arange(max_order)  # [+1, -1, +1, -1, ...]
+    signed_power_sums = signs * power_sums
 
-    e = jnp.zeros(max_order + 1)
-    e = e.at[0].set(1.0)
+    elem_sym = jnp.zeros(max_order + 1)
+    elem_sym = elem_sym.at[0].set(1.0)
 
-    def body_fn(ell, e):
-        # e_ell = (1/ell) * sum_{k=1}^{ell} (-1)^{k-1} * e[ell-k] * s[k-1]
-        # Rewrite as masked dot product of reversed e-slice with signed_s
-        k = jnp.arange(max_order)
-        e_idx = (ell - 1 - k).clip(0)  # indices into e, clipped for safety
-        mask = k < ell  # only include k=0..ell-1
-        e_vals = jnp.where(mask, e[e_idx], 0.0)
-        val = jnp.dot(e_vals, signed_s) / ell
-        return e.at[ell].set(val)
+    def _recursion_step(order, elem_sym):
+        # e_order = (1/order) * sum_{k=1}^{order} (-1)^{k-1} * e[order-k] * s[k-1]
+        k_indices = jnp.arange(max_order)
+        lookback_indices = (order - 1 - k_indices).clip(0)
+        mask = k_indices < order
+        previous_values = jnp.where(mask, elem_sym[lookback_indices], 0.0)
+        value = jnp.dot(previous_values, signed_power_sums) / order
+        return elem_sym.at[order].set(value)
 
-    e = lax.fori_loop(1, max_order + 1, body_fn, e)
-    return e
-
-
-import beartype.typing as tp
-from flax import nnx
-
-from gpjax.kernels.base import AbstractKernel
-from gpjax.kernels.computations import DenseKernelComputation
-from gpjax.kernels.computations.base import AbstractKernelComputation
-from gpjax.parameters import NonNegativeReal
+    elem_sym = lax.fori_loop(1, max_order + 1, _recursion_step, elem_sym)
+    return elem_sym
 
 
 class OrthogonalAdditiveKernel(AbstractKernel):
@@ -136,7 +133,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         fix_base_variance: If True (default), pin every base-kernel
             variance to 1 so that ``order_variances`` alone control
             per-order scaling.  This avoids over-parameterisation and
-            matches the reference (Lu et al. 2022, §3.2).
+            matches the reference (Lu et al. 2022, S3.2).
         compute_engine: Kernel computation engine. Defaults to
             DenseKernelComputation.
     """
@@ -151,16 +148,17 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         fix_base_variance: bool = True,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
-        if len(base_kernels) == 0:
+        num_dimensions = len(base_kernels)
+
+        if num_dimensions == 0:
             raise ValueError("Must provide at least one base kernel.")
 
-        D = len(base_kernels)
-
         if max_order is None:
-            max_order = D
-        if max_order > D:
+            max_order = num_dimensions
+        if max_order > num_dimensions:
             raise ValueError(
-                f"max_order ({max_order}) must be <= number of base kernels ({D})."
+                f"max_order ({max_order}) must be <= number of base kernels "
+                f"({num_dimensions})."
             )
 
         super().__init__(compute_engine=compute_engine)
@@ -210,11 +208,13 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         Returns:
             Scalar kernel value.
         """
-        # vmap constrained kernel over all D dimensions simultaneously
-        z = jax.vmap(_constrained_se_kernel)(x, y, self._lengthscales, self._variances)
+        # Constrained kernel per dimension (vmapped over all D simultaneously)
+        per_dim_values = jax.vmap(_constrained_se_kernel)(
+            x, y, self._lengthscales, self._variances
+        )
 
-        # Newton-Girard recursion (uses lax.fori_loop internally)
-        e = _newton_girard(z, self.max_order)
+        # Elementary symmetric polynomials via Newton-Girard recursion
+        elem_sym = _newton_girard(per_dim_values, self.max_order)
 
-        # Weighted sum over interaction orders
-        return jnp.dot(self.order_variances[...], e)
+        # Weighted sum: K(x,y) = sum_d sigma^2_d * e_d
+        return jnp.dot(self.order_variances[...], elem_sym)

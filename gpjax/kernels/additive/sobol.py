@@ -23,6 +23,21 @@ if tp.TYPE_CHECKING:
     from gpjax.kernels.additive.oak import OrthogonalAdditiveKernel
 
 
+def _projection_coefficient(
+    sigma_sq: Float[Array, ""],
+    ell_sq: Float[Array, ""],
+    lengthscale: Float[Array, ""],
+) -> Float[Array, ""]:
+    r"""Shared projection coefficient for k_hat terms.
+
+    .. math::
+        c = \sigma^2 \, \ell \, \sqrt{\ell^2 + 2} \,/\, (\ell^2 + 1)
+
+    This coefficient appears in all four integral terms.
+    """
+    return sigma_sq * lengthscale * jnp.sqrt(ell_sq + 2.0) / (ell_sq + 1.0)
+
+
 def _sobol_integral_matrix(
     x_train: Float[Array, " N"],
     lengthscale: Float[Array, ""],
@@ -34,68 +49,74 @@ def _sobol_integral_matrix(
     for the constrained SE kernel with standard normal input density.
 
     This decomposes into four terms (Appendix G.1 of OAK paper):
-    \int p(x) k(x,a) k(x,b) dx  (Eq. 44)
-    - \int p(x) k(x,a) k_hat(x,b) dx  (Eq. 45)
-    - \int p(x) k_hat(x,a) k(x,b) dx  (Eq. 46)
-    + \int p(x) k_hat(x,a) k_hat(x,b) dx  (Eq. 47)
+      Term 1:  \int p(x) k(x,a) k(x,b) dx        (Eq. 44)
+    - Term 2:  \int p(x) k(x,a) k_hat(x,b) dx     (Eq. 45)
+    - Term 3:  \int p(x) k_hat(x,a) k(x,b) dx     (Eq. 46)
+    + Term 4:  \int p(x) k_hat(x,a) k_hat(x,b) dx  (Eq. 47)
 
     All four terms are computed in closed form via broadcasting (no loops).
     """
-    N = x_train.shape[0]
-    ls = lengthscale
-    ls_sq = jnp.square(ls)
+    num_points = x_train.shape[0]
     sigma_sq = variance
+    ell_sq = jnp.square(lengthscale)
 
-    # When the lengthscale or variance is negligible the base kernel is
-    # effectively inactive and contributes nothing to the Sobol index.
-    # Return zeros to avoid inf/nan from divisions by near-zero ls_sq.
+    # Guard against numerically inactive dimensions
     _EPS = 1e-6
-    inactive = (ls < _EPS) | (sigma_sq < _EPS)
+    inactive = (lengthscale < _EPS) | (sigma_sq < _EPS)
 
-    a = x_train[:, None]  # (N, 1)
-    b = x_train[None, :]  # (1, N)
+    a = x_train[:, None]  # (N, 1)  -- left training point
+    b = x_train[None, :]  # (1, N)  -- right training point
 
-    # --- Term 1 (Eq. 44): \int p(x) k(x,a) k(x,b) dx ---
-    term1_coeff = sigma_sq**2 * ls / jnp.sqrt(2.0 + ls_sq)
+    # --- Term 1 (Eq. 44): integral of k(x,a) * k(x,b) under p(x) ---
+    # = sigma^4 * l / sqrt(2 + l^2)
+    #   * exp(-(a-b)^2 / (4l^2) - (a+b)^2 / (4(2 + l^2)))
+    term1_coeff = sigma_sq**2 * lengthscale / jnp.sqrt(2.0 + ell_sq)
     term1 = term1_coeff * jnp.exp(
-        -jnp.square(a - b) / (4.0 * ls_sq) - jnp.square(a + b) / (4.0 * (2.0 + ls_sq))
+        -jnp.square(a - b) / (4.0 * ell_sq) - jnp.square(a + b) / (4.0 * (2.0 + ell_sq))
     )
 
-    # --- Projection coefficient for k_hat ---
-    proj_coeff = sigma_sq * ls * jnp.sqrt(ls_sq + 2.0) / (ls_sq + 1.0)
+    # Shared projection coefficient for terms 2-4
+    proj_coeff = _projection_coefficient(sigma_sq, ell_sq, lengthscale)
 
-    # --- Term 2 (Eq. 45): \int p(x) k(x,a) k_hat(x,b) dx ---
-    M2 = 1.0 + 1.0 / ls_sq + 1.0 / (ls_sq + 1.0)
-    c2 = (a / ls_sq) / M2
-    C2 = jnp.square(a) / ls_sq - jnp.square(c2) * M2
+    # Shared precision for the completing-the-square step in terms 2 & 3:
+    # M = 1 + 1/l^2 + 1/(l^2 + 1)
+    precision = 1.0 + 1.0 / ell_sq + 1.0 / (ell_sq + 1.0)
+
+    # --- Term 2 (Eq. 45): integral of k(x,a) * k_hat(x,b) under p(x) ---
+    completed_mean_a = (a / ell_sq) / precision
+    quadratic_residual_a = (
+        jnp.square(a) / ell_sq - jnp.square(completed_mean_a) * precision
+    )
     term2 = (
         sigma_sq
         * proj_coeff
-        * jnp.exp(-jnp.square(b) / (2.0 * (ls_sq + 1.0)))
-        * jnp.exp(-C2 / 2.0)
-        / jnp.sqrt(M2)
+        * jnp.exp(-jnp.square(b) / (2.0 * (ell_sq + 1.0)))
+        * jnp.exp(-quadratic_residual_a / 2.0)
+        / jnp.sqrt(precision)
     )
 
-    # --- Term 3 (Eq. 46): symmetric to term 2 with a <-> b ---
-    c3 = (b / ls_sq) / M2
-    C3 = jnp.square(b) / ls_sq - jnp.square(c3) * M2
+    # --- Term 3 (Eq. 46): symmetric to Term 2 with a <-> b ---
+    completed_mean_b = (b / ell_sq) / precision
+    quadratic_residual_b = (
+        jnp.square(b) / ell_sq - jnp.square(completed_mean_b) * precision
+    )
     term3 = (
         sigma_sq
         * proj_coeff
-        * jnp.exp(-jnp.square(a) / (2.0 * (ls_sq + 1.0)))
-        * jnp.exp(-C3 / 2.0)
-        / jnp.sqrt(M2)
+        * jnp.exp(-jnp.square(a) / (2.0 * (ell_sq + 1.0)))
+        * jnp.exp(-quadratic_residual_b / 2.0)
+        / jnp.sqrt(precision)
     )
 
-    # --- Term 4 (Eq. 47): \int p(x) k_hat(x,a) k_hat(x,b) dx ---
+    # --- Term 4 (Eq. 47): integral of k_hat(x,a) * k_hat(x,b) under p(x) ---
     term4 = (
         proj_coeff**2
-        * jnp.exp(-(jnp.square(a) + jnp.square(b)) / (2.0 * (ls_sq + 1.0)))
-        * jnp.sqrt((ls_sq + 1.0) / (ls_sq + 3.0))
+        * jnp.exp(-(jnp.square(a) + jnp.square(b)) / (2.0 * (ell_sq + 1.0)))
+        * jnp.sqrt((ell_sq + 1.0) / (ell_sq + 3.0))
     )
 
     result = term1 - term2 - term3 + term4
-    return jnp.where(inactive, jnp.zeros((N, N)), result)
+    return jnp.where(inactive, jnp.zeros((num_points, num_points)), result)
 
 
 def _newton_girard_matrices(
@@ -110,28 +131,28 @@ def _newton_girard_matrices(
     This is the matrix-level analogue of _newton_girard in oak.py, using
     lax.fori_loop for JAX compatibility.
     """
-    _, N, _ = matrices.shape
+    _, num_points, _ = matrices.shape
 
     # Power sums: S[k, i, j] = sum_{d=0}^{D-1} matrices[d, i, j]^{k+1}
-    powers = jnp.arange(1, max_order + 1)[:, None, None, None]  # (max_order, 1, 1, 1)
-    S = jnp.sum(matrices[None, :, :, :] ** powers, axis=1)  # (max_order, N, N)
+    exponents = jnp.arange(1, max_order + 1)[:, None, None, None]
+    power_sums = jnp.sum(matrices[None, :, :, :] ** exponents, axis=1)
 
     signs = (-1.0) ** jnp.arange(max_order)
-    signed_S = signs[:, None, None] * S  # (max_order, N, N)
+    signed_power_sums = signs[:, None, None] * power_sums
 
-    E = jnp.zeros((max_order + 1, N, N))
-    E = E.at[0].set(jnp.ones((N, N)))
+    elem_sym = jnp.zeros((max_order + 1, num_points, num_points))
+    elem_sym = elem_sym.at[0].set(jnp.ones((num_points, num_points)))
 
-    def body_fn(ell, E):
-        k = jnp.arange(max_order)
-        e_idx = (ell - 1 - k).clip(0)
-        mask = (k < ell)[:, None, None]  # (max_order, 1, 1)
-        e_vals = jnp.where(mask, E[e_idx], 0.0)  # (max_order, N, N)
-        val = jnp.sum(e_vals * signed_S, axis=0) / ell  # (N, N)
-        return E.at[ell].set(val)
+    def _recursion_step(order, elem_sym):
+        k_indices = jnp.arange(max_order)
+        lookback_indices = (order - 1 - k_indices).clip(0)
+        mask = (k_indices < order)[:, None, None]
+        previous_values = jnp.where(mask, elem_sym[lookback_indices], 0.0)
+        value = jnp.sum(previous_values * signed_power_sums, axis=0) / order
+        return elem_sym.at[order].set(value)
 
-    E = lax.fori_loop(1, max_order + 1, body_fn, E)
-    return E
+    elem_sym = lax.fori_loop(1, max_order + 1, _recursion_step, elem_sym)
+    return elem_sym
 
 
 def sobol_indices(
@@ -160,35 +181,35 @@ def sobol_indices(
         Array of shape (max_order,) with normalized Sobol indices
         for orders 1 through max_order.
     """
-    N, _D = x_train.shape
+    num_points = x_train.shape[0]
     max_order = kernel.max_order
-    ov = kernel.order_variances[...]
+    order_variances = kernel.order_variances[...]
 
-    # Compute K(X, X)^{-1} y
-    K = kernel.gram(x_train).to_dense()
-    K_noisy = K + noise_variance * jnp.eye(N)
-    alpha = jnp.linalg.solve(K_noisy, y_train.squeeze())  # (N,)
+    # Solve alpha = (K + sigma_n^2 I)^{-1} y
+    gram_matrix = kernel.gram(x_train).to_dense()
+    noisy_gram = gram_matrix + noise_variance * jnp.eye(num_points)
+    alpha = jnp.linalg.solve(noisy_gram, y_train.squeeze())
 
-    # Compute per-dimension integral matrices via vmap
-    lengthscales = kernel._lengthscales  # (D,)
-    variances = kernel._variances  # (D,)
-    M_stack = jax.vmap(_sobol_integral_matrix)(
+    # Per-dimension integral matrices via vmap
+    lengthscales = kernel._lengthscales
+    variances = kernel._variances
+    integral_matrices = jax.vmap(_sobol_integral_matrix)(
         x_train.T, lengthscales, variances
     )  # (D, N, N)
 
     # Matrix-level Newton-Girard: E_d[i,j] = sum over size-d subsets
     # of element-wise products of integral matrices
-    E = _newton_girard_matrices(M_stack, max_order)  # (max_order+1, N, N)
+    elem_sym = _newton_girard_matrices(integral_matrices, max_order)
 
-    # Sobol index for order d: V_d = ov[d]^2 * alpha^T E_d alpha
-    # Skip E[0] (the offset term), use E[1:] for orders 1..max_order
-    E_orders = E[1:]  # (max_order, N, N)
-    ov_orders = ov[1:]  # (max_order,)
+    # Sobol index for order d: V_d = sigma^2_d * alpha^T E_d alpha
+    # Skip E[0] (the offset term); use E[1:] for orders 1..max_order
+    elem_sym_orders = elem_sym[1:]
+    variance_orders = order_variances[1:]
 
-    # Vectorized quadratic forms: alpha^T E_d alpha for each order d
-    quad_forms = jax.vmap(lambda E_d: alpha @ E_d @ alpha)(E_orders)  # (max_order,)
-    raw_sobol = jnp.square(ov_orders) * quad_forms
+    # Vectorised quadratic forms: alpha^T E_d alpha for each order d
+    quadratic_forms = jax.vmap(lambda E_d: alpha @ E_d @ alpha)(elem_sym_orders)
+    raw_sobol = jnp.square(variance_orders) * quadratic_forms
 
-    # Normalize to sum to 1
+    # Normalise to sum to 1
     total = jnp.sum(raw_sobol)
     return jnp.where(total > 0, raw_sobol / total, raw_sobol)

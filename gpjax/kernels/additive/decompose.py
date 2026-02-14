@@ -39,14 +39,14 @@ def _solve_alpha(
         noise_variance: Observation noise variance.
 
     Returns:
-        Tuple of (alpha, K_noisy) where alpha has shape (N,) and
-        K_noisy has shape (N, N).
+        Tuple of (alpha, noisy_gram) where alpha has shape (N,) and
+        noisy_gram has shape (N, N).
     """
-    N = x_train.shape[0]
-    K = kernel.gram(x_train).to_dense()
-    K_noisy = K + noise_variance * jnp.eye(N)
-    alpha = jnp.linalg.solve(K_noisy, y_train.squeeze())
-    return alpha, K_noisy
+    num_points = x_train.shape[0]
+    gram_matrix = kernel.gram(x_train).to_dense()
+    noisy_gram = gram_matrix + noise_variance * jnp.eye(num_points)
+    alpha = jnp.linalg.solve(noisy_gram, y_train.squeeze())
+    return alpha, noisy_gram
 
 
 def rank_first_order(
@@ -77,13 +77,40 @@ def rank_first_order(
 
     lengthscales = kernel._lengthscales
     variances = kernel._variances
-    ov = kernel.order_variances[...]
+    order_variances = kernel.order_variances[...]
 
-    M_stack = jax.vmap(_sobol_integral_matrix)(
+    integral_matrices = jax.vmap(_sobol_integral_matrix)(
         x_train.T, lengthscales, variances
     )  # (D, N, N)
-    scores = jax.vmap(lambda M_d: alpha @ M_d @ alpha)(M_stack)
-    return jnp.square(ov[1]) * scores
+
+    scores = jax.vmap(lambda M_d: alpha @ M_d @ alpha)(integral_matrices)
+    return jnp.square(order_variances[1]) * scores
+
+
+def _build_first_order_cross_covariance(
+    x_grid: Float[Array, " M"],
+    x_train_dim: Float[Array, " N"],
+    lengthscale_dim: Float[Array, ""],
+    variance_dim: Float[Array, ""],
+    first_order_variance: Float[Array, ""],
+) -> Float[Array, "M N"]:
+    """Build the cross-covariance matrix between grid and training points.
+
+    Computes K_star[i, j] = sigma^2_1 * k_tilde(x_grid[i], x_train[j])
+    for a single dimension.
+    """
+    from gpjax.kernels.additive.oak import _constrained_se_kernel
+
+    K_star = jax.vmap(
+        jax.vmap(
+            lambda grid_point, train_point: _constrained_se_kernel(
+                grid_point, train_point, lengthscale_dim, variance_dim
+            ),
+            in_axes=(None, 0),
+        ),
+        in_axes=(0, None),
+    )(x_grid, x_train_dim)
+    return first_order_variance * K_star
 
 
 def predict_first_order(
@@ -113,30 +140,29 @@ def predict_first_order(
     """
     from gpjax.kernels.additive.oak import _constrained_se_kernel
 
-    alpha, K_noisy = _solve_alpha(kernel, x_train, y_train, noise_variance)
+    alpha, noisy_gram = _solve_alpha(kernel, x_train, y_train, noise_variance)
 
-    ls_d = kernel._lengthscales[dim]
-    var_d = kernel._variances[dim]
-    ov = kernel.order_variances[...]
+    lengthscale_dim = kernel._lengthscales[dim]
+    variance_dim = kernel._variances[dim]
+    first_order_variance = kernel.order_variances[...][1]
 
-    # K_star: (M, N) constrained kernel between grid and training points
-    K_star = jax.vmap(
-        jax.vmap(
-            lambda xg, xt: _constrained_se_kernel(xg, xt, ls_d, var_d),
-            in_axes=(None, 0),
-        ),
-        in_axes=(0, None),
-    )(x_grid, x_train[:, dim])
-    K_star = ov[1] * K_star
+    # K_star: (M, N) cross-covariance between grid and training points
+    K_star = _build_first_order_cross_covariance(
+        x_grid, x_train[:, dim], lengthscale_dim, variance_dim, first_order_variance
+    )
 
-    # Posterior mean
+    # Posterior mean: K_star @ alpha
     mean = K_star @ alpha
 
-    # Posterior variance: diag(K_star K_noisy^{-1} K_star^T)
-    K_star_Kinv = jnp.linalg.solve(K_noisy, K_star.T).T  # (M, N)
-    k_diag = jax.vmap(lambda x: _constrained_se_kernel(x, x, ls_d, var_d))(x_grid)
-    k_diag = ov[1] * k_diag
-    variance = k_diag - jnp.sum(K_star_Kinv * K_star, axis=1)
+    # Posterior variance: diag(K_star @ K_noisy^{-1} @ K_star^T)
+    K_star_solved = jnp.linalg.solve(noisy_gram, K_star.T).T  # (M, N)
+    prior_diag = jax.vmap(
+        lambda grid_point: _constrained_se_kernel(
+            grid_point, grid_point, lengthscale_dim, variance_dim
+        )
+    )(x_grid)
+    prior_diag = first_order_variance * prior_diag
+    variance = prior_diag - jnp.sum(K_star_solved * K_star, axis=1)
     variance = jnp.maximum(variance, 0.0)
 
     return mean, variance

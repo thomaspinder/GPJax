@@ -72,10 +72,28 @@ class SinhArcsinhTransform(Transform):
         )
 
 
+def _negative_log_likelihood(params, standardised_values, fixed_log_det_jacobian):
+    """Negative log-likelihood for the sinh-arcsinh transform.
+
+    Minimising this finds skewness/tailweight that best Gaussianise the data.
+    """
+    skewness = params[0]
+    tailweight = jax.nn.softplus(params[1])
+    transform = SinhArcsinhTransform(skewness, tailweight)
+
+    transformed = transform(standardised_values)
+    log_det_jacobian = transform.log_abs_det_jacobian(standardised_values, transformed)
+
+    # -E[log p(z)] where p = N(0,1), so log p = -0.5 z^2 + const
+    return 0.5 * jnp.mean(jnp.square(transformed)) - jnp.mean(
+        fixed_log_det_jacobian + log_det_jacobian
+    )
+
+
 def fit_normalising_flow(x_col: Array) -> ComposeTransform:
     r"""Fit a per-feature normalising flow mapping raw values to ~N(0,1).
 
-    The bijector chain is **Shift → Log → Standardise → SinhArcsinh**.
+    The bijector chain is **Shift -> Log -> Standardise -> SinhArcsinh**.
     Only the SinhArcsinh skewness and tailweight are optimised (via BFGS);
     the first three steps are determined by summary statistics of *x_col*.
 
@@ -88,25 +106,27 @@ def fit_normalising_flow(x_col: Array) -> ComposeTransform:
     """
     x = jnp.asarray(x_col)
 
-    # Fixed statistics from data
+    # Step 1-2: Shift to positive then log-transform
     offset = -x.min() + 1e-3
-    log_vals = jnp.log(x + offset)
-    mean_log = jnp.mean(log_vals)
-    std_log = jnp.std(log_vals)
+    log_values = jnp.log(x + offset)
 
-    # Pre-compute standardised values (first 3 steps are fixed)
-    z_pre = (log_vals - mean_log) / std_log
-    ldj_fixed = -jnp.log(x + offset) - jnp.log(std_log)
+    # Step 3: Standardise the log-transformed values
+    mean_log = jnp.mean(log_values)
+    std_log = jnp.std(log_values)
+    standardised = (log_values - mean_log) / std_log
 
-    def loss(params):
-        skewness = params[0]
-        tailweight = jax.nn.softplus(params[1])
-        sa = SinhArcsinhTransform(skewness, tailweight)
-        z = sa(z_pre)
-        ldj_sa = sa.log_abs_det_jacobian(z_pre, z)
-        return 0.5 * jnp.mean(jnp.square(z)) - jnp.mean(ldj_fixed + ldj_sa)
+    # Log-det-Jacobian contribution from the fixed (non-optimised) steps
+    fixed_log_det_jacobian = -jnp.log(x + offset) - jnp.log(std_log)
 
-    result = jax.scipy.optimize.minimize(loss, jnp.array([0.0, 1.0]), method="BFGS")
+    # Step 4: Optimise sinh-arcsinh parameters via BFGS
+    initial_params = jnp.array([0.0, 1.0])  # [skewness, softplus_inv(tailweight)]
+    result = jax.scipy.optimize.minimize(
+        lambda params: _negative_log_likelihood(
+            params, standardised, fixed_log_det_jacobian
+        ),
+        initial_params,
+        method="BFGS",
+    )
 
     skewness = result.x[0]
     tailweight = jax.nn.softplus(result.x[1])
