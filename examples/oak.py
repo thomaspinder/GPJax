@@ -40,15 +40,13 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-import jax
+from examples.utils import use_mpl_style
 import jax.numpy as jnp
 import jax.random as jr
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-
-from examples.utils import use_mpl_style
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
@@ -62,7 +60,7 @@ with install_import_hook("gpjax", "beartype.beartype"):
 
 key = jr.key(123)
 use_mpl_style()
-cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
+colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 # %% [markdown]
 # ## Mathematical background
@@ -183,13 +181,13 @@ X_raw = auto_mpg.data.features
 y_raw = auto_mpg.data.targets
 
 # Drop rows with missing values
-mask = ~(X_raw.isna().any(axis=1) | y_raw.isna().any(axis=1))
-X_np = X_raw[mask].values.astype(np.float64)
-y_np = y_raw[mask].values.astype(np.float64)
+complete_rows = ~(X_raw.isna().any(axis=1) | y_raw.isna().any(axis=1))
+X_all = X_raw[complete_rows].values.astype(np.float64)
+y_all = y_raw[complete_rows].values.astype(np.float64)
 
 feature_names = list(X_raw.columns)
-D = X_np.shape[1]
-print(f"Dataset: {X_np.shape[0]} observations, {D} features")
+num_features = X_all.shape[1]
+print(f"Dataset: {X_all.shape[0]} observations, {num_features} features")
 print(f"Features: {feature_names}")
 
 # %% [markdown]
@@ -204,32 +202,36 @@ print(f"Features: {feature_names}")
 # %%
 from gpjax.kernels.additive.transforms import fit_all_normalising_flows
 
-
 # %%
-y_mean, y_std = y_np.mean(axis=0), y_np.std(axis=0)
-y_scaled = (y_np - y_mean) / y_std
+y_mean, y_std = y_all.mean(axis=0), y_all.std(axis=0)
+y_standardised = (y_all - y_mean) / y_std
 
-N = y_scaled.shape[0]
+num_observations = y_standardised.shape[0]
 key, split_key = jr.split(key)
-perm = jr.permutation(split_key, N)
-n_train = int(0.8 * N)
+permutation = jr.permutation(split_key, num_observations)
+num_train = int(0.8 * num_observations)
 
-train_idx = perm[:n_train]
-test_idx = perm[n_train:]
+train_idx = permutation[:num_train]
+test_idx = permutation[num_train:]
 
-y_train = jnp.array(y_scaled[train_idx])
-y_test = jnp.array(y_scaled[test_idx])
+y_train = jnp.array(y_standardised[train_idx])
+y_test = jnp.array(y_standardised[test_idx])
 
-X_train_original = X_np[train_idx]
-X_test_original = X_np[test_idx]
+X_train_original = X_all[train_idx]
+X_test_original = X_all[test_idx]
 
 flows = fit_all_normalising_flows(jnp.asarray(X_train_original))
-X_train = jnp.column_stack(
-    [flows[d](jnp.asarray(X_train_original[:, d])) for d in range(D)]
-)
-X_test = jnp.column_stack(
-    [flows[d](jnp.asarray(X_test_original[:, d])) for d in range(D)]
-)
+
+
+def apply_flows(X_original: np.ndarray) -> jnp.ndarray:
+    """Transform each feature column through its fitted normalising flow."""
+    return jnp.column_stack(
+        [flows[d](jnp.asarray(X_original[:, d])) for d in range(num_features)]
+    )
+
+
+X_train = apply_flows(X_train_original)
+X_test = apply_flows(X_test_original)
 
 train_data = gpx.Dataset(X=X_train, y=y_train)
 test_data = gpx.Dataset(X=X_test, y=y_test)
@@ -245,18 +247,20 @@ test_data = gpx.Dataset(X=X_test, y=y_test)
 # optimise hyperparameters by maximising the marginal log-likelihood.
 
 # %%
-base_kernels = [gpx.kernels.RBF(active_dims=[i]) for i in range(D)]
+base_kernels = [gpx.kernels.RBF(active_dims=[i]) for i in range(num_features)]
 oak_kernel = OrthogonalAdditiveKernel(base_kernels, max_order=3)
 
-meanf = gpx.mean_functions.Zero()
-prior = gpx.gps.Prior(mean_function=meanf, kernel=oak_kernel)
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train)
+mean_function = gpx.mean_functions.Zero()
+prior = gpx.gps.Prior(mean_function=mean_function, kernel=oak_kernel)
+likelihood = gpx.likelihoods.Gaussian(num_datapoints=num_train)
 posterior = prior * likelihood
 
 # %%
+negative_mll = lambda posterior, data: -gpx.objectives.conjugate_mll(posterior, data)
+
 opt_posterior, history = gpx.fit_scipy(
     model=posterior,
-    objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
+    objective=negative_mll,
     train_data=train_data,
     trainable=Parameter,
 )
@@ -265,7 +269,7 @@ latent_dist = opt_posterior.predict(
     X_test, train_data=train_data, return_covariance_type="diagonal"
 )
 predictive_dist = opt_posterior.likelihood(latent_dist)
-oak_pred_mean = predictive_dist.mean
+predictive_mean = predictive_dist.mean
 
 # %% [markdown]
 # ## Sobol indices
@@ -275,21 +279,18 @@ oak_pred_mean = predictive_dist.mean
 # first-order (main) effects, second-order interactions, and so on.
 
 # %%
-noise_var = jnp.square(opt_posterior.likelihood.obs_stddev[...])
-si = sobol_indices(
-    opt_posterior.prior.kernel,
-    X_train,
-    y_train,
-    float(noise_var),
-)
+noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev[...]))
+fitted_kernel = opt_posterior.prior.kernel
+
+sobol_values = sobol_indices(fitted_kernel, X_train, y_train, noise_variance)
 
 fig, ax = plt.subplots(figsize=(7, 3))
-orders = jnp.arange(1, len(si) + 1)
-ax.bar(orders, si, color=cols[0])
+orders = jnp.arange(1, len(sobol_values) + 1)
+ax.bar(orders, sobol_values, color=colours[1])
 ax.set_xlabel("Interaction order")
 ax.set_ylabel("Sobol index")
 ax.set_title("Sobol indices by interaction order")
-ax.set_xticks(np.arange(1, len(si) + 1))
+ax.set_xticks(np.arange(1, len(sobol_values) + 1))
 
 # %% [markdown]
 # Typically the first-order (main) effects dominate, with higher-order
@@ -311,58 +312,60 @@ ax.set_xticks(np.arange(1, len(si) + 1))
 # GP way.
 
 # %%
-oak_kern = opt_posterior.prior.kernel
 num_top_features = 3
+num_grid_points = 300
 
-feature_scores = rank_first_order(oak_kern, X_train, y_train, float(noise_var))
-top_features = jnp.argsort(-feature_scores)[:num_top_features]
+feature_scores = rank_first_order(fitted_kernel, X_train, y_train, noise_variance)
+top_feature_indices = jnp.argsort(-feature_scores)[:num_top_features]
 
-n_grid = 300
-n_cols = 3
-fig, axes = plt.subplots(
-    nrows=num_top_features // n_cols, ncols=n_cols, figsize=(12, 3)
-)
+fig, axes = plt.subplots(nrows=1, ncols=num_top_features, figsize=(12, 3))
 
-for idx, ax in enumerate(axes.flat):
-    dim = int(top_features[idx])
-    fname = feature_names[dim]
+for plot_idx, ax in enumerate(axes.flat):
+    feature_dim = int(top_feature_indices[plot_idx])
+    feature_name = feature_names[feature_dim]
 
-    x_low = float(X_train[:, dim].min())
-    x_high = float(X_train[:, dim].max())
-    x_grid = jnp.linspace(x_low, x_high, n_grid)
+    grid_low = float(X_train[:, feature_dim].min())
+    grid_high = float(X_train[:, feature_dim].max())
+    grid = jnp.linspace(grid_low, grid_high, num_grid_points)
 
-    f_mean, f_var = predict_first_order(
-        oak_kern, X_train, y_train, float(noise_var), dim, x_grid
+    effect_mean, effect_variance = predict_first_order(
+        fitted_kernel, X_train, y_train, noise_variance, feature_dim, grid
     )
-    f_std = jnp.sqrt(f_var)
+    effect_std = jnp.sqrt(effect_variance)
 
-    x_grid_orig = flows[dim].inv(x_grid)
+    grid_original_scale = flows[feature_dim].inv(grid)
 
-    ax.plot(x_grid_orig, f_mean, color=cols[0], linewidth=2, label="Posterior mean")
+    ax.plot(
+        grid_original_scale,
+        effect_mean,
+        color=colours[1],
+        linewidth=2,
+        label="Posterior mean",
+    )
     ax.fill_between(
-        x_grid_orig,
-        f_mean - 2 * f_std,
-        f_mean + 2 * f_std,
+        grid_original_scale,
+        effect_mean - 2 * effect_std,
+        effect_mean + 2 * effect_std,
         alpha=0.2,
-        color=cols[1],
+        color=colours[1],
         label=r"$\pm 2\sigma$",
     )
 
-    ax2 = ax.twinx()
-    ax2.hist(
-        X_train_original[:, dim],
-        bins=30,
+    histogram_ax = ax.twinx()
+    histogram_ax.hist(
+        X_train_original[:, feature_dim],
+        bins=20,
         alpha=0.15,
-        color=cols[0],
+        color=colours[0],
         density=True,
     )
-    ax2.set_yticks([])
-    ax.set_xlabel(fname)
+    histogram_ax.set_yticks([])
+    ax.set_xlabel(feature_name)
     ax.set_ylabel("Effect")
-    ax.set_title(f"{fname} (dim {dim})")
+    ax.set_title(f"{feature_name} (dim {feature_dim})")
     ax.legend(loc="best", fontsize=8)
 
-fig.suptitle(f"Top {num_top_features} first-order main effects", fontsize=14, y=1.02)
+fig.suptitle(f"Top {num_top_features} first-order main effects", fontsize=14, y=1.05)
 
 # %% [markdown]
 # Each panel shows how the OAK model attributes predictive variation to
