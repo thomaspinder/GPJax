@@ -55,10 +55,16 @@ class Matern32(StationaryKernel):
 
     @property
     def spectral_density(self) -> SpectralDensity:
-        def _matern32_spectral_density(omega, variance, lengthscale):
+        r"""Matern-3/2 spectral density.
+
+        .. math::
+            S(\omega) = \sigma^2 \,
+            \frac{4\,\alpha^3}{(3/\ell^2 + \omega^2)^2},
+            \quad \alpha = \sqrt{3}/\ell
+        """
+
+        def _evaluate(omega, variance, lengthscale):
             alpha = jnp.sqrt(3.0) / lengthscale
             return variance * 4.0 * alpha**3 / (3.0 / lengthscale**2 + omega**2) ** 2
 
-        return SpectralDensity(
-            build_student_t_distribution(nu=3), _matern32_spectral_density
-        )
+        return SpectralDensity(build_student_t_distribution(nu=3), _evaluate)

@@ -96,10 +96,11 @@ class StationaryKernel(AbstractKernel):
 
     @property
     def spectral_density(self) -> SpectralDensity:
-        r"""The spectral density of the kernel.
+        r"""Spectral density :math:`S(\omega)` of this kernel.
 
-        Returns a :class:`~gpjax.kernels.stationary.utils.SpectralDensity`
-        object that supports both ``sample()`` (for RFF) and
+        Subclasses override this to return a
+        :class:`~gpjax.kernels.stationary.utils.SpectralDensity` that
+        supports ``sample()`` (for RFF) and
         ``__call__(omega, variance, lengthscale)`` (for HSGP).
         """
         raise NotImplementedError(

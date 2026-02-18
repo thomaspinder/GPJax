@@ -24,95 +24,97 @@ from gpjax.typing import (
 
 
 def build_student_t_distribution(nu: int) -> npd.StudentT:
-    r"""Build a Student's t distribution with a fixed smoothness parameter.
-
-    For a fixed half-integer smoothness parameter, compute the spectral density of a
-    Matérn kernel; a Student's t distribution.
+    r"""Student's t distribution for Matern spectral densities.
 
     Args:
-        nu (int): The smoothness parameter of the Matérn kernel.
+        nu: Degrees of freedom (equals the Matern smoothness parameter
+            :math:`\nu` mapped to the nearest integer: 1, 3, or 5).
 
-    Returns
-    -------
-        tfp.Distribution: A Student's t distribution with the same smoothness parameter.
+    Returns:
+        A standard Student's t distribution with ``df=nu``.
     """
-    dist = npd.StudentT(df=nu, loc=0.0, scale=1.0)
-    return dist
+    return npd.StudentT(df=nu, loc=0.0, scale=1.0)
 
 
 class SpectralDensity:
-    """Spectral density of a stationary kernel.
+    r"""Spectral density :math:`S(\omega)` of a stationary kernel.
 
-    Wraps a NumPyro distribution (for sampling, used by RFF) and adds
-    evaluation of the spectral density function S(omega) at arbitrary
-    frequencies (used by HSGP).
+    This class serves two roles:
+
+    1. **Sampling** (for RFF): delegates to a wrapped NumPyro distribution
+       via :meth:`sample`, drawing frequency samples :math:`\omega`.
+    2. **Evaluation** (for HSGP): computes :math:`S(\omega)` at arbitrary
+       frequencies via :meth:`__call__`, incorporating kernel variance and
+       lengthscale.
 
     Args:
-        distribution: A NumPyro distribution to delegate ``sample()`` to.
-        evaluate_fn: A callable ``(omega, variance, lengthscale) -> S(omega)``
-            that computes the un-normalized spectral density at the given
-            frequencies incorporating kernel variance and lengthscale.
+        distribution: NumPyro distribution to sample from (used by RFF).
+        evaluate_fn: Callable ``(omega, variance, lengthscale) -> S(omega)``
+            that evaluates the spectral density at given frequencies.
     """
 
     def __init__(
         self,
         distribution: npd.Distribution,
-        evaluate_fn: tp.Callable,
+        evaluate_fn: tp.Callable[
+            [Float[Array, " M"], ScalarFloat, ScalarFloat], Float[Array, " M"]
+        ],
     ):
         self._distribution = distribution
         self._evaluate_fn = evaluate_fn
 
-    def sample(self, key, sample_shape):
-        """Draw samples from the spectral density distribution.
+    def sample(self, key: Array, sample_shape: tuple[int, ...]) -> Float[Array, "..."]:
+        """Draw frequency samples from the spectral distribution (used by RFF).
 
-        This delegates to the wrapped NumPyro distribution and is used by
-        Random Fourier Features (RFF).
+        Args:
+            key: JAX PRNG key.
+            sample_shape: Shape of the sample array.
+
+        Returns:
+            Sampled frequencies.
         """
         return self._distribution.sample(key=key, sample_shape=sample_shape)
 
-    def __call__(self, omega, variance, lengthscale):
-        """Evaluate S(omega) incorporating kernel variance and lengthscale.
+    def __call__(
+        self,
+        omega: Float[Array, " M"],
+        variance: ScalarFloat,
+        lengthscale: ScalarFloat,
+    ) -> Float[Array, " M"]:
+        r"""Evaluate :math:`S(\omega)` at the given frequencies (used by HSGP).
 
-        Parameters
-        ----------
-        omega : Array
-            Frequencies at which to evaluate the spectral density.
-        variance : ScalarFloat
-            Kernel variance parameter (sigma^2).
-        lengthscale : ScalarFloat
-            Kernel lengthscale parameter (ell).
+        Args:
+            omega: Frequencies at which to evaluate the spectral density.
+            variance: Kernel variance :math:`\sigma^2`.
+            lengthscale: Kernel lengthscale :math:`\ell`.
 
-        Returns
-        -------
-        Array
-            Spectral density values S(omega).
+        Returns:
+            Spectral density values :math:`S(\omega)`.
         """
         return self._evaluate_fn(omega, variance, lengthscale)
 
 
 def squared_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-    r"""Compute the squared distance between a pair of inputs.
+    r"""Squared Euclidean distance :math:`\lVert x - y \rVert^2`.
 
     Args:
-        x (Float[Array, " D"]): First input.
-        y (Float[Array, " D"]): Second input.
+        x: First input vector.
+        y: Second input vector.
 
-    Returns
-    -------
-        ScalarFloat: The squared distance between the inputs.
+    Returns:
+        The squared distance between the inputs.
     """
     return jnp.sum((x - y) ** 2)
 
 
 def euclidean_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-    r"""Compute the euclidean distance between a pair of inputs.
+    r"""Euclidean distance :math:`\lVert x - y \rVert`, clamped for stability.
 
     Args:
-        x (Float[Array, " D"]): First input.
-        y (Float[Array, " D"]): Second input.
+        x: First input vector.
+        y: Second input vector.
 
-    Returns
-    -------
-        ScalarFloat: The euclidean distance between the inputs.
+    Returns:
+        The Euclidean distance between the inputs.
     """
     return jnp.sqrt(jnp.maximum(squared_distance(x, y), 1e-36))

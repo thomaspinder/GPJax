@@ -46,7 +46,9 @@ from gpjax.linalg import (
 from gpjax.linalg.operations import (
     lower_cholesky,
 )
+from gpjax.linalg.operators import LowRank
 from gpjax.linalg.utils import add_jitter
+from gpjax.linalg.woodbury import woodbury_solve
 from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     Parameter,
@@ -380,7 +382,9 @@ P = tp.TypeVar("P", bound=AbstractPrior)
 
 #######################
 # GP Posteriors
-#######################from gpjax.linalg.operators import LinearOperator
+#######################
+
+
 class AbstractPosterior(nnx.Module, tp.Generic[P, L]):
     r"""Abstract Gaussian process posterior.
 
@@ -587,60 +591,151 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
 
         kernel = self.prior.kernel
         x, y = train_data.X, train_data.y
-        P = self.likelihood.num_outputs
+        num_outputs = self.likelihood.num_outputs
 
-        # Prepare targets via likelihood protocol (identity for single-output,
-        # output-major reshape for multi-output)
         mx = self.prior.mean_function(x)
         y_flat, mx_flat = self.likelihood.prepare_targets(y, mx)
         noise = self.likelihood.noise_vector(train_data.n)
 
         Kxx = kernel.gram(x)
-        Kxx_dense = add_jitter(Kxx.to_dense(), self.jitter)
-        Sigma_dense = Kxx_dense + jnp.diag(noise)
-        Sigma = psd(Dense(Sigma_dense))
-        L_sigma = lower_cholesky(Sigma)
-
         Kxt = kernel.cross_covariance(x, test_inputs)
-        L_inv_Kxt = solve(L_sigma, Kxt)
-        L_inv_y_diff = solve(L_sigma, y_flat - mx_flat)
 
-        mean_t_raw = self.prior.mean_function(test_inputs)
-        mean_t = jnp.tile(mean_t_raw, (P, 1)) if P > 1 else mean_t_raw
-        mean = mean_t + jnp.matmul(L_inv_Kxt.T, L_inv_y_diff)
+        # Posterior test-point mean: m(x*) + Kxt^T Sigma^{-1} (y - m(x))
+        mean_test_raw = self.prior.mean_function(test_inputs)
+        mean_test = (
+            jnp.tile(mean_test_raw, (num_outputs, 1))
+            if num_outputs > 1
+            else mean_test_raw
+        )
 
-        # Diagonal covariance not yet supported for multi-output
-        if return_covariance_type == "diagonal" and P > 1:
+        if return_covariance_type == "diagonal" and num_outputs > 1:
             warnings.warn(
-                "Diagonal covariance is not yet supported for multi-output GPs. "
-                "Returning full covariance.",
+                "Diagonal covariance is not yet supported for "
+                "multi-output GPs. Returning full covariance.",
                 stacklevel=2,
             )
             return_covariance_type = "dense"
 
-        def _return_full_covariance(L_inv_Kxt, t):
-            Ktt = kernel.gram(t)
-            covariance = Ktt.to_dense() - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
-            covariance = add_jitter(covariance, self.prior.jitter)
-            covariance = psd(Dense(covariance))
-            return covariance
+        if isinstance(Kxx, LowRank):
+            mean, cov = self._predict_lowrank(
+                kernel,
+                Kxx,
+                Kxt,
+                y_flat,
+                mx_flat,
+                noise,
+                mean_test,
+                test_inputs,
+                return_covariance_type,
+            )
+        else:
+            mean, cov = self._predict_dense(
+                kernel,
+                Kxx,
+                Kxt,
+                y_flat,
+                mx_flat,
+                noise,
+                mean_test,
+                test_inputs,
+                return_covariance_type,
+            )
 
-        def _return_diagonal_covariance(L_inv_Kxt, t):
-            Ktt = kernel.diagonal(t).diagonal
-            covariance = Ktt - jnp.einsum("ij, ji->i", L_inv_Kxt.T, L_inv_Kxt)
+        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=cov)
+
+    def _predict_lowrank(
+        self,
+        kernel,
+        Kxx,
+        Kxt,
+        y_flat,
+        mx_flat,
+        noise,
+        mean_test,
+        test_inputs,
+        return_covariance_type,
+    ):
+        r"""Posterior prediction using the Woodbury identity.
+
+        When K_xx = W W^T (low-rank), the marginal covariance is
+        Sigma = W W^T + D with D = diag(noise + jitter).  The Woodbury
+        identity gives Sigma^{-1} in O(N m^2) instead of O(N^3).
+        """
+        W = Kxx.factor
+        noise_with_jitter = noise + self.jitter
+
+        # alpha = Sigma^{-1} (y - m(x))
+        alpha = woodbury_solve(W, noise_with_jitter, (y_flat - mx_flat).squeeze())
+        mean = mean_test + jnp.matmul(Kxt.T, alpha[:, None])
+
+        # Sigma^{-1} Kxt  for the covariance update
+        Sigma_inv_Kxt = woodbury_solve(W, noise_with_jitter, Kxt)
+
+        def _full_covariance(Sigma_inv_Kxt, test_inputs):
+            Ktt = kernel.gram(test_inputs).to_dense()
+            covariance = Ktt - jnp.matmul(Kxt.T, Sigma_inv_Kxt)
+            return psd(Dense(add_jitter(covariance, self.prior.jitter)))
+
+        def _diagonal_covariance(Sigma_inv_Kxt, test_inputs):
+            Ktt_diag = kernel.diagonal(test_inputs).diagonal
+            covariance = Ktt_diag - jnp.einsum("ij,ij->j", Kxt, Sigma_inv_Kxt)
             covariance += self.prior.jitter
-            covariance = psd(Dense(jnp.diag(jnp.atleast_1d(covariance.squeeze()))))
-            return covariance
+            return psd(Dense(jnp.diag(jnp.atleast_1d(covariance.squeeze()))))
 
         cov = jax.lax.cond(
             return_covariance_type == "dense",
-            _return_full_covariance,
-            _return_diagonal_covariance,
+            _full_covariance,
+            _diagonal_covariance,
+            Sigma_inv_Kxt,
+            test_inputs,
+        )
+
+        return mean, cov
+
+    def _predict_dense(
+        self,
+        kernel,
+        Kxx,
+        Kxt,
+        y_flat,
+        mx_flat,
+        noise,
+        mean_test,
+        test_inputs,
+        return_covariance_type,
+    ):
+        r"""Posterior prediction via the standard Cholesky decomposition.
+
+        Sigma = K_xx + D,  L L^T = Sigma,  then solves use L^{-1}.
+        """
+        Sigma_dense = add_jitter(Kxx.to_dense(), self.jitter) + jnp.diag(noise)
+        L_sigma = lower_cholesky(psd(Dense(Sigma_dense)))
+
+        L_inv_Kxt = solve(L_sigma, Kxt)
+        L_inv_diff = solve(L_sigma, y_flat - mx_flat)
+
+        mean = mean_test + jnp.matmul(L_inv_Kxt.T, L_inv_diff)
+
+        def _full_covariance(L_inv_Kxt, test_inputs):
+            Ktt = kernel.gram(test_inputs).to_dense()
+            covariance = Ktt - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
+            return psd(Dense(add_jitter(covariance, self.prior.jitter)))
+
+        def _diagonal_covariance(L_inv_Kxt, test_inputs):
+            Ktt_diag = kernel.diagonal(test_inputs).diagonal
+            covariance = Ktt_diag - jnp.einsum("ij, ji->i", L_inv_Kxt.T, L_inv_Kxt)
+            covariance += self.prior.jitter
+            return psd(Dense(jnp.diag(jnp.atleast_1d(covariance.squeeze()))))
+
+        cov = jax.lax.cond(
+            return_covariance_type == "dense",
+            _full_covariance,
+            _diagonal_covariance,
             L_inv_Kxt,
             test_inputs,
         )
 
-        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=cov)
+        return mean, cov
 
     def sample_approx(
         self,

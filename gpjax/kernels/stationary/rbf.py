@@ -45,7 +45,14 @@ class RBF(StationaryKernel):
 
     @property
     def spectral_density(self) -> SpectralDensity:
-        def _rbf_spectral_density(omega, variance, lengthscale):
+        r"""RBF spectral density.
+
+        .. math::
+            S(\omega) = \sigma^2 \sqrt{2\pi}\,\ell\,
+            \exp\!\bigl(-\tfrac{1}{2}\ell^2 \omega^2\bigr)
+        """
+
+        def _evaluate(omega, variance, lengthscale):
             return (
                 variance
                 * jnp.sqrt(2.0 * jnp.pi)
@@ -53,4 +60,4 @@ class RBF(StationaryKernel):
                 * jnp.exp(-0.5 * lengthscale**2 * omega**2)
             )
 
-        return SpectralDensity(npd.Normal(0.0, 1.0), _rbf_spectral_density)
+        return SpectralDensity(npd.Normal(0.0, 1.0), _evaluate)

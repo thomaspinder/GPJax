@@ -15,6 +15,7 @@ from gpjax.linalg import (
     PSD,
     Dense,
     Diagonal,
+    LowRank,
 )
 import jax.numpy as jnp
 import jax.random as jr
@@ -67,7 +68,7 @@ class TestBasisFunctionComputation:
         """Gram matrix should be (N, N)."""
         x = jr.normal(jr.key(1), (10, 2))
         gram = rff_kernel.gram(x)
-        assert isinstance(gram, Dense)
+        assert isinstance(gram, LowRank)
         assert PSD in gram.annotations
         assert gram.shape == (10, 10)
 

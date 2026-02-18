@@ -407,6 +407,52 @@ def _kronecker_tree_unflatten(aux_data, children):
 
 jtu.register_pytree_node(Kronecker, _kronecker_tree_flatten, _kronecker_tree_unflatten)
 
+
+class LowRank(LinearOperator):
+    r"""Low-rank matrix K = W W^T where W has shape (N, m) with m << N.
+
+    Basis-function kernel approximations (HSGP, RFF) produce a kernel
+    matrix that factors as K = W W^T.  Storing only the (N, m) factor W
+    rather than the full (N, N) matrix enables O(N m^2) inference via the
+    Woodbury identity instead of O(N^3) Cholesky-based inference.
+    """
+
+    def __init__(self, factor: Float[Array, "N m"]):
+        super().__init__()
+        self.factor = factor
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        num_data = self.factor.shape[0]
+        return (num_data, num_data)
+
+    @property
+    def rank(self) -> int:
+        return self.factor.shape[1]
+
+    @property
+    def dtype(self) -> jnp.dtype:
+        return self.factor.dtype
+
+    def to_dense(self) -> Float[Array, "N N"]:
+        return self.factor @ self.factor.T
+
+    @property
+    def T(self) -> "LowRank":
+        # W W^T is symmetric, so the transpose is itself.
+        return self
+
+
+def _lowrank_tree_flatten(lowrank):
+    return (lowrank.factor,), None
+
+
+def _lowrank_tree_unflatten(aux_data, children):
+    return LowRank(children[0])
+
+
+jtu.register_pytree_node(LowRank, _lowrank_tree_flatten, _lowrank_tree_unflatten)
+
 __all__ = [
     "BlockDiag",
     "Dense",
@@ -414,5 +460,6 @@ __all__ = [
     "Identity",
     "Kronecker",
     "LinearOperator",
+    "LowRank",
     "Triangular",
 ]

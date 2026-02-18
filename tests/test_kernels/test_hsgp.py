@@ -2,7 +2,8 @@
 
 from gpjax.kernels.approximations.hsgp import HSGP
 from gpjax.kernels.stationary import RBF, Matern12, Matern32, Matern52
-from gpjax.linalg.operators import Dense
+from gpjax.linalg.operators import LowRank
+import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -11,307 +12,298 @@ import pytest
 
 config.update("jax_enable_x64", True)
 
-
-class TestEigenvalues:
-    def test_eigenvalue_count(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1), num_basis_fns=10, domain_half_width=3.0
-        )
-        evals = kernel.eigenvalues()
-        assert evals.shape == (10,)
-
-    def test_eigenvalue_formula(self):
-        """sqrt(lambda_j) = j * pi / (2 * L)."""
-        L = 5.0
-        m = 4
-        kernel = HSGP(base_kernel=RBF(n_dims=1), num_basis_fns=m, domain_half_width=L)
-        evals = kernel.eigenvalues()
-        expected = jnp.arange(1, m + 1) * jnp.pi / (2.0 * L)
-        npt.assert_allclose(evals, expected)
-
-    def test_eigenvalues_increase(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1), num_basis_fns=20, domain_half_width=3.0
-        )
-        evals = kernel.eigenvalues()
-        assert jnp.all(jnp.diff(evals) > 0)
+STATIONARY_KERNELS = [RBF, Matern12, Matern32, Matern52]
 
 
-class TestEigenfunctions:
-    def test_shape(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1),
-            num_basis_fns=10,
-            domain_half_width=3.0,
-            center=0.0,
-        )
-        x = jnp.linspace(-2, 2, 50)[:, None]
-        phi = kernel.eigenfunctions(x)
-        assert phi.shape == (50, 10)
-
-    def test_orthonormality(self):
-        """Eigenfunctions should be approximately orthonormal over [-L, L]."""
-        L = 3.0
-        m = 5
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1), num_basis_fns=m, domain_half_width=L, center=0.0
-        )
-        # Dense grid for numerical integration
-        n_quad = 10000
-        x = jnp.linspace(-L, L, n_quad)[:, None]
-        phi = kernel.eigenfunctions(x)
-        dx = 2.0 * L / n_quad
-        gram = phi.T @ phi * dx  # Approximate integral
-        npt.assert_allclose(gram, jnp.eye(m), atol=1e-2)
-
-    def test_zero_at_boundaries(self):
-        """Eigenfunctions should be zero at x = -L and x = L."""
-        L = 3.0
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1), num_basis_fns=5, domain_half_width=L, center=0.0
-        )
-        boundaries = jnp.array([[-L], [L]])
-        phi = kernel.eigenfunctions(boundaries)
-        npt.assert_allclose(phi, 0.0, atol=1e-12)
+def _make_hsgp(
+    kernel_class=RBF,
+    num_basis_fns: int = 20,
+    domain_half_width: float = 5.0,
+    center: float = 0.0,
+) -> HSGP:
+    """Create an HSGP with sensible defaults for testing."""
+    base_kernel = kernel_class(n_dims=1)
+    return HSGP(
+        base_kernel=base_kernel,
+        num_basis_fns=num_basis_fns,
+        domain_half_width=domain_half_width,
+        center=center,
+    )
 
 
-class TestCentering:
-    def test_explicit_center(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1),
-            num_basis_fns=5,
-            domain_half_width=3.0,
-            center=1.0,
-        )
-        assert kernel._center == 1.0
-
-    def test_auto_center(self):
-        kernel = HSGP(base_kernel=RBF(n_dims=1), num_basis_fns=5, domain_half_width=3.0)
-        x = jnp.linspace(2.0, 8.0, 50)[:, None]
-        _ = kernel.eigenfunctions(x)
-        assert kernel._center == pytest.approx(5.0)
-
-    def test_auto_center_persists(self):
-        """Once set, auto-center should not change on subsequent calls."""
-        kernel = HSGP(base_kernel=RBF(n_dims=1), num_basis_fns=5, domain_half_width=3.0)
-        x1 = jnp.linspace(0, 10, 50)[:, None]
-        x2 = jnp.linspace(-5, 5, 50)[:, None]
-        _ = kernel.eigenfunctions(x1)
-        center_after_first = kernel._center
-        _ = kernel.eigenfunctions(x2)
-        assert kernel._center == center_after_first
+# ──────────────────────────────────────────────────────────────────────
+# Eigenvalues
+# ──────────────────────────────────────────────────────────────────────
 
 
-class TestComputeBasis:
-    def test_returns_tuple(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1),
-            num_basis_fns=10,
-            domain_half_width=3.0,
-            center=0.0,
-        )
-        x = jnp.linspace(-2, 2, 50)[:, None]
-        phi, sqrt_psd = kernel.compute_basis(x)
-        assert phi.shape == (50, 10)
-        assert sqrt_psd.shape == (10,)
-
-    def test_sqrt_psd_positive(self):
-        kernel = HSGP(
-            base_kernel=RBF(n_dims=1),
-            num_basis_fns=10,
-            domain_half_width=3.0,
-            center=0.0,
-        )
-        x = jnp.linspace(-2, 2, 50)[:, None]
-        _, sqrt_psd = kernel.compute_basis(x)
-        assert jnp.all(sqrt_psd > 0)
+def test_eigenvalue_count():
+    hsgp = _make_hsgp(num_basis_fns=10, domain_half_width=3.0)
+    eigenvalues = hsgp.eigenvalues()
+    assert eigenvalues.shape == (10,)
 
 
-class TestGram:
-    @pytest.mark.parametrize("KernelClass", [RBF, Matern12, Matern32, Matern52])
-    def test_gram_shape_and_psd(self, KernelClass):
-        base = KernelClass(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        x = jnp.linspace(-3, 3, 30)[:, None]
-        linop = hsgp.gram(x)
-        assert isinstance(linop, Dense)
-        K = linop.to_dense()
-        assert K.shape == (30, 30)
-        # PSD check
-        evals, _ = jnp.linalg.eigh(K + 1e-6 * jnp.eye(30))
-        assert jnp.all(evals > 0)
-
-    @pytest.mark.parametrize("KernelClass", [RBF, Matern12, Matern32, Matern52])
-    def test_cross_covariance_shape(self, KernelClass):
-        base = KernelClass(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        x1 = jnp.linspace(-3, 3, 30)[:, None]
-        x2 = jnp.linspace(-2, 2, 20)[:, None]
-        Kxy = hsgp.cross_covariance(x1, x2)
-        assert Kxy.shape == (30, 20)
-
-    def test_gram_symmetric(self):
-        base = RBF(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        x = jnp.linspace(-3, 3, 30)[:, None]
-        K = hsgp.gram(x).to_dense()
-        npt.assert_allclose(K, K.T, atol=1e-12)
-
-    @pytest.mark.parametrize("KernelClass", [RBF, Matern12, Matern32, Matern52])
-    def test_diagonal(self, KernelClass):
-        base = KernelClass(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        x = jnp.linspace(-3, 3, 30)[:, None]
-        diag = hsgp.diagonal(x)
-        K = hsgp.gram(x).to_dense()
-        npt.assert_allclose(jnp.diag(diag.to_dense()), jnp.diag(K), atol=1e-10)
+def test_eigenvalue_formula():
+    """sqrt(lambda_j) = j * pi / (2 * L)."""
+    half_width = 5.0
+    num_basis = 4
+    hsgp = _make_hsgp(num_basis_fns=num_basis, domain_half_width=half_width)
+    eigenvalues = hsgp.eigenvalues()
+    indices = jnp.arange(1, num_basis + 1)
+    expected = indices * jnp.pi / (2.0 * half_width)
+    npt.assert_allclose(eigenvalues, expected)
 
 
-class TestConvergence:
-    @pytest.mark.parametrize("KernelClass", [RBF, Matern32, Matern52])
-    def test_gram_converges_to_exact(self, KernelClass):
-        """With large m and appropriate L, HSGP Gram should converge to exact."""
-        base = KernelClass(n_dims=1)
-        x = jnp.linspace(-1, 1, 30)[:, None]
-        exact = base.gram(x).to_dense()
-
-        hsgp_coarse = HSGP(
-            base_kernel=base, num_basis_fns=10, domain_half_width=5.0, center=0.0
-        )
-        hsgp_fine = HSGP(
-            base_kernel=base, num_basis_fns=80, domain_half_width=5.0, center=0.0
-        )
-
-        err_coarse = jnp.linalg.norm(exact - hsgp_coarse.gram(x).to_dense(), ord="fro")
-        err_fine = jnp.linalg.norm(exact - hsgp_fine.gram(x).to_dense(), ord="fro")
-
-        # Finer approximation should have smaller error
-        assert err_fine < err_coarse
-
-    def test_rbf_close_to_exact(self):
-        """RBF with large m should be very close to exact."""
-        base = RBF(n_dims=1)
-        x = jnp.linspace(-1, 1, 20)[:, None]
-        exact = base.gram(x).to_dense()
-
-        hsgp = HSGP(
-            base_kernel=base, num_basis_fns=100, domain_half_width=5.0, center=0.0
-        )
-        approx = hsgp.gram(x).to_dense()
-        max_err = jnp.max(jnp.abs(exact - approx))
-        assert max_err < 0.01
+def test_eigenvalues_are_strictly_increasing():
+    hsgp = _make_hsgp(num_basis_fns=20, domain_half_width=3.0)
+    eigenvalues = hsgp.eigenvalues()
+    assert jnp.all(jnp.diff(eigenvalues) > 0)
 
 
-class TestValidation:
-    def test_nonstationary_kernel_rejected(self):
-        from gpjax.kernels.nonstationary import Linear
-
-        with pytest.raises(TypeError):
-            HSGP(base_kernel=Linear(1), num_basis_fns=10, domain_half_width=3.0)
-
-    def test_pointwise_call_raises(self):
-        hsgp = HSGP(base_kernel=RBF(n_dims=1), num_basis_fns=10, domain_half_width=3.0)
-        with pytest.raises(RuntimeError):
-            hsgp(jnp.array([1.0]), jnp.array([2.0]))
+# ──────────────────────────────────────────────────────────────────────
+# Eigenfunctions
+# ──────────────────────────────────────────────────────────────────────
 
 
-class TestIntegration:
-    def test_prior_posterior_pipeline(self):
-        """HSGP should work as a drop-in kernel in the Prior/Posterior pipeline."""
-        from gpjax.dataset import Dataset
-        from gpjax.gps import Prior
-        from gpjax.likelihoods import Gaussian
-        from gpjax.mean_functions import Zero
-        from gpjax.objectives import conjugate_mll
+def test_eigenfunction_shape():
+    hsgp = _make_hsgp(num_basis_fns=10, domain_half_width=3.0)
+    inputs = jnp.linspace(-2, 2, 50)[:, None]
+    basis_matrix = hsgp.eigenfunctions(inputs)
+    assert basis_matrix.shape == (50, 10)
 
-        key = jr.key(42)
-        n = 50
-        x = jnp.linspace(-3, 3, n)[:, None]
-        y = jnp.sin(x) + 0.1 * jr.normal(key, (n, 1))
-        D = Dataset(X=x, y=y)
 
-        base_kernel = RBF(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base_kernel, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        prior = Prior(kernel=hsgp, mean_function=Zero())
-        likelihood = Gaussian(num_datapoints=n)
-        posterior = prior * likelihood
+def test_eigenfunctions_are_approximately_orthonormal():
+    """Eigenfunctions should be approximately orthonormal over [-L, L]."""
+    half_width = 3.0
+    num_basis = 5
+    hsgp = _make_hsgp(num_basis_fns=num_basis, domain_half_width=half_width, center=0.0)
+    num_quadrature_points = 10_000
+    inputs = jnp.linspace(-half_width, half_width, num_quadrature_points)[:, None]
+    basis_matrix = hsgp.eigenfunctions(inputs)
+    spacing = 2.0 * half_width / num_quadrature_points
+    gram_matrix = basis_matrix.T @ basis_matrix * spacing
+    npt.assert_allclose(gram_matrix, jnp.eye(num_basis), atol=1e-2)
 
-        # MLL should return a finite scalar
-        mll = conjugate_mll(posterior, D)
-        assert jnp.isfinite(mll)
 
-    def test_predict(self):
-        """HSGP posterior should produce finite mean and variance."""
-        from gpjax.dataset import Dataset
-        from gpjax.gps import Prior
-        from gpjax.likelihoods import Gaussian
-        from gpjax.mean_functions import Zero
+def test_eigenfunctions_vanish_at_boundaries():
+    """Eigenfunctions should be zero at x = -L and x = L."""
+    half_width = 3.0
+    hsgp = _make_hsgp(num_basis_fns=5, domain_half_width=half_width, center=0.0)
+    boundary_points = jnp.array([[-half_width], [half_width]])
+    basis_at_boundary = hsgp.eigenfunctions(boundary_points)
+    npt.assert_allclose(basis_at_boundary, 0.0, atol=1e-12)
 
-        key = jr.key(42)
-        n = 50
-        x = jnp.linspace(-3, 3, n)[:, None]
-        y = jnp.sin(x) + 0.1 * jr.normal(key, (n, 1))
-        D = Dataset(X=x, y=y)
 
-        base_kernel = RBF(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base_kernel, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        prior = Prior(kernel=hsgp, mean_function=Zero())
-        likelihood = Gaussian(num_datapoints=n)
-        posterior = prior * likelihood
+# ──────────────────────────────────────────────────────────────────────
+# Centering
+# ──────────────────────────────────────────────────────────────────────
 
-        x_test = jnp.linspace(-2.5, 2.5, 30)[:, None]
-        pred = posterior.predict(x_test, D)
 
-        assert jnp.all(jnp.isfinite(pred.mean))
-        assert jnp.all(jnp.isfinite(pred.covariance()))
+def test_explicit_center_is_stored():
+    hsgp = HSGP(
+        base_kernel=RBF(n_dims=1),
+        num_basis_fns=5,
+        domain_half_width=3.0,
+        center=1.0,
+    )
+    assert hsgp._center == 1.0
 
-    def test_mll_differentiable(self):
-        """conjugate_mll with HSGP must be differentiable w.r.t. kernel params."""
-        from flax import nnx
-        from gpjax.dataset import Dataset
-        from gpjax.gps import Prior
-        from gpjax.likelihoods import Gaussian
-        from gpjax.mean_functions import Zero
-        from gpjax.objectives import conjugate_mll
-        import jax
 
-        key = jr.key(42)
-        n = 50
-        x = jnp.linspace(-3, 3, n)[:, None]
-        y = jnp.sin(x) + 0.1 * jr.normal(key, (n, 1))
-        D = Dataset(X=x, y=y)
+def test_auto_center_uses_midpoint_of_input_range():
+    hsgp = _make_hsgp(num_basis_fns=5, domain_half_width=3.0, center=None)
+    inputs = jnp.linspace(2.0, 8.0, 50)[:, None]
+    _ = hsgp.eigenfunctions(inputs)
+    assert hsgp._center == pytest.approx(5.0)
 
-        base_kernel = RBF(n_dims=1)
-        hsgp = HSGP(
-            base_kernel=base_kernel, num_basis_fns=20, domain_half_width=5.0, center=0.0
-        )
-        prior = Prior(kernel=hsgp, mean_function=Zero())
-        likelihood = Gaussian(num_datapoints=n)
-        posterior = prior * likelihood
 
-        # Split into graphdef and state
-        graphdef, state = nnx.split(posterior)
+def test_auto_center_persists_across_calls():
+    """Once set, auto-center should not change on subsequent calls."""
+    hsgp = _make_hsgp(num_basis_fns=5, domain_half_width=3.0, center=None)
+    first_inputs = jnp.linspace(0, 10, 50)[:, None]
+    second_inputs = jnp.linspace(-5, 5, 50)[:, None]
+    _ = hsgp.eigenfunctions(first_inputs)
+    center_after_first_call = hsgp._center
+    _ = hsgp.eigenfunctions(second_inputs)
+    assert hsgp._center == center_after_first_call
 
-        def loss(state):
-            model = nnx.merge(graphdef, state)
-            return -conjugate_mll(model, D)
 
-        grad_fn = jax.grad(loss)
-        grads = grad_fn(state)
+# ──────────────────────────────────────────────────────────────────────
+# compute_basis
+# ──────────────────────────────────────────────────────────────────────
 
-        # Gradients should be finite
-        flat_grads = jax.tree.leaves(grads)
-        for g in flat_grads:
-            assert jnp.all(jnp.isfinite(g)), f"Non-finite gradient: {g}"
+
+def test_compute_basis_returns_correct_shapes():
+    hsgp = _make_hsgp(num_basis_fns=10, domain_half_width=3.0)
+    inputs = jnp.linspace(-2, 2, 50)[:, None]
+    basis_matrix, sqrt_spectral_weights = hsgp.compute_basis(inputs)
+    assert basis_matrix.shape == (50, 10)
+    assert sqrt_spectral_weights.shape == (10,)
+
+
+def test_compute_basis_sqrt_psd_is_positive():
+    hsgp = _make_hsgp(num_basis_fns=10, domain_half_width=3.0)
+    inputs = jnp.linspace(-2, 2, 50)[:, None]
+    _, sqrt_spectral_weights = hsgp.compute_basis(inputs)
+    assert jnp.all(sqrt_spectral_weights > 0)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Gram, cross-covariance, and diagonal
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("KernelClass", STATIONARY_KERNELS)
+def test_gram_returns_psd_low_rank_matrix(KernelClass):
+    hsgp = _make_hsgp(kernel_class=KernelClass)
+    inputs = jnp.linspace(-3, 3, 30)[:, None]
+    gram_operator = hsgp.gram(inputs)
+
+    assert isinstance(gram_operator, LowRank)
+    gram_dense = gram_operator.to_dense()
+    assert gram_dense.shape == (30, 30)
+
+    eigenvalues_of_gram, _ = jnp.linalg.eigh(gram_dense + 1e-6 * jnp.eye(30))
+    assert jnp.all(eigenvalues_of_gram > 0)
+
+
+@pytest.mark.parametrize("KernelClass", STATIONARY_KERNELS)
+def test_cross_covariance_shape(KernelClass):
+    hsgp = _make_hsgp(kernel_class=KernelClass)
+    inputs_a = jnp.linspace(-3, 3, 30)[:, None]
+    inputs_b = jnp.linspace(-2, 2, 20)[:, None]
+    cross_covariance = hsgp.cross_covariance(inputs_a, inputs_b)
+    assert cross_covariance.shape == (30, 20)
+
+
+def test_gram_is_symmetric():
+    hsgp = _make_hsgp(kernel_class=RBF)
+    inputs = jnp.linspace(-3, 3, 30)[:, None]
+    gram_dense = hsgp.gram(inputs).to_dense()
+    npt.assert_allclose(gram_dense, gram_dense.T, atol=1e-12)
+
+
+@pytest.mark.parametrize("KernelClass", STATIONARY_KERNELS)
+def test_diagonal_matches_gram_diagonal(KernelClass):
+    hsgp = _make_hsgp(kernel_class=KernelClass)
+    inputs = jnp.linspace(-3, 3, 30)[:, None]
+    diagonal_dense = hsgp.diagonal(inputs).to_dense()
+    gram_dense = hsgp.gram(inputs).to_dense()
+    npt.assert_allclose(jnp.diag(diagonal_dense), jnp.diag(gram_dense), atol=1e-10)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Convergence to exact kernel
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("KernelClass", [RBF, Matern32, Matern52])
+def test_gram_error_decreases_with_more_basis_functions(KernelClass):
+    """With more basis functions, the HSGP Gram matrix should converge to exact."""
+    base_kernel = KernelClass(n_dims=1)
+    inputs = jnp.linspace(-1, 1, 30)[:, None]
+    exact_gram = base_kernel.gram(inputs).to_dense()
+
+    hsgp_coarse = _make_hsgp(kernel_class=KernelClass, num_basis_fns=10)
+    hsgp_fine = _make_hsgp(kernel_class=KernelClass, num_basis_fns=80)
+
+    error_coarse = jnp.linalg.norm(exact_gram - hsgp_coarse.gram(inputs).to_dense())
+    error_fine = jnp.linalg.norm(exact_gram - hsgp_fine.gram(inputs).to_dense())
+
+    assert error_fine < error_coarse
+
+
+def test_rbf_gram_closely_matches_exact():
+    """RBF with many basis functions should be very close to exact."""
+    base_kernel = RBF(n_dims=1)
+    inputs = jnp.linspace(-1, 1, 20)[:, None]
+    exact_gram = base_kernel.gram(inputs).to_dense()
+
+    hsgp = _make_hsgp(kernel_class=RBF, num_basis_fns=100)
+    approximate_gram = hsgp.gram(inputs).to_dense()
+
+    max_absolute_error = jnp.max(jnp.abs(exact_gram - approximate_gram))
+    assert max_absolute_error < 0.01
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Input validation
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_nonstationary_kernel_is_rejected():
+    from gpjax.kernels.nonstationary import Linear
+
+    with pytest.raises(TypeError):
+        HSGP(base_kernel=Linear(1), num_basis_fns=10, domain_half_width=3.0)
+
+
+def test_pointwise_call_raises():
+    hsgp = _make_hsgp(num_basis_fns=10, domain_half_width=3.0)
+    with pytest.raises(RuntimeError):
+        hsgp(jnp.array([1.0]), jnp.array([2.0]))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Integration with Prior/Posterior pipeline
+# ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def training_data():
+    """Synthetic sinusoidal regression dataset."""
+    key = jr.key(42)
+    num_points = 50
+    inputs = jnp.linspace(-3, 3, num_points)[:, None]
+    targets = jnp.sin(inputs) + 0.1 * jr.normal(key, (num_points, 1))
+
+    from gpjax.dataset import Dataset
+
+    return Dataset(X=inputs, y=targets), num_points
+
+
+@pytest.fixture
+def hsgp_posterior(training_data):
+    """Conjugate posterior with an HSGP-RBF kernel."""
+    from gpjax.gps import Prior
+    from gpjax.likelihoods import Gaussian
+    from gpjax.mean_functions import Zero
+
+    _, num_points = training_data
+    hsgp = _make_hsgp(kernel_class=RBF, num_basis_fns=20)
+    prior = Prior(kernel=hsgp, mean_function=Zero())
+    likelihood = Gaussian(num_datapoints=num_points)
+    return prior * likelihood
+
+
+def test_conjugate_mll_returns_finite_scalar(training_data, hsgp_posterior):
+    from gpjax.objectives import conjugate_mll
+
+    dataset, _ = training_data
+    mll = conjugate_mll(hsgp_posterior, dataset)
+    assert jnp.isfinite(mll)
+
+
+def test_posterior_predict_returns_finite_moments(training_data, hsgp_posterior):
+    dataset, _ = training_data
+    test_inputs = jnp.linspace(-2.5, 2.5, 30)[:, None]
+    prediction = hsgp_posterior.predict(test_inputs, dataset)
+
+    assert jnp.all(jnp.isfinite(prediction.mean))
+    assert jnp.all(jnp.isfinite(prediction.covariance()))
+
+
+def test_conjugate_mll_is_differentiable(training_data, hsgp_posterior):
+    """conjugate_mll with HSGP must be differentiable w.r.t. kernel parameters."""
+    from flax import nnx
+    from gpjax.objectives import conjugate_mll
+
+    dataset, _ = training_data
+    graphdef, state = nnx.split(hsgp_posterior)
+
+    def negative_mll(state):
+        model = nnx.merge(graphdef, state)
+        return -conjugate_mll(model, dataset)
+
+    gradients = jax.grad(negative_mll)(state)
+    flat_gradients = jax.tree.leaves(gradients)
+    for grad_leaf in flat_gradients:
+        assert jnp.all(jnp.isfinite(grad_leaf)), f"Non-finite gradient: {grad_leaf}"

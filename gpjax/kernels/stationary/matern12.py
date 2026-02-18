@@ -49,9 +49,13 @@ class Matern12(StationaryKernel):
 
     @property
     def spectral_density(self) -> SpectralDensity:
-        def _matern12_spectral_density(omega, variance, lengthscale):
+        r"""Matern-1/2 spectral density.
+
+        .. math::
+            S(\omega) = \sigma^2 \,\frac{2/\ell}{1/\ell^2 + \omega^2}
+        """
+
+        def _evaluate(omega, variance, lengthscale):
             return variance * (2.0 / lengthscale) / (1.0 / lengthscale**2 + omega**2)
 
-        return SpectralDensity(
-            build_student_t_distribution(nu=1), _matern12_spectral_density
-        )
+        return SpectralDensity(build_student_t_distribution(nu=1), _evaluate)

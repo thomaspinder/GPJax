@@ -13,6 +13,7 @@ from gpjax.linalg.operators import (
     Identity,
     Kronecker,
     LinearOperator,
+    LowRank,
     Triangular,
 )
 from gpjax.linalg.utils import (
@@ -28,6 +29,7 @@ __all__ = [
     "Identity",
     "Kronecker",
     "LinearOperator",
+    "LowRank",
     "Triangular",
     "diag",
     "logdet",

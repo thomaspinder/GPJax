@@ -57,6 +57,7 @@ docs = [
   "markdown-katex>=202406.1035",
   "scikit-learn>=1.5.1",
   "ucimlrepo>=0.0.7",
+  "rdata>=1.0.0",
 ]
 
 [tool.uv]

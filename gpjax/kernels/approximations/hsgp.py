@@ -40,11 +40,11 @@ class HSGP(AbstractKernel):
     which is a Bayesian linear model with :math:`m` basis functions.
 
     Args:
-        base_kernel: The stationary kernel to approximate.  Must have a
-            ``spectral_density`` property that returns a
+        base_kernel: Stationary kernel to approximate.  Must provide a
+            ``spectral_density`` property returning a
             :class:`~gpjax.kernels.stationary.utils.SpectralDensity`.
         num_basis_fns: Number of basis functions :math:`m`.
-        domain_half_width: Half-width of the approximation domain :math:`L`.
+        domain_half_width: Half-width :math:`L` of the approximation domain.
             Inputs should lie well inside :math:`[-L, L]` (after centering).
         center: Center of the data domain.  If ``None``, it is set
             automatically on the first call to :meth:`eigenfunctions` as the
@@ -74,7 +74,6 @@ class HSGP(AbstractKernel):
                 "HSGP can only approximate stationary kernels. "
                 f"Got {type(base_kernel).__name__}."
             )
-        # Verify that the base kernel has a usable spectral density.
         _ = base_kernel.spectral_density
 
         super().__init__(
@@ -88,10 +87,6 @@ class HSGP(AbstractKernel):
         self._center = center
         self.name = f"{self.base_kernel.name} (HSGP)"
 
-    # ------------------------------------------------------------------
-    # Basis functions
-    # ------------------------------------------------------------------
-
     def eigenvalues(self) -> Float[Array, " m"]:
         r"""Square roots of the Laplacian eigenvalues.
 
@@ -101,8 +96,8 @@ class HSGP(AbstractKernel):
         Returns:
             Array of shape ``(m,)``.
         """
-        j = jnp.arange(1, self.num_basis_fns + 1)
-        return j * jnp.pi / (2.0 * self.domain_half_width)
+        indices = jnp.arange(1, self.num_basis_fns + 1)
+        return indices * jnp.pi / (2.0 * self.domain_half_width)
 
     def eigenfunctions(self, x: Float[Array, "N 1"]) -> Float[Array, "N m"]:
         r"""Laplacian eigenfunctions evaluated at *x*.
@@ -122,10 +117,12 @@ class HSGP(AbstractKernel):
         if self._center is None:
             self._center = float((x.max() + x.min()) / 2.0)
 
-        L = self.domain_half_width
-        x_centered = x - self._center  # [N, 1]
-        sqrt_eigenvalues = self.eigenvalues()  # [m]
-        return jnp.sin((x_centered + L) * sqrt_eigenvalues) / jnp.sqrt(L)
+        half_width = self.domain_half_width
+        x_centered = x - self._center
+        sqrt_eigenvalues = self.eigenvalues()
+        return jnp.sin((x_centered + half_width) * sqrt_eigenvalues) / jnp.sqrt(
+            half_width
+        )
 
     def spectral_weights(self) -> Float[Array, " m"]:
         r"""Spectral density evaluated at the eigenvalue square roots.
@@ -137,8 +134,7 @@ class HSGP(AbstractKernel):
             Array of shape ``(m,)`` with the spectral weights.
         """
         omega = self.eigenvalues()
-        sd = self.base_kernel.spectral_density
-        return sd(
+        return self.base_kernel.spectral_density(
             omega,
             self.base_kernel.variance[...],
             self.base_kernel.lengthscale[...],
@@ -159,16 +155,12 @@ class HSGP(AbstractKernel):
             x: Input locations of shape ``(N, 1)``.
 
         Returns:
-            Tuple ``(phi, sqrt_psd)`` where ``phi`` has shape ``(N, m)``
-            and ``sqrt_psd`` has shape ``(m,)``.
+            Tuple ``(phi, sqrt_spectral_weights)`` where ``phi`` has shape
+            ``(N, m)`` and ``sqrt_spectral_weights`` has shape ``(m,)``.
         """
         phi = self.eigenfunctions(x)
-        spd = self.spectral_weights()
-        return phi, jnp.sqrt(spd)
-
-    # ------------------------------------------------------------------
-    # AbstractKernel interface
-    # ------------------------------------------------------------------
+        sqrt_spectral_weights = jnp.sqrt(self.spectral_weights())
+        return phi, sqrt_spectral_weights
 
     def __call__(
         self,

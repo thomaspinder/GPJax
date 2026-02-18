@@ -12,6 +12,7 @@ from gpjax.linalg.operators import (
     Identity,
     Kronecker,
     LinearOperator,
+    LowRank,
     Triangular,
 )
 from gpjax.typing import ScalarFloat
@@ -219,6 +220,10 @@ def diag(A: LinearOperator) -> Float[Array, " N"]:
     def _handle_dense(A):
         return jnp.diag(A.array)
 
+    def _handle_lowrank(A):
+        # diag(W W^T)_i = sum_j W_{ij}^2
+        return jnp.sum(A.factor**2, axis=1)
+
     def _handle_default(A):
         return jnp.diag(A.to_dense())
 
@@ -229,6 +234,7 @@ def diag(A: LinearOperator) -> Float[Array, " N"]:
         Kronecker: _handle_kronecker,
         BlockDiag: _handle_blockdiag,
         Dense: _handle_dense,
+        LowRank: _handle_lowrank,
     }
 
     handler = dispatch_table.get(type(A), _handle_default)
