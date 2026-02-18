@@ -18,13 +18,13 @@ import beartype.typing as tp
 from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
-import numpyro.distributions as npd
 
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
 )
+from gpjax.kernels.stationary.utils import SpectralDensity
 from gpjax.parameters import (
     NonNegativeReal,
     PositiveReal,
@@ -95,11 +95,12 @@ class StationaryKernel(AbstractKernel):
                 self.variance = tp.cast(NonNegativeReal[ScalarFloat], self.variance)
 
     @property
-    def spectral_density(self) -> npd.Normal | npd.StudentT:
+    def spectral_density(self) -> SpectralDensity:
         r"""The spectral density of the kernel.
 
-        Returns:
-            Callable[[Float[Array, "D"]], Float[Array, "D"]]: The spectral density function.
+        Returns a :class:`~gpjax.kernels.stationary.utils.SpectralDensity`
+        object that supports both ``sample()`` (for RFF) and
+        ``__call__(omega, variance, lengthscale)`` (for HSGP).
         """
         raise NotImplementedError(
             f"Kernel {self.name} does not have a spectral density."

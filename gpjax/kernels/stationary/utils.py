@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import beartype.typing as tp
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
@@ -37,6 +38,56 @@ def build_student_t_distribution(nu: int) -> npd.StudentT:
     """
     dist = npd.StudentT(df=nu, loc=0.0, scale=1.0)
     return dist
+
+
+class SpectralDensity:
+    """Spectral density of a stationary kernel.
+
+    Wraps a NumPyro distribution (for sampling, used by RFF) and adds
+    evaluation of the spectral density function S(omega) at arbitrary
+    frequencies (used by HSGP).
+
+    Args:
+        distribution: A NumPyro distribution to delegate ``sample()`` to.
+        evaluate_fn: A callable ``(omega, variance, lengthscale) -> S(omega)``
+            that computes the un-normalized spectral density at the given
+            frequencies incorporating kernel variance and lengthscale.
+    """
+
+    def __init__(
+        self,
+        distribution: npd.Distribution,
+        evaluate_fn: tp.Callable,
+    ):
+        self._distribution = distribution
+        self._evaluate_fn = evaluate_fn
+
+    def sample(self, key, sample_shape):
+        """Draw samples from the spectral density distribution.
+
+        This delegates to the wrapped NumPyro distribution and is used by
+        Random Fourier Features (RFF).
+        """
+        return self._distribution.sample(key=key, sample_shape=sample_shape)
+
+    def __call__(self, omega, variance, lengthscale):
+        """Evaluate S(omega) incorporating kernel variance and lengthscale.
+
+        Parameters
+        ----------
+        omega : Array
+            Frequencies at which to evaluate the spectral density.
+        variance : ScalarFloat
+            Kernel variance parameter (sigma^2).
+        lengthscale : ScalarFloat
+            Kernel lengthscale parameter (ell).
+
+        Returns
+        -------
+        Array
+            Spectral density values S(omega).
+        """
+        return self._evaluate_fn(omega, variance, lengthscale)
 
 
 def squared_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:

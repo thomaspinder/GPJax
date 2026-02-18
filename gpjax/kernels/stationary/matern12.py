@@ -15,10 +15,10 @@
 
 import jax.numpy as jnp
 from jaxtyping import Float
-import numpyro.distributions as npd
 
 from gpjax.kernels.stationary.base import StationaryKernel
 from gpjax.kernels.stationary.utils import (
+    SpectralDensity,
     build_student_t_distribution,
     euclidean_distance,
 )
@@ -48,5 +48,10 @@ class Matern12(StationaryKernel):
         return K.squeeze()
 
     @property
-    def spectral_density(self) -> npd.StudentT:
-        return build_student_t_distribution(nu=1)
+    def spectral_density(self) -> SpectralDensity:
+        def _matern12_spectral_density(omega, variance, lengthscale):
+            return variance * (2.0 / lengthscale) / (1.0 / lengthscale**2 + omega**2)
+
+        return SpectralDensity(
+            build_student_t_distribution(nu=1), _matern12_spectral_density
+        )

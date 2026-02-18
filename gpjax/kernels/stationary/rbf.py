@@ -18,7 +18,7 @@ from jaxtyping import Float
 import numpyro.distributions as npd
 
 from gpjax.kernels.stationary.base import StationaryKernel
-from gpjax.kernels.stationary.utils import squared_distance
+from gpjax.kernels.stationary.utils import SpectralDensity, squared_distance
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -44,5 +44,13 @@ class RBF(StationaryKernel):
         return K.squeeze()
 
     @property
-    def spectral_density(self) -> npd.Normal:
-        return npd.Normal(0.0, 1.0)
+    def spectral_density(self) -> SpectralDensity:
+        def _rbf_spectral_density(omega, variance, lengthscale):
+            return (
+                variance
+                * jnp.sqrt(2.0 * jnp.pi)
+                * lengthscale
+                * jnp.exp(-0.5 * lengthscale**2 * omega**2)
+            )
+
+        return SpectralDensity(npd.Normal(0.0, 1.0), _rbf_spectral_density)
