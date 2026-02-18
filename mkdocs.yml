@@ -31,6 +31,7 @@ nav:
     - Multi-Output GPs: _examples/multioutput.md
     - Accelerated Multi-Output GPs: _examples/oilmm.md
     - Orthogonal Additive GPs: _examples/oak.md
+    - Hilbert Space GPs: _examples/hsgp.md
   - 🧪 Experimental:
     - Numpyro Integration: _examples/numpyro_integration.md
     - Spatial Linear Gaussian Process: _examples/spatial_linear_gp.md
