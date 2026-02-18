@@ -54,6 +54,8 @@ class HSGP(AbstractKernel):
 
     Example:
         >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+        >>> X = jnp.linspace(-1, 1, 50)[:, None]
         >>> base = gpx.kernels.Matern52(n_dims=1)
         >>> hsgp = gpx.kernels.HSGP(base, num_basis_fns=20, domain_half_width=5.0)
         >>> K = hsgp.gram(X)  # approximate Gram matrix
