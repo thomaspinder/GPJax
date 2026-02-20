@@ -17,7 +17,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-02-11T12:41:49.179683Z"
+exclude-newer = "2026-02-13T18:59:31.785479Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -951,6 +951,7 @@ wheels = [
 
 [[package]]
 name = "gpjax"
+version = "0.13.6"
 source = { editable = "." }
 dependencies = [
     { name = "beartype" },

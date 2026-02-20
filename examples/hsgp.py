@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -135,18 +134,21 @@ axes[1].set_xlabel("Basis index $j$")
 # ## Approximation quality
 #
 # How faithfully does the HSGP Gram matrix reproduce the exact kernel? We
-# compare exact and approximate Gram matrices at $m = 10$, $25$, and $50$ for
-# both the RBF and Matern-5/2 kernels.
+# compare the *approximation error* $|K - \tilde{K}|$ at $m = 10$, $25$, and
+# $50$ for both the RBF and Matern-5/2 kernels. Plotting the error on a
+# shared log scale makes the convergence difference clearly visible.
 
 # %%
+from matplotlib.colors import LogNorm
+
 x_small = jnp.linspace(-3.0, 3.0, 80)[:, None]
 m_values = [10, 25, 50]
 
 
-def gram_comparison(base_kernel, x, m_values):
-    """Return exact Gram and HSGP Gram matrices for several values of m."""
+def gram_errors(base_kernel, x, m_values):
+    """Return absolute error matrices |K_exact - K_hsgp| for several values of m."""
     gram_exact = base_kernel.gram(x).to_dense()
-    gram_approximations = []
+    errors = []
     for num_basis in m_values:
         hsgp = gpx.kernels.HSGP(
             base_kernel=base_kernel,
@@ -154,49 +156,38 @@ def gram_comparison(base_kernel, x, m_values):
             domain_half_width=4.0,
             center=0.0,
         )
-        gram_approximations.append(hsgp.gram(x).to_dense())
-    return gram_exact, gram_approximations
+        errors.append(jnp.abs(gram_exact - hsgp.gram(x).to_dense()))
+    return gram_exact, errors
 
 
-gram_exact_rbf, gram_hsgps_rbf = gram_comparison(base_rbf, x_small, m_values)
+gram_exact_rbf, errors_rbf = gram_errors(base_rbf, x_small, m_values)
+gram_exact_m52, errors_m52 = gram_errors(base_m52, x_small, m_values)
 
-fig, axes = plt.subplots(1, 4, figsize=(10, 2.5))
-vmin, vmax = float(gram_exact_rbf.min()), float(gram_exact_rbf.max())
-titles = ["Exact"] + [f"HSGP ($m = {m}$)" for m in m_values]
-matrices = [gram_exact_rbf, *gram_hsgps_rbf]
+log_norm = LogNorm(vmin=1e-6, vmax=1.0)
+fig, axes = plt.subplots(2, 3, figsize=(8, 5), sharex=True, sharey=True)
 
-for ax, matrix, title in zip(axes, matrices, titles, strict=True):
-    ax.imshow(matrix, vmin=vmin, vmax=vmax, cmap="inferno")
-    ax.set_title(title, fontsize=9)
-    ax.set_xticks([])
-    ax.set_yticks([])
+for j, m in enumerate(m_values):
+    im = axes[0, j].imshow(errors_rbf[j], norm=log_norm, cmap="inferno")
+    axes[0, j].set_title(f"$m = {m}$", fontsize=9)
+    axes[0, j].set_xticks([])
+    axes[0, j].set_yticks([])
 
-fig.suptitle("RBF kernel", fontsize=10, y=1.02)
+    axes[1, j].imshow(errors_m52[j], norm=log_norm, cmap="inferno")
+    axes[1, j].set_xticks([])
+    axes[1, j].set_yticks([])
 
-# %% [markdown]
-# For the RBF kernel, the approximation is near-indistinguishable from exact
-# by $m = 25$, reflecting the rapid spectral weight decay.
-
-# %%
-gram_exact_m52, gram_hsgps_m52 = gram_comparison(base_m52, x_small, m_values)
-
-fig, axes = plt.subplots(1, 4, figsize=(10, 2.5))
-vmin, vmax = float(gram_exact_m52.min()), float(gram_exact_m52.max())
-titles = ["Exact"] + [f"HSGP ($m = {m}$)" for m in m_values]
-matrices = [gram_exact_m52, *gram_hsgps_m52]
-
-for ax, matrix, title in zip(axes, matrices, titles, strict=True):
-    ax.imshow(matrix, vmin=vmin, vmax=vmax, cmap="inferno")
-    ax.set_title(title, fontsize=9)
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-fig.suptitle("Matern-5/2 kernel", fontsize=10, y=1.02)
+axes[0, 0].set_ylabel("RBF", fontsize=10)
+axes[1, 0].set_ylabel("Matern-5/2", fontsize=10)
+fig.colorbar(im, ax=axes, label="$|K - \\tilde{K}|$", shrink=0.8)
+fig.suptitle("HSGP approximation error", fontsize=11, y=1.0)
 
 # %% [markdown]
-# The Matern-5/2 converges more slowly, with visible discrepancies at
-# $m = 10$. Rougher kernels retain more high-frequency content. In practice,
-# $m$ between 20 and 50 suffices for most one-dimensional problems.
+# The RBF error shrinks rapidly toward machine precision in the interior,
+# reflecting the Gaussian spectral density's fast decay. The Matern-5/2
+# retains appreciable error at $m = 10$ across a wider region, consistent
+# with its heavier spectral tail. By $m = 50$ both kernels are well
+# approximated in the interior; the residual error along the edges is the
+# unavoidable boundary artefact of the Dirichlet eigenbasis.
 
 # %% [markdown]
 # ## Regression with real data

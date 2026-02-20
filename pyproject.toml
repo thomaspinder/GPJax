@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gpjax"
-dynamic = ["version"]
+version = "0.13.6"
 description = 'Gaussian processes in JAX.'
 readme = "README.md"
 requires-python = ">=3.11"
