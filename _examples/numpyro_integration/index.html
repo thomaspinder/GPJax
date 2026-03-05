@@ -3872,7 +3872,7 @@ common.</p>
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;True Signal&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7fdbf2f53b50&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f74cff6b510&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_3_1.png" /></p>
 <h2 id="model-definition">Model Definition<a class="headerlink" href="#model-definition" title="Permanent link"></a></h2>
@@ -3983,12 +3983,12 @@ multiple chains using the <code>num_chains</code> argument in the <code>MCMC</co
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>                                          mean       std    median      5.0%     95.0%     n_eff     r_hat
-                           intercept      0.69      1.55      0.64     -1.74      3.31    266.12      1.00
-               likelihood.obs_stddev      0.79      0.04      0.79      0.73      0.86    420.77      1.00
-  prior.kernel.kernels.0.lengthscale      2.54      0.74      2.42      1.57      3.88    269.10      1.00
-     prior.kernel.kernels.0.variance      7.62      4.97      6.06      1.97     14.70    263.58      1.00
-       prior.kernel.kernels.1.period      0.80      0.02      0.80      0.77      0.82    441.77      1.00
-                               slope      0.51      0.30      0.50      0.02      0.95    306.66      1.00
+                           intercept      0.62      1.54      0.74     -1.98      2.83    356.40      1.00
+               likelihood.obs_stddev      0.79      0.04      0.79      0.73      0.86    265.82      1.00
+  prior.kernel.kernels.0.lengthscale      2.48      0.78      2.37      1.36      3.80    270.43      1.00
+     prior.kernel.kernels.0.variance      7.60      5.42      6.33      1.47     15.25    295.87      1.00
+       prior.kernel.kernels.1.period      0.80      0.02      0.80      0.77      0.83    284.83      1.00
+                               slope      0.52      0.29      0.51      0.07      0.96    273.37      1.00
 
 Number of divergences: 0
 </code></pre></div>
@@ -4029,7 +4029,7 @@ credible interval and compare our model's predictions to the underlying data.</p
 </span><span id="__span-6-27"><a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="p">)</span>
 </span><span id="__span-6-28"><a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7fdbd49650d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f74bc1ad1d0&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_13_1.png" /></p>
 <h2 id="conclusions">Conclusions<a class="headerlink" href="#conclusions" title="Permanent link"></a></h2>
@@ -4045,7 +4045,7 @@ notebook.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Sat, 14 Feb 2026
+Last updated: Thu, 05 Mar 2026
 
 Python implementation: CPython
 Python version       : 3.11.14

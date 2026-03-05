@@ -4399,26 +4399,18 @@ of each latent GP, the unconstrained mixing matrix <span class="arithmatex">\(\m
 </span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial MLL: </span><span class="si">{</span><span class="n">initial_mll</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimised MLL: </span><span class="si">{</span><span class="n">opt_mll</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_optimize.py:1474: RuntimeWarning: invalid value encountered in scalar multiply
-  if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
-
-
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_optimize.py:1474: RuntimeWarning: invalid value encountered in scalar multiply
-  if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_optimize.py:1474: RuntimeWarning: invalid value encountered in scalar multiply
-  if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
+<div class="language-text highlight"><pre><span></span><code>/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: NaN result encountered.
   res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
 
 
-         Current function value: -75.275478
-         Iterations: 191
-         Function evaluations: 329
-         Gradient evaluations: 309
+         Current function value: 500.240146
+         Iterations: 0
+         Function evaluations: 1
+         Gradient evaluations: 1
 
 
 Initial MLL: -500.240
-Optimised MLL: 75.275
+Optimised MLL: -500.240
 </code></pre></div>
 <h2 id="post-optimisation-predictions">Post-optimisation predictions<a class="headerlink" href="#post-optimisation-predictions" title="Permanent link"></a></h2>
 <p>We re-condition the optimised model on the training data, then predict at the
@@ -4565,7 +4557,7 @@ components can capture different spectral characteristics.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Sat, 14 Feb 2026
+Last updated: Thu, 05 Mar 2026
 
 Python implementation: CPython
 Python version       : 3.11.14
