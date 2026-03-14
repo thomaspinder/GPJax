@@ -16,13 +16,9 @@
 import beartype.typing as tp
 from jax import vmap
 from jaxtyping import Float
+import lineax as lx
 
 from gpjax.kernels.computations import AbstractKernelComputation
-from gpjax.linalg import (
-    Diagonal,
-    LinearOperator,
-    psd,
-)
 from gpjax.typing import Array
 
 Kernel = tp.TypeVar("Kernel", bound="gpjax.kernels.base.AbstractKernel")
@@ -33,8 +29,11 @@ class DiagonalKernelComputation(AbstractKernelComputation):
     a diagonal Gram matrix.
     """
 
-    def gram(self, kernel: Kernel, x: Float[Array, "N D"]) -> LinearOperator:
-        return psd(Diagonal(vmap(lambda x: kernel(x, x))(x)))
+    def gram(self, kernel: Kernel, x: Float[Array, "N D"]) -> lx.AbstractLinearOperator:
+        return lx.TaggedLinearOperator(
+            lx.DiagonalLinearOperator(vmap(lambda x: kernel(x, x))(x)),
+            lx.positive_semidefinite_tag,
+        )
 
     def _cross_covariance(
         self, kernel: Kernel, x: Float[Array, "N D"], y: Float[Array, "M D"]

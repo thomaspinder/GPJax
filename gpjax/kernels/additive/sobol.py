@@ -17,6 +17,7 @@ from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
+from gpjax.kernels.base import _val
 from gpjax.typing import Array
 
 if tp.TYPE_CHECKING:
@@ -183,10 +184,10 @@ def sobol_indices(
     """
     num_points = x_train.shape[0]
     max_order = kernel.max_order
-    order_variances = kernel.order_variances[...]
+    order_variances = _val(kernel.order_variances)
 
     # Solve alpha = (K + sigma_n^2 I)^{-1} y
-    gram_matrix = kernel.gram(x_train).to_dense()
+    gram_matrix = kernel.gram(x_train).as_matrix()
     noisy_gram = gram_matrix + noise_variance * jnp.eye(num_points)
     alpha = jnp.linalg.solve(noisy_gram, y_train.squeeze())
 

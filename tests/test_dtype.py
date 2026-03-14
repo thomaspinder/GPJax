@@ -51,15 +51,17 @@ def enable_x64(request):
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.filterwarnings("ignore:Explicitly requested dtype float64:UserWarning")
 @pytest.mark.parametrize("KernelClass", KERNELS)
 def test_kernel_gram_dtype(KernelClass, enable_x64):
     dtype = enable_x64
     x = jnp.linspace(0, 1, 10, dtype=dtype)[:, None]
     kernel = KernelClass()
-    Kxx = kernel.gram(x).to_dense()
+    Kxx = kernel.gram(x).as_matrix()
     assert Kxx.dtype == dtype, f"Expected {dtype}, got {Kxx.dtype}"
 
 
+@pytest.mark.filterwarnings("ignore:Explicitly requested dtype float64:UserWarning")
 @pytest.mark.parametrize("KernelClass", KERNELS)
 def test_kernel_cross_covariance_dtype(KernelClass, enable_x64):
     dtype = enable_x64
@@ -75,6 +77,7 @@ def test_kernel_cross_covariance_dtype(KernelClass, enable_x64):
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.filterwarnings("ignore:Explicitly requested dtype float64:UserWarning")
 def test_prior_predict_dtype(enable_x64):
     dtype = enable_x64
     x = jnp.linspace(0, 1, 10, dtype=dtype)[:, None]
@@ -90,6 +93,7 @@ def test_prior_predict_dtype(enable_x64):
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.filterwarnings("ignore:Explicitly requested dtype float64:UserWarning")
 @pytest.mark.filterwarnings("ignore:X is not of type float64:UserWarning")
 @pytest.mark.filterwarnings("ignore:y is not of type float64:UserWarning")
 def test_posterior_predict_dtype(enable_x64):
@@ -114,6 +118,7 @@ def test_posterior_predict_dtype(enable_x64):
 # --------------------------------------------------------------------------- #
 
 
+@pytest.mark.filterwarnings("ignore:Explicitly requested dtype float64:UserWarning")
 @pytest.mark.filterwarnings("ignore:X is not of type float64:UserWarning")
 @pytest.mark.filterwarnings("ignore:y is not of type float64:UserWarning")
 def test_conjugate_mll_dtype(enable_x64):

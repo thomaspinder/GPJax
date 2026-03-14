@@ -13,8 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from beartype.typing import Any
-from flax import nnx
+import equinox as eqx
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.fit import (
@@ -56,8 +55,27 @@ from jaxtyping import (
     Num,
 )
 import optax as ox
+import paramax
+from paramax import AbstractUnwrappable
 import pytest
 import scipy
+
+
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
+class LinearModel(eqx.Module):
+    weight: PositiveReal
+    bias: float = eqx.field(static=True, default=1.0)
+
+    def __init__(self, weight: float = 1.0, bias: float = 1.0):
+        self.weight = PositiveReal(weight)
+        self.bias = bias
+
+    def __call__(self, x):
+        return _val(self.weight) * x + self.bias
 
 
 def test_fit_simple() -> None:
@@ -65,16 +83,6 @@ def test_fit_simple() -> None:
     X = jnp.linspace(0.0, 10.0, 100).reshape(-1, 1)
     y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape).reshape(-1, 1)
     D = Dataset(X, y)
-
-    # Define linear model:
-
-    class LinearModel(nnx.Module):
-        def __init__(self, weight: float, bias: float):
-            self.weight = PositiveReal(weight)
-            self.bias = bias
-
-        def __call__(self, x):
-            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -102,7 +110,7 @@ def test_fit_simple() -> None:
     # Test reduction in loss:
     assert mse(trained_model, D) < mse(model, D)
 
-    # Test stop_gradient on bias:
+    # Test stop_gradient on bias (static field, not trained):
     assert trained_model.bias == 1.0
 
 
@@ -111,15 +119,6 @@ def test_fit_scipy_simple():
     X = jnp.linspace(0.0, 10.0, 100).reshape(-1, 1)
     y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape).reshape(-1, 1)
     D = Dataset(X, y)
-
-    # Define linear model:
-    class LinearModel(nnx.Module):
-        def __init__(self, weight: float, bias: float):
-            self.weight = PositiveReal(weight)
-            self.bias = bias
-
-        def __call__(self, x):
-            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -145,7 +144,7 @@ def test_fit_scipy_simple():
     # Test reduction in loss:
     assert mse(trained_model, D) < mse(model, D)
 
-    # Test stop_gradient on bias:
+    # Test stop_gradient on bias (static field, not trained):
     assert trained_model.bias == 1.0
 
 
@@ -154,15 +153,6 @@ def test_fit_lbfgs_simple():
     X = jnp.linspace(0.0, 10.0, 100).reshape(-1, 1)
     y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape).reshape(-1, 1)
     D = Dataset(X, y)
-
-    # Define linear model:
-    class LinearModel(nnx.Module):
-        def __init__(self, weight: float, bias: float):
-            self.weight = PositiveReal(weight)
-            self.bias = bias
-
-        def __call__(self, x):
-            return self.weight[...] * x + self.bias
 
     model = LinearModel(weight=1.0, bias=1.0)
 
@@ -185,7 +175,7 @@ def test_fit_lbfgs_simple():
     # Test reduction in loss:
     assert mse(trained_model, D) < mse(model, D)
 
-    # Test stop_gradient on bias:
+    # Test stop_gradient on bias (static field, not trained):
     assert trained_model.bias == 1.0
 
 
@@ -370,17 +360,8 @@ def test_get_batch(n_data: int, n_dim: int, batch_size: int):
 
 
 @pytest.fixture
-def valid_model() -> nnx.Module:
+def valid_model() -> eqx.Module:
     """Return a valid model for testing."""
-
-    class LinearModel(nnx.Module):
-        def __init__(self, weight: float, bias: float) -> None:
-            self.weight = PositiveReal(weight)
-            self.bias = bias
-
-        def __call__(self, x: Any) -> Any:
-            return self.weight[...] * x + self.bias
-
     return LinearModel(weight=1.0, bias=1.0)
 
 
@@ -392,7 +373,7 @@ def valid_dataset() -> Dataset:
     return Dataset(X=X, y=y)
 
 
-def test_check_model_valid(valid_model: nnx.Module) -> None:
+def test_check_model_valid(valid_model: eqx.Module) -> None:
     """Test that a valid model passes validation."""
     _check_model(valid_model)
 
@@ -401,7 +382,7 @@ def test_check_model_invalid() -> None:
     """Test that an invalid model raises a TypeError."""
     model = "not a model"
     with pytest.raises(
-        TypeError, match=r"Expected model to be a subclass of nnx\.Module"
+        TypeError, match=r"Expected model to be a subclass of eqx\.Module"
     ):
         _check_model(model)
 
@@ -508,8 +489,8 @@ def test_check_batch_size_invalid_value(batch_size: int) -> None:
         _check_batch_size(batch_size)
 
 
-def test_fit_filter_freeze_kernel_variance() -> None:
-    """Test that fit can freeze kernel variance parameter using filters."""
+def test_fit_freeze_kernel_variance() -> None:
+    """Test that fit can freeze kernel variance parameter using paramax.non_trainable."""
     key = jr.key(42)
     X = jr.uniform(key, (20, 1), minval=-3.0, maxval=3.0)
     y = jnp.sin(X) + 0.1 * jr.normal(jr.key(43), (20, 1))
@@ -523,29 +504,40 @@ def test_fit_filter_freeze_kernel_variance() -> None:
     posterior = prior * likelihood
 
     # Record initial variance value
-    initial_variance = kernel.variance[...]
+    initial_variance = posterior.prior.kernel.variance.unwrap()
 
-    # Train with filter that excludes variance (freezes it)
-    filter_no_variance = nnx.filterlib.Not(nnx.filterlib.PathContains("variance"))
+    # Freeze variance using paramax.non_trainable + eqx.tree_at
+    frozen_posterior = eqx.tree_at(
+        lambda m: m.prior.kernel.variance,
+        posterior,
+        replace_fn=paramax.non_trainable,
+    )
+
     trained_posterior, _ = fit(
-        model=posterior,
+        model=frozen_posterior,
         objective=gpx.objectives.conjugate_mll,
         train_data=D,
-        trainable=filter_no_variance,
         optim=ox.sgd(0.01),
         num_iters=10,
         verbose=False,
     )
 
+    # Use paramax.unwrap to fully resolve all wrappers for comparison
+    unwrapped = paramax.unwrap(trained_posterior)
+
     # Assert variance has not changed
-    assert jnp.allclose(trained_posterior.prior.kernel.variance[...], initial_variance)
+    assert jnp.allclose(unwrapped.prior.kernel.variance, initial_variance)
 
     # Assert lengthscale has changed
-    assert not jnp.allclose(trained_posterior.prior.kernel.lengthscale[...], 1.0)
+    assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, 1.0)
 
 
-def test_fit_zero_mean_function_not_trained() -> None:
-    """Test that Zero mean function constant is not trained even with default filter."""
+def test_fit_zero_mean_function_frozen_with_non_trainable() -> None:
+    """Test that Zero mean function constant can be frozen using paramax.non_trainable.
+
+    In the equinox backend, plain JAX arrays are trainable by default.
+    To freeze the Zero mean function's constant, use paramax.non_trainable.
+    """
     key = jr.key(42)
     X = jr.uniform(key, (20, 1), minval=-3.0, maxval=3.0)
     y = jnp.ones_like(X) + 0.1 * jr.normal(jr.key(43), X.shape)  # Non-zero mean data
@@ -561,9 +553,16 @@ def test_fit_zero_mean_function_not_trained() -> None:
     # Record initial mean function constant (should be 0.0)
     initial_constant = meanf.constant
 
-    # Train with default filter (should not train Zero mean function's constant)
+    # Freeze the Zero mean function constant using paramax.non_trainable
+    frozen_posterior = eqx.tree_at(
+        lambda m: m.prior.mean_function.constant,
+        posterior,
+        replace_fn=paramax.non_trainable,
+    )
+
+    # Train with frozen constant
     trained_posterior, _ = fit(
-        model=posterior,
+        model=frozen_posterior,
         objective=gpx.objectives.conjugate_mll,
         train_data=D,
         optim=ox.sgd(0.01),
@@ -572,9 +571,8 @@ def test_fit_zero_mean_function_not_trained() -> None:
     )
 
     # Assert Zero mean function constant has not changed (remains 0.0)
-    assert jnp.allclose(
-        trained_posterior.prior.mean_function.constant, initial_constant
-    )
+    unwrapped = paramax.unwrap(trained_posterior)
+    assert jnp.allclose(unwrapped.prior.mean_function.constant, initial_constant)
 
 
 def test_fit_constant_mean_function_with_parameter() -> None:
@@ -594,9 +592,9 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     posterior = prior * likelihood
 
     # Record initial mean function constant
-    initial_constant = meanf.constant[...]
+    initial_constant = meanf.constant.unwrap()
 
-    # Train with default filter (should train the mean function Parameter)
+    # Train (should train the mean function Parameter)
     trained_posterior, _ = fit(
         model=posterior,
         objective=gpx.objectives.conjugate_mll,
@@ -607,14 +605,18 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     )
 
     # Assert mean function constant has changed (parameter is trainable)
-    final_constant = trained_posterior.prior.mean_function.constant[...]
+    final_constant = trained_posterior.prior.mean_function.constant.unwrap()
     assert not jnp.allclose(final_constant, initial_constant)
     # Just verify the parameter changed (direction depends on optimization dynamics)
     assert jnp.isfinite(final_constant)  # Not NaN/Inf
 
 
-def test_fit_constant_mean_function_with_raw_value() -> None:
-    """Test that Constant mean function works with fixed raw value."""
+def test_fit_constant_mean_function_frozen_with_non_trainable() -> None:
+    """Test that Constant mean function raw value can be frozen using paramax.non_trainable.
+
+    In the equinox backend, plain JAX arrays are trainable by default.
+    To freeze the constant, use paramax.non_trainable via eqx.tree_at.
+    """
     key = jr.key(42)
     X = jr.uniform(key, (20, 1), minval=-3.0, maxval=3.0)
     y = 5.0 * jnp.ones_like(X) + 0.1 * jr.normal(jr.key(43), X.shape)  # Mean of 5.0
@@ -630,9 +632,16 @@ def test_fit_constant_mean_function_with_raw_value() -> None:
     # Record initial mean function constant
     initial_constant = meanf.constant
 
-    # Train with default filter (should NOT train the raw value)
+    # Freeze the constant using paramax.non_trainable
+    frozen_posterior = eqx.tree_at(
+        lambda m: m.prior.mean_function.constant,
+        posterior,
+        replace_fn=paramax.non_trainable,
+    )
+
+    # Train (constant should NOT change because it is frozen)
     trained_posterior, _ = fit(
-        model=posterior,
+        model=frozen_posterior,
         objective=gpx.objectives.conjugate_mll,
         train_data=D,
         optim=ox.sgd(0.1),
@@ -640,21 +649,19 @@ def test_fit_constant_mean_function_with_raw_value() -> None:
         verbose=False,
     )
 
-    # Assert mean function constant has NOT changed (fixed raw value)
-    final_constant = trained_posterior.prior.mean_function.constant
-    assert jnp.allclose(final_constant, initial_constant)
+    # Assert mean function constant has NOT changed (frozen with non_trainable)
+    unwrapped = paramax.unwrap(trained_posterior)
+    assert jnp.allclose(unwrapped.prior.mean_function.constant, initial_constant)
 
 
-def test_fit_filter_by_type() -> None:
-    """Test filtering parameters by type using nnx.filters.OfType."""
+def test_fit_freeze_by_non_trainable() -> None:
+    """Test freezing specific parameter types using paramax.non_trainable."""
     key = jr.key(42)
     X = jr.uniform(key, (20, 1), minval=-3.0, maxval=3.0)
     y = jnp.sin(X) + 0.1 * jr.normal(jr.key(43), (20, 1))
     D = Dataset(X, y)
 
     # Create GP with RBF kernel
-    from gpjax.parameters import PositiveReal
-
     meanf = gpx.mean_functions.Zero()
     kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0)
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
@@ -662,28 +669,37 @@ def test_fit_filter_by_type() -> None:
     posterior = prior * likelihood
 
     # Record initial values
-    initial_variance = kernel.variance[...]
-    initial_lengthscale = kernel.lengthscale[...]
-    initial_obs_stddev = likelihood.obs_stddev[...]
+    initial_variance = posterior.prior.kernel.variance.unwrap()
+    initial_lengthscale = posterior.prior.kernel.lengthscale.unwrap()
+    initial_obs_stddev = posterior.likelihood.obs_stddev.unwrap()
 
-    # Train only PositiveReal parameters (should include only lengthscale)
-    filter_positive_real = nnx.filterlib.OfType(PositiveReal)
+    # Freeze variance and obs_stddev, train only lengthscale
+    frozen_posterior = eqx.tree_at(
+        lambda m: m.prior.kernel.variance,
+        posterior,
+        replace_fn=paramax.non_trainable,
+    )
+    frozen_posterior = eqx.tree_at(
+        lambda m: m.likelihood.obs_stddev,
+        frozen_posterior,
+        replace_fn=paramax.non_trainable,
+    )
+
     trained_posterior, _ = fit(
-        model=posterior,
+        model=frozen_posterior,
         objective=gpx.objectives.conjugate_mll,
         train_data=D,
-        trainable=filter_positive_real,
         optim=ox.sgd(0.01),
         num_iters=10,
         verbose=False,
     )
 
-    # Assert that only PositiveReal parameters (lengthscale) have changed
-    # variance and obs_stddev are NonNegativeReal, so they should not change
-    assert jnp.allclose(trained_posterior.prior.kernel.variance[...], initial_variance)
-    assert not jnp.allclose(
-        trained_posterior.prior.kernel.lengthscale[...], initial_lengthscale
-    )
-    assert jnp.allclose(
-        trained_posterior.likelihood.obs_stddev[...], initial_obs_stddev
-    )
+    # Use paramax.unwrap to fully resolve all wrappers for comparison
+    unwrapped = paramax.unwrap(trained_posterior)
+
+    # Assert that frozen parameters have not changed
+    assert jnp.allclose(unwrapped.prior.kernel.variance, initial_variance)
+    assert jnp.allclose(unwrapped.likelihood.obs_stddev, initial_obs_stddev)
+
+    # Assert lengthscale has changed
+    assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, initial_lengthscale)

@@ -1,37 +1,12 @@
 """Linear algebra module for GPJax."""
 
-from gpjax.linalg.operations import (
-    diag,
-    logdet,
-    lower_cholesky,
-    solve,
-)
-from gpjax.linalg.operators import (
-    BlockDiag,
-    Dense,
-    Diagonal,
-    Identity,
-    Kronecker,
-    LinearOperator,
-    Triangular,
-)
-from gpjax.linalg.utils import (
-    PSD,
-    psd,
-)
+from gpjax.linalg.custom_operators import BlockDiag, Kronecker
+from gpjax.linalg.utils import add_jitter, cholesky_factor, logdet
 
 __all__ = [
-    "PSD",
     "BlockDiag",
-    "Dense",
-    "Diagonal",
-    "Identity",
     "Kronecker",
-    "LinearOperator",
-    "Triangular",
-    "diag",
+    "add_jitter",
+    "cholesky_factor",
     "logdet",
-    "lower_cholesky",
-    "psd",
-    "solve",
 ]

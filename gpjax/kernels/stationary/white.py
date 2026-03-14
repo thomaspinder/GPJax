@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     ConstantDiagonalKernelComputation,
@@ -23,7 +24,6 @@ from gpjax.kernels.computations import (
 from gpjax.kernels.stationary.base import StationaryKernel
 from gpjax.typing import (
     Array,
-    ScalarArray,
     ScalarFloat,
 )
 
@@ -42,7 +42,7 @@ class White(StationaryKernel):
     def __init__(
         self,
         active_dims: list[int] | slice | None = None,
-        variance: ScalarFloat | nnx.Variable[ScalarArray] = 1.0,
+        variance: ScalarFloat | AbstractUnwrappable = 1.0,
         n_dims: int | None = None,
         compute_engine: AbstractKernelComputation = ConstantDiagonalKernelComputation(),
     ):
@@ -58,5 +58,5 @@ class White(StationaryKernel):
         super().__init__(active_dims, 1.0, variance, n_dims, compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        K = jnp.all(jnp.equal(x, y)) * self.variance[...]
+        K = jnp.all(jnp.equal(x, y)) * _val(self.variance)
         return K.squeeze()

@@ -17,6 +17,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.stationary.base import StationaryKernel
 from gpjax.kernels.stationary.utils import (
     build_student_t_distribution,
@@ -43,11 +44,11 @@ class Matern32(StationaryKernel):
         x: Float[Array, " D"],
         y: Float[Array, " D"],
     ) -> Float[Array, ""]:
-        x = self.slice_input(x) / self.lengthscale[...]
-        y = self.slice_input(y) / self.lengthscale[...]
+        x = self.slice_input(x) / _val(self.lengthscale)
+        y = self.slice_input(y) / _val(self.lengthscale)
         tau = euclidean_distance(x, y)
         K = (
-            self.variance[...]
+            _val(self.variance)
             * (1.0 + jnp.sqrt(3.0) * tau)
             * jnp.exp(-jnp.sqrt(3.0) * tau)
         )

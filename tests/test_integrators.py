@@ -64,11 +64,14 @@ def test_analytical_gaussian(jit: bool, params: tuple[float, float]):
     variance = jnp.array([[1.0]])
     y = jnp.array([[1.0]])
 
+    @jax.jit
+    def _ell(lik, y, mean, variance):
+        return lik.expected_log_likelihood(y=y, mean=mean, variance=variance)
+
     if jit:
-        ell_fn = jax.jit(likelihood.expected_log_likelihood)
+        ell = _ell(likelihood, y=y, mean=mu, variance=variance)
     else:
-        ell_fn = likelihood.expected_log_likelihood
-    ell = ell_fn(y=y, mean=mu, variance=variance)
+        ell = likelihood.expected_log_likelihood(y=y, mean=mu, variance=variance)
     np.testing.assert_almost_equal(ell, expected)
 
 
@@ -81,9 +84,12 @@ def test_bernoulli_quadrature(jit: bool, params: tuple[float, float]):
     likelihood = Bernoulli(num_datapoints=1)
     y = jnp.array([[1.0]])
 
+    @jax.jit
+    def _ell(lik, y, mean, variance):
+        return lik.expected_log_likelihood(y=y, mean=mean, variance=variance)
+
     if jit:
-        ell_fn = jax.jit(likelihood.expected_log_likelihood)
+        ell = _ell(likelihood, y=y, mean=mu, variance=variance)
     else:
-        ell_fn = likelihood.expected_log_likelihood
-    ell = ell_fn(y=y, mean=mu, variance=variance)
+        ell = likelihood.expected_log_likelihood(y=y, mean=mu, variance=variance)
     np.testing.assert_almost_equal(ell, expected)

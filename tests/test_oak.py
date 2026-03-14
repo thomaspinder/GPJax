@@ -122,21 +122,21 @@ class TestOrthogonalAdditiveKernelInit:
         kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
         assert kernel.max_order == 3
         assert len(kernel.base_kernels) == 3
-        assert kernel.order_variances[...].shape == (4,)  # includes sigma^2_0
+        assert kernel.order_variances.unwrap().shape == (4,)  # includes sigma^2_0
 
     def test_custom_max_order(self):
         """max_order < D truncates interaction orders."""
         base_kernels = [RBF(active_dims=[i]) for i in range(5)]
         kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, max_order=2)
         assert kernel.max_order == 2
-        assert kernel.order_variances[...].shape == (3,)  # e_0, e_1, e_2
+        assert kernel.order_variances.unwrap().shape == (3,)  # e_0, e_1, e_2
 
     def test_custom_order_variances(self):
         """User can provide initial order variances."""
         base_kernels = [RBF(active_dims=[i]) for i in range(3)]
         ov = jnp.array([0.5, 1.0, 0.5, 0.1])
         kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels, order_variances=ov)
-        assert jnp.allclose(kernel.order_variances[...], ov)
+        assert jnp.allclose(kernel.order_variances.unwrap(), ov)
 
     def test_order_variances_are_trainable(self):
         """Order variances should be NonNegativeReal parameters."""
@@ -246,18 +246,18 @@ class TestOrthogonalAdditiveKernelProperties:
         """Gram matrix has shape (N, N)."""
         kernel, x = kernel_and_data
         K = kernel.gram(x)
-        assert K.to_dense().shape == (10, 10)
+        assert K.as_matrix().shape == (10, 10)
 
     def test_gram_symmetric(self, kernel_and_data):
         """Gram matrix is symmetric."""
         kernel, x = kernel_and_data
-        K = kernel.gram(x).to_dense()
+        K = kernel.gram(x).as_matrix()
         assert jnp.allclose(K, K.T, atol=1e-10)
 
     def test_gram_psd(self, kernel_and_data):
         """Gram matrix eigenvalues are non-negative."""
         kernel, x = kernel_and_data
-        K = kernel.gram(x).to_dense()
+        K = kernel.gram(x).as_matrix()
         eigvals = jnp.linalg.eigvalsh(K)
         assert jnp.all(eigvals > -1e-6), f"Negative eigenvalue: {eigvals.min()}"
 
@@ -272,35 +272,36 @@ class TestOrthogonalAdditiveKernelProperties:
     def test_cross_covariance_matches_gram_diagonal(self, kernel_and_data):
         """cross_covariance(x, x) diagonal matches gram diagonal."""
         kernel, x = kernel_and_data
-        K_gram = kernel.gram(x).to_dense()
+        K_gram = kernel.gram(x).as_matrix()
         K_cross = kernel.cross_covariance(x, x)
         assert jnp.allclose(jnp.diag(K_gram), jnp.diag(K_cross), atol=1e-10)
 
     def test_jit_compatible(self, kernel_and_data):
         """Kernel gram computation works under jax.jit."""
         kernel, x = kernel_and_data
-        K_eager = kernel.gram(x).to_dense()
-        K_jit = jax.jit(lambda xx: kernel.gram(xx).to_dense())(x)
+        K_eager = kernel.gram(x).as_matrix()
+        K_jit = jax.jit(lambda xx: kernel.gram(xx).as_matrix())(x)
         assert jnp.allclose(K_eager, K_jit, atol=1e-10)
 
     def test_gradient_flows(self):
         """Gradients w.r.t. kernel parameters are finite and non-zero."""
-        from flax import nnx
+        import equinox as eqx
+        import paramax
 
         base_kernels = [RBF(active_dims=[i]) for i in range(3)]
         kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
         x = jr.normal(jr.PRNGKey(0), shape=(5, 3))
 
-        graphdef, state = nnx.split(kernel)
+        params, static = eqx.partition(kernel, eqx.is_array)
 
-        def loss_fn(state):
-            k = nnx.merge(graphdef, state)
-            K = k.gram(x).to_dense()
+        def loss_fn(params):
+            k = paramax.unwrap(eqx.combine(params, static))
+            K = k.gram(x).as_matrix()
             return jnp.sum(K)
 
-        grads = jax.grad(loss_fn)(state)
+        grads = jax.grad(loss_fn)(params)
         # Check order_variances gradient exists and is finite
-        ov_grad = grads.order_variances.value
+        ov_grad = grads.order_variances._unconstrained
         assert jnp.all(jnp.isfinite(ov_grad))
         assert not jnp.allclose(ov_grad, 0.0)
 
@@ -344,10 +345,10 @@ class TestRankFirstOrder:
 
         # Manual computation
         N = x.shape[0]
-        K = kernel.gram(x).to_dense()
+        K = kernel.gram(x).as_matrix()
         K_noisy = K + 0.1 * jnp.eye(N)
         alpha = jnp.linalg.solve(K_noisy, y.squeeze())
-        ov = kernel.order_variances[...]
+        ov = kernel.order_variances.unwrap()
         ls = kernel._lengthscales
         vs = kernel._variances
         M_stack = jax.vmap(_sobol_integral_matrix)(x.T, ls, vs)
@@ -413,12 +414,12 @@ class TestPredictFirstOrder:
 
         # Manual
         N = x.shape[0]
-        K = kernel.gram(x).to_dense()
+        K = kernel.gram(x).as_matrix()
         K_noisy = K + 0.1 * jnp.eye(N)
         alpha = jnp.linalg.solve(K_noisy, y.squeeze())
         ls_d = kernel._lengthscales[0]
         var_d = kernel._variances[0]
-        ov = kernel.order_variances[...]
+        ov = kernel.order_variances.unwrap()
 
         K_star = jax.vmap(
             jax.vmap(

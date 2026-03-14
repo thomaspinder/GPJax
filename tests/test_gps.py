@@ -231,6 +231,7 @@ def test_conjugate_posterior(
     assert sigma.shape == (num_test_datapoints, num_test_datapoints)
 
 
+@pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
 @pytest.mark.parametrize("num_datapoints", [1, 10])
 @pytest.mark.parametrize("num_test_datapoints", [1, 10, 200])
 @pytest.mark.parametrize("kernel", [RBF, Matern52])
@@ -261,7 +262,7 @@ def test_nonconjugate_posterior_with_diag(
 
     # Check latent values.
     latent_values = jr.normal(posterior.key, (num_datapoints, 1))
-    assert (posterior.latent[...] == latent_values).all()
+    assert (posterior.latent.unwrap() == latent_values).all()
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
@@ -286,6 +287,7 @@ def test_nonconjugate_posterior_with_diag(
     )
 
 
+@pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
 @pytest.mark.parametrize("num_datapoints", [1, 10])
 @pytest.mark.parametrize("num_test_datapoints", [1, 10, 200])
 @pytest.mark.parametrize("kernel", [RBF, Matern52])
@@ -316,7 +318,7 @@ def test_nonconjugate_posterior(
 
     # Check latent values.
     latent_values = jr.normal(posterior.key, (num_datapoints, 1))
-    assert (posterior.latent[...] == latent_values).all()
+    assert (posterior.latent.unwrap() == latent_values).all()
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
@@ -333,6 +335,7 @@ def test_nonconjugate_posterior(
     assert sigma.shape == (num_test_datapoints, num_test_datapoints)
 
 
+@pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
 @pytest.mark.parametrize("likelihood", [Bernoulli, Gaussian])
 @pytest.mark.parametrize("num_datapoints", [1, 10])
 @pytest.mark.parametrize("kernel", [RBF, Matern52])

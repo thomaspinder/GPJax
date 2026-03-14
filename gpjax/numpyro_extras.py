@@ -1,9 +1,8 @@
-from flax import nnx
+import equinox as eqx
 import jax.tree_util as jtu
 import numpyro
 import numpyro.distributions as dist
-
-from gpjax.parameters import Parameter
+from paramax import AbstractUnwrappable
 
 
 def tree_path_to_name(path: jtu.KeyPath, prefix: str = "") -> str:
@@ -36,7 +35,7 @@ def tree_path_to_name(path: jtu.KeyPath, prefix: str = "") -> str:
 
 def resolve_prior(
     name: str,
-    param: Parameter,
+    param: AbstractUnwrappable,
     priors: dict[str, dist.Distribution],
 ) -> dist.Distribution | None:
     """Resolve the prior precedence of a parameter.
@@ -47,7 +46,7 @@ def resolve_prior(
 
     Args:
         name: The parameter name.
-        param: The Parameter instance.
+        param: The AbstractUnwrappable instance.
         priors: Dictionary mapping parameter names to distributions.
 
     Returns:
@@ -55,47 +54,95 @@ def resolve_prior(
     """
     prior = priors.get(name)
     if prior is None:
-        numpyro_props = getattr(param, "numpyro_properties", {})
-        prior = numpyro_props.get("prior")
+        # Check if the parameter has a .prior attribute (our paramax parameter types do)
+        prior = getattr(param, "prior", None)
     return prior
 
 
 def register_parameters(
-    model: nnx.Module,
+    model: eqx.Module,
     priors: dict[str, dist.Distribution] | None = None,
     prefix: str = "",
-) -> nnx.Module:
+) -> eqx.Module:
     """
     Register GPJax parameters with Numpyro.
 
+    This function walks the model's pytree, finds AbstractUnwrappable nodes,
+    and registers them as NumPyro sample sites with the appropriate priors.
+
+    Because AbstractUnwrappable instances are themselves eqx.Module subclasses,
+    standard jtu.tree_flatten flattens through them to raw arrays. We use
+    ``is_leaf=lambda x: isinstance(x, AbstractUnwrappable)`` to stop flattening
+    at parameter boundaries and detect them as leaves.
+
     Args:
-        model: The GPJax model that contains parameters and is a subclass of nnx.Module.
+        model: The GPJax model that contains parameters and is a subclass of eqx.Module.
         priors: Optional dictionary mapping parameter names to Numpyro distributions.
         prefix: Optional prefix for parameter names.
 
     Returns:
         The model with parameters updated from Numpyro samples.
     """
+    from gpjax.parameters import Real
+
     if priors is None:
         priors = {}
 
-    def _param_callback(path, param):
-        if not isinstance(param, Parameter):
-            return param
+    def _is_leaf(x):
+        return isinstance(x, AbstractUnwrappable)
 
+    # Flatten with AbstractUnwrappable as leaf boundary
+    paths_and_leaves = jtu.tree_flatten_with_path(model, is_leaf=_is_leaf)[0]
+    _leaves, treedef = jtu.tree_flatten(model, is_leaf=_is_leaf)
+
+    # Track already-seen parameter ids to handle shared references
+    seen_ids: dict[int, str] = {}  # id -> sample site name
+
+    new_leaves = []
+    for path, leaf in paths_and_leaves:
+        if not isinstance(leaf, AbstractUnwrappable):
+            new_leaves.append(leaf)
+            continue
+
+        # Handle shared parameters: if we've already sampled this exact object,
+        # reuse the same sampled value (via deterministic site or cached value).
+        leaf_id = id(leaf)
         name = tree_path_to_name(path, prefix)
-        prior = resolve_prior(name, param, priors)
+
+        if leaf_id in seen_ids:
+            # Shared parameter -- skip (the first occurrence's replacement
+            # will be used for all references because tree_unflatten preserves
+            # the identity of repeated leaves).
+            # We need to append the SAME Real wrapper as the first time.
+            # Since jtu.tree_unflatten doesn't preserve identity for distinct objects,
+            # we need to sample only once and reuse the Real wrapper.
+            new_leaves.append(
+                new_leaves[
+                    _first_occurrence_index(
+                        seen_ids[leaf_id], paths_and_leaves, prefix, _is_leaf
+                    )
+                ]
+            )
+            continue
+
+        prior = resolve_prior(name, leaf, priors)
 
         if prior is None:
-            return param
+            new_leaves.append(leaf)
+            seen_ids[leaf_id] = name
+            continue
 
         value = numpyro.sample(name, prior)
-        return param.replace(value)
+        new_leaf = Real(value)
+        new_leaves.append(new_leaf)
+        seen_ids[leaf_id] = name
 
-    graphdef, state = nnx.split(model)
+    return jtu.tree_unflatten(treedef, new_leaves)
 
-    new_state = jtu.tree_map_with_path(
-        _param_callback, state, is_leaf=lambda x: isinstance(x, Parameter)
-    )
 
-    return nnx.merge(graphdef, new_state)
+def _first_occurrence_index(name, paths_and_leaves, prefix, is_leaf):
+    """Find the index of the first occurrence of a parameter by name."""
+    for i, (path, _leaf) in enumerate(paths_and_leaves):
+        if tree_path_to_name(path, prefix) == name:
+            return i
+    raise ValueError(f"Could not find first occurrence of {name}")

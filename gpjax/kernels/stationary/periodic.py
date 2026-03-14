@@ -14,10 +14,11 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -45,13 +46,14 @@ class Periodic(StationaryKernel):
     """
 
     name: str = "Periodic"
+    period: tp.Any
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]] = 1.0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        period: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
+        period: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -80,11 +82,9 @@ class Periodic(StationaryKernel):
     ) -> Float[Array, ""]:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        period_val = (
-            self.period[...] if isinstance(self.period, nnx.Variable) else self.period
-        )
+        period_val = _val(self.period)
         sine_squared = (
-            jnp.sin(jnp.pi * (x - y) / period_val) / self.lengthscale[...]
+            jnp.sin(jnp.pi * (x - y) / period_val) / _val(self.lengthscale)
         ) ** 2
-        K = self.variance[...] * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
+        K = _val(self.variance) * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
         return K.squeeze()

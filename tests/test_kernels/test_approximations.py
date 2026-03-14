@@ -13,11 +13,11 @@ from gpjax.kernels.stationary import (
     RationalQuadratic,
     StationaryKernel,
 )
-from gpjax.linalg.operators import Dense
 import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import lineax as lx
 import pytest
 
 config.update("jax_enable_x64", True)
@@ -52,9 +52,9 @@ def test_gram(
     linop = approximate.gram(x)
 
     # Check the return type
-    assert isinstance(linop, Dense)
+    assert isinstance(linop, lx.AbstractLinearOperator)
 
-    Kxx = linop.to_dense() + jnp.eye(n_data) * _jitter
+    Kxx = linop.as_matrix() + jnp.eye(n_data) * _jitter
 
     # Check that the shape is correct
     assert Kxx.shape == (n_data, n_data)
@@ -102,13 +102,13 @@ def test_improvement(kernel: type[StationaryKernel], n_dim: int):
 
     x = jr.uniform(key, minval=-3.0, maxval=3.0, shape=(n_data, n_dim))
     base_kernel = kernel(active_dims=list(range(n_dim)))
-    exact_linop = base_kernel.gram(x).to_dense()
+    exact_linop = base_kernel.gram(x).as_matrix()
 
     crude_approximation = RFF(base_kernel=base_kernel, num_basis_fns=10)
-    c_linop = crude_approximation.gram(x).to_dense()
+    c_linop = crude_approximation.gram(x).as_matrix()
 
     better_approximation = RFF(base_kernel=base_kernel, num_basis_fns=100)
-    b_linop = better_approximation.gram(x).to_dense()
+    b_linop = better_approximation.gram(x).as_matrix()
 
     c_delta = jnp.linalg.norm(exact_linop - c_linop, ord="fro")
     b_delta = jnp.linalg.norm(exact_linop - b_linop, ord="fro")
@@ -126,10 +126,10 @@ def test_exactness(kernel: type[StationaryKernel]):
     key = jr.key(123)
 
     x = jr.uniform(key, minval=-3.0, maxval=3.0, shape=(n_data, 1))
-    exact_linop = kernel.gram(x).to_dense()
+    exact_linop = kernel.gram(x).as_matrix()
 
     better_approximation = RFF(base_kernel=kernel, num_basis_fns=300)
-    b_linop = better_approximation.gram(x).to_dense()
+    b_linop = better_approximation.gram(x).as_matrix()
 
     max_delta = jnp.max(exact_linop - b_linop)
     assert max_delta < 0.1

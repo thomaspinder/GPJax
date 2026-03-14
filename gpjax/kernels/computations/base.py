@@ -21,13 +21,9 @@ from jaxtyping import (
     Float,
     Num,
 )
+import lineax as lx
 
 import gpjax
-from gpjax.linalg import (
-    Dense,
-    Diagonal,
-    psd,
-)
 from gpjax.typing import Array
 
 K = tp.TypeVar("K", bound="gpjax.kernels.base.AbstractKernel")
@@ -57,7 +53,7 @@ class AbstractKernelComputation:
         self,
         kernel: K,
         x: Num[Array, "N D"],
-    ) -> Dense:
+    ) -> lx.AbstractLinearOperator:
         r"""For a given kernel, compute Gram covariance operator of the kernel function
         on an input matrix of shape `(N, D)`.
 
@@ -69,7 +65,9 @@ class AbstractKernelComputation:
             The Gram covariance of the kernel function as a linear operator.
         """
         Kxx = self.cross_covariance(kernel, x, x)
-        return psd(Dense(Kxx))
+        return lx.TaggedLinearOperator(
+            lx.MatrixLinearOperator(Kxx), lx.positive_semidefinite_tag
+        )
 
     @abc.abstractmethod
     def _cross_covariance(
@@ -92,10 +90,17 @@ class AbstractKernelComputation:
         """
         return self._cross_covariance(kernel, x, y)
 
-    def _diagonal(self, kernel: K, inputs: Num[Array, "N D"]) -> Diagonal:
-        return psd(Diagonal(vmap(lambda x: kernel(x, x))(inputs)))
+    def _diagonal(
+        self, kernel: K, inputs: Num[Array, "N D"]
+    ) -> lx.AbstractLinearOperator:
+        return lx.TaggedLinearOperator(
+            lx.DiagonalLinearOperator(vmap(lambda x: kernel(x, x))(inputs)),
+            lx.positive_semidefinite_tag,
+        )
 
-    def diagonal(self, kernel: K, inputs: Num[Array, "N D"]) -> Diagonal:
+    def diagonal(
+        self, kernel: K, inputs: Num[Array, "N D"]
+    ) -> lx.AbstractLinearOperator:
         r"""For a given kernel, compute the elementwise diagonal of the
         NxN gram matrix on an input matrix of shape `(N, D)`.
 

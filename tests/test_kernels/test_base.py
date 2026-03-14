@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from flax import nnx
+import equinox as eqx
 from gpjax.kernels.base import (
     AbstractKernel,
     CombinationKernel,
@@ -112,24 +112,21 @@ def test_combination_kernel(
     # Create combination kernel
     combination_kernel = combination_type(kernels=kernels)
 
-    # Check params are a list of dictionaries
-    assert combination_kernel.kernels == nnx.List(kernels)
-
-    # Check combination kernel set
+    # Check kernels stored as tuple
+    assert isinstance(combination_kernel.kernels, tuple)
     assert len(combination_kernel.kernels) == n_kerns
-    assert isinstance(combination_kernel.kernels, nnx.List)
     assert isinstance(combination_kernel.kernels[0], AbstractKernel)
 
     # Compute gram matrix
     Kxx = combination_kernel.gram(x)
 
     # Check shapes
-    assert Kxx.shape[0] == Kxx.shape[1]
-    assert Kxx.shape[1] == n
+    assert Kxx.as_matrix().shape[0] == Kxx.as_matrix().shape[1]
+    assert Kxx.as_matrix().shape[1] == n
 
     # Check positive definiteness
     jitter = 1e-6
-    eigen_values = jnp.linalg.eigvalsh(Kxx.to_dense() + jnp.eye(n) * jitter)
+    eigen_values = jnp.linalg.eigvalsh(Kxx.as_matrix() + jnp.eye(n) * jitter)
     assert (eigen_values > 0).all()
 
 
@@ -154,7 +151,7 @@ def test_sum_kern_value(k1: type[AbstractKernel], k2: type[AbstractKernel]) -> N
     Kxx_k2 = k2.gram(x)
 
     # Check manual and automatic gram matrices are equal
-    assert jnp.all(Kxx.to_dense() == Kxx_k1.to_dense() + Kxx_k2.to_dense())
+    assert jnp.all(Kxx.as_matrix() == Kxx_k1.as_matrix() + Kxx_k2.as_matrix())
 
 
 @pytest.mark.parametrize("k1", TESTED_KERNELS)
@@ -178,7 +175,7 @@ def test_prod_kern_value(k1: AbstractKernel, k2: AbstractKernel) -> None:
     Kxx_k2 = k2.gram(x)
 
     # Check manual and automatic gram matrices are equal
-    assert jnp.all(Kxx.to_dense() == Kxx_k1.to_dense() * Kxx_k2.to_dense())
+    assert jnp.all(Kxx.as_matrix() == Kxx_k1.as_matrix() * Kxx_k2.as_matrix())
 
 
 def test_kernel_subclassing():
@@ -188,6 +185,9 @@ def test_kernel_subclassing():
 
     # Create a dummy kernel class with __call__ implemented:
     class DummyKernel(AbstractKernel):
+        test_a: Real
+        test_b: PositiveReal
+
         def __init__(
             self,
             active_dims=None,
@@ -196,19 +196,66 @@ def test_kernel_subclassing():
         ):
             self.test_a = Real(test_a)
             self.test_b = PositiveReal(test_b)
-
             super().__init__(active_dims)
 
         def __call__(
             self, x: Float[Array, "1 D"], y: Float[Array, "1 D"]
         ) -> Float[Array, "1"]:
-            return x * self.test_b[...] * y
+            return x * self.test_b.unwrap() * y
 
     # Initialise dummy kernel class and test __call__ method:
     dummy_kernel = DummyKernel()
-    assert dummy_kernel.test_a[...] == jnp.array([1.0])
-    assert dummy_kernel.test_b[...] == jnp.array([2.0])
+    assert dummy_kernel.test_a.unwrap() == jnp.array([1.0])
+    assert dummy_kernel.test_b.unwrap() == jnp.array([2.0])
     assert dummy_kernel(jnp.array([1.0]), jnp.array([2.0])) == 4.0
+
+
+def test_constant_kernel_is_eqx_module():
+    from gpjax.kernels.base import Constant
+
+    k = Constant()
+    assert isinstance(k, eqx.Module)
+
+
+def test_sum_kernel_is_concrete_class():
+    """SumKernel should be a class, not ft.partial."""
+    from gpjax.kernels.base import Constant
+
+    assert isinstance(SumKernel, type)
+    k1 = Constant(constant=1.0)
+    k2 = Constant(constant=2.0)
+    sk = k1 + k2
+    assert isinstance(sk, SumKernel)
+
+
+def test_product_kernel_is_concrete_class():
+    from gpjax.kernels.base import Constant
+
+    assert isinstance(ProductKernel, type)
+    k1 = Constant(constant=1.0)
+    k2 = Constant(constant=2.0)
+    pk = k1 * k2
+    assert isinstance(pk, ProductKernel)
+
+
+def test_combination_kernel_flattens_same_type():
+    """(a + b) + c should flatten to [a, b, c], not nest."""
+    from gpjax.kernels.base import Constant
+
+    k1 = Constant(constant=1.0)
+    k2 = Constant(constant=2.0)
+    k3 = Constant(constant=3.0)
+    sk = (k1 + k2) + k3
+    assert len(sk.kernels) == 3
+
+
+def test_combination_kernel_uses_tuples():
+    from gpjax.kernels.base import Constant
+
+    k1 = Constant(constant=1.0)
+    k2 = Constant(constant=2.0)
+    sk = k1 + k2
+    assert isinstance(sk.kernels, tuple)
 
 
 def test_nested_sum_of_product_value() -> None:
@@ -316,9 +363,9 @@ def test_nested_sum_of_product_gram(
     Kxx = k_sum.gram(x)
 
     # Compute expected gram matrix manually
-    Kxx_k1 = k1.gram(x).to_dense()
-    Kxx_k2 = k2.gram(x).to_dense()
-    Kxx_k3 = k3.gram(x).to_dense()
+    Kxx_k1 = k1.gram(x).as_matrix()
+    Kxx_k2 = k2.gram(x).as_matrix()
+    Kxx_k3 = k3.gram(x).as_matrix()
     Kxx_expected = Kxx_k1 + Kxx_k2 * Kxx_k3
 
-    assert jnp.allclose(Kxx.to_dense(), Kxx_expected)
+    assert jnp.allclose(Kxx.as_matrix(), Kxx_expected)

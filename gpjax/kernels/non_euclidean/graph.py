@@ -20,6 +20,7 @@ from jaxtyping import (
     Integer,
     Num,
 )
+from paramax import AbstractUnwrappable
 
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
@@ -30,10 +31,7 @@ from gpjax.kernels.non_euclidean.utils import (
     jax_gather_nd,
 )
 from gpjax.kernels.stationary.base import StationaryKernel
-from gpjax.parameters import (
-    Parameter,
-    PositiveReal,
-)
+from gpjax.parameters import PositiveReal
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -56,6 +54,7 @@ class GraphKernel(StationaryKernel):
 
     """
 
+    smoothness: tp.Any
     num_vertex: tp.Union[ScalarInt, None]
     laplacian: Float[Array, "N N"]
     eigenvalues: Float[Array, "N 1"]
@@ -66,8 +65,10 @@ class GraphKernel(StationaryKernel):
         self,
         laplacian: Num[Array, "N N"],
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[ScalarFloat, Float[Array, " D"], Parameter] = 1.0,
-        variance: tp.Union[ScalarFloat, Parameter] = 1.0,
+        lengthscale: tp.Union[
+            ScalarFloat, Float[Array, " D"], AbstractUnwrappable
+        ] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         smoothness: ScalarFloat = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = EigenKernelComputation(),
@@ -88,7 +89,7 @@ class GraphKernel(StationaryKernel):
             compute_engine: The computation engine that the kernel uses to compute the
                 covariance matrix.
         """
-        if isinstance(smoothness, Parameter):
+        if isinstance(smoothness, AbstractUnwrappable):
             self.smoothness = smoothness
         else:
             self.smoothness = PositiveReal(smoothness)

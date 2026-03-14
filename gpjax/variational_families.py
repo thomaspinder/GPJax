@@ -17,13 +17,15 @@ import abc
 from dataclasses import dataclass
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax.numpy as jnp
 import jax.scipy as jsp
 from jaxtyping import (
     Float,
     Int,
 )
+import lineax as lx
+from paramax import AbstractUnwrappable
 
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
@@ -39,14 +41,7 @@ from gpjax.likelihoods import (
     Gaussian,
     NonGaussian,
 )
-from gpjax.linalg import (
-    Dense,
-    Identity,
-    Triangular,
-    lower_cholesky,
-    psd,
-    solve,
-)
+from gpjax.linalg import cholesky_factor
 from gpjax.linalg.utils import add_jitter
 from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
@@ -69,11 +64,28 @@ PP = tp.TypeVar("PP", bound=AbstractPosterior)
 HP = tp.TypeVar("HP", HeteroscedasticPosterior, ChainedPosterior)
 
 
-class AbstractVariationalFamily(nnx.Module, tp.Generic[L]):
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
+def _psd(matrix):
+    """Wrap a dense matrix as a PSD lineax operator."""
+    return lx.MatrixLinearOperator(matrix)
+
+
+def _tri_solve(L, B):
+    """Solve L x = B where L is lower triangular. Works for matrix B."""
+    return jsp.linalg.solve_triangular(L, B, lower=True)
+
+
+class AbstractVariationalFamily(eqx.Module, tp.Generic[L]):
     r"""
     Abstract base class used to represent families of distributions that can be
     used within variational inference.
     """
+
+    posterior: AbstractPosterior
 
     def __init__(self, posterior: AbstractPosterior[P, L]):
         self.posterior = posterior
@@ -113,6 +125,9 @@ class AbstractVariationalFamily(nnx.Module, tp.Generic[L]):
 class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
     r"""The variational Gaussian family of probability distributions."""
 
+    inducing_inputs: tp.Any
+    jitter: float = eqx.field(static=True, default=1e-6)
+
     def __init__(
         self,
         posterior: AbstractPosterior[P, L],
@@ -134,7 +149,7 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
     @property
     def num_inducing(self) -> int:
         """The number of inducing inputs."""
-        return self.inducing_inputs[...].shape[0]
+        return _val(self.inducing_inputs).shape[0]
 
 
 class VariationalGaussian(AbstractVariationalGaussian[L]):
@@ -146,6 +161,9 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
     $q(u) = \mathcal{N}(\mu, S)$.  We parameterise this over
     $\mu$ and $sqrt$ with $S = sqrt sqrt^{\top}$.
     """
+
+    variational_mean: tp.Any
+    variational_root_covariance: tp.Any
 
     def __init__(
         self,
@@ -170,7 +188,7 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         return Kzt, Ktt
 
     def _fmt_inducing_inputs(self):
-        return self.inducing_inputs[...]
+        return _val(self.inducing_inputs)
 
     def prior_kl(self) -> ScalarFloat:
         r"""Compute the prior KL divergence.
@@ -192,8 +210,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        variational_mean = self.variational_mean[...]
-        variational_sqrt = self.variational_root_covariance[...]
+        variational_mean = _val(self.variational_mean)
+        variational_sqrt = _val(self.variational_root_covariance)
         inducing_inputs = self._fmt_inducing_inputs()
 
         # Unpack mean function and kernel
@@ -202,18 +220,19 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
         inducing_mean = mean_function(inducing_inputs)
         Kzz = kernel.gram(inducing_inputs)
-        Kzz = psd(Dense(add_jitter(Kzz.to_dense(), self.jitter)))
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Kzz_op = _psd(Kzz_dense)
 
-        variational_sqrt_triangular = Triangular(variational_sqrt)
-        variational_covariance = (
-            variational_sqrt_triangular @ variational_sqrt_triangular.T
+        # variational_covariance = sqrt @ sqrt^T
+        variational_covariance = lx.MatrixLinearOperator(
+            variational_sqrt @ variational_sqrt.T
         )
 
         q_inducing = GaussianDistribution(
             loc=jnp.atleast_1d(variational_mean.squeeze()), scale=variational_covariance
         )
         p_inducing = GaussianDistribution(
-            loc=jnp.atleast_1d(inducing_mean.squeeze()), scale=Kzz
+            loc=jnp.atleast_1d(inducing_mean.squeeze()), scale=Kzz_op
         )
 
         return q_inducing.kl_divergence(p_inducing)
@@ -238,8 +257,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
                 the test inputs.
         """
         # Unpack variational parameters
-        variational_mean = self.variational_mean[...]
-        variational_sqrt = self.variational_root_covariance[...]
+        variational_mean = _val(self.variational_mean)
+        variational_sqrt = _val(self.variational_root_covariance)
         inducing_inputs = self._fmt_inducing_inputs()
 
         # Unpack mean function and kernel
@@ -247,47 +266,43 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         kernel = self.posterior.prior.kernel
 
         Kzz = kernel.gram(inducing_inputs)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
-        Lz = lower_cholesky(Kzz)
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Lz = jnp.linalg.cholesky(Kzz_dense)
         inducing_mean = mean_function(inducing_inputs)
 
         # Unpack test inputs
         test_points = test_inputs
 
-        Ktt = kernel.gram(test_points)
+        Ktt = kernel.gram(test_points).as_matrix()
         Kzt = kernel.cross_covariance(inducing_inputs, test_points)
         test_mean = mean_function(test_points)
 
         Kzt, Ktt = self._fmt_Kzt_Ktt(Kzt, Ktt)
 
-        # Lz⁻¹ Kzt
-        Lz_inv_Kzt = solve(Lz, Kzt)
+        # Lz^{-1} Kzt
+        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
 
-        # Kzz⁻¹ Kzt
-        Kzz_inv_Kzt = solve(Lz.T, Lz_inv_Kzt)
+        # Kzz^{-1} Kzt
+        Kzz_inv_Kzt = jsp.linalg.solve_triangular(Lz.T, Lz_inv_Kzt, lower=False)
 
-        # Ktz Kzz⁻¹ sqrt
+        # Ktz Kzz^{-1} sqrt
         Ktz_Kzz_inv_sqrt = jnp.matmul(Kzz_inv_Kzt.T, variational_sqrt)
 
-        # μt + Ktz Kzz⁻¹ (μ - μz)
+        # mut + Ktz Kzz^{-1} (mu - muz)
         mean = test_mean + jnp.matmul(Kzz_inv_Kzt.T, variational_mean - inducing_mean)
 
-        # Ktt - Ktz Kzz⁻¹ Kzt  +  Ktz Kzz⁻¹ S Kzz⁻¹ Kzt  [recall S = sqrt sqrtᵀ]
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Kzz^{-1} S Kzz^{-1} Kzt  [recall S = sqrt sqrt^T]
         covariance = (
             Ktt
             - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
             + jnp.matmul(Ktz_Kzz_inv_sqrt, Ktz_Kzz_inv_sqrt.T)
         )
 
-        if hasattr(covariance, "to_dense"):
-            covariance = covariance.to_dense()
-
         covariance = add_jitter(covariance, self.jitter)
-        covariance = Dense(covariance)
+        covariance_op = lx.MatrixLinearOperator(covariance)
 
         return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
         )
 
 
@@ -318,11 +333,11 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
             variational_root_covariance,
             jitter,
         )
-        self.inducing_inputs = self.inducing_inputs[...].astype(jnp.int64)
+        self.inducing_inputs = _val(self.inducing_inputs).astype(jnp.int64)
 
     def _fmt_Kzt_Ktt(self, Kzt, Ktt):
-        Ktt = Ktt.to_dense() if hasattr(Ktt, "to_dense") else Ktt
-        Kzt = Kzt.to_dense() if hasattr(Kzt, "to_dense") else Kzt
+        Ktt = Ktt.as_matrix() if hasattr(Ktt, "as_matrix") else Ktt
+        Kzt = Kzt.as_matrix() if hasattr(Kzt, "as_matrix") else Kzt
         Ktt = jnp.atleast_2d(Ktt)
         Kzt = (
             jnp.transpose(jnp.atleast_2d(Kzt)) if Kzt.ndim < 2 else jnp.atleast_2d(Kzt)
@@ -335,7 +350,7 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
     @property
     def num_inducing(self) -> int:
         """The number of inducing inputs."""
-        return self.inducing_inputs.shape[0]
+        return _val(self.inducing_inputs).shape[0]
 
 
 class WhitenedVariationalGaussian(VariationalGaussian[L]):
@@ -365,15 +380,15 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        mu = self.variational_mean[...]
-        sqrt = Triangular(self.variational_root_covariance[...])
+        mu = _val(self.variational_mean)
+        sqrt = _val(self.variational_root_covariance)
 
-        # S = LLᵀ
-        S = sqrt @ sqrt.T
+        # S = LL^T
+        S = lx.MatrixLinearOperator(sqrt @ sqrt.T)
 
         # Compute whitened KL divergence
         qu = GaussianDistribution(loc=jnp.atleast_1d(mu.squeeze()), scale=S)
-        pu_S = Identity(shape=(self.num_inducing, self.num_inducing), dtype=mu.dtype)
+        pu_S = lx.IdentityLinearOperator(jnp.ones(self.num_inducing, dtype=mu.dtype))
         pu = GaussianDistribution(
             loc=jnp.zeros_like(jnp.atleast_1d(mu.squeeze())), scale=pu_S
         )
@@ -397,48 +412,45 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
                 the test inputs.
         """
         # Unpack variational parameters
-        mu = self.variational_mean[...]
-        sqrt = self.variational_root_covariance[...]
-        z = self.inducing_inputs[...]
+        mu = _val(self.variational_mean)
+        sqrt = _val(self.variational_root_covariance)
+        z = _val(self.inducing_inputs)
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
         kernel = self.posterior.prior.kernel
 
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
-        Lz = lower_cholesky(Kzz)
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Lz = jnp.linalg.cholesky(Kzz_dense)
 
         # Unpack test inputs
         t = test_inputs
 
-        Ktt = kernel.gram(t)
+        Ktt = kernel.gram(t).as_matrix()
         Kzt = kernel.cross_covariance(z, t)
         mut = mean_function(t)
 
-        # Lz⁻¹ Kzt
-        Lz_inv_Kzt = solve(Lz, Kzt)
+        # Lz^{-1} Kzt
+        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
 
-        # Ktz Lz⁻ᵀ sqrt
+        # Ktz Lz^{-T} sqrt
         Ktz_Lz_invT_sqrt = jnp.matmul(Lz_inv_Kzt.T, sqrt)
 
-        # μt  +  Ktz Lz⁻ᵀ μ
+        # mut + Ktz Lz^{-T} mu
         mean = mut + jnp.matmul(Lz_inv_Kzt.T, mu)
 
-        # Ktt  -  Ktz Kzz⁻¹ Kzt  +  Ktz Lz⁻ᵀ S Lz⁻¹ Kzt  [recall S = sqrt sqrtᵀ]
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-T} S Lz^{-1} Kzt  [recall S = sqrt sqrt^T]
         covariance = (
             Ktt
             - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
             + jnp.matmul(Ktz_Lz_invT_sqrt, Ktz_Lz_invT_sqrt.T)
         )
-        if hasattr(covariance, "to_dense"):
-            covariance = covariance.to_dense()
         covariance = add_jitter(covariance, self.jitter)
-        covariance = Dense(covariance)
+        covariance_op = lx.MatrixLinearOperator(covariance)
 
         return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
         )
 
 
@@ -453,6 +465,9 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
     natural parameterisation $\theta  = (\theta_{1}, \theta_{2}) = (S^{-1}\mu, -S^{-1}/2)$, to perform model inference,
     where $T(u) = [u, uu^{\top}]$ are the sufficient statistics.
     """
+
+    natural_vector: tp.Any
+    natural_matrix: tp.Any
 
     def __init__(
         self,
@@ -491,41 +506,40 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
                 the GP prior.
         """
         # Unpack variational parameters
-        natural_vector = self.natural_vector[...]
-        natural_matrix = self.natural_matrix[...]
-        z = self.inducing_inputs[...]
+        natural_vector = _val(self.natural_vector)
+        natural_matrix = _val(self.natural_matrix)
+        z = _val(self.inducing_inputs)
         m = self.num_inducing
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
         kernel = self.posterior.prior.kernel
 
-        # S⁻¹ = -2θ₂
+        # S^{-1} = -2 theta_2
         S_inv = -2 * natural_matrix
         S_inv = add_jitter(S_inv, self.jitter)
 
-        # Compute L⁻¹, where LLᵀ = S, via a trick found in the NumPyro source code and https://nbviewer.org/gist/fehiepsi/5ef8e09e61604f10607380467eb82006#Precision-to-scale_tril:
+        # Compute L^{-1}, where LL^T = S, via a trick found in the NumPyro source code
         sqrt_inv = jnp.swapaxes(
             jnp.linalg.cholesky(S_inv[..., ::-1, ::-1])[..., ::-1, ::-1], -2, -1
         )
 
-        # L = (L⁻¹)⁻¹I
+        # L = (L^{-1})^{-1}I
         sqrt = jsp.linalg.solve_triangular(sqrt_inv, jnp.eye(m), lower=True)
-        sqrt = Triangular(sqrt)
 
-        # S = LLᵀ:
-        S = sqrt @ sqrt.T
+        # S = LL^T:
+        S = lx.MatrixLinearOperator(sqrt @ sqrt.T)
 
-        # μ = Sθ₁
-        mu = S @ natural_vector
+        # mu = S theta_1
+        mu = S.as_matrix() @ natural_vector
 
         muz = mean_function(z)
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Kzz_op = _psd(Kzz_dense)
 
         qu = GaussianDistribution(loc=jnp.atleast_1d(mu.squeeze()), scale=S)
-        pu = GaussianDistribution(loc=jnp.atleast_1d(muz.squeeze()), scale=Kzz)
+        pu = GaussianDistribution(loc=jnp.atleast_1d(muz.squeeze()), scale=Kzz_op)
 
         return qu.kl_divergence(pu)
 
@@ -545,68 +559,65 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
                 return the predictive distribution at those points.
         """
         # Unpack variational parameters
-        natural_vector = self.natural_vector[...]
-        natural_matrix = self.natural_matrix[...]
-        z = self.inducing_inputs[...]
+        natural_vector = _val(self.natural_vector)
+        natural_matrix = _val(self.natural_matrix)
+        z = _val(self.inducing_inputs)
         m = self.num_inducing
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
         kernel = self.posterior.prior.kernel
 
-        # S⁻¹ = -2θ₂
+        # S^{-1} = -2 theta_2
         S_inv = -2 * natural_matrix
         S_inv = add_jitter(S_inv, self.jitter)
 
-        # Compute L⁻¹, where LLᵀ = S, via a trick found in the NumPyro source code and https://nbviewer.org/gist/fehiepsi/5ef8e09e61604f10607380467eb82006#Precision-to-scale_tril:
+        # Compute L^{-1}, where LL^T = S
         sqrt_inv = jnp.swapaxes(
             jnp.linalg.cholesky(S_inv[..., ::-1, ::-1])[..., ::-1, ::-1], -2, -1
         )
 
-        # L = (L⁻¹)⁻¹I
+        # L = (L^{-1})^{-1}I
         sqrt = jsp.linalg.solve_triangular(sqrt_inv, jnp.eye(m), lower=True)
 
-        # S = LLᵀ:
+        # S = LL^T:
         S = jnp.matmul(sqrt, sqrt.T)
 
-        # μ = Sθ₁
+        # mu = S theta_1
         mu = jnp.matmul(S, natural_vector)
 
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
-        Lz = lower_cholesky(Kzz)
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Lz = jnp.linalg.cholesky(Kzz_dense)
         muz = mean_function(z)
 
-        Ktt = kernel.gram(test_inputs)
+        Ktt = kernel.gram(test_inputs).as_matrix()
         Kzt = kernel.cross_covariance(z, test_inputs)
         mut = mean_function(test_inputs)
 
-        # Lz⁻¹ Kzt
-        Lz_inv_Kzt = solve(Lz, Kzt)
+        # Lz^{-1} Kzt
+        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
 
-        # Kzz⁻¹ Kzt
-        Kzz_inv_Kzt = solve(Lz.T, Lz_inv_Kzt)
+        # Kzz^{-1} Kzt
+        Kzz_inv_Kzt = jsp.linalg.solve_triangular(Lz.T, Lz_inv_Kzt, lower=False)
 
-        # Ktz Kzz⁻¹ L
+        # Ktz Kzz^{-1} L
         Ktz_Kzz_inv_L = jnp.matmul(Kzz_inv_Kzt.T, sqrt)
 
-        # μt  +  Ktz Kzz⁻¹ (μ  -  μz)
+        # mut + Ktz Kzz^{-1} (mu - muz)
         mean = mut + jnp.matmul(Kzz_inv_Kzt.T, mu - muz)
 
-        # Ktt  -  Ktz Kzz⁻¹ Kzt  +  Ktz Kzz⁻¹ S Kzz⁻¹ Kzt  [recall S = LLᵀ]
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Kzz^{-1} S Kzz^{-1} Kzt  [recall S = LL^T]
         covariance = (
             Ktt
             - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
             + jnp.matmul(Ktz_Kzz_inv_L, Ktz_Kzz_inv_L.T)
         )
-        if hasattr(covariance, "to_dense"):
-            covariance = covariance.to_dense()
         covariance = add_jitter(covariance, self.jitter)
-        covariance = Dense(covariance)
+        covariance_op = lx.MatrixLinearOperator(covariance)
 
         return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
         )
 
 
@@ -622,6 +633,9 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
     This gives a parameterisation, $\nu = (\nu_{1}, \nu_{2}) = (\mu  , S + uu^{\top})$ to perform model
     inference over.
     """
+
+    expectation_vector: tp.Any
+    expectation_matrix: tp.Any
 
     def __init__(
         self,
@@ -664,30 +678,29 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
                 the GP prior.
         """
         # Unpack variational parameters
-        expectation_vector = self.expectation_vector[...]
-        expectation_matrix = self.expectation_matrix[...]
-        z = self.inducing_inputs[...]
+        expectation_vector = _val(self.expectation_vector)
+        expectation_matrix = _val(self.expectation_matrix)
+        z = _val(self.inducing_inputs)
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
         kernel = self.posterior.prior.kernel
 
-        # μ = η₁
+        # mu = eta_1
         mu = expectation_vector
 
-        # S = η₂ - η₁ η₁ᵀ
+        # S = eta_2 - eta_1 eta_1^T
         S = expectation_matrix - jnp.outer(mu, mu)
-        S = psd(Dense(S))
-        S_dense = add_jitter(S.to_dense(), self.jitter)
-        S = psd(Dense(S_dense))
+        S_dense = add_jitter(S, self.jitter)
+        S_op = _psd(S_dense)
 
         muz = mean_function(z)
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Kzz_op = _psd(Kzz_dense)
 
-        qu = GaussianDistribution(loc=jnp.atleast_1d(mu.squeeze()), scale=S)
-        pu = GaussianDistribution(loc=jnp.atleast_1d(muz.squeeze()), scale=Kzz)
+        qu = GaussianDistribution(loc=jnp.atleast_1d(mu.squeeze()), scale=S_op)
+        pu = GaussianDistribution(loc=jnp.atleast_1d(muz.squeeze()), scale=Kzz_op)
 
         return qu.kl_divergence(pu)
 
@@ -710,63 +723,61 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
                 test inputs $t$.
         """
         # Unpack variational parameters
-        expectation_vector = self.expectation_vector[...]
-        expectation_matrix = self.expectation_matrix[...]
-        z = self.inducing_inputs[...]
+        expectation_vector = _val(self.expectation_vector)
+        expectation_matrix = _val(self.expectation_matrix)
+        z = _val(self.inducing_inputs)
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
         kernel = self.posterior.prior.kernel
 
-        # μ = η₁
+        # mu = eta_1
         mu = expectation_vector
 
-        # S = η₂ - η₁ η₁ᵀ
+        # S = eta_2 - eta_1 eta_1^T
         S = expectation_matrix - jnp.matmul(mu, mu.T)
-        S = Dense(add_jitter(S, self.jitter))
-        S = psd(S)
+        S = add_jitter(S, self.jitter)
+        S_op = _psd(S)
 
-        # S = sqrt sqrtᵀ
-        sqrt = lower_cholesky(S)
+        # S = sqrt sqrt^T
+        sqrt = cholesky_factor(S_op)
+        sqrt_matrix = sqrt.as_matrix()
 
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
-        Lz = lower_cholesky(Kzz)
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Lz = jnp.linalg.cholesky(Kzz_dense)
         muz = mean_function(z)
 
         # Unpack test inputs
         t = test_inputs
 
-        Ktt = kernel.gram(t)
+        Ktt = kernel.gram(t).as_matrix()
         Kzt = kernel.cross_covariance(z, t)
         mut = mean_function(t)
 
-        # Lz⁻¹ Kzt
-        Lz_inv_Kzt = solve(Lz, Kzt)
+        # Lz^{-1} Kzt
+        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
 
-        # Kzz⁻¹ Kzt
-        Kzz_inv_Kzt = solve(Lz.T, Lz_inv_Kzt)
+        # Kzz^{-1} Kzt
+        Kzz_inv_Kzt = jsp.linalg.solve_triangular(Lz.T, Lz_inv_Kzt, lower=False)
 
-        # Ktz Kzz⁻¹ sqrt
-        Ktz_Kzz_inv_sqrt = Kzz_inv_Kzt.T @ sqrt
+        # Ktz Kzz^{-1} sqrt
+        Ktz_Kzz_inv_sqrt = Kzz_inv_Kzt.T @ sqrt_matrix
 
-        # μt  +  Ktz Kzz⁻¹ (μ  -  μz)
+        # mut + Ktz Kzz^{-1} (mu - muz)
         mean = mut + jnp.matmul(Kzz_inv_Kzt.T, mu - muz)
 
-        # Ktt  -  Ktz Kzz⁻¹ Kzt  +  Ktz Kzz⁻¹ S Kzz⁻¹ Kzt  [recall S = sqrt sqrtᵀ]
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Kzz^{-1} S Kzz^{-1} Kzt  [recall S = sqrt sqrt^T]
         covariance = (
             Ktt
             - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
             + jnp.matmul(Ktz_Kzz_inv_sqrt, Ktz_Kzz_inv_sqrt.T)
         )
-        if hasattr(covariance, "to_dense"):
-            covariance = covariance.to_dense()
         covariance = add_jitter(covariance, self.jitter)
-        covariance = Dense(covariance)
+        covariance_op = lx.MatrixLinearOperator(covariance)
 
         return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
         )
 
 
@@ -810,8 +821,8 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
         x, y = train_data.X, train_data.y
 
         # Unpack variational parameters
-        noise_var = self.posterior.likelihood.obs_stddev[...] ** 2
-        z = self.inducing_inputs[...]
+        noise_var = _val(self.posterior.likelihood.obs_stddev) ** 2
+        z = _val(self.inducing_inputs)
         m = self.num_inducing
 
         # Unpack mean function and kernel
@@ -820,59 +831,58 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
 
         Kzx = kernel.cross_covariance(z, x)
         Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.to_dense(), self.jitter)
-        Kzz = psd(Dense(Kzz_dense))
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
 
-        # Lz Lzᵀ = Kzz
-        Lz = lower_cholesky(Kzz)
+        # Lz Lz^T = Kzz
+        Lz = jnp.linalg.cholesky(Kzz_dense)
 
-        # Lz⁻¹ Kzx
-        Lz_inv_Kzx = solve(Lz, Kzx)
+        # Lz^{-1} Kzx
+        Lz_inv_Kzx = _tri_solve(Lz, Kzx)
 
-        # A = Lz⁻¹ Kzt / o
-        A = Lz_inv_Kzx / self.posterior.likelihood.obs_stddev[...]
+        # A = Lz^{-1} Kzt / o
+        A = Lz_inv_Kzx / _val(self.posterior.likelihood.obs_stddev)
 
-        # AAᵀ
+        # AA^T
         AAT = jnp.matmul(A, A.T)
 
-        # LLᵀ = I + AAᵀ
+        # LL^T = I + AA^T
         L = jnp.linalg.cholesky(jnp.eye(m) + AAT)
 
         mux = mean_function(x)
         diff = y - mux
 
-        # Lz⁻¹ Kzx (y - μx)
+        # Lz^{-1} Kzx (y - mux)
         Lz_inv_Kzx_diff = jsp.linalg.cho_solve((L, True), jnp.matmul(Lz_inv_Kzx, diff))
 
-        # Kzz⁻¹ Kzx (y - μx)
-        Kzz_inv_Kzx_diff = solve(Lz.T, Lz_inv_Kzx_diff)
+        # Kzz^{-1} Kzx (y - mux)
+        Kzz_inv_Kzx_diff = jsp.linalg.solve_triangular(
+            Lz.T, Lz_inv_Kzx_diff, lower=False
+        )
 
-        Ktt = kernel.gram(t)
+        Ktt = kernel.gram(t).as_matrix()
         Kzt = kernel.cross_covariance(z, t)
         mut = mean_function(t)
 
-        # Lz⁻¹ Kzt
-        Lz_inv_Kzt = solve(Lz, Kzt)
+        # Lz^{-1} Kzt
+        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
 
-        # L⁻¹ Lz⁻¹ Kzt
+        # L^{-1} Lz^{-1} Kzt
         L_inv_Lz_inv_Kzt = jsp.linalg.solve_triangular(L, Lz_inv_Kzt, lower=True)
 
-        # μt + 1/o² Ktz Kzz⁻¹ Kzx (y - μx)
+        # mut + 1/o^2 Ktz Kzz^{-1} Kzx (y - mux)
         mean = mut + jnp.matmul(Kzt.T / noise_var, Kzz_inv_Kzx_diff)
 
-        # Ktt  -  Ktz Kzz⁻¹ Kzt  +  Ktz Lz⁻¹ (I + AAᵀ)⁻¹ Lz⁻¹ Kzt
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-1} (I + AA^T)^{-1} Lz^{-1} Kzt
         covariance = (
             Ktt
             - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
             + jnp.matmul(L_inv_Lz_inv_Kzt.T, L_inv_Lz_inv_Kzt)
         )
-        if hasattr(covariance, "to_dense"):
-            covariance = covariance.to_dense()
         covariance = add_jitter(covariance, self.jitter)
-        covariance = Dense(covariance)
+        covariance_op = lx.MatrixLinearOperator(covariance)
 
         return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
         )
 
 
@@ -896,6 +906,10 @@ class HeteroscedasticPrediction(tp.NamedTuple):
 
 class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
     r"""Variational family for two independent latent processes f and g."""
+
+    signal_variational: tp.Any
+    noise_variational: tp.Any
+    jitter: float = eqx.field(static=True, default=1e-6)
 
     def __init__(
         self,

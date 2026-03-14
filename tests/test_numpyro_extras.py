@@ -1,4 +1,4 @@
-from flax import nnx
+import equinox as eqx
 from gpjax.numpyro_extras import (
     register_parameters,
     resolve_prior,
@@ -54,7 +54,14 @@ def lower_triangular_matrices(n=2):
     ).map(lambda x: jnp.tril(jnp.array(x)))
 
 
-class FlexibleMockModel(nnx.Module):
+class FlexibleMockModel(eqx.Module):
+    pos: PositiveReal
+    real: Real
+    non_neg: NonNegativeReal
+    sigmoid: SigmoidBounded
+    lower: LowerTriangular
+    vec: Real
+
     def __init__(
         self,
         pos_val,
@@ -231,7 +238,9 @@ def test_prior_precedence(pos_val):
 
 
 def test_register_parameters_nested_prefix():
-    class NestedModel(nnx.Module):
+    class NestedModel(eqx.Module):
+        inner: FlexibleMockModel
+
         def __init__(self):
             self.inner = FlexibleMockModel(
                 jnp.array([1.0]),
@@ -336,9 +345,8 @@ def test_register_parameters_conjugate_posterior():
 
     Verifies that:
     - Nested modules (kernel, likelihood) are traversed correctly
-    - Shared nnx.Variable references (lengthscale shared between RBF and Periodic)
+    - Shared references (lengthscale shared between RBF and Periodic)
       result in a single sample site
-    - nnx.List inside CombinationKernel is traversed properly
     - All parameters with priors are sampled
     - conjugate_mll can be evaluated with the sampled parameters
     """
@@ -369,7 +377,7 @@ def test_register_parameters_conjugate_posterior():
     with seed(rng_seed=42):
         tr = trace(model_fn).get_trace()
 
-    # Shared lengthscale should appear once (shared Variable → single site)
+    # Shared lengthscale should appear once (shared Variable -> single site)
     lengthscale_sites = [k for k in tr if "lengthscale" in k]
     assert len(lengthscale_sites) == 1, (
         f"Expected 1 lengthscale site, got {len(lengthscale_sites)}: {lengthscale_sites}"

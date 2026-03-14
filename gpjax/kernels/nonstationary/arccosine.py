@@ -14,11 +14,12 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.base import AbstractKernel, _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -45,20 +46,20 @@ class ArcCosine(AbstractKernel):
     additional details.
     """
 
-    variance: nnx.Variable[ScalarArray]
-    weight_variance: nnx.Variable[WeightVariance]
-    bias_variance: nnx.Variable[ScalarArray]
+    order: tp.Literal[0, 1, 2] = eqx.field(static=True, default=0)
+
+    variance: AbstractUnwrappable
+    weight_variance: AbstractUnwrappable
+    bias_variance: AbstractUnwrappable
     name = "ArcCosine"
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
         order: tp.Literal[0, 1, 2] = 0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        weight_variance: tp.Union[
-            WeightVarianceCompatible, nnx.Variable[WeightVariance]
-        ] = 1.0,
-        bias_variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
+        weight_variance: tp.Union[WeightVarianceCompatible, AbstractUnwrappable] = 1.0,
+        bias_variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -83,13 +84,11 @@ class ArcCosine(AbstractKernel):
 
         self.weight_variance = weight_variance
 
-        if isinstance(variance, nnx.Variable):
+        if isinstance(variance, AbstractUnwrappable):
             self.variance = variance
         else:
             self.variance = NonNegativeReal(variance)
         self.bias_variance = bias_variance
-
-        self.name = f"ArcCosine (order {self.order})"
 
         super().__init__(active_dims, n_dims, compute_engine)
 
@@ -108,7 +107,7 @@ class ArcCosine(AbstractKernel):
         K = self._J(theta)
         K *= jnp.sqrt(x_x) ** self.order
         K *= jnp.sqrt(y_y) ** self.order
-        K *= self.variance[...] / jnp.pi
+        K *= _val(self.variance) / jnp.pi
 
         return K.squeeze()
 
@@ -123,17 +122,7 @@ class ArcCosine(AbstractKernel):
         Returns:
             ScalarFloat: The value of the weighted product between the two arguments``.
         """
-        weight_var = (
-            self.weight_variance[...]
-            if isinstance(self.weight_variance, nnx.Variable)
-            else self.weight_variance
-        )
-        bias_var = (
-            self.bias_variance[...]
-            if isinstance(self.bias_variance, nnx.Variable)
-            else self.bias_variance
-        )
-        return jnp.inner(weight_var * x, y) + bias_var
+        return jnp.inner(_val(self.weight_variance) * x, y) + _val(self.bias_variance)
 
     def _J(self, theta: ScalarFloat) -> ScalarFloat:
         r"""Evaluate the angular dependency function corresponding to the desired order.

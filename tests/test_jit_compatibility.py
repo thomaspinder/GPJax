@@ -24,11 +24,11 @@ from gpjax.dataset import Dataset
 from gpjax.gps import Prior
 from gpjax.kernels.stationary import RBF, Matern32
 from gpjax.likelihoods import Gaussian
-from gpjax.linalg import Dense, Diagonal, Identity
 from gpjax.mean_functions import Constant
 import jax
 from jax import config
 import jax.numpy as jnp
+import lineax as lx
 import pytest
 
 config.update("jax_enable_x64", True)
@@ -65,7 +65,7 @@ def test_kernel_gram_jit(KernelClass):
     kernel = KernelClass()
 
     def gram_fn(x):
-        return kernel.gram(x).to_dense()
+        return kernel.gram(x).as_matrix()
 
     result = gram_fn(x)
     result_jit = jax.jit(gram_fn)(x)
@@ -132,32 +132,34 @@ def test_conjugate_posterior_predict_jit(train_data, test_inputs):
 
 
 def test_dense_matmul_jit():
-    A = Dense(jnp.eye(3))
-    v = jnp.ones((3, 1))
+    A = lx.MatrixLinearOperator(jnp.eye(3))
+    v = jnp.ones(3)
 
     def matmul_fn(v):
-        return A @ v
+        return A.mv(v)
 
     result = matmul_fn(v)
     result_jit = jax.jit(matmul_fn)(v)
     assert jnp.allclose(result, result_jit, atol=1e-12)
 
 
-def test_diagonal_to_dense_jit():
+def test_diagonal_as_matrix_jit():
     d = jnp.array([1.0, 2.0, 3.0])
 
-    def to_dense_fn(d):
-        return Diagonal(d).to_dense()
+    def as_matrix_fn(d):
+        return lx.DiagonalLinearOperator(d).as_matrix()
 
-    result = to_dense_fn(d)
-    result_jit = jax.jit(to_dense_fn)(d)
+    result = as_matrix_fn(d)
+    result_jit = jax.jit(as_matrix_fn)(d)
     assert jnp.allclose(result, result_jit, atol=1e-12)
 
 
-def test_identity_to_dense_jit():
-    def to_dense_fn():
-        return Identity((3, 3)).to_dense()
+def test_identity_as_matrix_jit():
+    def as_matrix_fn():
+        return lx.IdentityLinearOperator(
+            jax.ShapeDtypeStruct((3,), jnp.float64)
+        ).as_matrix()
 
-    result = to_dense_fn()
-    result_jit = jax.jit(to_dense_fn)()
+    result = as_matrix_fn()
+    result_jit = jax.jit(as_matrix_fn)()
     assert jnp.allclose(result, result_jit, atol=1e-12)

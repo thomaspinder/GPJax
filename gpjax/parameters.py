@@ -1,46 +1,19 @@
 import math
-import typing as tp
 
-from flax import nnx
+import equinox as eqx
 import jax
-from jax.experimental import checkify
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
-from jax.typing import ArrayLike
 import numpyro.distributions as dist
 import numpyro.distributions.transforms as npt
-
-T = tp.TypeVar("T", bound=ArrayLike | list[float])
-ParameterTag = str
+from paramax import AbstractUnwrappable
 
 
 class FillTriangularTransform(npt.Transform):
-    """
-    Transform that maps a vector of length n(n+1)/2 to an n x n lower triangular matrix.
-    The ordering is assumed to be:
-       (0,0), (1,0), (1,1), (2,0), (2,1), (2,2), ..., (n-1, n-1)
-    """
-
-    # Note: The base class provides `inv` through _InverseTransform wrapping _inverse.
+    """Transform: vector of length n(n+1)/2 -> n x n lower triangular matrix."""
 
     def __call__(self, x):
-        """
-        Forward transformation.
-
-        Parameters
-        ----------
-        x : array_like, shape (..., L)
-            Input vector with L = n(n+1)/2 for some integer n.
-
-        Returns
-        -------
-        y : array_like, shape (..., n, n)
-            Lower-triangular matrix (with zeros in the upper triangle) filled in
-            row-major order (i.e. [ (0,0), (1,0), (1,1), ... ]).
-        """
         L = x.shape[-1]
-        # Use static (Python) math.sqrt to compute n. This avoids tracer issues.
         n = int((-1 + math.sqrt(1 + 8 * L)) // 2)
         if n * (n + 1) // 2 != L:
             raise ValueError("Last dimension must equal n(n+1)/2 for some integer n.")
@@ -52,32 +25,17 @@ class FillTriangularTransform(npt.Transform):
 
         if x.ndim == 1:
             return fill_single(x)
-        else:
-            batch_shape = x.shape[:-1]
-            flat_x = x.reshape((-1, L))
-            out = jax.vmap(fill_single)(flat_x)
-            return out.reshape((*batch_shape, n, n))
+        batch_shape = x.shape[:-1]
+        flat_x = x.reshape((-1, L))
+        out = jax.vmap(fill_single)(flat_x)
+        return out.reshape((*batch_shape, n, n))
 
     def _inverse(self, y):
-        """
-        Inverse transformation.
-
-        Parameters
-        ----------
-        y : array_like, shape (..., n, n)
-            Lower triangular matrix.
-
-        Returns
-        -------
-        x : array_like, shape (..., n(n+1)/2)
-            The vector containing the elements from the lower-triangular portion of y.
-        """
         if y.ndim < 2:
             raise ValueError("Input to inverse must be at least two-dimensional.")
         n = y.shape[-1]
         if y.shape[-2] != n:
             raise ValueError(f"Input matrix must be square; got shape {y.shape[-2:]}")
-
         row, col = jnp.tril_indices(n)
 
         def inv_single(mat):
@@ -85,24 +43,19 @@ class FillTriangularTransform(npt.Transform):
 
         if y.ndim == 2:
             return inv_single(y)
-        else:
-            batch_shape = y.shape[:-2]
-            flat_y = y.reshape((-1, n, n))
-            out = jax.vmap(inv_single)(flat_y)
-            return out.reshape((*batch_shape, n * (n + 1) // 2))
+        batch_shape = y.shape[:-2]
+        flat_y = y.reshape((-1, n, n))
+        out = jax.vmap(inv_single)(flat_y)
+        return out.reshape((*batch_shape, n * (n + 1) // 2))
 
     def log_abs_det_jacobian(self, x, y, intermediates=None):
-        # Since the transform simply reorders the vector into a matrix, the Jacobian determinant is 1.
         return jnp.zeros(x.shape[:-1])
 
     @property
     def sign(self):
-        # The reordering transformation has a positive derivative everywhere.
         return 1.0
 
-    # Implement tree_flatten and tree_unflatten because base Transform expects them.
     def tree_flatten(self):
-        # This transform is stateless.
         return (), {}
 
     @classmethod
@@ -110,161 +63,108 @@ class FillTriangularTransform(npt.Transform):
         return cls()
 
 
-def transform(
-    params: nnx.State,
-    params_bijection: dict[str, npt.Transform],
-    inverse: bool = False,
-) -> nnx.State:
-    r"""Transforms parameters using a bijector.
+_fill_triangular = FillTriangularTransform()
 
-    Example:
-        >>> from gpjax.parameters import PositiveReal, transform
-        >>> import jax.numpy as jnp
-        >>> import numpyro.distributions.transforms as npt
-        >>> from flax import nnx
-        >>> params = nnx.State(
-        ...     {
-        ...         "a": PositiveReal(jnp.array([1.0])),
-        ...         "b": PositiveReal(jnp.array([2.0])),
-        ...     }
-        ... )
-        >>> params_bijection = {'positive': npt.SoftplusTransform()}
-        >>> transformed_params = transform(params, params_bijection)
-        >>> print(transformed_params["a"][...])
-        [1.3132617]
 
-    Args:
-        params: A nnx.State object containing parameters to be transformed.
-        params_bijection: A dictionary mapping parameter types to bijectors.
-        inverse: Whether to apply the inverse transformation.
+def inv_softplus(x):
+    """Inverse of jax.nn.softplus: log(exp(x) - 1)."""
+    return jnp.log(jnp.expm1(x))
 
-    Returns:
-        State: A new nnx.State object containing the transformed parameters.
+
+class PositiveReal(AbstractUnwrappable):
+    """Strictly positive parameter.
+
+    Stored unconstrained via inverse-softplus; unwrap() applies softplus.
+    Softplus is used rather than exp() because its gradient does not
+    saturate for large values.
     """
 
-    def _inner(param):
-        bijector = params_bijection.get(param.tag, npt.IdentityTransform())
-        if inverse:
-            transformed_value = bijector.inv(param[...])
-        else:
-            transformed_value = bijector(param[...])
+    _unconstrained: jax.Array
+    prior: dist.Distribution | None = eqx.field(static=True, default=None)
 
-        param = param.replace(transformed_value)
-        return param
+    def __init__(self, value, *, prior=None):
+        self._unconstrained = inv_softplus(jnp.asarray(value, dtype=jnp.float64))
+        self.prior = prior
 
-    gp_params, *other_params = nnx.split_state(params, Parameter, ...)
-
-    # Transform each parameter in the state
-    transformed_gp_params: nnx.State = jtu.tree_map(
-        lambda x: _inner(x) if isinstance(x, Parameter) else x,
-        gp_params,
-        is_leaf=lambda x: isinstance(x, Parameter),
-    )
-    return nnx.merge_state(transformed_gp_params, *other_params)
+    def unwrap(self):
+        return jax.nn.softplus(self._unconstrained)
 
 
-class Parameter(nnx.Variable[T]):
-    """Parameter base class.
+class NonNegativeReal(AbstractUnwrappable):
+    """Non-negative parameter (semantically allows zero, e.g. jitter, noise floor).
 
-    All trainable parameters in GPJax should inherit from this class.
-
+    Uses the same softplus bijection as PositiveReal. The distinction is
+    semantic: NonNegativeReal signals that zero is a meaningful boundary.
     """
 
-    def __init__(
-        self,
-        value: T,
-        tag: ParameterTag,
-        prior: dist.Distribution | None = None,
-        **kwargs,
-    ):
-        _check_is_arraylike(value)
+    _unconstrained: jax.Array
+    prior: dist.Distribution | None = eqx.field(static=True, default=None)
 
-        super().__init__(value=jnp.asarray(value), **kwargs)
+    def __init__(self, value, *, prior=None):
+        self._unconstrained = inv_softplus(jnp.asarray(value, dtype=jnp.float64))
+        self.prior = prior
 
-        # nnx.Variable metadata must be set via set_metadata (direct setattr is disallowed).
-        self.set_metadata(
-            tag=tag,
-            numpyro_properties={"prior": prior} if prior is not None else {},
-        )
-
-    @property
-    def tag(self) -> ParameterTag:
-        """Return the parameter's constraint tag."""
-        return self.get_metadata("tag", "real")
+    def unwrap(self):
+        return jax.nn.softplus(self._unconstrained)
 
 
-class NonNegativeReal(Parameter[T]):
-    """Parameter that is non-negative."""
+class Real(AbstractUnwrappable):
+    """Unconstrained parameter. unwrap() returns self.value unchanged."""
 
-    def __init__(self, value: T, tag: ParameterTag = "non_negative", **kwargs):
-        super().__init__(value=value, tag=tag, **kwargs)
-        _safe_assert(_check_is_non_negative, self[...])
+    value: jax.Array
+    prior: dist.Distribution | None = eqx.field(static=True, default=None)
 
+    def __init__(self, value, *, prior=None):
+        self.value = jnp.asarray(value, dtype=jnp.float64)
+        self.prior = prior
 
-class PositiveReal(Parameter[T]):
-    """Parameter that is strictly positive."""
-
-    def __init__(self, value: T, tag: ParameterTag = "positive", **kwargs):
-        super().__init__(value=value, tag=tag, **kwargs)
-        _safe_assert(_check_is_positive, self[...])
+    def unwrap(self):
+        return self.value
 
 
-class Real(Parameter[T]):
-    """Parameter that can take any real value."""
+class SigmoidBounded(AbstractUnwrappable):
+    """Parameter bounded to [low, high] via sigmoid bijection."""
 
-    def __init__(self, value: T, tag: ParameterTag = "real", **kwargs):
-        super().__init__(value, tag, **kwargs)
+    _unconstrained: jax.Array
+    low: float = eqx.field(static=True)
+    high: float = eqx.field(static=True)
+    prior: dist.Distribution | None = eqx.field(static=True, default=None)
 
+    def __init__(self, value, *, low=0.0, high=1.0, prior=None):
+        value = jnp.asarray(value, dtype=jnp.float64)
+        self._unconstrained = jax.scipy.special.logit((value - low) / (high - low))
+        self.low = low
+        self.high = high
+        self.prior = prior
 
-class SigmoidBounded(Parameter[T]):
-    """Parameter that is bounded between 0 and 1."""
-
-    def __init__(self, value: T, tag: ParameterTag = "sigmoid", **kwargs):
-        super().__init__(value=value, tag=tag, **kwargs)
-
-        # Only perform validation in non-JIT contexts
-        if (
-            not isinstance(value, jnp.ndarray)
-            or getattr(value, "aval", None) is not None
-        ):
-            _safe_assert(
-                _check_in_bounds,
-                self[...],
-                low=jnp.array(0.0),
-                high=jnp.array(1.0),
-            )
+    def unwrap(self):
+        return self.low + (self.high - self.low) * jax.nn.sigmoid(self._unconstrained)
 
 
-class LowerTriangular(Parameter[T]):
-    """Parameter that is a lower triangular matrix."""
+class LowerTriangular(AbstractUnwrappable):
+    """Lower-triangular matrix parameter, stored as a flat vector."""
 
-    def __init__(self, value: T, tag: ParameterTag = "lower_triangular", **kwargs):
-        super().__init__(value=value, tag=tag, **kwargs)
+    _flat: jax.Array
+    prior: dist.Distribution | None = eqx.field(static=True, default=None)
 
-        # Only perform validation in non-JIT contexts
-        if (
-            not isinstance(value, jnp.ndarray)
-            or getattr(value, "aval", None) is not None
-        ):
-            _safe_assert(_check_is_square, self[...])
-            _safe_assert(_check_is_lower_triangular, self[...])
+    def __init__(self, value, *, prior=None):
+        value = jnp.asarray(value, dtype=jnp.float64)
+        self._flat = _fill_triangular._inverse(value)
+        self.prior = prior
+
+    def unwrap(self):
+        return _fill_triangular(self._flat)
 
 
-class CoregionalizationMatrix(nnx.Module):
-    """Parameterises a PSD output-correlation matrix B = WW^T + diag(kappa).
+class CoregionalizationMatrix(eqx.Module):
+    """Parameterises a PSD output-correlation matrix B = WW^T + diag(kappa)."""
 
-    Args:
-        num_outputs: Number of output dimensions (P).
-        rank: Rank of the low-rank factor W. Controls expressiveness.
-        key: JAX PRNG key for W initialisation.
-    """
+    num_outputs: int = eqx.field(static=True)
+    rank: int = eqx.field(static=True)
+    W: Real
+    kappa: PositiveReal
 
-    def __init__(
-        self,
-        num_outputs: int,
-        rank: int,
-        key: jax.Array,
-    ):
+    def __init__(self, num_outputs: int, rank: int, key: jax.Array):
         self.num_outputs = num_outputs
         self.rank = rank
         self.W = Real(jr.normal(key, (num_outputs, rank)) * 0.1)
@@ -272,103 +172,6 @@ class CoregionalizationMatrix(nnx.Module):
 
     @property
     def B(self) -> jnp.ndarray:
-        """PSD coregionalization matrix [P, P]."""
-        return self.W[...] @ self.W[...].T + jnp.diag(self.kappa[...])
-
-
-DEFAULT_BIJECTION = {
-    "positive": npt.SoftplusTransform(),
-    "non_negative": npt.SoftplusTransform(),
-    "real": npt.IdentityTransform(),
-    "sigmoid": npt.SigmoidTransform(),
-    "lower_triangular": FillTriangularTransform(),
-}
-
-
-def _check_is_arraylike(value: T) -> None:
-    """Check if a value is array-like.
-
-    Args:
-        value: The value to check.
-
-    Raises:
-        TypeError: If the value is not array-like.
-    """
-    if not isinstance(value, (jax.Array, ArrayLike, list)):
-        raise TypeError(
-            f"Expected parameter value to be an array-like type. Got {value}."
-        )
-
-
-@checkify.checkify
-def _check_is_non_negative(value):
-    checkify.check(
-        jnp.all(value >= 0), "value needs to be non-negative, got {value}", value=value
-    )
-
-
-@checkify.checkify
-def _check_is_positive(value):
-    checkify.check(
-        jnp.all(value > 0), "value needs to be positive, got {value}", value=value
-    )
-
-
-@checkify.checkify
-def _check_is_square(value: T) -> None:
-    """Check if a value is a square matrix.
-
-    Args:
-        value: The value to check.
-
-    Raises:
-        ValueError: If the value is not a square matrix.
-    """
-    checkify.check(
-        value.shape[0] == value.shape[1],
-        "value needs to be a square matrix, got {value}",
-        value=value,
-    )
-
-
-@checkify.checkify
-def _check_is_lower_triangular(value: T) -> None:
-    """Check if a value is a lower triangular matrix.
-
-    Args:
-        value: The value to check.
-
-    Raises:
-        ValueError: If the value is not a lower triangular matrix.
-    """
-    checkify.check(
-        jnp.all(jnp.tril(value) == value),
-        "value needs to be a lower triangular matrix, got {value}",
-        value=value,
-    )
-
-
-@checkify.checkify
-def _check_in_bounds(value: T, low: T, high: T) -> None:
-    """Check if a value is bounded between low and high.
-
-    Args:
-        value: The value to check.
-        low: The lower bound.
-        high: The upper bound.
-
-    Raises:
-        ValueError: If any element of value is outside the bounds.
-    """
-    checkify.check(
-        jnp.all((value >= low) & (value <= high)),
-        "value needs to be bounded between {low} and {high}, got {value}",
-        value=value,
-        low=low,
-        high=high,
-    )
-
-
-def _safe_assert(fn: tp.Callable[[tp.Any], None], value: T, **kwargs) -> None:
-    error, _ = fn(value, **kwargs)
-    checkify.check_error(error)
+        w = self.W.unwrap()
+        k = self.kappa.unwrap()
+        return w @ w.T + jnp.diag(k)

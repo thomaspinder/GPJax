@@ -22,6 +22,7 @@ from jaxtyping import (
     Int,
 )
 
+from gpjax.kernels.base import _val
 from gpjax.typing import Array
 
 if tp.TYPE_CHECKING:
@@ -59,15 +60,14 @@ def calculate_heat_semigroup(kernel: GraphKernel) -> Float[Array, "N M"]:
     Returns:
         S
     """
+    smoothness = _val(kernel.smoothness)
+    lengthscale = _val(kernel.lengthscale)
+    variance = _val(kernel.variance)
     S = jnp.power(
-        kernel.eigenvalues
-        + 2
-        * kernel.smoothness[...]
-        / kernel.lengthscale[...]
-        / kernel.lengthscale[...],
-        -kernel.smoothness[...],
+        kernel.eigenvalues + 2 * smoothness / lengthscale / lengthscale,
+        -smoothness,
     )
     S = jnp.multiply(S, kernel.num_vertex / jnp.sum(S))
     # Scale the transform eigenvalues by the kernel variance
-    S = jnp.multiply(S, kernel.variance[...])
+    S = jnp.multiply(S, variance)
     return S

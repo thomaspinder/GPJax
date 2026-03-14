@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -22,7 +21,9 @@
 # with non-Gaussian likelihoods via maximum a posteriori (MAP). We focus on a classification task here.
 
 # %%
-from flax import nnx
+import equinox as eqx
+from examples.utils import use_mpl_style
+from gpjax.linalg import add_jitter, cholesky_factor
 import jax
 
 # Enable Float64 for more stable matrix inversions.
@@ -35,23 +36,17 @@ from jaxtyping import (
     Float,
     install_import_hook,
 )
+import lineax as lx
 import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 import optax as ox
-
-from examples.utils import use_mpl_style
-from gpjax.linalg import (
-    PSD,
-    lower_cholesky,
-    solve,
-)
+import paramax
 
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 identity_matrix = jnp.eye
@@ -132,7 +127,6 @@ opt_posterior, history = gpx.fit(
     optim=ox.adamw(learning_rate=0.01),
     num_iters=1000,
     key=key,
-    trainable=Parameter,  # train all parameters (default behavior)
 )
 
 # %% [markdown]
@@ -221,23 +215,23 @@ gram, cross_covariance = (kernel.gram, kernel.cross_covariance)
 jitter = 1e-6
 
 # Compute (latent) function value map estimates at training points:
-Kxx = opt_posterior.prior.kernel.gram(x)
-Kxx += identity_matrix(D.n) * jitter
-Kxx = PSD(Kxx)
-Lx = lower_cholesky(Kxx)
-f_hat = Lx @ opt_posterior.latent[...]
+Kxx = opt_posterior.prior.kernel.gram(x).as_matrix()
+Kxx = add_jitter(Kxx, jitter)
+Lx = jnp.linalg.cholesky(Kxx)
+f_hat = Lx @ opt_posterior.latent.unwrap()
 
 # Negative Hessian,  H = -∇²p_tilde(y|f):
-graphdef, params, *static_state = nnx.split(opt_posterior, Parameter, ...)
+params, static = eqx.partition(opt_posterior, eqx.is_array)
 
 
 def loss(params, D):
-    model = nnx.merge(graphdef, params, *static_state)
+    model = eqx.combine(params, static)
+    model = paramax.unwrap(model)
     return -gpx.objectives.log_posterior_density(model, D)
 
 
 jacobian = jax.jacfwd(jax.jacrev(loss))(params, D)
-H = jacobian["latent"]["latent"][...][:, 0, :, 0]
+H = jacobian.latent.value.latent.value[:, 0, :, 0]
 L = jnp.linalg.cholesky(H + identity_matrix(D.n) * jitter)
 
 # H⁻¹ = H⁻¹ I = (LLᵀ)⁻¹ I = L⁻ᵀL⁻¹ I
@@ -267,12 +261,11 @@ def construct_laplace(test_inputs: Float[Array, "N D"]) -> npd.MultivariateNorma
     map_latent_dist = opt_posterior.predict(xtest, train_data=D)
 
     Kxt = opt_posterior.prior.kernel.cross_covariance(x, test_inputs)
-    Kxx = opt_posterior.prior.kernel.gram(x)
-    Kxx += identity_matrix(D.n) * jitter
-    Kxx = PSD(Kxx)
+    Kxx = opt_posterior.prior.kernel.gram(x).as_matrix()
+    Kxx = add_jitter(Kxx, jitter)
 
     # Kxx⁻¹ Kxt
-    Kxx_inv_Kxt = solve(Kxx, Kxt)
+    Kxx_inv_Kxt = jnp.linalg.solve(Kxx, Kxt)
 
     # Ktx Kxx⁻¹[ H⁻¹ ] Kxx⁻¹ Kxt
     laplace_cov_term = jnp.matmul(jnp.matmul(Kxx_inv_Kxt.T, H_inv), Kxx_inv_Kxt)

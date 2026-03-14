@@ -14,10 +14,11 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -50,13 +51,14 @@ class PoweredExponential(StationaryKernel):
     """
 
     name: str = "Powered Exponential"
+    power: tp.Any
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]] = 1.0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        power: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
+        power: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -82,10 +84,8 @@ class PoweredExponential(StationaryKernel):
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
     ) -> Float[Array, ""]:
-        x = self.slice_input(x) / self.lengthscale[...]
-        y = self.slice_input(y) / self.lengthscale[...]
-        power_val = (
-            self.power[...] if isinstance(self.power, nnx.Variable) else self.power
-        )
-        K = self.variance[...] * jnp.exp(-(euclidean_distance(x, y) ** power_val))
+        x = self.slice_input(x) / _val(self.lengthscale)
+        y = self.slice_input(y) / _val(self.lengthscale)
+        power_val = _val(self.power)
+        K = _val(self.variance) * jnp.exp(-(euclidean_distance(x, y) ** power_val))
         return K.squeeze()

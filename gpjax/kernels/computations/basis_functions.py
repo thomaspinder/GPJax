@@ -2,13 +2,17 @@ import typing as tp
 
 import jax.numpy as jnp
 from jaxtyping import Float
+import lineax as lx
+from paramax import AbstractUnwrappable
 
 import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
-from gpjax.linalg import (
-    Diagonal,
-)
 from gpjax.typing import Array
+
+
+def _val(x):
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
 
 K = tp.TypeVar("K", bound="gpjax.kernels.approximations.RFF")
 
@@ -29,7 +33,9 @@ class BasisFunctionComputation(AbstractKernelComputation):
         z1 = self.compute_features(kernel, inputs)
         return self.scaling(kernel) * jnp.matmul(z1, z1.T)
 
-    def diagonal(self, kernel: K, inputs: Float[Array, "N D"]) -> Diagonal:
+    def diagonal(
+        self, kernel: K, inputs: Float[Array, "N D"]
+    ) -> lx.AbstractLinearOperator:
         r"""For a given kernel, compute the elementwise diagonal of the
         NxN gram matrix on an input matrix of shape NxD.
 
@@ -56,7 +62,7 @@ class BasisFunctionComputation(AbstractKernelComputation):
             A matrix of shape $N \times L$ representing the random fourier features where $L = 2M$.
         """
         frequencies = kernel.frequencies
-        scaling_factor = kernel.base_kernel.lengthscale[...]
+        scaling_factor = _val(kernel.base_kernel.lengthscale)
         z = jnp.matmul(x, (frequencies / scaling_factor).T)
         z = jnp.concatenate([jnp.cos(z), jnp.sin(z)], axis=-1)
         return z
@@ -70,4 +76,4 @@ class BasisFunctionComputation(AbstractKernelComputation):
         Returns:
             A scalar array representing the scaling factor.
         """
-        return kernel.base_kernel.variance[...] / kernel.num_basis_fns
+        return _val(kernel.base_kernel.variance) / kernel.num_basis_fns

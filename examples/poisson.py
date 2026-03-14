@@ -24,7 +24,8 @@
 
 # %%
 import blackjax
-from flax import nnx
+import equinox as eqx
+from examples.utils import use_mpl_style
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -33,12 +34,10 @@ import jax.tree_util as jtu
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
-from examples.utils import use_mpl_style
+import paramax
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # Enable Float64 for more stable matrix inversions.
@@ -145,16 +144,12 @@ num_adapt = 1000
 num_samples = 500
 
 
-graphdef, params, *static_state = nnx.split(posterior, Parameter, ...)
-params_bijection = gpx.parameters.DEFAULT_BIJECTION
-
-# Transform the parameters to the unconstrained space
-params = gpx.parameters.transform(params, params_bijection, inverse=True)
+params, static = eqx.partition(posterior, eqx.is_array)
 
 
 def logprob_fn(params):
-    params = gpx.parameters.transform(params, params_bijection)
-    model = nnx.merge(graphdef, params, *static_state)
+    model = eqx.combine(params, static)
+    model = paramax.unwrap(model)
     return gpx.objectives.log_posterior_density(model, D)
 
 
@@ -189,9 +184,9 @@ print(f"Acceptance rate: {acceptance_rate:.2f}")
 
 # %%
 fig, (ax0, ax1, ax2) = plt.subplots(ncols=3, figsize=(10, 3))
-ax0.plot(states.position.prior.kernel.lengthscale[...])
-ax1.plot(states.position.prior.kernel.variance[...])
-ax2.plot(states.position.latent[...][:, 1, :])
+ax0.plot(states.position.prior.kernel.lengthscale._unconstrained)
+ax1.plot(states.position.prior.kernel.variance._unconstrained)
+ax2.plot(states.position.latent.value[:, 1, :])
 ax0.set_title("Kernel Lengthscale")
 ax1.set_title("Kernel Variance")
 ax2.set_title("Latent Function (index = 1)")
@@ -217,8 +212,8 @@ posterior_samples = []
 
 for i in range(0, num_samples, thin_factor):
     sample_params = jtu.tree_map(lambda samples, i=i: samples[i], states.position)
-    sample_params = gpx.parameters.transform(sample_params, params_bijection)
-    model = nnx.merge(graphdef, sample_params, *static_state)
+    model = eqx.combine(sample_params, static)
+    model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
     predictive_dist = model.likelihood(latent_dist)
     posterior_samples.append(predictive_dist.sample(key=key, sample_shape=(10,)))

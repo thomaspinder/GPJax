@@ -1,10 +1,9 @@
 import jax.numpy as jnp
 from jaxtyping import Float, Num
+import lineax as lx
 
 from gpjax.kernels.computations.base import AbstractKernelComputation
-from gpjax.linalg import Dense, Diagonal, Kronecker
-from gpjax.linalg.operators import LinearOperator
-from gpjax.linalg.utils import psd
+from gpjax.linalg.custom_operators import Kronecker
 from gpjax.typing import Array
 
 
@@ -17,15 +16,19 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
     materialise the sum to Dense.
     """
 
-    def gram(self, kernel, x: Num[Array, "N D"]) -> LinearOperator:
+    def gram(self, kernel, x: Num[Array, "N D"]) -> lx.AbstractLinearOperator:
         components = kernel.components
         if len(components) == 1:
             cm, k = components[0]
             K_input = k.gram(x)
-            B = Dense(cm.B)
-            return psd(Kronecker([B, K_input]))
-        K = sum(jnp.kron(cm.B, k.gram(x).to_dense()) for cm, k in components)
-        return psd(Dense(K))
+            B = lx.MatrixLinearOperator(cm.B)
+            return lx.TaggedLinearOperator(
+                Kronecker(A=B, B=K_input), lx.positive_semidefinite_tag
+            )
+        K = sum(jnp.kron(cm.B, k.gram(x).as_matrix()) for cm, k in components)
+        return lx.TaggedLinearOperator(
+            lx.MatrixLinearOperator(K), lx.positive_semidefinite_tag
+        )
 
     def cross_covariance(
         self, kernel, x: Num[Array, "N D"], y: Num[Array, "M D"]
@@ -40,9 +43,11 @@ class MultiOutputKernelComputation(AbstractKernelComputation):
             jnp.kron(cm.B, k.cross_covariance(x, y)) for cm, k in kernel.components
         )
 
-    def diagonal(self, kernel, inputs: Num[Array, "N D"]) -> Diagonal:
+    def diagonal(self, kernel, inputs: Num[Array, "N D"]) -> lx.AbstractLinearOperator:
         diag_sum = sum(
-            jnp.kron(jnp.diag(cm.B), k.diagonal(inputs).diagonal)
+            jnp.kron(jnp.diag(cm.B), lx.diagonal(k.diagonal(inputs)))
             for cm, k in kernel.components
         )
-        return psd(Diagonal(diag_sum))
+        return lx.TaggedLinearOperator(
+            lx.DiagonalLinearOperator(diag_sum), lx.positive_semidefinite_tag
+        )

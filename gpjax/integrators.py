@@ -4,6 +4,7 @@ import beartype.typing as tp
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpy as np
+from paramax import AbstractUnwrappable
 
 from gpjax.typing import Array
 
@@ -148,7 +149,11 @@ class AnalyticalGaussianIntegrator(AbstractIntegrator):
         Returns:
             Float[Array, 'N']: The expected log likelihood.
         """
-        obs_stddev = likelihood.obs_stddev[...].squeeze()
+        obs_stddev = (
+            likelihood.obs_stddev.unwrap()
+            if isinstance(likelihood.obs_stddev, AbstractUnwrappable)
+            else likelihood.obs_stddev
+        ).squeeze()
         sq_error = jnp.square(y - mean)
         log2pi = jnp.log(2.0 * jnp.pi)
         val = jnp.sum(

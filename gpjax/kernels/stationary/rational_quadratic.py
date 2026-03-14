@@ -14,9 +14,10 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -44,13 +45,14 @@ class RationalQuadratic(StationaryKernel):
     """
 
     name: str = "Rational Quadratic"
+    alpha: tp.Any
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]] = 1.0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        alpha: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
+        alpha: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -74,12 +76,10 @@ class RationalQuadratic(StationaryKernel):
         super().__init__(active_dims, lengthscale, variance, n_dims, compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        x = self.slice_input(x) / self.lengthscale[...]
-        y = self.slice_input(y) / self.lengthscale[...]
-        alpha_val = (
-            self.alpha[...] if isinstance(self.alpha, nnx.Variable) else self.alpha
-        )
-        K = self.variance[...] * (1 + 0.5 * squared_distance(x, y) / alpha_val) ** (
+        x = self.slice_input(x) / _val(self.lengthscale)
+        y = self.slice_input(y) / _val(self.lengthscale)
+        alpha_val = _val(self.alpha)
+        K = _val(self.variance) * (1 + 0.5 * squared_distance(x, y) / alpha_val) ** (
             -alpha_val
         )
         return K.squeeze()

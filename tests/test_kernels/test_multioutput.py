@@ -4,6 +4,7 @@ from gpjax.kernels.stationary import RBF, Matern52
 from gpjax.parameters import CoregionalizationMatrix
 import jax
 import jax.numpy as jnp
+import lineax as lx
 import pytest
 
 
@@ -62,29 +63,31 @@ class TestMultiOutputKernelComputation:
         """gram() returns [NP, NP] operator."""
         kernel, X, N, P = icm_setup
         K = kernel.gram(X)
-        assert K.shape == (N * P, N * P)
+        assert K.as_matrix().shape == (N * P, N * P)
 
     def test_gram_is_kronecker(self, icm_setup):
         """gram() returns a Kronecker operator."""
         kernel, X, _N, _P = icm_setup
-        from gpjax.linalg import Kronecker
+        from gpjax.linalg.custom_operators import Kronecker
 
         K = kernel.gram(X)
-        assert isinstance(K, Kronecker)
+        # gram returns TaggedLinearOperator wrapping Kronecker
+        assert isinstance(K, lx.TaggedLinearOperator)
+        assert isinstance(K.operator, Kronecker)
 
     def test_gram_equals_manual_kronecker(self, icm_setup):
         """gram() matches manual kron(B, K_input)."""
         kernel, X, _N, _P = icm_setup
-        K_input = kernel.base_kernel.gram(X).to_dense()
+        K_input = kernel.base_kernel.gram(X).as_matrix()
         B = kernel.coregionalization_matrix.B
         expected = jnp.kron(B, K_input)
-        actual = kernel.gram(X).to_dense()
+        actual = kernel.gram(X).as_matrix()
         assert jnp.allclose(actual, expected, atol=1e-6)
 
     def test_gram_psd(self, icm_setup):
         """gram() is positive semi-definite."""
         kernel, X, _N, _P = icm_setup
-        K = kernel.gram(X).to_dense()
+        K = kernel.gram(X).as_matrix()
         eigvals = jnp.linalg.eigvalsh(K)
         assert jnp.all(eigvals >= -1e-6)
 
@@ -113,14 +116,14 @@ class TestMultiOutputKernelComputation:
         """diagonal() returns Diagonal operator with NP entries."""
         kernel, X, N, P = icm_setup
         diag_op = kernel.diagonal(X)
-        assert diag_op.shape == (N * P, N * P)
+        assert diag_op.as_matrix().shape == (N * P, N * P)
 
     def test_diagonal_matches_gram_diagonal(self, icm_setup):
         """diagonal() matches the diagonal of the full gram matrix."""
         kernel, X, _N, _P = icm_setup
-        gram_diag = jnp.diag(kernel.gram(X).to_dense())
+        gram_diag = jnp.diag(kernel.gram(X).as_matrix())
         diag_op = kernel.diagonal(X)
-        assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
+        assert jnp.allclose(lx.diagonal(diag_op), gram_diag, atol=1e-6)
 
 
 class TestLCMKernel:
@@ -249,41 +252,43 @@ class TestLCMKernelComputation:
     def test_gram_shape(self, lcm_setup):
         kernel, X, N, P = lcm_setup
         K = kernel.gram(X)
-        assert K.shape == (N * P, N * P)
+        assert K.as_matrix().shape == (N * P, N * P)
 
     def test_gram_equals_manual_sum(self, lcm_setup):
         """gram() matches manual Σ_q kron(B_q, K_q)."""
         kernel, X, _N, _P = lcm_setup
         expected = sum(
-            jnp.kron(cm.B, k.gram(X).to_dense())
+            jnp.kron(cm.B, k.gram(X).as_matrix())
             for cm, k in zip(
                 kernel.coregionalization_matrices, kernel.latent_kernels, strict=True
             )
         )
-        actual = kernel.gram(X).to_dense()
+        actual = kernel.gram(X).as_matrix()
         assert jnp.allclose(actual, expected, atol=1e-6)
 
     def test_gram_psd(self, lcm_setup):
         kernel, X, _N, _P = lcm_setup
-        K = kernel.gram(X).to_dense()
+        K = kernel.gram(X).as_matrix()
         eigvals = jnp.linalg.eigvalsh(K)
         assert jnp.all(eigvals >= -1e-6)
 
     def test_gram_q1_is_kronecker(self, lcm_single_setup):
         """Q=1 LCM returns Kronecker operator (ICM efficiency)."""
-        from gpjax.linalg import Kronecker
+        from gpjax.linalg.custom_operators import Kronecker
 
         kernel, X, _N, _P, _coreg = lcm_single_setup
         K = kernel.gram(X)
-        assert isinstance(K, Kronecker)
+        # gram returns TaggedLinearOperator wrapping Kronecker
+        assert isinstance(K, lx.TaggedLinearOperator)
+        assert isinstance(K.operator, Kronecker)
 
     def test_gram_q2_is_dense(self, lcm_setup):
-        """Q>1 LCM returns Dense operator."""
-        from gpjax.linalg import Dense
-
+        """Q>1 LCM returns Dense (MatrixLinearOperator) operator."""
         kernel, X, _N, _P = lcm_setup
         K = kernel.gram(X)
-        assert isinstance(K, Dense)
+        # gram returns TaggedLinearOperator wrapping MatrixLinearOperator
+        assert isinstance(K, lx.TaggedLinearOperator)
+        assert isinstance(K.operator, lx.MatrixLinearOperator)
 
     def test_cross_covariance_shape(self, lcm_setup):
         kernel, X, N, P = lcm_setup
@@ -308,13 +313,13 @@ class TestLCMKernelComputation:
     def test_diagonal_shape(self, lcm_setup):
         kernel, X, N, P = lcm_setup
         diag_op = kernel.diagonal(X)
-        assert diag_op.shape == (N * P, N * P)
+        assert diag_op.as_matrix().shape == (N * P, N * P)
 
     def test_diagonal_matches_gram_diagonal(self, lcm_setup):
         kernel, X, _N, _P = lcm_setup
-        gram_diag = jnp.diag(kernel.gram(X).to_dense())
+        gram_diag = jnp.diag(kernel.gram(X).as_matrix())
         diag_op = kernel.diagonal(X)
-        assert jnp.allclose(diag_op.diagonal, gram_diag, atol=1e-6)
+        assert jnp.allclose(lx.diagonal(diag_op), gram_diag, atol=1e-6)
 
 
 def test_public_imports():

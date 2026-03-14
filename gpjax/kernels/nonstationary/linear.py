@@ -14,11 +14,11 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.base import AbstractKernel, _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -26,7 +26,6 @@ from gpjax.kernels.computations import (
 from gpjax.parameters import NonNegativeReal
 from gpjax.typing import (
     Array,
-    ScalarArray,
     ScalarFloat,
 )
 
@@ -41,11 +40,12 @@ class Linear(AbstractKernel):
     """
 
     name: str = "Linear"
+    variance: tp.Any
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -59,14 +59,12 @@ class Linear(AbstractKernel):
                 covariance matrix.
         """
 
-        super().__init__(active_dims, n_dims, compute_engine)
-
-        if isinstance(variance, nnx.Variable):
+        if isinstance(variance, AbstractUnwrappable):
             self.variance = variance
         else:
             self.variance = NonNegativeReal(variance)
-            if tp.TYPE_CHECKING:
-                self.variance = tp.cast(NonNegativeReal[ScalarArray], self.variance)
+
+        super().__init__(active_dims, n_dims, compute_engine)
 
     def __call__(
         self,
@@ -75,5 +73,5 @@ class Linear(AbstractKernel):
     ) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        K = self.variance[...] * jnp.matmul(x.T, y)
+        K = _val(self.variance) * jnp.matmul(x.T, y)
         return K.squeeze()
