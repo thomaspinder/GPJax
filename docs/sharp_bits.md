@@ -82,6 +82,33 @@ case. This gives us back the blue cross.
 
 In GPJax, we supply bijective functions using [Numpyro](https://num.pyro.ai/en/stable/distributions.html#transforms).
 
+## Why does GPJax subclass `Variable`, not `Param`?
+
+In Flax NNX, `nnx.Param` is a thin marker subclass of `nnx.Variable` that denotes
+standard learnable parameters (neural network weights and biases). GPJax's `Parameter`
+instead subclasses `nnx.Variable` directly, making it a **sibling** of `nnx.Param`
+rather than a child. This is deliberate: a GP hyperparameter is semantically different
+from a neural network weight because it carries a constraint **tag** (e.g. `"positive"`,
+`"sigmoid"`) that selects which bijection to apply during optimisation, and optionally
+an attached NumPyro prior for MCMC inference.
+
+This type separation matters in practice. In deep kernel learning, a single model
+contains both `nnx.Linear` layers (whose weights are `nnx.Param`) and GP kernel
+hyperparameters (which are `PositiveReal`, `Real`, etc.). When `fit()` calls
+`nnx.split(model, Parameter, ...)`, these two kinds of state are cleanly separated:
+
+- **`Parameter` instances** are extracted, transformed to unconstrained space via their
+  tag's bijection, optimised, and transformed back.
+- **`nnx.Param` instances** (and any other non-`Parameter` state) remain in the static
+  partition and pass through untouched.
+
+If `Parameter` extended `nnx.Param`, then any code that filters by `nnx.Param` — including
+NumPyro's `random_nnx_module` and standard Flax utilities — would capture GP
+hyperparameters without awareness of their bijection tags or attached priors.
+This follows the
+[Flax-recommended pattern](https://flax.readthedocs.io/en/latest/api_reference/flax.nnx/variables.html)
+of subclassing `nnx.Variable` for custom variable types that represent a distinct kind
+of state.
 
 ## Positive-definiteness
 
