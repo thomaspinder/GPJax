@@ -41,7 +41,7 @@
 # log marginal likelihood, and visualises the model's predictions.
 
 # %%
-from examples.utils import use_mpl_style, plot_output_panel
+from examples.utils import plot_output_panel, use_mpl_style
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -342,8 +342,8 @@ pre_pred = posterior.predict(X_test, return_full_cov=False)
 pre_opt_mean = pre_pred.mean.reshape(N_test, num_outputs)
 pre_opt_std = jnp.sqrt(jnp.diag(pre_pred.covariance())).reshape(N_test, num_outputs)
 pre_obs_noise_var = (
-    model.mixing_matrix.obs_noise_variance[...]
-    + model.mixing_matrix.H_squared @ model.mixing_matrix.latent_noise_variance[...]
+    model.mixing_matrix.obs_noise_variance.unwrap()
+    + model.mixing_matrix.H_squared @ model.mixing_matrix.latent_noise_variance.unwrap()
 )
 pre_obs_std = jnp.sqrt(pre_opt_std**2 + pre_obs_noise_var[None, :])
 
@@ -410,7 +410,7 @@ initial_mll = gpx.models.oilmm_mll(model, train_data)
 # ## Optimisation
 #
 # We maximise the OILMM log marginal likelihood using L-BFGS via `fit_scipy`.
-# The optimiser tunes all `Parameter` leaves: the kernel hyperparameters
+# The optimiser tunes all array leaves: the kernel hyperparameters
 # of each latent GP, the unconstrained mixing matrix $\mathbf{U}_{\text{latent}}$,
 #  the diagonal scaling $\mathbf{S}$, and the noise variances ($\sigma^2$ and $\mathbf{D}$).
 
@@ -419,7 +419,6 @@ opt_model, history = gpx.fit_scipy(
     model=model,
     objective=lambda m, d: -gpx.models.oilmm_mll(m, d),
     train_data=train_data,
-    trainable=gpx.parameters.Parameter,
 )
 
 opt_mll = gpx.models.oilmm_mll(opt_model, train_data)
@@ -438,9 +437,9 @@ post_pred = opt_posterior.predict(X_test, return_full_cov=False)
 post_opt_mean = post_pred.mean.reshape(N_test, num_outputs)
 post_opt_std = jnp.sqrt(jnp.diag(post_pred.covariance())).reshape(N_test, num_outputs)
 post_obs_noise_var = (
-    opt_model.mixing_matrix.obs_noise_variance[...]
+    opt_model.mixing_matrix.obs_noise_variance.unwrap()
     + opt_model.mixing_matrix.H_squared
-    @ opt_model.mixing_matrix.latent_noise_variance[...]
+    @ opt_model.mixing_matrix.latent_noise_variance.unwrap()
 )
 post_obs_std = jnp.sqrt(post_opt_std**2 + post_obs_noise_var[None, :])
 

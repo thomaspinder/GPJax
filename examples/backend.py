@@ -250,7 +250,13 @@ class LinearMeanFunction(AbstractMeanFunction):
             self.slope = Real(jnp.array(slope))
 
     def __call__(self, x: Num[Array, "N D"]) -> Float[Array, "N O"]:
-        return self.intercept.unwrap() + jnp.dot(x, self.slope.unwrap())
+        # Use a helper that works whether the parameter is still wrapped
+        # (an AbstractUnwrappable) or has already been unwrapped to a plain
+        # array by paramax.unwrap().
+        def _val(p):
+            return p.unwrap() if isinstance(p, AbstractUnwrappable) else p
+
+        return _val(self.intercept) + jnp.dot(x, _val(self.slope))
 
 
 # %% [markdown]

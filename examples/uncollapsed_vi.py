@@ -282,7 +282,7 @@ ax.fill_between(
     label="Two sigma",
 )
 ax.vlines(
-    opt_posterior.inducing_inputs[...],
+    opt_posterior.inducing_inputs.unwrap(),
     ymin=y.min(),
     ymax=y.max(),
     alpha=0.3,

@@ -24,6 +24,7 @@ from gpjax.kernels.computations import (
     DenseKernelComputation,
 )
 from gpjax.kernels.stationary.base import StationaryKernel
+from gpjax.parameters import PositiveReal
 from gpjax.typing import (
     Array,
     ScalarArray,
@@ -73,7 +74,10 @@ class Periodic(StationaryKernel):
                 covariance matrix.
         """
 
-        self.period = period
+        if isinstance(period, AbstractUnwrappable):
+            self.period = period
+        else:
+            self.period = PositiveReal(period)
 
         super().__init__(active_dims, lengthscale, variance, n_dims, compute_engine)
 

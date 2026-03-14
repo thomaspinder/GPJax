@@ -44,8 +44,8 @@ def test_graph_kernel():
     )
     assert isinstance(kern, GraphKernel)
     assert kern.num_vertex == n_verticies
-    assert kern.eigenvalues.shape == (n_verticies, 1)
-    assert kern.eigenvectors.shape == (n_verticies, n_verticies)
+    assert kern.eigenvalues.unwrap().shape == (n_verticies, 1)
+    assert kern.eigenvectors.unwrap().shape == (n_verticies, n_verticies)
 
     # Compute gram matrix
     Kxx = kern.gram(x)

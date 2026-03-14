@@ -172,6 +172,10 @@ class CoregionalizationMatrix(eqx.Module):
 
     @property
     def B(self) -> jnp.ndarray:
-        w = self.W.unwrap()
-        k = self.kappa.unwrap()
+        w = self.W.unwrap() if isinstance(self.W, AbstractUnwrappable) else self.W
+        k = (
+            self.kappa.unwrap()
+            if isinstance(self.kappa, AbstractUnwrappable)
+            else self.kappa
+        )
         return w @ w.T + jnp.diag(k)

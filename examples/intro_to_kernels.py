@@ -543,9 +543,7 @@ def loss(posterior, data):
     return -gpx.objectives.conjugate_mll(posterior, data)
 
 
-# Optimize all parameters. Alternative filtering strategies available:
-# - trainable=gpx.PositiveReal: train only positive parameters
-# - custom filters for specific parameter subsets
+# Optimize all parameters.
 opt_posterior, history = gpx.fit(
     model=posterior,
     objective=loss,

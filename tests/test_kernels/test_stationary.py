@@ -114,8 +114,12 @@ def test_init_override_paramtype(kernel_request):
     assert isinstance(k.variance, NonNegativeReal)
 
     for param in params:
-        # Parameter is now a raw value, not a Static object
-        assert not isinstance(getattr(k, param), AbstractUnwrappable)
+        # Extra kernel params (like period, power, alpha) are now wrapped
+        # as PositiveReal when a raw scalar is provided, ensuring they
+        # participate correctly in gradient-based optimisation.
+        attr = getattr(k, param)
+        if isinstance(attr, AbstractUnwrappable):
+            assert jnp.allclose(attr.unwrap(), jnp.asarray(params[param]))
 
 
 @pytest.mark.parametrize("kernel", [k[0] for k in TESTED_KERNELS])

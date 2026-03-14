@@ -23,6 +23,7 @@
 # %%
 # Enable Float64 for more stable matrix inversions.
 from examples.utils import use_mpl_style
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import PositiveReal
 from jax import config
@@ -121,7 +122,7 @@ print(f"Lengthscales: {slice_kernel.lengthscale}")
 x_matrix = jr.normal(key, shape=(50, 5))
 
 # Compute the Gram matrix
-K = slice_kernel.gram(x_matrix)
+K = slice_kernel.gram(x_matrix).as_matrix()
 print(K.shape)
 
 # %% [markdown]
@@ -237,7 +238,7 @@ class Polar(gpx.kernels.AbstractKernel):
     ) -> Float[Array, "1"]:
         c = self.period / 2.0
         t = angular_distance(x, y, c)
-        tau = 4.0 + self.tau.unwrap()
+        tau = 4.0 + _val(self.tau)
         K = (1 + tau * t / c) * jnp.clip(1 - t / c, 0, jnp.inf) ** tau
         return K.squeeze()
 

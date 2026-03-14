@@ -20,6 +20,7 @@ from beartype.typing import (
 from jax import vmap
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 from jaxtyping import Float
 import lineax as lx
 from numpyro.distributions import constraints
@@ -213,13 +214,15 @@ class GaussianDistribution(Distribution):
         diff = y - mu
 
         # compute the pdf, -1/2[ n log(2π) + log|Σ| + (y - µ)ᵀΣ⁻¹(y - µ) ]
+        # Use the Cholesky factor L for both the log-determinant and the solve.
+        # This is more efficient (single Cholesky) and propagates NaN rather
+        # than raising an error when the matrix is singular, which is essential
+        # for MCMC samplers that must evaluate the density at rejected proposals.
+        L = cholesky_factor(sigma)
+        log_det = 2.0 * jnp.sum(jnp.log(jnp.diag(L.as_matrix())))
+        L_inv_diff = jsp.linalg.solve_triangular(L.as_matrix(), diff, lower=True)
         return -0.5 * (
-            n * jnp.log(2.0 * jnp.pi)
-            + logdet(sigma)
-            + diff.T
-            @ lx.linear_solve(
-                sigma, diff, solver=lx.AutoLinearSolver(well_posed=True)
-            ).value
+            n * jnp.log(2.0 * jnp.pi) + log_det + jnp.dot(L_inv_diff, L_inv_diff)
         )
 
     def kl_divergence(self, other: "GaussianDistribution") -> ScalarFloat:
@@ -293,7 +296,6 @@ def _kl_divergence(q: GaussianDistribution, p: GaussianDistribution) -> ScalarFl
 
     # trace term, tr[Σp⁻¹ Σq] = tr[(LpLpᵀ)⁻¹(LqLqᵀ)] = tr[(Lp⁻¹Lq)(Lp⁻¹Lq)ᵀ] = (fr[LqLp⁻¹])²
     # Use jsp.linalg.solve_triangular for matrix RHS since lx.linear_solve only handles vectors.
-    import jax.scipy as jsp
 
     trace = _frobenius_norm_squared(
         jsp.linalg.solve_triangular(sqrt_p.as_matrix(), sqrt_q.as_matrix(), lower=True)

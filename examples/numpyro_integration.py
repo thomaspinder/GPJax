@@ -24,6 +24,9 @@
 # capturing the residuals. We will infer the parameters of both the linear model and the GP jointly.
 
 # %%
+from examples.utils import use_mpl_style
+import gpjax as gpx
+from gpjax.numpyro_extras import register_parameters
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -36,10 +39,6 @@ from numpyro.infer import (
     NUTS,
     Predictive,
 )
-
-from examples.utils import use_mpl_style
-import gpjax as gpx
-from gpjax.numpyro_extras import register_parameters
 
 config.update("jax_enable_x64", True)
 
@@ -186,8 +185,12 @@ def model(X, Y, X_new=None):
         f_new = numpyro.sample("f_new", latent_dist)
         f_new = f_new.reshape((-1, 1))
 
-        # Add observation noise to get noisy predictions
-        obs_stddev = p_posterior.likelihood.obs_stddev[...]
+        # Add observation noise to get noisy predictions.
+        # Use _val to handle both wrapped (AbstractUnwrappable) and
+        # already-unwrapped (plain array) parameter states.
+        from gpjax.kernels.base import _val
+
+        obs_stddev = _val(p_posterior.likelihood.obs_stddev)
         y_noise = numpyro.sample(
             "y_noise",
             dist.Normal(0.0, obs_stddev).expand(f_new.shape).to_event(f_new.ndim),
@@ -236,7 +239,7 @@ predictive = Predictive(
     return_sites=["y_pred"],
 )
 
-x_test = jnp.linspace(-0.5, 10.5, 1000).reshape(-1, 1)
+x_test = jnp.linspace(-0.5, 10.5, 200).reshape(-1, 1)
 predictions = predictive(keys[3], x, y, X_new=x_test)
 y_pred = predictions["y_pred"]
 

@@ -277,7 +277,7 @@ predictive_mean = predictive_dist.mean
 # first-order (main) effects, second-order interactions, and so on.
 
 # %%
-noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev[...]))
+noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev.unwrap()))
 fitted_kernel = opt_posterior.prior.kernel
 
 sobol_values = sobol_indices(fitted_kernel, X_train, y_train, noise_variance)

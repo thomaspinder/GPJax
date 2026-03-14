@@ -25,11 +25,6 @@
 # Gaussian process model's kernel through a neural network can offer a solution to this.
 
 # %%
-from dataclasses import (
-    dataclass,
-    field,
-)
-
 import equinox as eqx
 from examples.utils import use_mpl_style
 from gpjax.kernels.computations import (
@@ -115,13 +110,18 @@ ax.legend(loc="best")
 
 
 # %%
-@dataclass
 class DeepKernelFunction(AbstractKernel):
     base_kernel: AbstractKernel
     network: eqx.Module
-    compute_engine: AbstractKernelComputation = field(
-        default_factory=lambda: DenseKernelComputation()
-    )
+
+    def __init__(
+        self,
+        base_kernel: AbstractKernel = None,
+        network: eqx.Module = None,
+    ):
+        self.base_kernel = base_kernel
+        self.network = network
+        super().__init__(compute_engine=DenseKernelComputation())
 
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
@@ -161,10 +161,9 @@ class Network(eqx.Module):
         self.output_layer = eqx.nn.Linear(inner_dim, feature_space_dim, key=key2)
 
     def __call__(self, x: jax.Array) -> jax.Array:
-        x = x.reshape((x.shape[0], -1))
         x = self.layer1(x)
         x = jax.nn.relu(x)
-        x = self.output_layer(x).squeeze()
+        x = self.output_layer(x)
         return x
 
 

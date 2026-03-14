@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.19.1
+#       jupytext_version: 1.11.2
 #   kernelspec:
 #     display_name: .venv
 #     language: python
@@ -21,16 +21,15 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import (
+    use_mpl_style,
+)
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
-from examples.utils import (
-    use_mpl_style,
-)
 
 config.update("jax_enable_x64", True)
 
@@ -203,7 +202,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
-    trainable=gpx.parameters.Parameter,
 )
 
 print(-gpx.objectives.conjugate_mll(opt_posterior, D))
