@@ -55,6 +55,8 @@ def fit(
 
     Example:
     ```pycon
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
         >>> import optax as ox
         >>> import gpjax as gpx
@@ -189,6 +191,8 @@ def fit_scipy(
         recorded at each iteration.
 
     Example:
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
         >>> import gpjax as gpx
         >>> import jax.numpy as jnp
 
