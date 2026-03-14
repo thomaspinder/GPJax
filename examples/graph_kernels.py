@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -27,6 +26,8 @@
 # %%
 import random
 
+from examples.utils import use_mpl_style
+
 # Enable Float64 for more stable matrix inversions.
 from jax import config
 import jax.numpy as jnp
@@ -36,14 +37,11 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from examples.utils import use_mpl_style
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -180,7 +178,6 @@ opt_posterior, training_history = gpx.fit_scipy(
     model=posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
-    trainable=Parameter,
 )
 
 # %% [markdown]

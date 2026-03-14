@@ -25,6 +25,7 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import use_mpl_style
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -40,14 +41,11 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from examples.utils import use_mpl_style
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -195,7 +193,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=training_data,
-    trainable=Parameter,
 )
 
 print(-gpx.objectives.conjugate_mll(opt_posterior, training_data))

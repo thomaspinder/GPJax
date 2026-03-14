@@ -44,10 +44,7 @@ from gpjax.typing import (
 )
 
 # Enable Float64 for more stable matrix inversions.
-from jax import (
-    config,
-    grad,
-)
+from jax import config
 import jax.numpy as jnp
 import jax.tree_util as jtu
 from jaxtyping import (
@@ -289,8 +286,8 @@ posterior = likelihood * prior
 # %% [markdown]
 # We'll compute derivatives of the conjugate marginal log-likelihood. With Equinox and
 # Paramax, this is straightforward: `paramax.unwrap` resolves all constrained parameters
-# inside the loss function, and `eqx.filter_grad` computes gradients with respect to
-# the array leaves of the model.
+# inside the loss function, and `eqx.filter_value_and_grad` computes gradients with
+# respect to the array leaves of the model.
 
 # %%
 
@@ -300,7 +297,7 @@ def loss_fn(model, data: gpx.Dataset) -> ScalarFloat:
     return -gpx.objectives.conjugate_mll(model, data)
 
 
-param_grads = eqx.filter_grad(loss_fn)(posterior, D)
+_, param_grads = eqx.filter_value_and_grad(loss_fn)(posterior, D)
 
 # %% [markdown]
 # In practice, you would wish to perform multiple iterations of gradient descent to

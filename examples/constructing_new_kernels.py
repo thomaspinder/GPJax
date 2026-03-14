@@ -89,7 +89,7 @@ for k, ax, c in zip(kernels, axes.ravel(), cols, strict=False):
     rv = prior(x)
     y = rv.sample(key=jr.key(22), sample_shape=(10,))
     ax.plot(x, y.T, alpha=0.7, color=c)
-    ax.set_title(k.name)
+    ax.set_title(type(k).__name__)
 
 # %% [markdown]
 # ### Active dimensions

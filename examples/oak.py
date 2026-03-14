@@ -56,7 +56,6 @@ with install_import_hook("gpjax", "beartype.beartype"):
         rank_first_order,
         sobol_indices,
     )
-    from gpjax.parameters import Parameter
 
 key = jr.key(123)
 use_mpl_style()
@@ -262,7 +261,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=posterior,
     objective=negative_mll,
     train_data=train_data,
-    trainable=Parameter,
 )
 
 latent_dist = opt_posterior.predict(

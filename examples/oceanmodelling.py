@@ -37,6 +37,8 @@ from dataclasses import (
     field,
 )
 
+from examples.utils import use_mpl_style
+from gpjax.kernels.computations import DenseKernelComputation
 from jax import (
     config,
     hessian,
@@ -53,15 +55,11 @@ import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 import pandas as pd
 
-from examples.utils import use_mpl_style
-from gpjax.kernels.computations import DenseKernelComputation
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -332,7 +330,6 @@ def optimise_mll(posterior, dataset, NIters=1000, key=key):
         model=posterior,
         objective=objective,
         train_data=dataset,
-        trainable=Parameter,
     )
     return opt_posterior
 
