@@ -127,7 +127,6 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 # Note this is what will be defaulted if left blank.
 
 # %%
-# %% [markdown]
 # prior_dist = prior.predict(xtest, return_covariance_type="dense")
 #
 # prior_mean = prior_dist.mean
