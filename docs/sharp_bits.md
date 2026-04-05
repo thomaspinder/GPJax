@@ -84,7 +84,7 @@ In GPJax, we supply bijective functions using [Numpyro](https://num.pyro.ai/en/s
 
 ## How does the parameter system work?
 
-GPJax uses [Paramax](https://docs.kidger.site/paramax/) to handle constrained
+GPJax uses [Paramax](https://github.com/danielward27/paramax) to handle constrained
 parameters during optimisation. Each constrained parameter is a subclass of
 `paramax.AbstractUnwrappable` — an Equinox-compatible pytree node whose `unwrap()`
 method applies the constraining bijection (e.g. softplus for positivity, sigmoid for

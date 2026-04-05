@@ -26,7 +26,6 @@
 # %%
 from examples.utils import use_mpl_style
 import gpjax as gpx
-from gpjax.numpyro_extras import register_parameters
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -104,96 +103,71 @@ ax.legend()
 # We see in the below that priors are specified on the parameters' constrained space. For
 # example, the lengthscale parameter must be strictly positive and, therefore, a unit-Gaussian
 # would be a poor choice of prior. Instead, we opt for the log-Gaussian as the prior distribution
-# as its support matches that of our lengthscale parameter. Attaching a prior to a parameter is
-# straightforward using the `prior` argument in the parameter's class and specifying any
-# [numpyro distribution](https://num.pyro.ai/en/stable/distributions.html).
+# as its support matches that of our lengthscale parameter. Priors are standard
+# [NumPyro distributions](https://num.pyro.ai/en/stable/distributions.html) sampled directly
+# inside the model function with ``numpyro.sample``.
 
 # %%
-# Define priors
-lengthscale_prior = dist.LogNormal(0.0, 1.0)
-variance_prior = dist.LogNormal(0.0, 1.0)
-period_prior = dist.LogNormal(0.0, 0.5)
-noise_prior = dist.LogNormal(0.0, 1.0)
-
-# We can explicitly attach priors to the parameters
-lengthscale = gpx.parameters.PositiveReal(1.0, prior=lengthscale_prior)
-variance = gpx.parameters.PositiveReal(1.0, prior=variance_prior)
-period = gpx.parameters.PositiveReal(1.0, prior=period_prior)
-noise = gpx.parameters.NonNegativeReal(1.0, prior=noise_prior)
+# Priors are defined as NumPyro distributions and sampled directly inside the model
+# function below. GPJax parameter constructors accept raw JAX arrays from
+# numpyro.sample, so no special registration step is needed.
 
 # %% [markdown]
 #
-# Now that all of our parameters are defined, we'll proceed to construct the Gaussian process in
-# the ordinary fashion. For a deeper look at how this is done, our
-# [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/)
-# notebook is a good starting point.
-
-# %%
-stationary_component = gpx.kernels.RBF(
-    lengthscale=lengthscale,
-    variance=variance,
-)
-periodic_component = gpx.kernels.Periodic(
-    lengthscale=lengthscale,
-    period=period,
-)
-kernel = stationary_component * periodic_component
-
-meanf = gpx.mean_functions.Constant()
-prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-
-likelihood = gpx.likelihoods.Gaussian(
-    num_datapoints=N,
-    obs_stddev=noise,
-)
-posterior = prior * likelihood
+# We'll construct the Gaussian process inside the NumPyro model function, passing
+# sampled hyperparameters directly to the GPJax constructors. For a deeper look at
+# how GP construction works, see our
+# [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/) notebook.
 
 # %% [markdown]
 # ## Joint Inference Loop
 #
-# With a GPJax Posterior object now defined, the only outstanding task is to integrate
-# it into a full Numpyro model. This notebook is not designed to be a full introduction to
-# Numpyro (for that, see the excellent
-# [Numpyro Documentation](https://num.pyro.ai/en/stable/)); however, in the below
-# model we first sample the slope and intercept parameters of the linear component.
-# We then compute the residuals between the observed data and the linear component,
-# before then computing the GP marginal log-likelihood of the residual.
-#
-# The key step in the below is registering the parameters of the GPJax model with
-# Numpyro via GPJax's `register_parameters` function. This function automatically
-# samples parameters of the model and returns an updated state of the model with those
-# sampled values used as parameters.
+# We define a NumPyro model that samples all parameters directly using
+# ``numpyro.sample``, builds the GPJax posterior from those samples, and
+# scores it with the conjugate marginal log-likelihood via ``numpyro.factor``.
+# No special registration step is needed -- GPJax constructors accept raw
+# JAX arrays returned by ``numpyro.sample``.
 
 
 # %%
 def model(X, Y, X_new=None):
-    # 1. Sample linear model parameters
     slope = numpyro.sample("slope", dist.Normal(0.0, 2.0))
     intercept = numpyro.sample("intercept", dist.Normal(0.0, 2.0))
     linear_component = slope * X + intercept
 
     residuals = Y - linear_component
 
-    p_posterior = register_parameters(posterior)
+    lengthscale = numpyro.sample("lengthscale", dist.LogNormal(0.0, 1.0))
+    variance = numpyro.sample("variance", dist.LogNormal(0.0, 1.0))
+    period = numpyro.sample("period", dist.LogNormal(0.0, 0.5))
+    obs_noise = numpyro.sample("obs_noise", dist.LogNormal(0.0, 1.0))
+
+    stationary_component = gpx.kernels.RBF(
+        lengthscale=lengthscale, variance=variance
+    )
+    periodic_component = gpx.kernels.Periodic(
+        lengthscale=lengthscale, period=period
+    )
+    kernel = stationary_component * periodic_component
+
+    meanf = gpx.mean_functions.Constant()
+    prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+    likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_noise)
+    posterior = prior * likelihood
+
     D_resid = gpx.Dataset(X=X, y=residuals)
-    mll = gpx.objectives.conjugate_mll(p_posterior, D_resid)
+    mll = gpx.objectives.conjugate_mll(posterior, D_resid)
 
     numpyro.factor("gp_log_lik", mll)
 
     if X_new is not None:
-        latent_dist = p_posterior.predict(X_new, train_data=D_resid)
+        latent_dist = posterior.predict(X_new, train_data=D_resid)
         f_new = numpyro.sample("f_new", latent_dist)
         f_new = f_new.reshape((-1, 1))
 
-        # Add observation noise to get noisy predictions.
-        # Use _val to handle both wrapped (AbstractUnwrappable) and
-        # already-unwrapped (plain array) parameter states.
-        from gpjax.kernels.base import _val
-
-        obs_stddev = _val(p_posterior.likelihood.obs_stddev)
         y_noise = numpyro.sample(
             "y_noise",
-            dist.Normal(0.0, obs_stddev).expand(f_new.shape).to_event(f_new.ndim),
+            dist.Normal(0.0, obs_noise).expand(f_new.shape).to_event(f_new.ndim),
         )
 
         total_prediction = slope * X_new + intercept + f_new + y_noise

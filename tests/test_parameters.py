@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-import numpyro.distributions as dist
 import paramax
 from paramax import AbstractUnwrappable
 
@@ -69,14 +68,6 @@ def test_lower_triangular_unwraps():
     assert jnp.allclose(val, L, atol=1e-5)
 
 
-def test_prior_stored_as_static():
-    from gpjax.parameters import PositiveReal
-
-    prior = dist.LogNormal(0.0, 1.0)
-    p = PositiveReal(jnp.array(1.0), prior=prior)
-    assert p.prior is prior
-
-
 def test_paramax_unwrap_on_module():
     """unwrap() on an eqx.Module containing parameters produces plain arrays."""
     import equinox as eqx
@@ -94,16 +85,16 @@ def test_paramax_unwrap_on_module():
     assert jnp.allclose(unwrapped.b, jnp.array(-1.0))
 
 
-def test_fill_triangular_transform():
-    """FillTriangularTransform round-trips."""
-    from gpjax.parameters import FillTriangularTransform
+def test_lower_triangular_positive_diagonal():
+    """LowerTriangular enforces positive diagonal via softplus."""
+    from gpjax.parameters import LowerTriangular
 
-    t = FillTriangularTransform()
-    vec = jnp.array([1.0, 2.0, 3.0])
-    mat = t(vec)
-    assert mat.shape == (2, 2)
-    recovered = t._inverse(mat)
-    assert jnp.allclose(recovered, vec)
+    L = jnp.array([[2.0, 0.0], [0.5, 3.0]])
+    p = LowerTriangular(L)
+    val = p.unwrap()
+    assert jnp.allclose(val, L, atol=1e-5)
+    assert val[0, 0] > 0
+    assert val[1, 1] > 0
 
 
 def test_coregionalization_matrix():
