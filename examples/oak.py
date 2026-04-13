@@ -56,7 +56,6 @@ with install_import_hook("gpjax", "beartype.beartype"):
         rank_first_order,
         sobol_indices,
     )
-    from gpjax.parameters import Parameter
 
 key = jr.key(123)
 use_mpl_style()
@@ -262,7 +261,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=posterior,
     objective=negative_mll,
     train_data=train_data,
-    trainable=Parameter,
 )
 
 latent_dist = opt_posterior.predict(
@@ -279,7 +277,7 @@ predictive_mean = predictive_dist.mean
 # first-order (main) effects, second-order interactions, and so on.
 
 # %%
-noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev[...]))
+noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev.unwrap()))
 fitted_kernel = opt_posterior.prior.kernel
 
 sobol_values = sobol_indices(fitted_kernel, X_train, y_train, noise_variance)

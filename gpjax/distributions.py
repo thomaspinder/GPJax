@@ -20,19 +20,14 @@ from beartype.typing import (
 from jax import vmap
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 from jaxtyping import Float
+import lineax as lx
 from numpyro.distributions import constraints
 from numpyro.distributions.distribution import Distribution
 from numpyro.distributions.util import is_prng_key
 
-from gpjax.linalg.operations import (
-    diag,
-    logdet,
-    lower_cholesky,
-    solve,
-)
-from gpjax.linalg.operators import LinearOperator
-from gpjax.linalg.utils import psd
+from gpjax.linalg import cholesky_factor, logdet
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -43,7 +38,7 @@ class GaussianDistribution(Distribution):
     r"""Multivariate Gaussian distribution for GP predictions.
 
     This is the return type of all ``predict()`` methods in GPJax. It wraps a
-    mean vector and a covariance :class:`~gpjax.linalg.operators.LinearOperator`,
+    mean vector and a covariance ``lx.AbstractLinearOperator``,
     providing methods for sampling, computing log-probabilities, and evaluating
     KL divergences.
 
@@ -55,30 +50,27 @@ class GaussianDistribution(Distribution):
 
     where :math:`\boldsymbol{\mu}` is the ``loc`` (mean) vector and
     :math:`\mathbf{\Sigma}` is represented by the ``scale``
-    :class:`~gpjax.linalg.operators.LinearOperator`. The ``scale`` is
-    automatically annotated as positive semi-definite on construction.
+    ``lx.AbstractLinearOperator``.
 
     Parameters
     ----------
     loc : Float[Array, " N"]
         Mean vector of the distribution.
-    scale : LinearOperator
-        Covariance matrix represented as a
-        :class:`~gpjax.linalg.operators.LinearOperator` (e.g.
-        :class:`~gpjax.linalg.operators.Dense` or
-        :class:`~gpjax.linalg.operators.Diagonal`).
+    scale : lx.AbstractLinearOperator
+        Covariance matrix represented as a Lineax linear operator (e.g.
+        ``lx.MatrixLinearOperator`` or ``lx.DiagonalLinearOperator``).
 
     Examples
     --------
     >>> import jax.numpy as jnp
+    >>> import lineax as lx
     >>> from gpjax.distributions import GaussianDistribution
-    >>> from gpjax.linalg.operators import Dense
     >>> mu = jnp.array([0.0, 1.0])
-    >>> cov = Dense(jnp.eye(2))
+    >>> cov = lx.MatrixLinearOperator(jnp.eye(2))
     >>> dist = GaussianDistribution(loc=mu, scale=cov)
-    >>> dist.mean
+    >>> dist.mean  # doctest: +SKIP
     Array([0., 1.], dtype=float32)
-    >>> dist.variance
+    >>> dist.variance  # doctest: +SKIP
     Array([1., 1.], dtype=float32)
     """
 
@@ -87,11 +79,11 @@ class GaussianDistribution(Distribution):
     def __init__(
         self,
         loc: Optional[Float[Array, " N"]],
-        scale: Optional[LinearOperator],
+        scale: Optional[lx.AbstractLinearOperator],
         validate_args=None,
     ):
         self.loc = loc
-        self.scale = psd(scale)
+        self.scale = scale
         batch_shape = ()
         event_shape = jnp.shape(self.loc)
         super().__init__(batch_shape, event_shape, validate_args=validate_args)
@@ -123,7 +115,7 @@ class GaussianDistribution(Distribution):
         """
         assert is_prng_key(key)
         # Obtain covariance root.
-        covariance_root = lower_cholesky(self.scale)
+        covariance_root = cholesky_factor(self.scale)
 
         # Gather n samples from standard normal distribution Z = [z₁, ..., zₙ]ᵀ.
         white_noise = jr.normal(
@@ -132,7 +124,7 @@ class GaussianDistribution(Distribution):
 
         # xᵢ ~ N(loc, cov) <=> xᵢ = loc + sqrt zᵢ, where zᵢ ~ N(0, I).
         def affine_transformation(_x):
-            return self.loc + covariance_root @ _x
+            return self.loc + covariance_root.mv(_x)
 
         if not sample_shape:
             return affine_transformation(white_noise)
@@ -147,7 +139,7 @@ class GaussianDistribution(Distribution):
     @property
     def variance(self) -> Float[Array, " N"]:
         r"""Calculates the marginal variance (diagonal of the covariance)."""
-        return diag(self.scale)
+        return lx.diagonal(self.scale)
 
     def entropy(self) -> ScalarFloat:
         r"""Calculates the differential entropy of the distribution.
@@ -181,7 +173,7 @@ class GaussianDistribution(Distribution):
         Float[Array, "N N"]
             Dense covariance matrix.
         """
-        return self.scale.to_dense()
+        return self.scale.as_matrix()
 
     @property
     def covariance_matrix(self) -> Float[Array, "N N"]:
@@ -190,7 +182,7 @@ class GaussianDistribution(Distribution):
 
     def stddev(self) -> Float[Array, " N"]:
         r"""Calculates the marginal standard deviation."""
-        return jnp.sqrt(diag(self.scale))
+        return jnp.sqrt(lx.diagonal(self.scale))
 
     def log_prob(self, y: Float[Array, " N"]) -> ScalarFloat:
         r"""Calculates the log pdf of the multivariate Gaussian.
@@ -222,8 +214,15 @@ class GaussianDistribution(Distribution):
         diff = y - mu
 
         # compute the pdf, -1/2[ n log(2π) + log|Σ| + (y - µ)ᵀΣ⁻¹(y - µ) ]
+        # Use the Cholesky factor L for both the log-determinant and the solve.
+        # This is more efficient (single Cholesky) and propagates NaN rather
+        # than raising an error when the matrix is singular, which is essential
+        # for MCMC samplers that must evaluate the density at rejected proposals.
+        L = cholesky_factor(sigma)
+        log_det = 2.0 * jnp.sum(jnp.log(jnp.diag(L.as_matrix())))
+        L_inv_diff = jsp.linalg.solve_triangular(L.as_matrix(), diff, lower=True)
         return -0.5 * (
-            n * jnp.log(2.0 * jnp.pi) + logdet(sigma) + diff.T @ solve(sigma, diff)
+            n * jnp.log(2.0 * jnp.pi) + log_det + jnp.dot(L_inv_diff, L_inv_diff)
         )
 
     def kl_divergence(self, other: "GaussianDistribution") -> ScalarFloat:
@@ -289,19 +288,23 @@ def _kl_divergence(q: GaussianDistribution, p: GaussianDistribution) -> ScalarFl
     sigma_p = p.scale
 
     # Find covariance roots.
-    sqrt_p = lower_cholesky(sigma_p)
-    sqrt_q = lower_cholesky(sigma_q)
+    sqrt_p = cholesky_factor(sigma_p)
+    sqrt_q = cholesky_factor(sigma_q)
 
     # diff, μp - μq
     diff = mu_p - mu_q
 
     # trace term, tr[Σp⁻¹ Σq] = tr[(LpLpᵀ)⁻¹(LqLqᵀ)] = tr[(Lp⁻¹Lq)(Lp⁻¹Lq)ᵀ] = (fr[LqLp⁻¹])²
+    # Use jsp.linalg.solve_triangular for matrix RHS since lx.linear_solve only handles vectors.
+
     trace = _frobenius_norm_squared(
-        solve(sqrt_p, sqrt_q.to_dense())
-    )  # TODO: Not most efficient, given the `to_dense()` call (e.g., consider diagonal p and q). Need to abstract solving linear operator against another linear operator.
+        jsp.linalg.solve_triangular(sqrt_p.as_matrix(), sqrt_q.as_matrix(), lower=True)
+    )  # TODO: Not most efficient, given the `as_matrix()` call (e.g., consider diagonal p and q). Need to abstract solving linear operator against another linear operator.
 
     # Mahalanobis term, (μp - μq)ᵀ Σp⁻¹ (μp - μq) = tr [(μp - μq)ᵀ [LpLpᵀ]⁻¹ (μp - μq)] = (fr[Lp⁻¹(μp - μq)])²
-    mahalanobis = jnp.sum(jnp.square(solve(sqrt_p, diff)))
+    mahalanobis = jnp.sum(
+        jnp.square(lx.linear_solve(sqrt_p, diff, solver=lx.Triangular()).value)
+    )
 
     # KL[q(x)||p(x)] = [ [(μp - μq)ᵀ Σp⁻¹ (μp - μq)] - n - log|Σq| + log|Σp| + tr[Σp⁻¹ Σq] ] / 2
     return (mahalanobis - n_dim - logdet(sigma_q) + logdet(sigma_p) + trace) / 2.0

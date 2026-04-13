@@ -17,14 +17,17 @@ from abc import abstractmethod
 from typing import Literal
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 from jaxtyping import (
     Float,
     Num,
 )
+import lineax as lx
+from paramax import AbstractUnwrappable
 
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
@@ -37,19 +40,9 @@ from gpjax.likelihoods import (
     HeteroscedasticGaussian,
     NonGaussian,
 )
-from gpjax.linalg import (
-    Dense,
-    Diagonal,
-    psd,
-    solve,
-)
-from gpjax.linalg.operations import (
-    lower_cholesky,
-)
 from gpjax.linalg.utils import add_jitter
 from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
-    Parameter,
     Real,
 )
 from gpjax.typing import (
@@ -66,8 +59,17 @@ GL = tp.TypeVar("GL", bound=Gaussian)
 HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
 
 
-class AbstractPrior(nnx.Module, tp.Generic[M, K]):
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
+class AbstractPrior(eqx.Module, tp.Generic[M, K]):
     r"""Abstract Gaussian process prior."""
+
+    kernel: K
+    mean_function: M
+    jitter: float = eqx.field(static=True, default=1e-6)
 
     def __init__(
         self,
@@ -276,21 +278,15 @@ class Prior(AbstractPrior[M, K]):
                 of the Gaussian process.
         """
 
-        def _return_full_covariance(
-            t: Num[Array, "N D"],
-        ) -> Dense:
+        def _return_full_covariance(t):
             Kxx = self.kernel.gram(t)
-            Kxx_dense = add_jitter(Kxx.to_dense(), self.jitter)
-            Kxx = psd(Dense(Kxx_dense))
-            return Kxx
+            Kxx_dense = add_jitter(Kxx.as_matrix(), self.jitter)
+            return lx.MatrixLinearOperator(Kxx_dense)
 
-        def _return_diagonal_covariance(
-            t: Num[Array, "N D"],
-        ) -> Dense:
-            Kxx = self.kernel.diagonal(t).diagonal
+        def _return_diagonal_covariance(t):
+            Kxx = lx.diagonal(self.kernel.diagonal(t))
             Kxx += self.jitter
-            Kxx = psd(Dense(Diagonal(Kxx).to_dense()))
-            return Kxx
+            return lx.MatrixLinearOperator(jnp.diag(Kxx))
 
         mean_at_test = self.mean_function(test_inputs)
         cov = jax.lax.cond(
@@ -380,13 +376,17 @@ P = tp.TypeVar("P", bound=AbstractPrior)
 
 #######################
 # GP Posteriors
-#######################from gpjax.linalg.operators import LinearOperator
-class AbstractPosterior(nnx.Module, tp.Generic[P, L]):
+#######################
+class AbstractPosterior(eqx.Module, tp.Generic[P, L]):
     r"""Abstract Gaussian process posterior.
 
     The base GP posterior object conditioned on an observed dataset. All
     posterior objects should inherit from this class.
     """
+
+    prior: AbstractPrior
+    likelihood: tp.Any
+    jitter: float = eqx.field(static=True, default=1e-6)
 
     def __init__(
         self,
@@ -596,14 +596,15 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
         noise = self.likelihood.noise_vector(train_data.n)
 
         Kxx = kernel.gram(x)
-        Kxx_dense = add_jitter(Kxx.to_dense(), self.jitter)
+        Kxx_dense = add_jitter(Kxx.as_matrix(), self.jitter)
         Sigma_dense = Kxx_dense + jnp.diag(noise)
-        Sigma = psd(Dense(Sigma_dense))
-        L_sigma = lower_cholesky(Sigma)
+        L_sigma = jnp.linalg.cholesky(Sigma_dense)
 
         Kxt = kernel.cross_covariance(x, test_inputs)
-        L_inv_Kxt = solve(L_sigma, Kxt)
-        L_inv_y_diff = solve(L_sigma, y_flat - mx_flat)
+        L_inv_Kxt = jsp.linalg.solve_triangular(L_sigma, Kxt, lower=True)
+        L_inv_y_diff = jsp.linalg.solve_triangular(
+            L_sigma, y_flat - mx_flat, lower=True
+        )
 
         mean_t_raw = self.prior.mean_function(test_inputs)
         mean_t = jnp.tile(mean_t_raw, (P, 1)) if P > 1 else mean_t_raw
@@ -619,18 +620,18 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             return_covariance_type = "dense"
 
         def _return_full_covariance(L_inv_Kxt, t):
-            Ktt = kernel.gram(t)
-            covariance = Ktt.to_dense() - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
+            Ktt = kernel.gram(t).as_matrix()
+            covariance = Ktt - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
             covariance = add_jitter(covariance, self.prior.jitter)
-            covariance = psd(Dense(covariance))
-            return covariance
+            return lx.MatrixLinearOperator(covariance)
 
         def _return_diagonal_covariance(L_inv_Kxt, t):
-            Ktt = kernel.diagonal(t).diagonal
+            Ktt = lx.diagonal(kernel.diagonal(t))
             covariance = Ktt - jnp.einsum("ij, ji->i", L_inv_Kxt.T, L_inv_Kxt)
             covariance += self.prior.jitter
-            covariance = psd(Dense(jnp.diag(jnp.atleast_1d(covariance.squeeze()))))
-            return covariance
+            return lx.MatrixLinearOperator(
+                jnp.diag(jnp.atleast_1d(covariance.squeeze()))
+            )
 
         cov = jax.lax.cond(
             return_covariance_type == "dense",
@@ -694,16 +695,16 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
 
         fourier_weights = jr.normal(key, [num_samples, 2 * num_features])
 
-        obs_var = self.likelihood.obs_stddev[...] ** 2
+        obs_var = _val(self.likelihood.obs_stddev) ** 2
         Kxx = self.prior.kernel.gram(train_data.X)
-        Sigma = Dense(add_jitter(Kxx.to_dense(), obs_var + self.jitter))
+        Sigma_dense = add_jitter(Kxx.as_matrix(), obs_var + self.jitter)
+        L_sigma = jnp.linalg.cholesky(Sigma_dense)
         eps = jnp.sqrt(obs_var) * jr.normal(key, [train_data.n, num_samples])
         y = train_data.y - self.prior.mean_function(train_data.X)
         Phi = fourier_feature_fn(train_data.X)
-        canonical_weights = solve(
-            Sigma,
-            y + eps - jnp.inner(Phi, fourier_weights),
-        )  # [N, B]
+        # Solve L_sigma @ canonical_weights = rhs
+        rhs = y + eps - jnp.inner(Phi, fourier_weights)
+        canonical_weights = jsp.linalg.cho_solve((L_sigma, True), rhs)  # [N, B]
 
         def sample_fn(test_inputs: Float[Array, "n D"]) -> Float[Array, "n B"]:
             fourier_features = fourier_feature_fn(test_inputs)
@@ -737,13 +738,13 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
     from, or optimise an approximation to, the posterior distribution.
     """
 
-    latent: nnx.Intermediate[Float[Array, "N 1"]]
+    latent: tp.Any
 
     def __init__(
         self,
         prior: P,
         likelihood: NGL,
-        latent: tp.Union[Float[Array, "N 1"], Parameter, None] = None,
+        latent: tp.Union[Float[Array, "N 1"], AbstractUnwrappable, None] = None,
         jitter: float = 1e-6,
         key: KeyArray = jr.key(42),
     ):
@@ -760,9 +761,9 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         if latent is None:
             latent = jr.normal(key, shape=(self.likelihood.num_datapoints, 1))
 
-        # TODO: static or intermediate?
-        self.latent = latent if isinstance(latent, Parameter) else Real(latent)
-        self.key = key
+        self.latent = (
+            latent if isinstance(latent, AbstractUnwrappable) else Real(latent)
+        )
 
     def predict(
         self,
@@ -802,47 +803,42 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
 
         # Precompute lower triangular of Gram matrix
         Kxx = kernel.gram(x)
-        Kxx_dense = add_jitter(Kxx.to_dense(), self.prior.jitter)
-        Kxx = psd(Dense(Kxx_dense))
-        Lx = lower_cholesky(Kxx)
+        Kxx_dense = add_jitter(Kxx.as_matrix(), self.prior.jitter)
+        Lx = jnp.linalg.cholesky(Kxx_dense)
 
         Kxt = kernel.cross_covariance(x, t)
-        # Lx⁻¹ Kxt
-        Lx_inv_Kxt = solve(Lx, Kxt)
+        # Lx^{-1} Kxt
+        Lx_inv_Kxt = jsp.linalg.solve_triangular(Lx, Kxt, lower=True)
 
         mean_t = mean_function(t)
         # Whitened function values, wx, corresponding to the inputs, x
-        wx = self.latent[...]
+        wx = _val(self.latent)
 
-        # μt + Ktx Lx⁻¹ wx
+        # mut + Ktx Lx^{-1} wx
         mean = mean_t + jnp.matmul(Lx_inv_Kxt.T, wx)
 
         def _return_full_covariance(
             Lx_inv_Kxt: Num[Array, "N M"],
             t: Num[Array, "M D"],
-        ) -> Dense:
-            Ktt = kernel.gram(t)
-            covariance = Ktt.to_dense() - jnp.matmul(Lx_inv_Kxt.T, Lx_inv_Kxt)
+        ):
+            Ktt = kernel.gram(t).as_matrix()
+            covariance = Ktt - jnp.matmul(Lx_inv_Kxt.T, Lx_inv_Kxt)
             covariance = add_jitter(covariance, self.prior.jitter)
-            covariance = psd(Dense(covariance))
-
-            return covariance
+            return lx.MatrixLinearOperator(covariance)
 
         def _return_diagonal_covariance(
             Lx_inv_Kxt: Num[Array, "N M"],
             t: Num[Array, "M D"],
-        ) -> Dense:
-            Ktt = kernel.diagonal(t).diagonal
+        ):
+            Ktt = lx.diagonal(kernel.diagonal(t))
             covariance = Ktt - jnp.einsum("ij, ji->i", Lx_inv_Kxt.T, Lx_inv_Kxt)
             covariance += self.prior.jitter
             # It would be nice to return a Diagonal here, but the pytree needs
             # to be the same for both cond branches and the other branch needs
             # to return a Dense.
-            # They are both LinearOperators, but they inherit from that class
-            # and hence are not the same pytree anymore.
-            covariance = psd(Dense(jnp.diag(jnp.atleast_1d(covariance.squeeze()))))
-
-            return covariance
+            return lx.MatrixLinearOperator(
+                jnp.diag(jnp.atleast_1d(covariance.squeeze()))
+            )
 
         cov = jax.lax.cond(
             return_covariance_type == "dense",
@@ -861,6 +857,9 @@ class HeteroscedasticPosterior(LatentPosterior[P, HL]):
     The posterior retains both the signal and noise priors; inference is delegated
     to variational families and specialised objectives.
     """
+
+    noise_prior: tp.Any
+    noise_posterior: tp.Any
 
     def __init__(
         self,
@@ -991,7 +990,7 @@ def _build_fourier_features_fn(
 
     def eval_fourier_features(test_inputs: Float[Array, "N D"]) -> Float[Array, "N L"]:
         Phi = approximate_kernel.compute_features(x=test_inputs)
-        Phi *= jnp.sqrt(prior.kernel.variance[...] / num_features)
+        Phi *= jnp.sqrt(_val(prior.kernel.variance) / num_features)
         return Phi
 
     return eval_fourier_features

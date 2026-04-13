@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -19,19 +18,19 @@
 # # Deep Kernel Learning
 #
 # In this notebook we demonstrate how GPJax can be used in conjunction with
-# [Flax](https://flax.readthedocs.io/en/latest/) to build deep kernel Gaussian
+# [Equinox](https://docs.kidger.site/equinox/) to build deep kernel Gaussian
 # processes. Modelling data with discontinuities is a challenging task for regular
 # Gaussian process models. However, as shown in
 # <strong data-cite="wilson2016deep"></strong>, transforming the inputs to our
 # Gaussian process model's kernel through a neural network can offer a solution to this.
 
 # %%
-from dataclasses import (
-    dataclass,
-    field,
+import equinox as eqx
+from examples.utils import use_mpl_style
+from gpjax.kernels.computations import (
+    AbstractKernelComputation,
+    DenseKernelComputation,
 )
-
-from flax import nnx
 import jax
 
 # Enable Float64 for more stable matrix inversions.
@@ -48,21 +47,12 @@ import matplotlib.pyplot as plt
 import optax as ox
 from scipy.signal import sawtooth
 
-from examples.utils import use_mpl_style
-from gpjax.kernels.computations import (
-    AbstractKernelComputation,
-    DenseKernelComputation,
-)
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
     from gpjax.kernels.base import AbstractKernel
-    from gpjax.parameters import (
-        Parameter,
-    )
 
 
 # set the default style for plotting
@@ -120,13 +110,18 @@ ax.legend(loc="best")
 
 
 # %%
-@dataclass
 class DeepKernelFunction(AbstractKernel):
     base_kernel: AbstractKernel
-    network: nnx.Module
-    compute_engine: AbstractKernelComputation = field(
-        default_factory=lambda: DenseKernelComputation()
-    )
+    network: eqx.Module
+
+    def __init__(
+        self,
+        base_kernel: AbstractKernel = None,
+        network: eqx.Module = None,
+    ):
+        self.base_kernel = base_kernel
+        self.network = network
+        super().__init__(compute_engine=DenseKernelComputation())
 
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
@@ -147,31 +142,33 @@ class DeepKernelFunction(AbstractKernel):
 # [ARD form](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#active-dimensions)
 # to allow for different lengthscales in each dimension of the feature space.
 # Users may wish to design more intricate network structures for more complex tasks,
-# which functionality is supported well in Haiku.
+# which functionality is supported well in Equinox.
 
 
 # %%
 feature_space_dim = 3
 
 
-class Network(nnx.Module):
+class Network(eqx.Module):
+    layer1: eqx.nn.Linear
+    output_layer: eqx.nn.Linear
+
     def __init__(
-        self, rngs: nnx.Rngs, *, input_dim: int, inner_dim: int, feature_space_dim: int
+        self, key: jax.Array, *, input_dim: int, inner_dim: int, feature_space_dim: int
     ) -> None:
-        self.layer1 = nnx.Linear(input_dim, inner_dim, rngs=rngs)
-        self.output_layer = nnx.Linear(inner_dim, feature_space_dim, rngs=rngs)
-        self.rngs = rngs
+        key1, key2 = jr.split(key)
+        self.layer1 = eqx.nn.Linear(input_dim, inner_dim, key=key1)
+        self.output_layer = eqx.nn.Linear(inner_dim, feature_space_dim, key=key2)
 
     def __call__(self, x: jax.Array) -> jax.Array:
-        x = x.reshape((x.shape[0], -1))
         x = self.layer1(x)
         x = jax.nn.relu(x)
-        x = self.output_layer(x).squeeze()
+        x = self.output_layer(x)
         return x
 
 
 forward_linear = Network(
-    nnx.Rngs(123), feature_space_dim=feature_space_dim, inner_dim=32, input_dim=1
+    jr.key(123), feature_space_dim=feature_space_dim, inner_dim=32, input_dim=1
 )
 
 # %% [markdown]
@@ -222,10 +219,6 @@ optimiser = ox.chain(
     ox.adamw(learning_rate=schedule),
 )
 
-# Train all parameters (default behavior with trainable=Parameter)
-# Alternative options for selective training:
-# - trainable=PositiveReal  # only train positive parameters
-# - trainable=lambda module, path, value: 'kernel' in path  # only kernel params
 opt_posterior, history = gpx.fit(
     model=posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
@@ -233,7 +226,6 @@ opt_posterior, history = gpx.fit(
     optim=optimiser,
     num_iters=800,
     key=key,
-    trainable=Parameter,  # explicitly specify trainable filter (default)
 )
 
 # %% [markdown]

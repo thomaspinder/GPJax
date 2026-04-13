@@ -64,7 +64,9 @@ def test_gaussian_likelihood(n: int, obs_stddev: float):
 
     # Check predictive mean and variance.
     assert (pred_dist.mean == latent_mean).all()
-    noise_matrix = jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev[...] ** 2
+    noise_matrix = (
+        jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev.unwrap() ** 2
+    )
     assert np.allclose(
         pred_dist.scale_tril, jnp.linalg.cholesky(latent_cov + noise_matrix)
     )
@@ -113,8 +115,8 @@ class TestMultiOutputGaussian:
         from gpjax.likelihoods import MultiOutputGaussian
 
         lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=0.5)
-        assert lik.obs_stddev[...].shape == (3,)
-        assert jnp.allclose(lik.obs_stddev[...], jnp.full(3, 0.5))
+        assert lik.obs_stddev.unwrap().shape == (3,)
+        assert jnp.allclose(lik.obs_stddev.unwrap(), jnp.full(3, 0.5))
 
     def test_init_vector_noise(self):
         """Vector obs_stddev is accepted directly."""
@@ -122,7 +124,7 @@ class TestMultiOutputGaussian:
 
         noise = jnp.array([0.1, 0.2, 0.3])
         lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=noise)
-        assert jnp.allclose(lik.obs_stddev[...], noise)
+        assert jnp.allclose(lik.obs_stddev.unwrap(), noise)
 
     def test_noise_vector_shape(self):
         """noise_vector() returns [NP] in output-major order."""

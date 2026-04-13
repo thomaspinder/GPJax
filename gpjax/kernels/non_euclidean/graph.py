@@ -20,7 +20,10 @@ from jaxtyping import (
     Integer,
     Num,
 )
+import paramax
+from paramax import AbstractUnwrappable
 
+from gpjax.kernels.base import _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     EigenKernelComputation,
@@ -30,10 +33,7 @@ from gpjax.kernels.non_euclidean.utils import (
     jax_gather_nd,
 )
 from gpjax.kernels.stationary.base import StationaryKernel
-from gpjax.parameters import (
-    Parameter,
-    PositiveReal,
-)
+from gpjax.parameters import PositiveReal
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -56,6 +56,7 @@ class GraphKernel(StationaryKernel):
 
     """
 
+    smoothness: tp.Any
     num_vertex: tp.Union[ScalarInt, None]
     laplacian: Float[Array, "N N"]
     eigenvalues: Float[Array, "N 1"]
@@ -66,8 +67,10 @@ class GraphKernel(StationaryKernel):
         self,
         laplacian: Num[Array, "N N"],
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[ScalarFloat, Float[Array, " D"], Parameter] = 1.0,
-        variance: tp.Union[ScalarFloat, Parameter] = 1.0,
+        lengthscale: tp.Union[
+            ScalarFloat, Float[Array, " D"], AbstractUnwrappable
+        ] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         smoothness: ScalarFloat = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = EigenKernelComputation(),
@@ -88,16 +91,17 @@ class GraphKernel(StationaryKernel):
             compute_engine: The computation engine that the kernel uses to compute the
                 covariance matrix.
         """
-        if isinstance(smoothness, Parameter):
+        if isinstance(smoothness, AbstractUnwrappable):
             self.smoothness = smoothness
         else:
             self.smoothness = PositiveReal(smoothness)
 
-        self.laplacian = laplacian
-        evals, eigenvectors = jnp.linalg.eigh(self.laplacian)
-        self.eigenvectors = eigenvectors
-        self.eigenvalues = evals.reshape(-1, 1)
-        self.num_vertex = self.eigenvalues.shape[0]
+        laplacian = jnp.asarray(laplacian, dtype=jnp.float64)
+        evals, evecs = jnp.linalg.eigh(laplacian)
+        self.laplacian = paramax.non_trainable(laplacian)
+        self.eigenvectors = paramax.non_trainable(evecs)
+        self.eigenvalues = paramax.non_trainable(evals.reshape(-1, 1))
+        self.num_vertex = evals.shape[0]
 
         super().__init__(active_dims, lengthscale, variance, n_dims, compute_engine)
 
@@ -109,8 +113,9 @@ class GraphKernel(StationaryKernel):
         x_idx = self._prepare_indices(x)
         y_idx = self._prepare_indices(y)
         S = calculate_heat_semigroup(self)
-        Kxx = (jax_gather_nd(self.eigenvectors, x_idx) * S.squeeze()) @ jnp.transpose(
-            jax_gather_nd(self.eigenvectors, y_idx)
+        eigenvectors = _val(self.eigenvectors)
+        Kxx = (jax_gather_nd(eigenvectors, x_idx) * S.squeeze()) @ jnp.transpose(
+            jax_gather_nd(eigenvectors, y_idx)
         )  # shape (n,n)
         return Kxx.squeeze()
 

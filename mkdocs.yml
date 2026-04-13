@@ -13,6 +13,7 @@ nav:
     - 🎨 Design principles: design.md
     - 🤝 Contributing: contributing.md
     - 🔪 Sharp bits: sharp_bits.md
+    - 🚚 Migrating to 0.14: migration.md
     - 📎 JAX 101 [External]: https://jax.readthedocs.io/en/latest/jax-101/index.html
   - 💡 Background:
     - Intro to GPs: _examples/intro_to_gps.md

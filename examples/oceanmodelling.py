@@ -32,11 +32,8 @@
 #
 
 # %%
-from dataclasses import (
-    dataclass,
-    field,
-)
-
+from examples.utils import use_mpl_style
+from gpjax.kernels.computations import DenseKernelComputation
 from jax import (
     config,
     hessian,
@@ -53,15 +50,11 @@ import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 import pandas as pd
 
-from examples.utils import use_mpl_style
-from gpjax.kernels.computations import DenseKernelComputation
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -266,6 +259,9 @@ dataset_ground_truth = dataset_3d(pos_test, vel_test)
 
 
 class VelocityKernel(gpx.kernels.AbstractKernel):
+    kernel0: gpx.kernels.AbstractKernel
+    kernel1: gpx.kernels.AbstractKernel
+
     def __init__(
         self,
         kernel0: gpx.kernels.AbstractKernel = gpx.kernels.RBF(active_dims=[0, 1]),
@@ -332,7 +328,6 @@ def optimise_mll(posterior, dataset, NIters=1000, key=key):
         model=posterior,
         objective=objective,
         train_data=dataset,
-        trainable=Parameter,
     )
     return opt_posterior
 
@@ -533,16 +528,23 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # %%
 
 
-@dataclass
-class HelmholtzKernel(gpx.kernels.stationary.StationaryKernel):
+class HelmholtzKernel(gpx.kernels.AbstractKernel):
     # initialise Phi and Psi kernels as any stationary kernel in gpJax
-    potential_kernel: gpx.kernels.stationary.StationaryKernel = field(
-        default_factory=lambda: gpx.kernels.RBF(active_dims=[0, 1])
-    )
-    stream_kernel: gpx.kernels.stationary.StationaryKernel = field(
-        default_factory=lambda: gpx.kernels.RBF(active_dims=[0, 1])
-    )
-    compute_engine = DenseKernelComputation()
+    potential_kernel: gpx.kernels.stationary.StationaryKernel
+    stream_kernel: gpx.kernels.stationary.StationaryKernel
+
+    def __init__(
+        self,
+        potential_kernel: gpx.kernels.stationary.StationaryKernel = gpx.kernels.RBF(
+            active_dims=[0, 1]
+        ),
+        stream_kernel: gpx.kernels.stationary.StationaryKernel = gpx.kernels.RBF(
+            active_dims=[0, 1]
+        ),
+    ):
+        self.potential_kernel = potential_kernel
+        self.stream_kernel = stream_kernel
+        super().__init__(compute_engine=DenseKernelComputation())
 
     def __call__(
         self, X: Float[Array, "1 D"], Xp: Float[Array, "1 D"]

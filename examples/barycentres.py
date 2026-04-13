@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -32,6 +31,7 @@
 # %%
 import typing as tp
 
+from examples.utils import use_mpl_style
 import jax
 
 # Enable Float64 for more stable matrix inversions.
@@ -43,14 +43,11 @@ from jaxtyping import install_import_hook
 import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 
-from examples.utils import use_mpl_style
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 key = jr.key(123)
@@ -180,7 +177,6 @@ def fit_gp(x: jax.Array, y: jax.Array) -> npd.MultivariateNormal:
         model=posterior,
         objective=nmll,
         train_data=D,
-        trainable=Parameter,
     )
     latent_dist = opt_posterior.predict(xtest, train_data=D)
     return opt_posterior.likelihood(latent_dist)
@@ -206,7 +202,7 @@ def sqrtm(A: jax.Array):
 
 
 def wasserstein_barycentres(
-    distributions: tp.List[npd.MultivariateNormal], weights: jax.Array
+    distributions: list[npd.MultivariateNormal], weights: jax.Array
 ):
     covariances = [d.covariance_matrix for d in distributions]
     cov_stack = jnp.stack(covariances)

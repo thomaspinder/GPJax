@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -32,6 +31,7 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import use_mpl_style
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -40,15 +40,12 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import optax as ox
 
-from examples.utils import use_mpl_style
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
     import gpjax.kernels as jk
-    from gpjax.parameters import Parameter
 
 key = jr.key(123)
 
@@ -256,7 +253,6 @@ opt_posterior, history = gpx.fit(
     num_iters=3000,
     key=jr.key(42),
     batch_size=128,
-    trainable=Parameter,
 )
 # %% [markdown]
 # ## Predictions
@@ -286,7 +282,7 @@ ax.fill_between(
     label="Two sigma",
 )
 ax.vlines(
-    opt_posterior.inducing_inputs[...],
+    opt_posterior.inducing_inputs.unwrap(),
     ymin=y.min(),
     ymax=y.max(),
     alpha=0.3,

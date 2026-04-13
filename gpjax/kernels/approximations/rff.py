@@ -1,7 +1,6 @@
 """Compute Random Fourier Feature (RFF) kernel approximations."""
 
 import beartype.typing as tp
-from flax import nnx
 import jax.random as jr
 from jaxtyping import Float
 
@@ -31,6 +30,9 @@ class RFF(AbstractKernel):
     """
 
     compute_engine: BasisFunctionComputation
+    base_kernel: StationaryKernel
+    num_basis_fns: int
+    frequencies: tp.Union[Float[Array, "M D"], None]
 
     def __init__(
         self,
@@ -53,23 +55,23 @@ class RFF(AbstractKernel):
             key (KeyArray): The random key to use for sampling the frequencies.
         """
         self._check_valid_base_kernel(base_kernel)
-        self.base_kernel = base_kernel
-        self.num_basis_fns = num_basis_fns
-        self.frequencies = nnx.data(frequencies)
-        self.compute_engine = compute_engine
 
-        if self.frequencies is None:
-            n_dims = self.base_kernel.n_dims
+        if frequencies is None:
+            n_dims = base_kernel.n_dims
             if n_dims is None:
                 raise ValueError(
                     "Expected the number of dimensions to be specified for the base kernel. "
                     "Please specify the n_dims argument for the base kernel."
                 )
-
-            self.frequencies = self.base_kernel.spectral_density.sample(
-                key=key, sample_shape=(self.num_basis_fns, n_dims)
+            frequencies = base_kernel.spectral_density.sample(
+                key=key, sample_shape=(num_basis_fns, n_dims)
             )
-        self.name = f"{self.base_kernel.name} (RFF)"
+
+        self.base_kernel = base_kernel
+        self.num_basis_fns = num_basis_fns
+        self.frequencies = frequencies
+
+        super().__init__(compute_engine=compute_engine)
 
     def __call__(self, x: Float[Array, "D 1"], y: Float[Array, "D 1"]) -> None:
         """Superfluous for RFFs."""

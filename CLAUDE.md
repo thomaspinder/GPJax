@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is GPJax?
 
-GPJax is a Gaussian process library built on JAX. The API mirrors GP mathematics: you compose a `Prior` (kernel + mean function), multiply by a `Likelihood` to get a `Posterior`, then optimise an objective. All modules are Flax NNX `nnx.Module` subclasses, making them JAX-pytree-compatible for `jit`, `vmap`, and `grad`.
+GPJax is a Gaussian process library built on JAX. The API mirrors GP mathematics: you compose a `Prior` (kernel + mean function), multiply by a `Likelihood` to get a `Posterior`, then optimise an objective. All modules are Equinox `eqx.Module` subclasses, making them JAX-pytree-compatible for `jit`, `vmap`, and `grad`.
 
 ## Commands
 
@@ -47,19 +47,17 @@ Prior(kernel, mean_function)  *  Likelihood  -->  Posterior
 
 ### Parameter system (`gpjax/parameters.py`)
 
-Parameters are `nnx.Variable` subclasses with a `tag` string that selects the bijection for unconstrained optimisation:
+Parameters are `paramax.AbstractUnwrappable` subclasses. Each class stores its value in an unconstrained internal field and implements `unwrap()` to apply the constraining bijection:
 
-| Class | Tag | Bijection |
+| Class | Bijection | Internal storage |
 |---|---|---|
-| `Real` | `"real"` | Identity |
-| `PositiveReal` | `"positive"` | Softplus |
-| `NonNegativeReal` | `"non_negative"` | Softplus |
-| `SigmoidBounded` | `"sigmoid"` | Sigmoid |
-| `LowerTriangular` | `"lower_triangular"` | FillTriangular |
+| `Real` | Identity | `value` (unchanged) |
+| `PositiveReal` | Softplus | `_unconstrained` via `inv_softplus` |
+| `NonNegativeReal` | Softplus | `_unconstrained` via `inv_softplus` |
+| `SigmoidBounded` | Sigmoid scaled to `[low, high]` | `_unconstrained` via `logit` |
+| `LowerTriangular` | Fill-triangular | `_flat` vector |
 
-Access the raw value with `param[...]` (the `__getitem__` ellipsis convention from Flax NNX). The `transform()` function maps entire `nnx.State` trees between constrained and unconstrained spaces using `DEFAULT_BIJECTION`.
-
-**Flax NNX Variable metadata**: `Variable` uses `__slots__`, so metadata must be set via `self.set_metadata(key=value)` and read via `self.get_metadata("key", default)`.
+Access the constrained value with `param.unwrap()`. To unwrap an entire model tree, use `paramax.unwrap(model)` which recursively resolves all `AbstractUnwrappable` leaves. To freeze parameters, wrap them with `paramax.non_trainable(param)`.
 
 ### Kernel system (`gpjax/kernels/`)
 
@@ -69,7 +67,7 @@ Kernel categories: `stationary/` (RBF, Matern12/32/52, Periodic, etc.), `nonstat
 
 ### Linear algebra (`gpjax/linalg/`)
 
-Custom `LinearOperator` hierarchy: `Dense`, `Diagonal`, `Triangular`, `Identity`, `BlockDiag`, `Kronecker`. The `psd()` wrapper marks an operator as PSD. Key operations: `lower_cholesky()`, `solve()`, `logdet()`, `diag()`. These wrap JAX linalg but provide custom gradient-friendly implementations.
+Built on [Lineax](https://docs.kidger.site/lineax/). Kernel `gram()` returns `lx.AbstractLinearOperator` (typically `lx.MatrixLinearOperator`). Use `.as_matrix()` to materialise. Custom operators: `BlockDiag`, `Kronecker`. Key utilities: `cholesky_factor()` (singledispatch, returns lower-triangular operator), `logdet()`, `add_jitter()`. Linear solves use `lx.linear_solve()`.
 
 ### Objectives (`gpjax/objectives.py`)
 
@@ -83,7 +81,7 @@ Optimise by negating: `nmll = lambda p, d: -conjugate_mll(p, d)`
 
 ### Fitting (`gpjax/fit.py`)
 
-Three optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (SciPy L-BFGS-B), `fit_lbfgs()` (Optax L-BFGS with `while_loop`). All handle the constrained/unconstrained bijection automatically via `nnx.split`/`nnx.merge`.
+Three optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (SciPy L-BFGS-B), `fit_lbfgs()` (Optax L-BFGS with `while_loop`). All handle the constrained/unconstrained bijection automatically: `paramax.unwrap(model)` is called inside the loss function, and `eqx.partition`/`eqx.combine` with `eqx.is_array` manage trainable vs static parts.
 
 ### Variational inference (`gpjax/variational_families.py`)
 

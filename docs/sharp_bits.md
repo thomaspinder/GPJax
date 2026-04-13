@@ -82,33 +82,23 @@ case. This gives us back the blue cross.
 
 In GPJax, we supply bijective functions using [Numpyro](https://num.pyro.ai/en/stable/distributions.html#transforms).
 
-## Why does GPJax subclass `Variable`, not `Param`?
+## How does the parameter system work?
 
-In Flax NNX, `nnx.Param` is a thin marker subclass of `nnx.Variable` that denotes
-standard learnable parameters (neural network weights and biases). GPJax's `Parameter`
-instead subclasses `nnx.Variable` directly, making it a **sibling** of `nnx.Param`
-rather than a child. This is deliberate: a GP hyperparameter is semantically different
-from a neural network weight because it carries a constraint **tag** (e.g. `"positive"`,
-`"sigmoid"`) that selects which bijection to apply during optimisation, and optionally
-an attached NumPyro prior for MCMC inference.
+GPJax uses [Paramax](https://github.com/danielward27/paramax) to handle constrained
+parameters during optimisation. Each constrained parameter is a subclass of
+`paramax.AbstractUnwrappable` — an Equinox-compatible pytree node whose `unwrap()`
+method applies the constraining bijection (e.g. softplus for positivity, sigmoid for
+bounded parameters).
 
-This type separation matters in practice. In deep kernel learning, a single model
-contains both `nnx.Linear` layers (whose weights are `nnx.Param`) and GP kernel
-hyperparameters (which are `PositiveReal`, `Real`, etc.). When `fit()` calls
-`nnx.split(model, Parameter, ...)`, these two kinds of state are cleanly separated:
+During optimisation, `fit()` calls `paramax.unwrap(model)` inside the loss function.
+This recursively resolves every `AbstractUnwrappable` leaf in the model tree, mapping
+internal unconstrained values to their constrained counterparts. Gradients are computed
+in the unconstrained space, and updates are applied directly to the unconstrained
+arrays — no explicit forward/inverse transform step is needed.
 
-- **`Parameter` instances** are extracted, transformed to unconstrained space via their
-  tag's bijection, optimised, and transformed back.
-- **`nnx.Param` instances** (and any other non-`Parameter` state) remain in the static
-  partition and pass through untouched.
-
-If `Parameter` extended `nnx.Param`, then any code that filters by `nnx.Param` — including
-NumPyro's `random_nnx_module` and standard Flax utilities — would capture GP
-hyperparameters without awareness of their bijection tags or attached priors.
-This follows the
-[Flax-recommended pattern](https://flax.readthedocs.io/en/latest/api_reference/flax.nnx/variables.html)
-of subclassing `nnx.Variable` for custom variable types that represent a distinct kind
-of state.
+To freeze parameters so they are not updated during optimisation, wrap them with
+`paramax.non_trainable(param)`. This excludes the wrapped subtree from gradient
+updates while keeping its value available at evaluation time.
 
 ## Positive-definiteness
 

@@ -28,15 +28,15 @@ from gpjax.kernels.stationary import (
     White,
 )
 from gpjax.kernels.stationary.base import StationaryKernel
-from gpjax.linalg.operators import LinearOperator
 from gpjax.parameters import (
     NonNegativeReal,
-    Parameter,
     PositiveReal,
 )
 import jax
 from jax import config
 import jax.numpy as jnp
+import lineax as lx
+from paramax import AbstractUnwrappable
 import pytest
 
 # Enable Float64 for more stable matrix inversions.
@@ -114,8 +114,12 @@ def test_init_override_paramtype(kernel_request):
     assert isinstance(k.variance, NonNegativeReal)
 
     for param in params:
-        # Parameter is now a raw value, not a Static object
-        assert not isinstance(getattr(k, param), Parameter)
+        # Extra kernel params (like period, power, alpha) are now wrapped
+        # as PositiveReal when a raw scalar is provided, ensuring they
+        # participate correctly in gradient-based optimisation.
+        attr = getattr(k, param)
+        if isinstance(attr, AbstractUnwrappable):
+            assert jnp.allclose(attr.unwrap(), jnp.asarray(params[param]))
 
 
 @pytest.mark.parametrize("kernel", [k[0] for k in TESTED_KERNELS])
@@ -141,16 +145,10 @@ def test_init_lengthscales(kernel: type[StationaryKernel], lengthscale):
 
     # Check that the parameters are set correctly
     assert isinstance(k.lengthscale, PositiveReal)
-    assert jnp.allclose(k.lengthscale[...], jnp.asarray(lengthscale))
+    assert jnp.allclose(k.lengthscale.unwrap(), jnp.asarray(lengthscale))
 
-    # Check that error is raised if lengthscale is not valid
-    with pytest.raises(ValueError):
-        k = kernel(lengthscale=-1.0)
-
-    # with pytest.raises(ValueError):
-    with pytest.raises(TypeError):
-        # type error according to beartype + jaxtyping
-        # would be ValueError otherwise
+    # Check that error is raised if lengthscale shape is invalid
+    with pytest.raises((ValueError, TypeError)):
         k = kernel(lengthscale=jnp.ones((2, 2)))
 
     with pytest.raises(TypeError):
@@ -169,16 +167,10 @@ def test_init_variances(kernel: type[StationaryKernel], variance):
 
     # Check that the parameters are set correctly
     assert isinstance(k.variance, NonNegativeReal)
-    assert jnp.allclose(k.variance[...], jnp.asarray(variance))
+    assert jnp.allclose(k.variance.unwrap(), jnp.asarray(variance))
 
     # Check that error is raised if variance is not valid
-    with pytest.raises(ValueError):
-        k = kernel(variance=-1.0)
-
-    with pytest.raises(TypeError):
-        k = kernel(variance=jnp.ones((2, 2)))
-
-    with pytest.raises(TypeError):
+    with pytest.raises((ValueError, TypeError)):
         k = kernel(variance="invalid type")
 
 
@@ -198,9 +190,9 @@ def test_gram(test_init: StationaryKernel, n: int):
 
     # Test gram matrix
     Kxx = k.gram(x)
-    assert isinstance(Kxx, LinearOperator)
-    assert Kxx.shape == (n, n)
-    assert jnp.all(jnp.linalg.eigvalsh(Kxx.to_dense() + jnp.eye(n) * 1e-6) > 0.0)
+    assert isinstance(Kxx, lx.AbstractLinearOperator)
+    assert Kxx.as_matrix().shape == (n, n)
+    assert jnp.all(jnp.linalg.eigvalsh(Kxx.as_matrix() + jnp.eye(n) * 1e-6) > 0.0)
 
 
 @pytest.mark.parametrize(

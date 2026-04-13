@@ -28,7 +28,10 @@ dependencies = [
   "jaxtyping>0.2.10",
   "tqdm>4.66.2",
   "beartype>0.16.1",
-  "flax>=0.12.2",
+  "equinox>=0.11.0",
+  "paramax>=0.0.5",
+  "lineax>=0.0.6",
+  "optimistix>=0.0.9",
   "numpy>=2.0.0",
   "tensorstore!=0.1.76; sys_platform == 'darwin'",
 ]

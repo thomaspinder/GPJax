@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -167,7 +166,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
-    trainable=gpx.parameters.Parameter,
 )
 
 print(f"Optimised negative MLL: {-gpx.objectives.conjugate_mll(opt_posterior, D):.3f}")
@@ -442,7 +440,6 @@ opt_posterior_lcm, history_lcm = gpx.fit_scipy(
     model=posterior_lcm,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D_lcm,
-    trainable=gpx.parameters.Parameter,
 )
 
 print(

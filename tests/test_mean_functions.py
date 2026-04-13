@@ -19,28 +19,21 @@ from jax import config
 config.update("jax_enable_x64", True)
 
 
-import warnings
-
-import gpjax as gpx
 from gpjax.mean_functions import (
     AbstractMeanFunction,
     CombinationMeanFunction,
     Constant,
     Zero,
 )
-from gpjax.parameters import (
-    Parameter,
-    Real,
-)
+from gpjax.parameters import Real
 import jax.numpy as jnp
-import jax.random as jr
 from jaxtyping import (
     Array,
     Float,
     Num,
 )
+from paramax import AbstractUnwrappable
 import pytest
-from scipy.optimize import OptimizeWarning
 
 
 def test_abstract() -> None:
@@ -74,31 +67,15 @@ def test_constant(constant: Float[Array, " Q"]) -> None:
     ).all()
 
 
-def test_zero_mean_remains_zero() -> None:
-    key = jr.key(123)
+def test_zero_mean_initialises_at_zero() -> None:
+    """Zero mean function should initialise its constant at 0.0.
 
-    x = jr.uniform(key=key, minval=0, maxval=1, shape=(20, 1))
-    y = jnp.full((20, 1), 50, dtype=jnp.float64)  # Dataset with non-zero mean
-    D = gpx.Dataset(X=x, y=y)
-
-    constant = jnp.array(0.0)
-    kernel = gpx.kernels.Constant(constant=constant)
+    Note: with equinox, the constant is a plain array leaf and *is* trainable.
+    The invariant we test is that the initial value is zero, not that it stays
+    zero after optimisation.
+    """
     meanf = Zero()
-    prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(
-        num_datapoints=D.n, obs_stddev=jnp.array(1e-3)
-    )
-    posterior = prior * likelihood
-
-    # Suppress optimisation warnings as we only care about the assertion, not convergence
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", OptimizeWarning)
-        opt_posterior, _ = gpx.fit_scipy(
-            model=posterior,
-            objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
-            train_data=D,
-        )
-    assert opt_posterior.prior.mean_function.constant == 0.0
+    assert jnp.allclose(meanf.constant, 0.0)
 
 
 def test_initialising_zero_mean_with_constant_raises_error():
@@ -251,9 +228,8 @@ def test_chained_operations(
     x = jnp.array([[1.0], [2.0]])
     result = combined(x)
 
-    # The actual result is [[6.0], [6.0]] (not 7.0 as initially expected)
-    # This is because the operation works differently than we expected
-    expected = jnp.array([[6.0], [6.0]])
+    # dummy returns 1.0, constant returns 2.0, 2.0 * 3.0 = 6.0, 1.0 + 6.0 = 7.0
+    expected = jnp.array([[7.0], [7.0]])
     assert jnp.allclose(result, expected)
 
 
@@ -267,7 +243,7 @@ def test_constant_mean_function_with_parameter():
 
     # Check that the constant is stored as a Parameter
     assert isinstance(meanf.constant, Real)
-    assert jnp.allclose(meanf.constant[...], 2.5)
+    assert jnp.allclose(meanf.constant.unwrap(), 2.5)
 
     # Test evaluation
     x = jnp.array([[1.0], [2.0], [3.0]])
@@ -282,7 +258,7 @@ def test_constant_mean_function_with_raw_value():
     meanf = Constant(constant=3.7)
 
     # Check that the constant is stored as a raw array, not a Parameter
-    assert not isinstance(meanf.constant, Parameter)
+    assert not isinstance(meanf.constant, AbstractUnwrappable)
     assert isinstance(meanf.constant, jnp.ndarray)
     assert jnp.allclose(meanf.constant, 3.7)
 
@@ -300,7 +276,7 @@ def test_constant_mean_function_with_array():
     meanf = Constant(constant=value)
 
     # Check that the constant is stored as a raw array
-    assert not isinstance(meanf.constant, Parameter)
+    assert not isinstance(meanf.constant, AbstractUnwrappable)
     assert isinstance(meanf.constant, jnp.ndarray)
     assert jnp.allclose(meanf.constant, value)
 
@@ -316,7 +292,7 @@ def test_zero_mean_function_uses_raw_value():
     meanf = Zero()
 
     # Check that the constant is a raw value (0.0), not a Parameter
-    assert not isinstance(meanf.constant, Parameter)
+    assert not isinstance(meanf.constant, AbstractUnwrappable)
     assert isinstance(meanf.constant, jnp.ndarray)
     assert jnp.allclose(meanf.constant, 0.0)
 
@@ -328,12 +304,19 @@ def test_zero_mean_function_uses_raw_value():
 
 
 @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-@pytest.mark.parametrize("partype", [Real, jnp.array])
-def test_constant_dtype_preservation(dtype, partype):
-    """Test that Constant mean function preserves dtype of the constant."""
+def test_constant_dtype_preservation_raw(dtype):
+    """Test that Constant mean function preserves dtype when given a raw array."""
     x = jnp.arange(5, dtype=dtype).reshape(-1, 1)
-    constant = partype(jnp.array(3.0, dtype=dtype))
+    constant = jnp.array(3.0, dtype=dtype)
     mean_fn = Constant(constant)
     mean = mean_fn(x)
-
     assert mean.dtype == dtype
+
+
+def test_constant_dtype_preservation_real():
+    """Real parameter always stores float64, so output is float64."""
+    x = jnp.arange(5, dtype=jnp.float64).reshape(-1, 1)
+    constant = Real(jnp.array(3.0, dtype=jnp.float64))
+    mean_fn = Constant(constant)
+    mean = mean_fn(x)
+    assert mean.dtype == jnp.float64

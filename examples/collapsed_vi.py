@@ -27,6 +27,7 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import use_mpl_style
 from jax import (
     config,
     jit,
@@ -38,14 +39,11 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import optax as ox
 
-from examples.utils import use_mpl_style
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -147,7 +145,6 @@ opt_posterior, history = gpx.fit(
     optim=ox.adamw(learning_rate=1e-2),
     num_iters=500,
     key=key,
-    trainable=Parameter,
 )
 
 # %%
@@ -162,7 +159,7 @@ ax.set(xlabel="Training iterate", ylabel="ELBO")
 latent_dist = opt_posterior(xtest, train_data=D)
 predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
 
-inducing_points = opt_posterior.inducing_inputs[...]
+inducing_points = opt_posterior.inducing_inputs.unwrap()
 
 samples = latent_dist.sample(key=key, sample_shape=(20,))
 

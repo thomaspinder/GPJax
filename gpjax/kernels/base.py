@@ -14,32 +14,29 @@
 # ==============================================================================
 
 import abc
-import functools as ft
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import (
     Float,
     Num,
 )
+import lineax as lx
+from paramax import AbstractUnwrappable
 
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
 )
-from gpjax.linalg import LinearOperator
-from gpjax.parameters import (
-    Parameter,
-    Real,
-)
+from gpjax.parameters import Real
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
 
 
-class AbstractKernel(nnx.Module):
+class AbstractKernel(eqx.Module):
     r"""Base kernel class.
 
     This class is the base class for all kernels in GPJax. It provides the basic
@@ -50,10 +47,11 @@ class AbstractKernel(nnx.Module):
     relevant columns for the kernel's evaluation.
     """
 
-    active_dims: tp.Union[list[int], slice] = slice(None)
-    compute_engine: AbstractKernelComputation
-    n_dims: tp.Union[int, None]
-    name: str = "AbstractKernel"
+    active_dims: tp.Union[list[int], slice] = eqx.field(
+        static=True, default_factory=lambda: slice(None)
+    )
+    compute_engine: AbstractKernelComputation = eqx.field(static=True)
+    n_dims: tp.Union[int, None] = eqx.field(static=True, default=None)
 
     def __init__(
         self,
@@ -112,7 +110,7 @@ class AbstractKernel(nnx.Module):
         """
         return self.compute_engine.cross_covariance(self, x, y)
 
-    def gram(self, x: Num[Array, "N D"]) -> LinearOperator:
+    def gram(self, x: Num[Array, "N D"]) -> lx.AbstractLinearOperator:
         r"""Compute the gram matrix of the kernel.
 
         Args:
@@ -123,7 +121,7 @@ class AbstractKernel(nnx.Module):
         """
         return self.compute_engine.gram(self, x)
 
-    def diagonal(self, x: Num[Array, "N D"]) -> LinearOperator:
+    def diagonal(self, x: Num[Array, "N D"]) -> lx.AbstractLinearOperator:
         r"""Compute the diagonal of the gram matrix of the kernel.
 
         Args:
@@ -211,23 +209,30 @@ class AbstractKernel(nnx.Module):
                             break
 
 
+def _val(x):
+    """Get the value from a parameter (AbstractUnwrappable) or plain array."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
 class Constant(AbstractKernel):
     r"""
     A constant kernel. This kernel evaluates to a constant for all inputs.
     The scalar value itself can be treated as a model hyperparameter and learned during training.
     """
 
+    constant: tp.Any
+
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        constant: tp.Union[ScalarFloat, Parameter[ScalarFloat]] = jnp.array(0.0),
+        constant: tp.Union[ScalarFloat, AbstractUnwrappable] = jnp.array(0.0),
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
-        if isinstance(constant, Parameter):
+        # Set child fields BEFORE super().__init__() (equinox freezes after super).
+        if isinstance(constant, AbstractUnwrappable):
             self.constant = constant
         else:
             self.constant = Real(jnp.array(constant))
-
         super().__init__(active_dims=active_dims, compute_engine=compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
@@ -240,33 +245,36 @@ class Constant(AbstractKernel):
         Returns:
             ScalarFloat: The evaluated kernel function at the supplied inputs.
         """
-        return self.constant[...].squeeze()
+        return _val(self.constant).squeeze()
 
 
 class CombinationKernel(AbstractKernel):
     r"""A base class for products or sums of MeanFunctions."""
 
+    kernels: tuple
+
     def __init__(
         self,
         kernels: list[AbstractKernel],
-        operator: tp.Callable,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
-        # Add kernels to a list, flattening out instances of this class therein, as in GPFlow kernels.
-        kernels_list: list[AbstractKernel] = nnx.List([])
+        # Add kernels to a list, flattening out instances of this class therein.
+        kernels_list: list[AbstractKernel] = []
         for kernel in kernels:
             if not isinstance(kernel, AbstractKernel):
                 raise TypeError("can only combine Kernel instances")  # pragma: no cover
 
-            if isinstance(kernel, self.__class__) and kernel.operator is operator:
+            if type(kernel) is type(self):
                 kernels_list.extend(kernel.kernels)
             else:
                 kernels_list.append(kernel)
 
-        self.kernels = kernels_list
-        self.operator = operator
-
+        # Set child fields BEFORE super().__init__().
+        self.kernels = tuple(kernels_list)
         super().__init__(compute_engine=compute_engine)
+
+    @abc.abstractmethod
+    def _reduce(self, values: Float[Array, " K"]) -> ScalarFloat: ...
 
     def __call__(
         self,
@@ -282,7 +290,34 @@ class CombinationKernel(AbstractKernel):
         Returns:
             ScalarFloat: The evaluated kernel function at the supplied inputs.
         """
-        return self.operator(jnp.stack([k(x, y) for k in self.kernels]))
+        return self._reduce(jnp.stack([k(x, y) for k in self.kernels]))
+
+
+class SumKernel(CombinationKernel):
+    r"""A kernel that is the sum of a set of kernels."""
+
+    def _reduce(self, values: Float[Array, " K"]) -> ScalarFloat:
+        return jnp.sum(values)
+
+
+class ProductKernel(CombinationKernel):
+    r"""A kernel that is the product of a set of kernels."""
+
+    def _reduce(self, values: Float[Array, " K"]) -> ScalarFloat:
+        return jnp.prod(values)
+
+
+def _compute_base_init(active_dims, n_dims, compute_engine=DenseKernelComputation()):
+    """Compute validated base kernel init values without setting fields.
+
+    Use this in subclass __init__ methods to compute the base fields before
+    setting them, since equinox modules are frozen after super().__init__().
+    """
+    active_dims = active_dims or slice(None)
+    _check_active_dims(active_dims)
+    _check_n_dims(n_dims)
+    active_dims, n_dims = _check_dims_compat(active_dims, n_dims)
+    return active_dims, n_dims, compute_engine
 
 
 def _check_active_dims(active_dims: tp.Any):
@@ -337,9 +372,6 @@ def _check_dims_compat(
 
     return active_dims, n_dims
 
-
-SumKernel = ft.partial(CombinationKernel, operator=jnp.sum)
-ProductKernel = ft.partial(CombinationKernel, operator=jnp.prod)
 
 __all__ = [
     "AbstractKernel",

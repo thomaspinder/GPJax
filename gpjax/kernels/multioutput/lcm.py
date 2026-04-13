@@ -1,5 +1,3 @@
-from flax import nnx
-
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.multioutput.base import MultiOutputKernel
 from gpjax.kernels.multioutput.computation import MultiOutputKernelComputation
@@ -21,6 +19,9 @@ class LCMKernel(MultiOutputKernel):
             All must have the same num_outputs.
     """
 
+    base_kernels: tuple[AbstractKernel, ...]
+    coregionalization_matrices: tuple[CoregionalizationMatrix, ...]
+
     def __init__(
         self,
         kernels: list[AbstractKernel],
@@ -37,9 +38,9 @@ class LCMKernel(MultiOutputKernel):
                 f"All coregionalization matrices must have the same num_outputs, "
                 f"got {num_outputs_set}."
             )
+        self.base_kernels = tuple(kernels)
+        self.coregionalization_matrices = tuple(coregionalization_matrices)
         super().__init__(compute_engine=MultiOutputKernelComputation())
-        self.base_kernels = nnx.List(kernels)
-        self.coregionalization_matrices = nnx.List(coregionalization_matrices)
 
     @property
     def num_outputs(self) -> int:

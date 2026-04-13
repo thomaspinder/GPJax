@@ -15,22 +15,17 @@
 
 import typing as tp
 
-from flax import nnx
+import equinox as eqx
 import jax
 from jax.flatten_util import ravel_pytree
 import jax.numpy as jnp
 import jax.random as jr
-from numpyro.distributions.transforms import Transform
 import optax as ox
+import paramax
 from scipy.optimize import minimize
 
 from gpjax.dataset import Dataset
 from gpjax.objectives import Objective
-from gpjax.parameters import (
-    DEFAULT_BIJECTION,
-    Parameter,
-    transform,
-)
 from gpjax.scan import vscan
 from gpjax.typing import (
     Array,
@@ -38,7 +33,7 @@ from gpjax.typing import (
     ScalarFloat,
 )
 
-Model = tp.TypeVar("Model", bound=nnx.Module)
+Model = tp.TypeVar("Model", bound=eqx.Module)
 
 
 def fit(
@@ -47,8 +42,6 @@ def fit(
     objective: Objective,
     train_data: Dataset,
     optim: ox.GradientTransformation,
-    params_bijection: dict[Parameter, Transform] | None = DEFAULT_BIJECTION,
-    trainable: nnx.filterlib.Filter = Parameter,
     key: KeyArray = jr.key(42),
     num_iters: int = 100,
     batch_size: int = -1,
@@ -62,36 +55,27 @@ def fit(
 
     Example:
     ```pycon
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
-        >>> import jax.random as jr
         >>> import optax as ox
         >>> import gpjax as gpx
-        >>> from gpjax.parameters import PositiveReal
         >>>
-        >>> # (1) Create a dataset:
-        >>> X = jnp.linspace(0.0, 10.0, 100)[:, None]
-        >>> y = 2.0 * X + 1.0 + 10 * jr.normal(jr.key(0), X.shape)
-        >>> D = gpx.Dataset(X, y)
-        >>> # (2) Define your model:
-        >>> class LinearModel(nnx.Module):
-        >>>     def __init__(self, weight: float, bias: float):
-        >>>         self.weight = PositiveReal(weight)
-        >>>         self.bias = bias
+        >>> xtrain = jnp.linspace(0, 1, 50).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
         >>>
-        >>>     def __call__(self, x):
-        >>>         return self.weight[...] * x + self.bias
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
         >>>
-        >>> model = LinearModel(weight=1.0, bias=1.0)
-        >>>
-        >>> # (3) Define your loss function:
-        >>> def mse(model, data):
-        >>>     pred = model(data.X)
-        >>>     return jnp.mean((pred - data.y) ** 2)
-        >>>
-        >>> # (4) Train!
+        >>> nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
         >>> trained_model, history = gpx.fit(
-        >>>     model=model, objective=mse, train_data=D, optim=ox.sgd(0.001), num_iters=1000
-        >>> )
+        ...     model=posterior, objective=nmll, train_data=D,
+        ...     optim=ox.adam(0.01), num_iters=100, verbose=False,
+        ... )
     ```
 
     Args:
@@ -101,8 +85,6 @@ def fit(
         train_data (Dataset): The training data to be used for the optimisation.
         optim (GradientTransformation): The Optax optimiser that is to be used for
             learning a parameter set.
-        trainable (nnx.filterlib.Filter): Filter to determine which parameters are trainable.
-            Defaults to nnx.Param (all Parameter instances).
         num_iters (int): The number of optimisation steps to run. Defaults
             to 100.
         batch_size (int): The size of the mini-batch to use. Defaults to -1
@@ -129,53 +111,43 @@ def fit(
         _check_log_rate(log_rate)
         _check_verbose(verbose)
 
-    # Model state filtering
-    graphdef, params, *static_state = nnx.split(model, trainable, ...)
+    # Use paramax.unwrap for the constrained -> unconstrained -> constrained cycle.
+    # paramax handles the bijection automatically via AbstractUnwrappable subclasses.
 
-    # Parameters bijection to unconstrained space
-    if params_bijection is not None:
-        params = transform(params, params_bijection, inverse=True)
-
-    # Loss definition
-    def loss(params: nnx.State, batch: Dataset) -> ScalarFloat:
-        params = transform(params, params_bijection)
-        model = nnx.merge(graphdef, params, *static_state)
+    # Loss definition -- paramax.unwrap resolves all AbstractUnwrappable leaves
+    def loss(model: eqx.Module, batch: Dataset) -> ScalarFloat:
+        model = paramax.unwrap(model)
         return objective(model, batch)
 
     # Initialise optimiser state.
-    opt_state = optim.init(params)
+    opt_state = optim.init(eqx.filter(model, eqx.is_array))
 
     # Mini-batch random keys to scan over.
     iter_keys = jr.split(key, num_iters)
 
     # Optimisation step.
     def step(carry, key):
-        params, opt_state = carry
+        model, opt_state = carry
 
         if batch_size != -1:
             batch = get_batch(train_data, batch_size, key)
         else:
             batch = train_data
 
-        loss_val, loss_gradient = jax.value_and_grad(loss)(params, batch)
-        updates, opt_state = optim.update(loss_gradient, opt_state, params)
-        params = ox.apply_updates(params, updates)
+        loss_val, grads = eqx.filter_value_and_grad(loss)(model, batch)
+        updates, opt_state = optim.update(
+            grads, opt_state, eqx.filter(model, eqx.is_array)
+        )
+        model = eqx.apply_updates(model, updates)
 
-        carry = params, opt_state
+        carry = model, opt_state
         return carry, loss_val
 
     # Optimisation scan.
     scan = vscan if verbose else jax.lax.scan
 
     # Optimisation loop.
-    (params, _), history = scan(step, (params, opt_state), (iter_keys), unroll=unroll)
-
-    # Parameters bijection to constrained space
-    if params_bijection is not None:
-        params = transform(params, params_bijection)
-
-    # Reconstruct model
-    model = nnx.merge(graphdef, params, *static_state)
+    (model, _), history = scan(step, (model, opt_state), (iter_keys), unroll=unroll)
 
     return model, history
 
@@ -185,7 +157,6 @@ def fit_scipy(
     model: Model,
     objective: Objective,
     train_data: Dataset,
-    trainable: nnx.filterlib.Filter = Parameter,
     max_iters: int = 500,
     verbose: bool = True,
     safe: bool = True,
@@ -206,9 +177,6 @@ def fit_scipy(
         parameters.
     train_data : Dataset
         The training data used to evaluate the objective.
-    trainable : nnx.filterlib.Filter
-        Filter selecting which parameters to optimise. Defaults to all
-        ``Parameter`` instances.
     max_iters : int
         Maximum number of L-BFGS-B iterations. Defaults to 500.
     verbose : bool
@@ -223,6 +191,8 @@ def fit_scipy(
         recorded at each iteration.
 
     Example:
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
         >>> import gpjax as gpx
         >>> import jax.numpy as jnp
 
@@ -248,16 +218,13 @@ def fit_scipy(
         _check_num_iters(max_iters)
         _check_verbose(verbose)
 
-    # Model state filtering
-    graphdef, params, *static_state = nnx.split(model, trainable, ...)
-
-    # Parameters bijection to unconstrained space
-    params = transform(params, DEFAULT_BIJECTION, inverse=True)
+    # Split model into trainable arrays and static parts
+    params, static = eqx.partition(model, eqx.is_array)
 
     # Loss definition
     def loss(params) -> ScalarFloat:
-        params = transform(params, DEFAULT_BIJECTION)
-        model = nnx.merge(graphdef, params, *static_state)
+        model = eqx.combine(params, static)
+        model = paramax.unwrap(model)
         return objective(model, train_data)
 
     # convert to numpy for interface with scipy
@@ -279,14 +246,11 @@ def fit_scipy(
     )
     history = jnp.array(history)
 
-    # convert back to nnx.State with JAX arrays
+    # convert back to pytree with JAX arrays
     params = scipy_to_jnp(result.x)
 
-    # Parameters bijection to constrained space
-    params = transform(params, DEFAULT_BIJECTION)
-
     # Reconstruct model
-    model = nnx.merge(graphdef, params, *static_state)
+    model = eqx.combine(params, static)
 
     return model, history
 
@@ -296,8 +260,6 @@ def fit_lbfgs(
     model: Model,
     objective: Objective,
     train_data: Dataset,
-    params_bijection: dict[Parameter, Transform] | None = DEFAULT_BIJECTION,
-    trainable: nnx.filterlib.Filter = Parameter,
     max_iters: int = 100,
     safe: bool = True,
     max_linesearch_steps: int = 32,
@@ -315,12 +277,6 @@ def fit_lbfgs(
         The objective function to minimise.
     train_data : Dataset
         The training data used to evaluate the objective.
-    params_bijection : dict[Parameter, Transform] | None
-        Bijection used to transform parameters to unconstrained space.
-        Defaults to ``DEFAULT_BIJECTION``.
-    trainable : nnx.filterlib.Filter
-        Filter selecting which parameters to optimise. Defaults to all
-        ``Parameter`` instances.
     max_iters : int
         Maximum number of L-BFGS iterations. Defaults to 100.
     safe : bool
@@ -337,10 +293,12 @@ def fit_lbfgs(
         A tuple of the optimised model and the final loss value.
 
     Example:
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
         >>> import gpjax as gpx
         >>> import jax.numpy as jnp
 
-        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> xtrain = jnp.linspace(0, 1, 20).reshape(-1, 1)
         >>> ytrain = jnp.sin(xtrain)
         >>> D = gpx.Dataset(X=xtrain, y=ytrain)
 
@@ -361,17 +319,13 @@ def fit_lbfgs(
         _check_train_data(train_data)
         _check_num_iters(max_iters)
 
-    # Model state filtering
-    graphdef, params, *static_state = nnx.split(model, trainable, ...)
-
-    # Parameters bijection to unconstrained space
-    if params_bijection is not None:
-        params = transform(params, params_bijection, inverse=True)
+    # Split model into trainable arrays and static parts
+    params, static = eqx.partition(model, eqx.is_array)
 
     # Loss definition
-    def loss(params: nnx.State) -> ScalarFloat:
-        params = transform(params, params_bijection)
-        model = nnx.merge(graphdef, params, *static_state)
+    def loss(params) -> ScalarFloat:
+        model = eqx.combine(params, static)
+        model = paramax.unwrap(model)
         return objective(model, train_data)
 
     # Initialise optimiser
@@ -389,7 +343,6 @@ def fit_lbfgs(
         params, opt_state = carry
 
         # Using optax's value_and_grad_from_state is more efficient given LBFGS uses a linesearch
-        # See https://optax.readthedocs.io/en/latest/api/utilities.html#optax.value_and_grad_from_state
         loss_val, loss_gradient = loss_value_and_grad(params, state=opt_state)
         updates, opt_state = optim.update(
             loss_gradient,
@@ -418,12 +371,8 @@ def fit_lbfgs(
     )
     final_loss = ox.tree_utils.tree_get(opt_state, "value")
 
-    # Parameters bijection to constrained space
-    if params_bijection is not None:
-        params = transform(params, params_bijection)
-
     # Reconstruct model
-    model = nnx.merge(graphdef, params, *static_state)
+    model = eqx.combine(params, static)
 
     return model, final_loss
 
@@ -462,10 +411,10 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
 
 
 def _check_model(model: tp.Any) -> None:
-    """Check that the model is a subclass of nnx.Module."""
-    if not isinstance(model, nnx.Module):
+    """Check that the model is a subclass of eqx.Module."""
+    if not isinstance(model, eqx.Module):
         raise TypeError(
-            "Expected model to be a subclass of nnx.Module. "
+            "Expected model to be a subclass of eqx.Module. "
             f"Got {model} of type {type(model)}."
         )
 

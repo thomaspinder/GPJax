@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -23,6 +22,10 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import use_mpl_style
+from gpjax.kernels.base import _val
+from gpjax.kernels.computations import DenseKernelComputation
+from gpjax.parameters import PositiveReal
 from jax import config
 from jax.nn import softplus
 import jax.numpy as jnp
@@ -33,22 +36,12 @@ from jaxtyping import (
     install_import_hook,
 )
 import matplotlib.pyplot as plt
-from numpyro.distributions import constraints
-import numpyro.distributions.transforms as npt
-
-from examples.utils import use_mpl_style
-from gpjax.kernels.computations import DenseKernelComputation
-from gpjax.parameters import (
-    DEFAULT_BIJECTION,
-    PositiveReal,
-)
 
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 # set the default style for plotting
@@ -97,7 +90,7 @@ for k, ax, c in zip(kernels, axes.ravel(), cols, strict=False):
     rv = prior(x)
     y = rv.sample(key=jr.key(22), sample_shape=(10,))
     ax.plot(x, y.T, alpha=0.7, color=c)
-    ax.set_title(k.name)
+    ax.set_title(type(k).__name__)
 
 # %% [markdown]
 # ### Active dimensions
@@ -129,7 +122,7 @@ print(f"Lengthscales: {slice_kernel.lengthscale}")
 x_matrix = jr.normal(key, shape=(50, 5))
 
 # Compute the Gram matrix
-K = slice_kernel.gram(x_matrix)
+K = slice_kernel.gram(x_matrix).as_matrix()
 print(K.shape)
 
 # %% [markdown]
@@ -146,9 +139,9 @@ k2 = gpx.kernels.Polynomial()
 sum_k = gpx.kernels.SumKernel(kernels=[k1, k2])
 
 fig, ax = plt.subplots(ncols=3, figsize=(9, 3))
-im0 = ax[0].matshow(k1.gram(x).to_dense())
-im1 = ax[1].matshow(k2.gram(x).to_dense())
-im2 = ax[2].matshow(sum_k.gram(x).to_dense())
+im0 = ax[0].matshow(k1.gram(x).as_matrix())
+im1 = ax[1].matshow(k2.gram(x).as_matrix())
+im2 = ax[2].matshow(sum_k.gram(x).as_matrix())
 
 fig.colorbar(im0, ax=ax[0], fraction=0.05)
 fig.colorbar(im1, ax=ax[1], fraction=0.05)
@@ -163,10 +156,10 @@ k3 = gpx.kernels.Matern32()
 prod_k = gpx.kernels.ProductKernel(kernels=[k1, k2, k3])
 
 fig, ax = plt.subplots(ncols=4, figsize=(12, 3))
-im0 = ax[0].matshow(k1.gram(x).to_dense())
-im1 = ax[1].matshow(k2.gram(x).to_dense())
-im2 = ax[2].matshow(k3.gram(x).to_dense())
-im3 = ax[3].matshow(prod_k.gram(x).to_dense())
+im0 = ax[0].matshow(k1.gram(x).as_matrix())
+im1 = ax[1].matshow(k2.gram(x).as_matrix())
+im2 = ax[2].matshow(k3.gram(x).as_matrix())
+im3 = ax[3].matshow(prod_k.gram(x).as_matrix())
 
 fig.colorbar(im0, ax=ax[0], fraction=0.05)
 fig.colorbar(im1, ax=ax[1], fraction=0.05)
@@ -225,29 +218,6 @@ def angular_distance(x, y, c):
     return jnp.abs((x - y + c) % (c * 2) - c)
 
 
-class ShiftedSoftplusTransform(npt.ParameterFreeTransform):
-    r"""
-    Transform from unconstrained space to the domain [4, infinity) via
-    :math:`y = 4 + \log(1 + \exp(x))`. The inverse is computed as
-    :math:`x = \log(\exp(y - 4) - 1)`.
-    """
-
-    domain = constraints.real
-    codomain = constraints.interval(4.0, jnp.inf)  # updated codomain
-
-    def __call__(self, x):
-        return 4.0 + softplus(x)  # shift the softplus output by 4
-
-    def _inverse(self, y):
-        return npt._softplus_inv(y - 4.0)  # subtract the shift in the inverse
-
-    def log_abs_det_jacobian(self, x, y, intermediates=None):
-        return -softplus(-x)
-
-
-DEFAULT_BIJECTION["polar"] = ShiftedSoftplusTransform()
-
-
 class Polar(gpx.kernels.AbstractKernel):
     period: float
     tau: PositiveReal
@@ -261,16 +231,15 @@ class Polar(gpx.kernels.AbstractKernel):
     ):
         super().__init__(active_dims, n_dims, DenseKernelComputation())
         self.period = jnp.array(period)
-        self.tau = PositiveReal(jnp.array(tau), tag="polar")
+        self.tau = PositiveReal(jnp.array(tau - 4.0))
 
     def __call__(
         self, x: Float[Array, "1 D"], y: Float[Array, "1 D"]
     ) -> Float[Array, "1"]:
         c = self.period / 2.0
         t = angular_distance(x, y, c)
-        K = (1 + self.tau[...] * t / c) * jnp.clip(1 - t / c, 0, jnp.inf) ** self.tau[
-            ...
-        ]
+        tau = 4.0 + _val(self.tau)
+        K = (1 + tau * t / c) * jnp.clip(1 - t / c, 0, jnp.inf) ** tau
         return K.squeeze()
 
 
@@ -281,9 +250,8 @@ class Polar(gpx.kernels.AbstractKernel):
 # function which is a direct implementation of Equation (1) where we define `c`
 # as half the value of `period`.
 #
-# To constrain $\tau$ to be greater than 4, we use a `Softplus` bijector with a
-# clipped lower bound of 4.0. This is done by specifying the `bijector` argument
-# when we define the parameter field.
+# To constrain $\tau \geq 4$, we store $\tau - 4$ as a `PositiveReal` (which
+# applies softplus internally) and add 4 back in `__call__`.
 
 # %% [markdown]
 # ### Using our polar kernel
@@ -315,7 +283,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=circular_posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
-    trainable=Parameter,
 )
 
 # %% [markdown]

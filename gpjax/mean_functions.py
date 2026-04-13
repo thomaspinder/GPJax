@@ -18,27 +18,27 @@ import abc
 import functools as ft
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import (
     Float,
     Num,
 )
+from paramax import AbstractUnwrappable
 
-from gpjax.parameters import (
-    Parameter,
-)
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
 
 
-class AbstractMeanFunction(nnx.Module):
-    r"""Mean function that is used to parameterise the Gaussian process."""
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
-    def __init__(self) -> None:
-        super().__init__()
+
+class AbstractMeanFunction(eqx.Module):
+    r"""Mean function that is used to parameterise the Gaussian process."""
 
     @abc.abstractmethod
     def __call__(self, x: Num[Array, "N D"]) -> Float[Array, "N O"]:
@@ -128,11 +128,13 @@ class Constant(AbstractMeanFunction):
     learned during training but defaults to 1.0.
     """
 
+    constant: tp.Any
+
     def __init__(
         self,
-        constant: tp.Union[ScalarFloat, Float[Array, " O"], Parameter] = 0.0,
+        constant: tp.Union[ScalarFloat, Float[Array, " O"], AbstractUnwrappable] = 0.0,
     ):
-        if isinstance(constant, Parameter):
+        if isinstance(constant, AbstractUnwrappable):
             self.constant = constant
         else:
             self.constant = jnp.array(constant)
@@ -146,10 +148,7 @@ class Constant(AbstractMeanFunction):
         Returns:
             Float[Array, "1"]: The evaluated mean function.
         """
-        if isinstance(self.constant, Parameter):
-            return jnp.ones((x.shape[0], 1), dtype=x.dtype) * self.constant[...]
-        else:
-            return jnp.ones((x.shape[0], 1), dtype=x.dtype) * self.constant
+        return jnp.ones((x.shape[0], 1), dtype=x.dtype) * _val(self.constant)
 
 
 class Zero(Constant):
@@ -167,16 +166,17 @@ class Zero(Constant):
 class CombinationMeanFunction(AbstractMeanFunction):
     r"""A base class for products or sums of AbstractMeanFunctions."""
 
+    means: list
+    operator: tp.Callable = eqx.field(static=True)
+
     def __init__(
         self,
         means: list[AbstractMeanFunction],
         operator: tp.Callable,
         **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
-
         # Add means to a list, flattening out instances of this class therein, as in GPFlow kernels.
-        items_list: list[AbstractMeanFunction] = nnx.List([])
+        items_list: list[AbstractMeanFunction] = []
 
         for item in means:
             if not isinstance(item, AbstractMeanFunction):
@@ -204,12 +204,19 @@ class CombinationMeanFunction(AbstractMeanFunction):
         return self.operator(jnp.stack([m(x) for m in self.means]))
 
 
-SumMeanFunction = ft.partial(
-    CombinationMeanFunction, operator=ft.partial(jnp.sum, axis=0)
-)
-ProductMeanFunction = ft.partial(
-    CombinationMeanFunction, operator=ft.partial(jnp.prod, axis=0)
-)
+class SumMeanFunction(CombinationMeanFunction):
+    """Sum of mean functions."""
+
+    def __init__(self, means: list[AbstractMeanFunction]):
+        super().__init__(means=means, operator=ft.partial(jnp.sum, axis=0))
+
+
+class ProductMeanFunction(CombinationMeanFunction):
+    """Product of mean functions."""
+
+    def __init__(self, means: list[AbstractMeanFunction]):
+        super().__init__(means=means, operator=ft.partial(jnp.prod, axis=0))
+
 
 __all__ = [
     "AbstractMeanFunction",

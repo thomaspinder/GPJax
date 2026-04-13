@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -23,6 +22,8 @@
 
 # %%
 # Enable Float64 for more stable matrix inversions.
+from examples.utils import use_mpl_style
+from gpjax.typing import Array
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -36,15 +37,11 @@ import optax as ox
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from examples.utils import use_mpl_style
-from gpjax.typing import Array
-
 config.update("jax_enable_x64", True)
 
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
-    from gpjax.parameters import Parameter
 
 
 key = jr.key(42)
@@ -206,7 +203,7 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
     rv = prior(x)
     y = rv.sample(key=key, sample_shape=(10,))
     ax.plot(x, y.T, alpha=0.7)
-    ax.set_title(k.name)
+    ax.set_title(type(k).__name__)
 
 
 # %% [markdown]
@@ -281,7 +278,6 @@ opt_posterior, history = gpx.fit_scipy(
     model=no_opt_posterior,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
-    trainable=Parameter,
 )
 
 
@@ -547,9 +543,7 @@ def loss(posterior, data):
     return -gpx.objectives.conjugate_mll(posterior, data)
 
 
-# Optimize all parameters. Alternative filtering strategies available:
-# - trainable=gpx.PositiveReal: train only positive parameters
-# - custom filters for specific parameter subsets
+# Optimize all parameters.
 opt_posterior, history = gpx.fit(
     model=posterior,
     objective=loss,
@@ -557,7 +551,6 @@ opt_posterior, history = gpx.fit(
     optim=ox.adamw(learning_rate=1e-2),
     num_iters=500,
     key=key,
-    trainable=Parameter,  # train all parameters (default)
 )
 
 

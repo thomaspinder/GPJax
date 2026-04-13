@@ -15,7 +15,6 @@ from gpjax.kernels.non_euclidean.utils import (
     calculate_heat_semigroup,
     jax_gather_nd,
 )
-from gpjax.linalg.operators import Identity
 from jax import (
     config,
     jit,
@@ -45,16 +44,16 @@ def test_graph_kernel():
     )
     assert isinstance(kern, GraphKernel)
     assert kern.num_vertex == n_verticies
-    assert kern.eigenvalues.shape == (n_verticies, 1)
-    assert kern.eigenvectors.shape == (n_verticies, n_verticies)
+    assert kern.eigenvalues.unwrap().shape == (n_verticies, 1)
+    assert kern.eigenvectors.unwrap().shape == (n_verticies, n_verticies)
 
     # Compute gram matrix
     Kxx = kern.gram(x)
-    assert Kxx.shape == (n_verticies, n_verticies)
+    assert Kxx.as_matrix().shape == (n_verticies, n_verticies)
 
     # Check positive definiteness
-    Kxx += Identity(Kxx.shape[0]) * 1e-6
-    eigen_values = jnp.linalg.eigvalsh(Kxx.to_dense())
+    Kxx_dense = Kxx.as_matrix() + jnp.eye(n_verticies) * 1e-6
+    eigen_values = jnp.linalg.eigvalsh(Kxx_dense)
     assert all(eigen_values > 0)
 
 
@@ -202,5 +201,5 @@ class TestCalculateHeatSemigroup:
     def test_sums_to_num_vertex_times_variance(self, graph_kernel):
         """The sum of S should equal num_vertex * variance (by construction)."""
         S = calculate_heat_semigroup(graph_kernel)
-        expected_sum = graph_kernel.num_vertex * graph_kernel.variance[...]
+        expected_sum = graph_kernel.num_vertex * graph_kernel.variance.unwrap()
         assert jnp.allclose(jnp.sum(S), expected_sum, atol=1e-5)

@@ -1,11 +1,13 @@
 from typing import TypeVar
 
-from flax import nnx
+import equinox as eqx
 from jax import vmap
 import jax.numpy as jnp
 import jax.scipy as jsp
 from jaxtyping import Float
+import lineax as lx
 import numpyro.distributions as npd
+from paramax import AbstractUnwrappable
 import typing_extensions as tpe
 
 from gpjax.dataset import Dataset
@@ -16,12 +18,6 @@ from gpjax.gps import (
 )
 from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
-)
-from gpjax.linalg import (
-    Dense,
-    lower_cholesky,
-    psd,
-    solve,
 )
 from gpjax.linalg.utils import add_jitter
 from gpjax.typing import (
@@ -37,7 +33,12 @@ VF = TypeVar("VF", bound=AbstractVariationalFamily)
 HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
 
 
-Objective = tpe.Callable[[nnx.Module, Dataset], ScalarFloat]
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
+Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
 
 
 def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
@@ -114,15 +115,15 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
                 f"but kernel expects {kernel.num_outputs}."
             )
 
-    # Unified path — prepare_targets is identity for single-output,
+    # Unified path -- prepare_targets is identity for single-output,
     # output-major reshape for multi-output
     y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
     noise = posterior.likelihood.noise_vector(data.n)
 
     Kxx = kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
+    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
     Sigma_dense = Kxx_dense + jnp.diag(noise)
-    Sigma = psd(Dense(Sigma_dense))
+    Sigma = lx.MatrixLinearOperator(Sigma_dense)
 
     mll = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
     return mll.log_prob(jnp.atleast_1d(y_flat.squeeze())).squeeze()
@@ -177,20 +178,20 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
 
     x, y = data.X, data.y
 
-    # Observation noise o²
-    obs_var = posterior.likelihood.obs_stddev[...] ** 2
+    # Observation noise o^2
+    obs_var = _val(posterior.likelihood.obs_stddev) ** 2
 
     mx = posterior.prior.mean_function(x)  # [N, M]
 
-    # Σ = (Kxx + Io²)
+    # Sigma = (Kxx + I o^2)
     Kxx = posterior.prior.kernel.gram(x)
-    Sigma_dense = Kxx.to_dense() + jnp.eye(Kxx.shape[0]) * (
-        obs_var + posterior.prior.jitter
-    )
-    Sigma = psd(Dense(Sigma_dense))  # [N, N]
-
-    Sigma_inv_y = solve(Sigma, y - mx)  # [N, 1]
-    Sigma_inv = jnp.linalg.inv(Sigma.to_dense())
+    Kxx_dense = Kxx.as_matrix()
+    n_pts = Kxx_dense.shape[0]
+    Sigma_dense = Kxx_dense + jnp.eye(n_pts) * (obs_var + posterior.prior.jitter)
+    # Use dense solve for loocv
+    L = jnp.linalg.cholesky(Sigma_dense)
+    Sigma_inv_y = jsp.linalg.cho_solve((L, True), y - mx)  # [N, 1]
+    Sigma_inv = jnp.linalg.inv(Sigma_dense)
     Sigma_inv_diag = jnp.diag(Sigma_inv)[:, None]  # [N, 1]
 
     loocv_means = mx + (y - mx) - Sigma_inv_y / Sigma_inv_diag
@@ -253,23 +254,22 @@ def log_posterior_density(
 
     # Gram matrix
     Kxx = posterior.prior.kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
-    Kxx = psd(Dense(Kxx_dense))
-    Lx = lower_cholesky(Kxx)
+    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
+    Lx = jnp.linalg.cholesky(Kxx_dense)
 
     # Compute the prior mean function
     mx = posterior.prior.mean_function(x)
 
     # Whitened function values, wx, corresponding to the inputs, x
-    wx = posterior.latent[...]
+    wx = _val(posterior.latent)
 
-    # f(x) = mx  +  Lx wx
+    # f(x) = mx + Lx wx
     fx = mx + Lx @ wx
 
-    # p(y | f(x), θ), where θ are the model hyperparameters
+    # p(y | f(x), theta), where theta are the model hyperparameters
     likelihood = posterior.likelihood.link_function(fx)
 
-    # Whitened latent function values prior, p(wx | θ) = N(0, I)
+    # Whitened latent function values prior, p(wx | theta) = N(0, I)
     latent_prior = npd.Normal(loc=0.0, scale=1.0)
     return likelihood.log_prob(y).sum() + latent_prior.log_prob(wx).sum()
 
@@ -319,13 +319,13 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     ScalarFloat
         The evidence lower bound of the variational approximation.
     """
-    # KL[q(f(·)) || p(f(·))]
+    # KL[q(f(.)) || p(f(.))]
     kl = variational_family.prior_kl()
 
-    # ∫[log(p(y|f(·))) q(f(·))] df(·)
+    # int[log(p(y|f(.))) q(f(.))] df(.)
     var_exp = variational_expectation(variational_family, data)
 
-    # For batch size b, we compute  n/b * Σᵢ[ ∫log(p(y|f(xᵢ))) q(f(xᵢ)) df(xᵢ)] - KL[q(f(·)) || p(f(·))]
+    # For batch size b, we compute  n/b * sum_i[ int log(p(y|f(xi))) q(f(xi)) df(xi)] - KL[q(f(.)) || p(f(.))]
     return (
         jnp.sum(var_exp)
         * variational_family.posterior.likelihood.num_datapoints
@@ -378,12 +378,12 @@ def variational_expectation(
     # Unpack training batch
     x, y = data.X, data.y
 
-    # Variational distribution q(f(·)) = N(f(·); μ(·), Σ(·, ·))
+    # Variational distribution q(f(.)) = N(f(.); mu(.), Sigma(., .))
     q = variational_family
 
     # TODO: This needs cleaning up! We are squeezing then broadcasting `mean` and `variance`, which is not ideal.
 
-    # Compute variational mean, μ(x), and variance, diag(Σ(x, x)), at the training
+    # Compute variational mean, mu(x), and variance, diag(Sigma(x, x)), at the training
     # inputs, x
     def q_moments(x):
         qx = q(x)
@@ -391,7 +391,7 @@ def variational_expectation(
 
     mean, variance = vmap(q_moments)(x[:, None])
 
-    # ≈ ∫[log(p(y|f(x))) q(f(x))] df(x)
+    # approx int[log(p(y|f(x))) q(f(x))] df(x)
     expectation = q.posterior.likelihood.expected_log_likelihood(
         y, mean[:, None], variance[:, None]
     )
@@ -452,79 +452,78 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
     m = variational_family.num_inducing
 
-    noise = variational_family.posterior.likelihood.obs_stddev[...] ** 2
-    z = variational_family.inducing_inputs[...]
+    noise = _val(variational_family.posterior.likelihood.obs_stddev) ** 2
+    z = _val(variational_family.inducing_inputs)
     Kzz = kernel.gram(z)
-    Kzz_dense = add_jitter(Kzz.to_dense(), variational_family.jitter)
-    Kzz = psd(Dense(Kzz_dense))
+    Kzz_dense = add_jitter(Kzz.as_matrix(), variational_family.jitter)
     Kzx = kernel.cross_covariance(z, x)
     Kxx_diag = vmap(kernel, in_axes=(0, 0))(x, x)
-    μx = mean_function(x)
+    mux = mean_function(x)
 
-    Lz = lower_cholesky(Kzz)
+    Lz = jnp.linalg.cholesky(Kzz_dense)
 
     # Notation and derivation:
     #
-    # Let Q = KxzKzz⁻¹Kzx, we must compute the log normal pdf:
+    # Let Q = KxzKzz^{-1}Kzx, we must compute the log normal pdf:
     #
-    #   log N(y; μx, o²I + Q) = -nπ - n/2 log|o²I + Q|
-    #   - 1/2 (y - μx)ᵀ (o²I + Q)⁻¹ (y - μx).
+    #   log N(y; mux, o^2 I + Q) = -n pi - n/2 log|o^2 I + Q|
+    #   - 1/2 (y - mux)^T (o^2 I + Q)^{-1} (y - mux).
     #
-    # The log determinant |o²I + Q| is computed via applying the matrix determinant
+    # The log determinant |o^2 I + Q| is computed via applying the matrix determinant
     #   lemma
     #
-    #   |o²I + Q| = log|o²I| + log|I + Lz⁻¹ Kzx (o²I)⁻¹ Kxz Lz⁻¹| = log(o²) +  log|B|,
+    #   |o^2 I + Q| = log|o^2 I| + log|I + Lz^{-1} Kzx (o^2 I)^{-1} Kxz Lz^{-1}| = log(o^2) + log|B|,
     #
-    #   with B = I + AAᵀ and A = Lz⁻¹ Kzx / o.
+    #   with B = I + AA^T and A = Lz^{-1} Kzx / o.
     #
-    # Similarly we apply matrix inversion lemma to invert o²I + Q
+    # Similarly we apply matrix inversion lemma to invert o^2 I + Q
     #
-    #   (o²I + Q)⁻¹ = (Io²)⁻¹ - (Io²)⁻¹ Kxz Lz⁻ᵀ (I + Lz⁻¹ Kzx (Io²)⁻¹ Kxz Lz⁻ᵀ )⁻¹ Lz⁻¹ Kzx (Io²)⁻¹
-    #               = (Io²)⁻¹ - (Io²)⁻¹ oAᵀ (I + oA (Io²)⁻¹ oAᵀ)⁻¹ oA (Io²)⁻¹
-    #               = I/o² - Aᵀ B⁻¹ A/o²,
+    #   (o^2 I + Q)^{-1} = (I o^2)^{-1} - (I o^2)^{-1} Kxz Lz^{-T} (I + Lz^{-1} Kzx (I o^2)^{-1} Kxz Lz^{-T})^{-1} Lz^{-1} Kzx (I o^2)^{-1}
+    #               = (I o^2)^{-1} - (I o^2)^{-1} o A^T (I + o A (I o^2)^{-1} o A^T)^{-1} o A (I o^2)^{-1}
+    #               = I/o^2 - A^T B^{-1} A / o^2,
     #
     # giving the quadratic term as
     #
-    #   (y - μx)ᵀ (o²I + Q)⁻¹ (y - μx) = [(y - μx)ᵀ(y - µx)  - (y - μx)ᵀ Aᵀ B⁻¹ A (y - μx)]/o²,
+    #   (y - mux)^T (o^2 I + Q)^{-1} (y - mux) = [(y - mux)^T(y - mux) - (y - mux)^T A^T B^{-1} A (y - mux)] / o^2,
     #
     #   with A and B defined as above.
 
-    A = solve(Lz, Kzx) / jnp.sqrt(noise)
+    A = jsp.linalg.solve_triangular(Lz, Kzx, lower=True) / jnp.sqrt(noise)
 
-    # AAᵀ
+    # AA^T
     AAT = jnp.matmul(A, A.T)
 
-    # B = I + AAᵀ
+    # B = I + AA^T
     B = jnp.eye(m) + AAT
 
-    # LLᵀ = I + AAᵀ
+    # LL^T = I + AA^T
     L = jnp.linalg.cholesky(B)
 
-    # log|B| = 2 trace(log|L|) = 2 Σᵢ log Lᵢᵢ  [since |B| = |LLᵀ| = |L|²  => log|B| = 2 log|L|, and |L| = Πᵢ Lᵢᵢ]
+    # log|B| = 2 trace(log|L|) = 2 sum_i log L_ii
     log_det_B = 2.0 * jnp.sum(jnp.log(jnp.diagonal(L)))
 
-    diff = y - μx
+    diff = y - mux
 
-    # L⁻¹ A (y - μx)
+    # L^{-1} A (y - mux)
     L_inv_A_diff = jsp.linalg.solve_triangular(L, jnp.matmul(A, diff), lower=True)
 
-    # (y - μx)ᵀ (Io² + Q)⁻¹ (y - μx)
+    # (y - mux)^T (I o^2 + Q)^{-1} (y - mux)
     quad = (jnp.sum(diff**2) - jnp.sum(L_inv_A_diff**2)) / noise
 
-    # 2 * log N(y; μx, Io² + Q)
+    # 2 * log N(y; mux, I o^2 + Q)
     two_log_prob = -n * jnp.log(2.0 * jnp.pi * noise) - log_det_B - quad
 
-    # 1/o² tr(Kxx - Q) [Trace law tr(AB) = tr(BA) => tr(KxzKzz⁻¹Kzx) = tr(KxzLz⁻ᵀLz⁻¹Kzx) = tr(Lz⁻¹Kzx KxzLz⁻ᵀ) = trace(o²AAᵀ)]
+    # 1/o^2 tr(Kxx - Q)
     two_trace = jnp.sum(Kxx_diag) / noise - jnp.trace(AAT)
 
-    # log N(y; μx, Io² + KxzKzz⁻¹Kzx) - 1/2o² tr(Kxx - KxzKzz⁻¹Kzx)
+    # log N(y; mux, I o^2 + Kxz Kzz^{-1} Kzx) - 1/(2 o^2) tr(Kxx - Kxz Kzz^{-1} Kzx)
     return (two_log_prob - two_trace).squeeze() / 2.0
 
 
 def heteroscedastic_elbo_conjugate(
     variational_family: HVF, data: Dataset
 ) -> ScalarFloat:
-    r"""Tight bound from Lázaro-Gredilla & Titsias (2011) for heteroscedastic Gaussian likelihoods."""
+    r"""Tight bound from Lazaro-Gredilla & Titsias (2011) for heteroscedastic Gaussian likelihoods."""
     likelihood = variational_family.posterior.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from flax import nnx
+import equinox as eqx
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import (
@@ -30,7 +30,6 @@ from gpjax.likelihoods import (
 )
 from gpjax.mean_functions import Zero
 from gpjax.objectives import heteroscedastic_elbo
-from gpjax.parameters import Parameter
 from gpjax.variational_families import (
     HeteroscedasticPrediction,
     HeteroscedasticVariationalFamily,
@@ -44,9 +43,15 @@ import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import lineax as lx
+import paramax
 import pytest
 
 config.update("jax_enable_x64", True)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:A JAX array is being set as static:UserWarning"
+)
 
 
 @pytest.fixture
@@ -105,7 +110,7 @@ def test_likelihood_callable_compatibility(noise_prior):
 def test_heteroscedastic_gaussian_validation(noise_prior, dataset):
     lik = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
     # Construct a valid GaussianDistribution to satisfy jaxtyping
-    scale = gpx.linalg.Dense(jnp.eye(10))
+    scale = lx.MatrixLinearOperator(jnp.eye(10))
     dist = gpx.distributions.GaussianDistribution(loc=jnp.zeros(10), scale=scale)
 
     # Test predict raises ValueError if noise_dist is None
@@ -169,9 +174,10 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
 
     # Allow for some MC error and quadrature approximation error
     rtol = 0.15
-    assert jnp.allclose(moments.variance, mc_variance, rtol=rtol)
-    assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol)
-    assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol)
+    atol = 0.02  # absolute tolerance for values near zero
+    assert jnp.allclose(moments.variance, mc_variance, rtol=rtol, atol=atol)
+    assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol, atol=atol)
+    assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol, atol=atol)
 
 
 def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
@@ -223,15 +229,15 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
         posterior=posterior, signal_init=signal_init, noise_init=noise_init
     )
 
-    assert jnp.allclose(q.signal_variational.inducing_inputs[...], inducing_inputs)
-    assert jnp.allclose(q.noise_variational.inducing_inputs[...], noise_inducing)
+    assert jnp.allclose(q.signal_variational.inducing_inputs.unwrap(), inducing_inputs)
+    assert jnp.allclose(q.noise_variational.inducing_inputs.unwrap(), noise_inducing)
 
     # Test initialization inference (noise inferred from signal)
     q_inferred = HeteroscedasticVariationalFamily(
         posterior=posterior, signal_init=signal_init
     )
     assert jnp.allclose(
-        q_inferred.noise_variational.inducing_inputs[...], inducing_inputs
+        q_inferred.noise_variational.inducing_inputs.unwrap(), inducing_inputs
     )
 
 
@@ -280,19 +286,18 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
 
     for likelihood_cls in (HeteroscedasticGaussian, SoftplusHeteroscedastic):
         variational = _build_variational(likelihood_cls)
-        graphdef, params, *state = nnx.split(variational, Parameter, ...)
+        params, static = eqx.partition(variational, eqx.is_array)
 
-        def loss(p, graphdef=graphdef, state=state):
-            model = nnx.merge(graphdef, p, *state)
+        def loss(p, static=static):
+            model = paramax.unwrap(eqx.combine(p, static))
             return -heteroscedastic_elbo(model, dataset)
 
         loss_val = loss(params)
         loss_jit = jax.jit(loss)(params)
-        grads = jax.grad(loss)(params)
+        _ = jax.grad(loss)(params)
 
         assert jnp.isfinite(loss_val)
         assert jnp.isfinite(loss_jit)
-        assert isinstance(grads, nnx.State)
 
 
 def test_jit_prediction(prior, noise_prior, dataset):
@@ -302,8 +307,11 @@ def test_jit_prediction(prior, noise_prior, dataset):
     posterior = prior * likelihood
     q = HeteroscedasticVariationalFamily(posterior=posterior, inducing_inputs=dataset.X)
 
-    # JIT compile the predict method
-    predict_jit = jax.jit(q.predict)
+    # JIT compile the predict call via a wrapper function
+    @jax.jit
+    def predict_jit(x):
+        return q.predict(x)
+
     mf, _vf, _mg, _vg = predict_jit(dataset.X)
 
     assert mf.shape == (dataset.n, 1)
@@ -334,8 +342,12 @@ def test_jit_likelihood_prediction(dataset, prior, noise_prior):
     # JIT compile likelihood prediction
     # We pass arrays and reconstruct distributions inside to ensure Pytree safety
     def lik_predict(f_mean, f_cov, g_mean, g_cov):
-        f = gpx.distributions.GaussianDistribution(f_mean, gpx.linalg.Dense(f_cov))
-        g = gpx.distributions.GaussianDistribution(g_mean, gpx.linalg.Dense(g_cov))
+        f = gpx.distributions.GaussianDistribution(
+            f_mean, lx.MatrixLinearOperator(f_cov)
+        )
+        g = gpx.distributions.GaussianDistribution(
+            g_mean, lx.MatrixLinearOperator(g_cov)
+        )
         return likelihood.predict(f, g).mean
 
     lik_predict_jit = jax.jit(lik_predict)

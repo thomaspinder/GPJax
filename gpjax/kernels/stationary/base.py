@@ -15,12 +15,12 @@
 
 
 import beartype.typing as tp
-from flax import nnx
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
+from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.base import AbstractKernel, _compute_base_init
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -48,14 +48,14 @@ class StationaryKernel(AbstractKernel):
     for each input dimension.
     """
 
-    lengthscale: nnx.Variable[Lengthscale]
-    variance: nnx.Variable[ScalarArray]
+    lengthscale: AbstractUnwrappable
+    variance: AbstractUnwrappable
 
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
-        lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]] = 1.0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -74,25 +74,26 @@ class StationaryKernel(AbstractKernel):
                 covariance matrix.
         """
 
-        super().__init__(active_dims, n_dims, compute_engine)
-        self.n_dims = _validate_lengthscale(lengthscale, self.n_dims)
-        if isinstance(lengthscale, nnx.Variable):
+        # Compute base fields without calling super().__init__() since
+        # equinox freezes the module when any parent __init__ returns.
+        active_dims, n_dims, compute_engine = _compute_base_init(
+            active_dims, n_dims, compute_engine
+        )
+        n_dims = _validate_lengthscale(lengthscale, n_dims)
+
+        if isinstance(lengthscale, AbstractUnwrappable):
             self.lengthscale = lengthscale
         else:
             self.lengthscale = PositiveReal(lengthscale)
 
-            # static typing
-            if tp.TYPE_CHECKING:
-                self.lengthscale = tp.cast(PositiveReal[Lengthscale], self.lengthscale)
-
-        if isinstance(variance, nnx.Variable):
+        if isinstance(variance, AbstractUnwrappable):
             self.variance = variance
         else:
             self.variance = NonNegativeReal(variance)
 
-            # static typing
-            if tp.TYPE_CHECKING:
-                self.variance = tp.cast(NonNegativeReal[ScalarFloat], self.variance)
+        self.active_dims = active_dims
+        self.n_dims = n_dims
+        self.compute_engine = compute_engine
 
     @property
     def spectral_density(self) -> npd.Normal | npd.StudentT:
@@ -107,7 +108,7 @@ class StationaryKernel(AbstractKernel):
 
 
 def _validate_lengthscale(
-    lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]],
+    lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable],
     n_dims: tp.Union[int, None],
 ):
     # Check that the lengthscale is a valid value.
@@ -118,7 +119,7 @@ def _validate_lengthscale(
 
 
 def _check_lengthscale_dims_compat(
-    lengthscale: tp.Union[LengthscaleCompatible, nnx.Variable[Lengthscale]],
+    lengthscale: tp.Union[LengthscaleCompatible, AbstractUnwrappable],
     n_dims: tp.Union[int, None],
 ):
     r"""Check that the lengthscale is compatible with n_dims.
@@ -126,8 +127,8 @@ def _check_lengthscale_dims_compat(
     If possible, infer the number of input dimensions from the lengthscale.
     """
 
-    if isinstance(lengthscale, nnx.Variable):
-        return _check_lengthscale_dims_compat(lengthscale[...], n_dims)
+    if isinstance(lengthscale, AbstractUnwrappable):
+        return _check_lengthscale_dims_compat(lengthscale.unwrap(), n_dims)
 
     lengthscale = jnp.asarray(lengthscale)
     ls_shape = jnp.shape(lengthscale)
@@ -149,8 +150,8 @@ def _check_lengthscale_dims_compat(
 def _check_lengthscale(lengthscale: tp.Any):
     """Check that the lengthscale is a valid value."""
 
-    if isinstance(lengthscale, nnx.Variable):
-        _check_lengthscale(lengthscale[...])
+    if isinstance(lengthscale, AbstractUnwrappable):
+        _check_lengthscale(lengthscale.unwrap())
         return
 
     if not isinstance(lengthscale, (int, float, jnp.ndarray, list, tuple)):

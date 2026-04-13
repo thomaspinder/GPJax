@@ -6,13 +6,13 @@ Reference:
 """
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax
 from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
-from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.base import AbstractKernel, _val
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.kernels.computations.base import AbstractKernelComputation
 from gpjax.parameters import NonNegativeReal
@@ -139,6 +139,10 @@ class OrthogonalAdditiveKernel(AbstractKernel):
     """
 
     name: str = "Orthogonal Additive"
+    base_kernels: tuple
+    max_order: int = eqx.field(static=True)
+    fix_base_variance: bool = eqx.field(static=True)
+    order_variances: tp.Any
 
     def __init__(
         self,
@@ -161,9 +165,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
                 f"({num_dimensions})."
             )
 
-        super().__init__(compute_engine=compute_engine)
-
-        self.base_kernels = nnx.List(base_kernels)
+        self.base_kernels = tuple(base_kernels)
         self.max_order = max_order
         self.fix_base_variance = fix_base_variance
 
@@ -175,10 +177,12 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         else:
             self.order_variances = NonNegativeReal(order_variances)
 
+        super().__init__(compute_engine=compute_engine)
+
     @property
     def _lengthscales(self) -> Float[Array, " D"]:
         """Stack base kernel lengthscales into a single array."""
-        return jnp.stack([k.lengthscale[...].squeeze() for k in self.base_kernels])
+        return jnp.stack([_val(k.lengthscale).squeeze() for k in self.base_kernels])
 
     @property
     def _variances(self) -> Float[Array, " D"]:
@@ -189,7 +193,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         """
         if self.fix_base_variance:
             return jnp.ones(len(self.base_kernels))
-        return jnp.stack([k.variance[...].squeeze() for k in self.base_kernels])
+        return jnp.stack([_val(k.variance).squeeze() for k in self.base_kernels])
 
     def __call__(
         self,
@@ -217,4 +221,4 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         elem_sym = _newton_girard(per_dim_values, self.max_order)
 
         # Weighted sum: K(x,y) = sum_d sigma^2_d * e_d
-        return jnp.dot(self.order_variances[...], elem_sym)
+        return jnp.dot(_val(self.order_variances), elem_sym)

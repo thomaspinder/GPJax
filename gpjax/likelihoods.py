@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax
 from jax import vmap
 import jax.nn as jnn
@@ -26,6 +26,7 @@ import jax.scipy as jsp
 from jaxtyping import Float
 import numpy as np
 import numpyro.distributions as npd
+from paramax import AbstractUnwrappable
 
 from gpjax.distributions import GaussianDistribution
 from gpjax.integrators import (
@@ -45,6 +46,11 @@ if TYPE_CHECKING:
     from gpjax.gps import Prior
 
 
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
 @dataclass(slots=True)
 class NoiseMoments:
     log_variance: Array
@@ -59,12 +65,15 @@ jax.tree_util.register_pytree_node(
 )
 
 
-class AbstractLikelihood(nnx.Module):
+class AbstractLikelihood(eqx.Module):
     r"""Abstract base class for likelihoods.
 
     All likelihoods must inherit from this class and implement the `predict` and
     `link_function` methods.
     """
+
+    num_datapoints: int = eqx.field(static=True)
+    integrator: AbstractIntegrator = eqx.field(static=True)
 
     def __init__(
         self,
@@ -158,7 +167,7 @@ class AbstractLikelihood(nnx.Module):
         )
 
 
-class AbstractNoiseTransform(nnx.Module):
+class AbstractNoiseTransform(eqx.Module):
     """Abstract base class for noise transformations."""
 
     @abc.abstractmethod
@@ -196,6 +205,8 @@ class LogNormalTransform(AbstractNoiseTransform):
 class SoftplusTransform(AbstractNoiseTransform):
     """Softplus noise transformation."""
 
+    num_points: int = eqx.field(static=True, default=20)
+
     def __init__(self, num_points: int = 20):
         self.num_points = num_points
 
@@ -228,6 +239,9 @@ class SoftplusTransform(AbstractNoiseTransform):
 
 class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
     r"""Base class for heteroscedastic likelihoods with latent noise processes."""
+
+    noise_prior: tp.Any
+    noise_transform: AbstractNoiseTransform
 
     def __init__(
         self,
@@ -265,7 +279,7 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
         return self.predict(dist, noise_dist)
 
     def supports_tight_bound(self) -> bool:
-        """Return whether the tighter bound from Lázaro-Gredilla & Titsias (2011)
+        """Return whether the tighter bound from Lazaro-Gredilla & Titsias (2011)
         is applicable."""
         return False
 
@@ -297,6 +311,9 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
 
 class Gaussian(AbstractLikelihood):
     r"""Gaussian likelihood object."""
+
+    obs_stddev: tp.Any
+    num_outputs: int = eqx.field(static=True, default=1)
 
     def __init__(
         self,
@@ -330,7 +347,7 @@ class Gaussian(AbstractLikelihood):
         Returns:
             npd.Normal: The likelihood function.
         """
-        return npd.Normal(loc=f, scale=self.obs_stddev[...].astype(f.dtype))
+        return npd.Normal(loc=f, scale=_val(self.obs_stddev).astype(f.dtype))
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
@@ -351,13 +368,13 @@ class Gaussian(AbstractLikelihood):
         """
         n_data = dist.event_shape[0]
         cov = dist.covariance_matrix
-        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(self.obs_stddev[...] ** 2)
+        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(_val(self.obs_stddev) ** 2)
 
         return npd.MultivariateNormal(dist.mean, noisy_cov)
 
     def noise_vector(self, n: int) -> Float[Array, " N"]:
         """Per-observation noise variance vector (scalar broadcast for single-output)."""
-        return jnp.full(n, jnp.square(self.obs_stddev[...]))
+        return jnp.full(n, jnp.square(_val(self.obs_stddev)))
 
     def prepare_targets(
         self, y: Float[Array, "N 1"], mx: Float[Array, "N 1"]
@@ -393,9 +410,9 @@ class MultiOutputGaussian(Gaussian):
         """Per-observation noise variance in output-major (Kronecker) order.
 
         Returns sigma_p^2 with each output's variance repeated N times,
-        concatenated across outputs: [σ₁²...σ₁², σ₂²...σ₂², ...].
+        concatenated across outputs: [sigma_1^2...sigma_1^2, sigma_2^2...sigma_2^2, ...].
         """
-        per_output_var = jnp.square(self.obs_stddev[...])  # [P]
+        per_output_var = jnp.square(_val(self.obs_stddev))  # [P]
         return jnp.repeat(per_output_var, n)  # [NP]
 
     def prepare_targets(

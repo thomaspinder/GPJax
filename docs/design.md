@@ -35,4 +35,4 @@ Prior to building GPJax, the developers of GPJax have benefited greatly from the
 [GPyTorch](https://github.com/cornellius-gp/gpytorch) packages. As such, many of
 the design principles in GPJax are inspired by the excellent precursory
 packages. Documentation designs have been greatly inspired by the exceptional
-[Flax docs](https://flax.readthedocs.io/en/latest/index.html).
+[Equinox docs](https://docs.kidger.site/equinox/).

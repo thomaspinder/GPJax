@@ -1,4 +1,4 @@
-from flax import nnx
+import equinox as eqx
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import Prior
@@ -10,15 +10,19 @@ from gpjax.objectives import (
     elbo,
     non_conjugate_mll,
 )
-from gpjax.parameters import Parameter
 import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import paramax
 import pytest
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:A JAX array is being set as static:UserWarning"
+)
 
 
 def build_data(n_points: int, n_dims: int, key, binary: bool):
@@ -64,24 +68,23 @@ def test_conjugate_mll(n_points: int, n_dims: int, key_val: int):
     assert res_simple.shape == ()
 
     # test call wrapped in loss function
-    graphdef, state, *states = nnx.split(post, Parameter, ...)
+    params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = nnx.merge(graphdef, params, *states)
+        posterior = paramax.unwrap(eqx.combine(params, static))
         return -conjugate_mll(posterior, D)
 
-    res_wrapped = loss(state)
+    res_wrapped = loss(params)
     assert jnp.allclose(res_simple, res_wrapped)
 
     # test loss with jit
     loss_jit = jax.jit(loss)
-    res_jit = loss_jit(state)
+    res_jit = loss_jit(params)
     assert jnp.allclose(res_simple, res_jit)
 
     # test loss with grad
     grad = jax.grad(loss)
-    grad_res = grad(state)
-    assert isinstance(grad_res, nnx.State)
+    _ = grad(params)
 
 
 @pytest.mark.parametrize("n_points", [1, 2, 10])
@@ -105,24 +108,23 @@ def test_conjugate_loocv(n_points, n_dims, key_val):
     assert res_simple.shape == ()
 
     # test call wrapped in loss function
-    graphdef, state, *states = nnx.split(post, Parameter, ...)
+    params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = nnx.merge(graphdef, params, *states)
+        posterior = paramax.unwrap(eqx.combine(params, static))
         return -conjugate_loocv(posterior, D)
 
-    res_wrapped = loss(state)
+    res_wrapped = loss(params)
     assert jnp.allclose(res_simple, res_wrapped)
 
     # test loss with jit
     loss_jit = jax.jit(loss)
-    res_jit = loss_jit(state)
+    res_jit = loss_jit(params)
     assert jnp.allclose(res_simple, res_jit)
 
     # test loss with grad
     loss_grad = jax.grad(loss)
-    grad_res = loss_grad(state)
-    assert isinstance(grad_res, nnx.State)
+    _ = loss_grad(params)
 
 
 @pytest.mark.parametrize("n_points", [1, 2, 10])
@@ -146,24 +148,23 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
     assert res_simple.shape == ()
 
     # test call wrapped in loss function
-    graphdef, state, *states = nnx.split(post, Parameter, ...)
+    params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = nnx.merge(graphdef, params, *states)
+        posterior = paramax.unwrap(eqx.combine(params, static))
         return -non_conjugate_mll(posterior, D)
 
-    res_wrapped = loss(state)
+    res_wrapped = loss(params)
     assert jnp.allclose(res_simple, res_wrapped)
 
     # test loss with jit
     loss_jit = jax.jit(loss)
-    res_jit = loss_jit(state)
+    res_jit = loss_jit(params)
     assert jnp.allclose(res_simple, res_jit)
 
     # test loss with grad
     loss_grad = jax.grad(loss)
-    grad_res = loss_grad(state)
-    assert isinstance(grad_res, nnx.State)
+    _ = loss_grad(params)
 
 
 @pytest.mark.parametrize("n_points", [10, 20])
@@ -226,24 +227,23 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
     assert res_simple.shape == ()
 
     # test call wrapped in loss function
-    graphdef, state, *states = nnx.split(q, Parameter, ...)
+    params, static = eqx.partition(q, eqx.is_array)
 
     def loss(params):
-        posterior = nnx.merge(graphdef, params, *states)
-        return -elbo(posterior, D)
+        model = paramax.unwrap(eqx.combine(params, static))
+        return -elbo(model, D)
 
-    res_wrapped = loss(state)
+    res_wrapped = loss(params)
     assert jnp.allclose(res_simple, res_wrapped)
 
     # test loss with jit
     loss_jit = jax.jit(loss)
-    res_jit = loss_jit(state)
+    res_jit = loss_jit(params)
     assert jnp.allclose(res_simple, res_jit)
 
     # test loss with grad
     loss_grad = jax.grad(loss)
-    grad_res = loss_grad(state)
-    assert isinstance(grad_res, nnx.State)
+    _ = loss_grad(params)
 
 
 class TestMultiOutputConjugateMLL:

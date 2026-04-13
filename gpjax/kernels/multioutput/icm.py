@@ -15,14 +15,17 @@ class ICMKernel(MultiOutputKernel):
         coregionalization_matrix: The output-space coregionalization.
     """
 
+    base_kernel: AbstractKernel
+    coregionalization_matrix: CoregionalizationMatrix
+
     def __init__(
         self,
         base_kernel: AbstractKernel,
         coregionalization_matrix: CoregionalizationMatrix,
     ):
-        super().__init__(compute_engine=MultiOutputKernelComputation())
         self.base_kernel = base_kernel
         self.coregionalization_matrix = coregionalization_matrix
+        super().__init__(compute_engine=MultiOutputKernelComputation())
 
     @property
     def num_outputs(self) -> int:

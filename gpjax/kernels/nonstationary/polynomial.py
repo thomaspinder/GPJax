@@ -14,22 +14,21 @@
 # ==============================================================================
 
 import beartype.typing as tp
-from flax import nnx
+import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import Float
+from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel
+from gpjax.kernels.base import AbstractKernel, _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
 )
 from gpjax.parameters import (
     NonNegativeReal,
-    PositiveReal,
 )
 from gpjax.typing import (
     Array,
-    ScalarArray,
     ScalarFloat,
 )
 
@@ -45,12 +44,16 @@ class Polynomial(AbstractKernel):
     parameter $\alpha$ and integer degree $d$.
     """
 
+    degree: int = eqx.field(static=True, default=2)
+    shift: tp.Any
+    variance: tp.Any
+
     def __init__(
         self,
         active_dims: tp.Union[list[int], slice, None] = None,
         degree: int = 2,
-        shift: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
-        variance: tp.Union[ScalarFloat, nnx.Variable[ScalarArray]] = 1.0,
+        shift: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
+        variance: tp.Union[ScalarFloat, AbstractUnwrappable] = 1.0,
         n_dims: tp.Union[int, None] = None,
         compute_engine: AbstractKernelComputation = DenseKernelComputation(),
     ):
@@ -65,33 +68,21 @@ class Polynomial(AbstractKernel):
             compute_engine: The computation engine that the kernel uses to compute the
                 covariance matrix.
         """
-        super().__init__(active_dims, n_dims, compute_engine)
-
         self.degree = degree
 
         self.shift = shift
-        if tp.TYPE_CHECKING and not isinstance(shift, nnx.Variable):
-            self.shift = tp.cast(PositiveReal[ScalarArray], self.shift)
 
-        if isinstance(variance, nnx.Variable):
+        if isinstance(variance, AbstractUnwrappable):
             self.variance = variance
         else:
             self.variance = NonNegativeReal(variance)
-            if tp.TYPE_CHECKING:
-                self.variance = tp.cast(NonNegativeReal[ScalarArray], self.variance)
 
-        self.name = f"Polynomial (degree {self.degree})"
+        super().__init__(active_dims, n_dims, compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        shift_val = (
-            self.shift[...] if isinstance(self.shift, nnx.Variable) else self.shift
+        K = jnp.power(
+            _val(self.shift) + _val(self.variance) * jnp.dot(x, y), self.degree
         )
-        variance_val = (
-            self.variance[...]
-            if isinstance(self.variance, nnx.Variable)
-            else self.variance
-        )
-        K = jnp.power(shift_val + variance_val * jnp.dot(x, y), self.degree)
         return K.squeeze()
