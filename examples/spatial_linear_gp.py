@@ -57,7 +57,6 @@ from numpyro.infer import (
 
 from examples.utils import use_mpl_style
 import gpjax as gpx
-from gpjax.numpyro_extras import register_parameters
 
 jax.config.update("jax_enable_x64", True)
 
@@ -126,45 +125,38 @@ mcmc_lin.print_summary()
 #
 # ### GPJax and NumPyro Integration
 #
-# We define the GP prior in `GPJax` using an second-order Matérn kernel and a constant mean function
-# (since the linear trend is handled explicitly). We attach `dist.LogNormal` priors to
-# the kernel's hyperparameters (lengthscale and variance) directly within the GPJax object.
-# We then register the parameters by calling
-# `gpx.numpyro_extras.register_parameters(gp_posterior)` inside the NumPyro model. This
-# function traverses the GPJax object, identifies parameters with attached priors, and
-# registers them as NumPyro sample sites. It returns a new GPJax object where the parameters
-# have been replaced by the values sampled by NumPyro. Finally, we compute the exact marginal
-# log-likelihood (MLL) of the residuals under the GP prior using `gpx.objectives.conjugate_mll`.
-# This term is added to the potential function using `numpyro.factor`, guiding the sampler.
+# We define the GP prior in `GPJax` using a second-order Matérn kernel and a constant mean
+# function (since the linear trend is handled explicitly). Hyperparameters are sampled
+# directly with ``numpyro.sample`` and passed to the GPJax constructors as raw JAX arrays.
+# We then compute the exact marginal log-likelihood (MLL) of the residuals under the GP
+# prior using `gpx.objectives.conjugate_mll`. This term is added to the potential function
+# using `numpyro.factor`, guiding the sampler.
+
 
 # %%
-lengthscale = gpx.parameters.PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
-variance = gpx.parameters.PositiveReal(1.0, prior=dist.LogNormal(0.0, 1.0))
-
-kernel = gpx.kernels.Matern32(
-    active_dims=[0, 1], lengthscale=lengthscale, variance=variance
-)
-meanf = gpx.mean_functions.Constant()
-prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-
-obs_stddev = gpx.parameters.NonNegativeReal(0.1, prior=dist.LogNormal(0.0, 1.0))
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_stddev)
-gp_posterior = prior * likelihood
-
-
-def joint_model(X, Y, gp_posterior, X_new=None):
+def joint_model(X, Y, X_new=None):
     slope = numpyro.sample("slope", dist.Normal(0.0, 5.0).expand([2]))
     intercept = numpyro.sample("intercept", dist.Normal(0.0, 5.0))
 
-    trend = X @ slope + intercept
+    lengthscale = numpyro.sample("lengthscale", dist.LogNormal(0.0, 1.0))
+    variance = numpyro.sample("variance", dist.LogNormal(0.0, 1.0))
+    obs_noise = numpyro.sample("obs_noise", dist.LogNormal(0.0, 1.0))
 
-    p_posterior = register_parameters(gp_posterior)
+    kernel = gpx.kernels.Matern32(
+        active_dims=[0, 1], lengthscale=lengthscale, variance=variance
+    )
+    meanf = gpx.mean_functions.Constant()
+    gp_prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+    likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_noise)
+    gp_posterior = gp_prior * likelihood
+
+    trend = X @ slope + intercept
 
     if Y is not None:
         residuals = Y - trend
         residuals = residuals.reshape(-1, 1)
         D_resid = gpx.Dataset(X=X, y=residuals)
-        mll = gpx.objectives.conjugate_mll(p_posterior, D_resid)
+        mll = gpx.objectives.conjugate_mll(gp_posterior, D_resid)
         numpyro.factor("gp_log_lik", mll)
 
     if X_new is not None:
@@ -173,7 +165,7 @@ def joint_model(X, Y, gp_posterior, X_new=None):
             residuals = residuals.reshape(-1, 1)
             D_resid = gpx.Dataset(X=X, y=residuals)
 
-            latent_dist = p_posterior.predict(X_new, train_data=D_resid)
+            latent_dist = gp_posterior.predict(X_new, train_data=D_resid)
             f_new = numpyro.sample("f_new", latent_dist)
             f_new = f_new.reshape((-1, 1))
 
@@ -181,7 +173,7 @@ def joint_model(X, Y, gp_posterior, X_new=None):
             numpyro.deterministic("y_pred", total_prediction)
 
 
-joint_model_wrapper = partial(joint_model, gp_posterior=gp_posterior)
+joint_model_wrapper = joint_model
 nuts_kernel_joint = NUTS(joint_model_wrapper)
 # In practice, one should run more samples from multiple chains.
 mcmc_joint = MCMC(nuts_kernel_joint, num_warmup=1500, num_samples=2000, num_chains=1)

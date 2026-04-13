@@ -739,7 +739,6 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
     """
 
     latent: tp.Any
-    key: tp.Any = eqx.field(static=True)
 
     def __init__(
         self,
@@ -765,7 +764,6 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         self.latent = (
             latent if isinstance(latent, AbstractUnwrappable) else Real(latent)
         )
-        self.key = key
 
     def predict(
         self,
