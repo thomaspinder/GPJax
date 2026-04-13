@@ -4,6 +4,9 @@
 #
 # The repository labels will be automatically configured using this file and
 # the GitHub Action https://github.com/marketplace/actions/github-labeler.
+- name: 0.14-migration
+  description: Issues related to upgrading from 0.13.x to 0.14.x
+  color: f9d0c4
 - name: automated
   description: Automated PRs
   color: 000000

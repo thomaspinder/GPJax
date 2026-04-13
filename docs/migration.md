@@ -2,14 +2,12 @@
 
 GPJax `0.14` replaces the Flax NNX backend with
 [Equinox](https://docs.kidger.site/equinox/) +
-[paramax](https://danielward27.github.io/paramax/), and swaps the
-[cola](https://github.com/wilson-labs/cola) linear-algebra layer for
+[paramax](https://danielward27.github.io/paramax/), and introduces a linear-algebra layer via
 [Lineax](https://docs.kidger.site/lineax/). It also removes the custom bijector
 stack in favour of
 [numpyro constraints](https://num.pyro.ai/en/stable/distributions.html#constraints).
 
-These changes are almost entirely internal, but they are visible in three
-places:
+The changes are mostly internal. They surface in three places:
 
 1. How you **define custom modules and custom parameter classes**.
 2. How you **read a parameter value** (`param.unwrap()` / `paramax.unwrap(model)`
@@ -18,8 +16,8 @@ places:
    `trainable=` filter argument on `fit`).
 
 If you only use the high-level API (`gpx.Prior`, `gpx.Posterior`, `gpx.fit`,
-etc.) most code will keep working after you update the two or three call
-sites below.
+etc.) most code keeps working once you update the two or three call sites
+below.
 
 ## Installation
 
@@ -39,7 +37,7 @@ Flax is no longer a runtime dependency.
 If you subclassed `nnx.Module` to build a custom model, kernel, mean function,
 likelihood, or variational family, change the base class:
 
-```python
+```py
 # Before (0.13.x)
 from flax import nnx
 
@@ -48,7 +46,7 @@ class MyKernel(nnx.Module):
         self.lengthscale = gpx.parameters.PositiveReal(lengthscale)
 ```
 
-```python
+```py
 # After (0.14.0)
 import equinox as eqx
 
@@ -70,14 +68,14 @@ now inherit from `paramax.AbstractUnwrappable` and store their value in an
 **unconstrained** internal field. The constraining bijection is applied at
 read time through `unwrap()`.
 
-```python
+```py
 # Before (0.13.x) — nnx.Variable-based
 length = gpx.parameters.PositiveReal(0.5)
 length.value                # -> 0.5
 length.value = 1.0          # in-place mutation (nnx)
 ```
 
-```python
+```py
 # After (0.14.0) — paramax.AbstractUnwrappable
 length = gpx.parameters.PositiveReal(0.5)
 length.unwrap()             # -> 0.5  (applies softplus to the stored unconstrained value)
@@ -88,9 +86,9 @@ model_resolved = paramax.unwrap(model)
 ```
 
 `Parameter` (the old generic base class), `DEFAULT_BIJECTION`, the
-`transform(...)` function, and `FillTriangularTransform` have all been
-**removed**. They are no longer needed — `numpyro.distributions.biject_to` is
-the single source of truth for constraint → bijection mapping.
+`transform(...)` function, and `FillTriangularTransform` have been
+**removed**. `numpyro.distributions.biject_to` now handles every
+constraint → bijection mapping.
 
 ### 3. `LowerTriangular` now requires a valid Cholesky factor
 
@@ -105,9 +103,9 @@ diagonal was unconstrained). It is now parameterised via
   `VariationalGaussian.variational_root_covariance`, which is initialised to
   the identity by default.
 - If you previously supplied a custom `variational_root_covariance`, ensure
-  its diagonal is strictly positive. This change removes a latent footgun —
-  under the old parameterisation, zero/negative diagonals led to singular or
-  sign-ambiguous variational covariances.
+  its diagonal is strictly positive. Under the old parameterisation, zero or
+  negative diagonals produced singular or sign-ambiguous variational
+  covariances.
 
 ### 4. `gpx.fit` / `fit_scipy` / `fit_lbfgs`: removed `params_bijection` and `trainable`
 
@@ -115,7 +113,7 @@ Bijection handling is now automatic via `paramax.unwrap` inside the loss
 function, and freezing parameters is expressed by wrapping them in
 `paramax.non_trainable`:
 
-```python
+```py
 # Before (0.13.x)
 opt_model, history = gpx.fit(
     model=posterior,
@@ -127,7 +125,7 @@ opt_model, history = gpx.fit(
 )
 ```
 
-```python
+```py
 # After (0.14.0)
 import paramax
 
@@ -153,9 +151,9 @@ wrapped in `paramax.non_trainable` is held constant.
 ### 5. `register_parameters` removed
 
 The `gpx.parameters.register_parameters` decorator (added in 0.13.x to mark
-NNX variables as GPJax parameters) is gone. With Equinox, GPJax parameter
-classes are identified by isinstance checks on `AbstractUnwrappable`; no
-registration is needed.
+NNX variables as GPJax parameters) is gone. With Equinox, GPJax identifies
+parameter classes through `isinstance` checks on `AbstractUnwrappable`, so
+registration is unnecessary.
 
 ### 6. `gpjax.linalg` rewrite: cola → Lineax
 
@@ -173,23 +171,22 @@ The following names have been **removed** from `gpjax.linalg`:
 | `diag`, `solve`             | `operator.diagonal()`, `lineax.linear_solve(...)`  |
 | `lower_cholesky`            | `gpjax.linalg.cholesky_factor` (singledispatch, returns a lower-triangular operator) |
 
-`BlockDiag`, `Kronecker`, and `logdet` are unchanged. The new helper
-`gpjax.linalg.add_jitter` is the canonical way to add a jitter term to a
-covariance operator.
+`BlockDiag`, `Kronecker`, and `logdet` are unchanged. Use
+`gpjax.linalg.add_jitter` to add a jitter term to a covariance operator.
 
 ### 7. Custom bijectors replaced with numpyro constraints
 
 If you had a custom `Parameter` subclass that declared a bijection, replace
 the bijection with a numpyro constraint and use `biject_to`:
 
-```python
+```py
 # Before (0.13.x)
 class MyParam(gpx.parameters.Parameter):
     # Custom bijection registered via DEFAULT_BIJECTION
     ...
 ```
 
-```python
+```py
 # After (0.14.0)
 from numpyro.distributions import biject_to, constraints
 from paramax import AbstractUnwrappable
@@ -209,7 +206,7 @@ class MyParam(AbstractUnwrappable):
 ## Non-breaking cleanup
 
 - `__description__` changed from `"Gaussian processes in JAX and Flax"` to
-  `"Gaussian processes in JAX"` — Flax is no longer a dependency.
+  `"Gaussian processes in JAX"`, since Flax is no longer a dependency.
 - Many kernel `compute_engine` internals moved; the public `kernel(x, y)`,
   `kernel.gram(x)`, `kernel.cross_covariance(x, y)`, and `kernel.diagonal(x)`
   methods are unchanged.
