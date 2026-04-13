@@ -45,7 +45,7 @@ jobs:
 
       - name: Label ML-specific issues
         if: github.event_name == 'issues'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const title = context.payload.issue.title.toLowerCase();
@@ -144,7 +144,7 @@ jobs:
 
       - name: Label PRs based on content
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const title = context.payload.pull_request.title.toLowerCase();
