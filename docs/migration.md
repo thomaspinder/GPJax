@@ -1,4 +1,4 @@
-# Migration guide: `0.13.x` → `0.14.0`
+# Migration guide: 0.13.x → 0.14.0
 
 GPJax `0.14` replaces the Flax NNX backend with
 [Equinox](https://docs.kidger.site/equinox/) +
@@ -32,7 +32,7 @@ Flax is no longer a runtime dependency.
 
 ## Breaking changes
 
-### 1. Backend: `flax.nnx.Module` → `equinox.Module`
+### 1. Backend: flax.nnx.Module → equinox.Module
 
 If you subclassed `nnx.Module` to build a custom model, kernel, mean function,
 likelihood, or variational family, change the base class:
@@ -60,7 +60,7 @@ class MyKernel(eqx.Module):
 Equinox requires **class-level field annotations** for every attribute, and
 static configuration fields should be marked with `eqx.field(static=True)`.
 
-### 2. Parameter classes are now `paramax.AbstractUnwrappable`
+### 2. Parameter classes are now paramax.AbstractUnwrappable
 
 `PositiveReal`, `NonNegativeReal`, `Real`, `SigmoidBounded`, and
 `LowerTriangular` all live in `gpjax.parameters` with the same names, but they
@@ -90,7 +90,7 @@ model_resolved = paramax.unwrap(model)
 **removed**. `numpyro.distributions.biject_to` now handles every
 constraint → bijection mapping.
 
-### 3. `LowerTriangular` now requires a valid Cholesky factor
+### 3. LowerTriangular now requires a valid Cholesky factor
 
 Previously `LowerTriangular` accepted any lower-triangular matrix (the
 diagonal was unconstrained). It is now parameterised via
@@ -148,14 +148,14 @@ Internally, `fit` now splits the model with `eqx.partition(model, eqx.is_array)`
 so only concrete JAX arrays participate in the gradient update; everything
 wrapped in `paramax.non_trainable` is held constant.
 
-### 5. `register_parameters` removed
+### 5. register_parameters removed
 
 The `gpx.parameters.register_parameters` decorator (added in 0.13.x to mark
 NNX variables as GPJax parameters) is gone. With Equinox, GPJax identifies
 parameter classes through `isinstance` checks on `AbstractUnwrappable`, so
 registration is unnecessary.
 
-### 6. `gpjax.linalg` rewrite: cola → Lineax
+### 6. gpjax.linalg rewrite: cola → Lineax
 
 Kernel `gram()` now returns a `lineax.AbstractLinearOperator`
 (typically `lineax.MatrixLinearOperator`) instead of a `cola.LinearOperator`.
