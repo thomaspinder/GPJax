@@ -3927,7 +3927,7 @@
   
 
 
-<h1 id="migration-guide-013x-0140">Migration guide: <code>0.13.x</code> → <code>0.14.0</code><a class="headerlink" href="#migration-guide-013x-0140" title="Permanent link"></a></h1>
+<h1 id="migration-guide-013x-0140">Migration guide: 0.13.x → 0.14.0<a class="headerlink" href="#migration-guide-013x-0140" title="Permanent link"></a></h1>
 <p>GPJax <code>0.14</code> replaces the Flax NNX backend with
 <a href="https://docs.kidger.site/equinox/">Equinox</a> +
 <a href="https://danielward27.github.io/paramax/">paramax</a>, and introduces a linear-algebra layer via
@@ -3953,7 +3953,7 @@ below.</p>
 <p>New dependencies (pulled in automatically): <code>equinox&gt;=0.11</code>, <code>paramax&gt;=0.0.5</code>.
 Flax is no longer a runtime dependency.</p>
 <h2 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link"></a></h2>
-<h3 id="1-backend-flaxnnxmodule-equinoxmodule">1. Backend: <code>flax.nnx.Module</code> → <code>equinox.Module</code><a class="headerlink" href="#1-backend-flaxnnxmodule-equinoxmodule" title="Permanent link"></a></h3>
+<h3 id="1-backend-flaxnnxmodule-equinoxmodule">1. Backend: flax.nnx.Module → equinox.Module<a class="headerlink" href="#1-backend-flaxnnxmodule-equinoxmodule" title="Permanent link"></a></h3>
 <p>If you subclassed <code>nnx.Module</code> to build a custom model, kernel, mean function,
 likelihood, or variational family, change the base class:</p>
 <div class="language-py highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Before (0.13.x)</span>
@@ -3974,7 +3974,7 @@ likelihood, or variational family, change the base class:</p>
 </span></code></pre></div>
 <p>Equinox requires <strong>class-level field annotations</strong> for every attribute, and
 static configuration fields should be marked with <code>eqx.field(static=True)</code>.</p>
-<h3 id="2-parameter-classes-are-now-paramaxabstractunwrappable">2. Parameter classes are now <code>paramax.AbstractUnwrappable</code><a class="headerlink" href="#2-parameter-classes-are-now-paramaxabstractunwrappable" title="Permanent link"></a></h3>
+<h3 id="2-parameter-classes-are-now-paramaxabstractunwrappable">2. Parameter classes are now paramax.AbstractUnwrappable<a class="headerlink" href="#2-parameter-classes-are-now-paramaxabstractunwrappable" title="Permanent link"></a></h3>
 <p><code>PositiveReal</code>, <code>NonNegativeReal</code>, <code>Real</code>, <code>SigmoidBounded</code>, and
 <code>LowerTriangular</code> all live in <code>gpjax.parameters</code> with the same names, but they
 now inherit from <code>paramax.AbstractUnwrappable</code> and store their value in an
@@ -3997,7 +3997,7 @@ read time through <code>unwrap()</code>.</p>
 <code>transform(...)</code> function, and <code>FillTriangularTransform</code> have been
 <strong>removed</strong>. <code>numpyro.distributions.biject_to</code> now handles every
 constraint → bijection mapping.</p>
-<h3 id="3-lowertriangular-now-requires-a-valid-cholesky-factor">3. <code>LowerTriangular</code> now requires a valid Cholesky factor<a class="headerlink" href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" title="Permanent link"></a></h3>
+<h3 id="3-lowertriangular-now-requires-a-valid-cholesky-factor">3. LowerTriangular now requires a valid Cholesky factor<a class="headerlink" href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" title="Permanent link"></a></h3>
 <p>Previously <code>LowerTriangular</code> accepted any lower-triangular matrix (the
 diagonal was unconstrained). It is now parameterised via
 <code>numpyro.distributions.constraints.softplus_lower_cholesky</code>, so the diagonal
@@ -4047,12 +4047,12 @@ function, and freezing parameters is expressed by wrapping them in
 <p>Internally, <code>fit</code> now splits the model with <code>eqx.partition(model, eqx.is_array)</code>
 so only concrete JAX arrays participate in the gradient update; everything
 wrapped in <code>paramax.non_trainable</code> is held constant.</p>
-<h3 id="5-register_parameters-removed">5. <code>register_parameters</code> removed<a class="headerlink" href="#5-register_parameters-removed" title="Permanent link"></a></h3>
+<h3 id="5-register_parameters-removed">5. register_parameters removed<a class="headerlink" href="#5-register_parameters-removed" title="Permanent link"></a></h3>
 <p>The <code>gpx.parameters.register_parameters</code> decorator (added in 0.13.x to mark
 NNX variables as GPJax parameters) is gone. With Equinox, GPJax identifies
 parameter classes through <code>isinstance</code> checks on <code>AbstractUnwrappable</code>, so
 registration is unnecessary.</p>
-<h3 id="6-gpjaxlinalg-rewrite-cola-lineax">6. <code>gpjax.linalg</code> rewrite: cola → Lineax<a class="headerlink" href="#6-gpjaxlinalg-rewrite-cola-lineax" title="Permanent link"></a></h3>
+<h3 id="6-gpjaxlinalg-rewrite-cola-lineax">6. gpjax.linalg rewrite: cola → Lineax<a class="headerlink" href="#6-gpjaxlinalg-rewrite-cola-lineax" title="Permanent link"></a></h3>
 <p>Kernel <code>gram()</code> now returns a <code>lineax.AbstractLinearOperator</code>
 (typically <code>lineax.MatrixLinearOperator</code>) instead of a <code>cola.LinearOperator</code>.
 Materialise with <code>.as_matrix()</code>.</p>
