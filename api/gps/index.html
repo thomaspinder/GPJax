@@ -471,6 +471,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="https://jax.readthedocs.io/en/latest/jax-101/index.html" class="md-nav__link">
         
   
@@ -3558,14 +3586,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operations/" class="md-nav__link">
+      <a href="../linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3586,14 +3614,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operators/" class="md-nav__link">
+      <a href="../linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3753,34 +3781,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -4369,7 +4369,7 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code>, <code><span title="beartype.typing.Generic">Generic</span>[<span title="gpjax.gps.M">M</span>, <span title="gpjax.gps.K">K</span>]</code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code>, <code><span title="beartype.typing.Generic">Generic</span>[<span title="gpjax.gps.M">M</span>, <span title="gpjax.gps.K">K</span>]</code></p>
 
 
 
@@ -4982,7 +4982,7 @@ of the Gaussian process.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code>, <code><span title="beartype.typing.Generic">Generic</span>[<span title="gpjax.gps.P">P</span>, <span title="gpjax.gps.L">L</span>]</code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code>, <code><span title="beartype.typing.Generic">Generic</span>[<span title="gpjax.gps.P">P</span>, <span title="gpjax.gps.L">L</span>]</code></p>
 
 
 
@@ -5832,7 +5832,7 @@ of the Gaussian process.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">prior</span><span class="p">:</span> <span class="n">P</span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">likelihood</span><span class="p">:</span> <span class="n">NGL</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">latent</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N 1&quot;</span><span class="p">],</span> <span class="n">Parameter</span><span class="p">,</span> <span class="kc">None</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N 1&quot;</span><span class="p">],</span> <span class="n">AbstractUnwrappable</span><span class="p">,</span> <span class="kc">None</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">jitter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-06</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span> <span class="o">=</span> <span class="n">jr</span><span class="o">.</span><span class="n">key</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span>

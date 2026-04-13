@@ -471,6 +471,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="https://jax.readthedocs.io/en/latest/jax-101/index.html" class="md-nav__link">
         
   
@@ -3268,14 +3296,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../linalg/operations/" class="md-nav__link">
+      <a href="../../../linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3296,14 +3324,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../linalg/operators/" class="md-nav__link">
+      <a href="../../../linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3463,34 +3491,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -3825,7 +3825,9 @@ public methods of this class.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">gram</span><span class="p">(</span><span class="n">kernel</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N D&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dense</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">gram</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">lx</span><span class="o">.</span><span class="n">AbstractLinearOperator</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3858,7 +3860,7 @@ on an input matrix of shape <code>(N, D)</code>.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="Dense (gpjax.linalg.Dense)" href="../../../linalg/operators/#gpjax.linalg.operators.Dense">Dense</a></code>
+              <code><span title="lineax.AbstractLinearOperator">AbstractLinearOperator</span></code>
           –
           <div class="doc-md-description">
             <p>The Gram covariance of the kernel function as a linear operator.</p>
@@ -3943,7 +3945,9 @@ of input matrices with shape <code>(N, D)</code> and <code>(M, D)</code>.</p>
 
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diagonal</span><span class="p">(</span><span class="n">kernel</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;N D&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Diagonal</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diagonal</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="n">Num</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">lx</span><span class="o">.</span><span class="n">AbstractLinearOperator</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3976,7 +3980,7 @@ NxN gram matrix on an input matrix of shape <code>(N, D)</code>.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="Diagonal (gpjax.linalg.Diagonal)" href="../../../linalg/operators/#gpjax.linalg.operators.Diagonal">Diagonal</a></code>
+              <code><span title="lineax.AbstractLinearOperator">AbstractLinearOperator</span></code>
           –
           <div class="doc-md-description">
             <p>The computed diagonal variance as a <code>Diagonal</code> linear operator.</p>

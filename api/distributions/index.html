@@ -471,6 +471,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="https://jax.readthedocs.io/en/latest/jax-101/index.html" class="md-nav__link">
         
   
@@ -3378,14 +3406,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operations/" class="md-nav__link">
+      <a href="../linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3406,14 +3434,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operators/" class="md-nav__link">
+      <a href="../linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3573,34 +3601,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -4004,7 +4004,7 @@
 </h2>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GaussianDistribution</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">loc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">]],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LinearOperator</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">scale</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AbstractLinearOperator</span><span class="p">],</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">validate_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
 </span></code></pre></div>
@@ -4017,7 +4017,7 @@
 
         <p>Multivariate Gaussian distribution for GP predictions.</p>
 <p>This is the return type of all <code>predict()</code> methods in GPJax. It wraps a
-mean vector and a covariance :class:<code>~gpjax.linalg.operators.LinearOperator</code>,
+mean vector and a covariance <code>lx.AbstractLinearOperator</code>,
 providing methods for sampling, computing log-probabilities, and evaluating
 KL divergences.</p>
 <p>The distribution is parameterised as</p>
@@ -4026,29 +4026,26 @@ KL divergences.</p>
 </code></pre></div>
 <p>where :math:<code>\boldsymbol{\mu}</code> is the <code>loc</code> (mean) vector and
 :math:<code>\mathbf{\Sigma}</code> is represented by the <code>scale</code>
-:class:<code>~gpjax.linalg.operators.LinearOperator</code>. The <code>scale</code> is
-automatically annotated as positive semi-definite on construction.</p>
+<code>lx.AbstractLinearOperator</code>.</p>
 <h4 id="gpjax.distributions.GaussianDistribution--parameters">Parameters<a class="headerlink" href="#gpjax.distributions.GaussianDistribution--parameters" title="Permanent link"></a></h4>
 <p>loc : Float[Array, " N"]
     Mean vector of the distribution.
-scale : LinearOperator
-    Covariance matrix represented as a
-    :class:<code>~gpjax.linalg.operators.LinearOperator</code> (e.g.
-    :class:<code>~gpjax.linalg.operators.Dense</code> or
-    :class:<code>~gpjax.linalg.operators.Diagonal</code>).</p>
+scale : lx.AbstractLinearOperator
+    Covariance matrix represented as a Lineax linear operator (e.g.
+    <code>lx.MatrixLinearOperator</code> or <code>lx.DiagonalLinearOperator</code>).</p>
 <h4 id="gpjax.distributions.GaussianDistribution--examples">Examples<a class="headerlink" href="#gpjax.distributions.GaussianDistribution--examples" title="Permanent link"></a></h4>
 <blockquote>
 <blockquote>
 <blockquote>
 <p>import jax.numpy as jnp
+import lineax as lx
 from gpjax.distributions import GaussianDistribution
-from gpjax.linalg.operators import Dense
 mu = jnp.array([0.0, 1.0])
-cov = Dense(jnp.eye(2))
+cov = lx.MatrixLinearOperator(jnp.eye(2))
 dist = GaussianDistribution(loc=mu, scale=cov)
-dist.mean
+dist.mean  # doctest: +SKIP
 Array([0., 1.], dtype=float32)
-dist.variance
+dist.variance  # doctest: +SKIP
 Array([1., 1.], dtype=float32)</p>
 </blockquote>
 </blockquote>

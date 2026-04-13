@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/linalg/utils/">
       
       
-        <link rel="prev" href="../operators/">
+        <link rel="prev" href="../custom_operators/">
       
       
         <link rel="next" href="../../mean_functions/">
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gpjax.linalg.utils.PSDAnnotation" class="md-skip">
+        <a href="#gpjax.linalg.utils.add_jitter" class="md-skip">
           Skip to content
         </a>
       
@@ -451,6 +451,34 @@
     
   
     🔪 Sharp bits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
   
 
     
@@ -3175,14 +3203,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../operations/" class="md-nav__link">
+      <a href="../_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3203,14 +3231,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../operators/" class="md-nav__link">
+      <a href="../custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3287,49 +3315,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.PSDAnnotation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PSDAnnotation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" PSDAnnotation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.PSDAnnotation.__call__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.psd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;psd
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#gpjax.linalg.utils.add_jitter" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;add_jitter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.cholesky_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;cholesky_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.logdet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet
       
     </span>
   </a>
@@ -3463,34 +3474,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -3676,49 +3659,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.PSDAnnotation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PSDAnnotation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" PSDAnnotation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.PSDAnnotation.__call__" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__call__
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.utils.psd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;psd
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#gpjax.linalg.utils.add_jitter" class="md-nav__link">
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;add_jitter
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.cholesky_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;cholesky_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.logdet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet
       
     </span>
   </a>
@@ -3775,118 +3741,6 @@
 
 
 
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="gpjax.linalg.utils.PSDAnnotation" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">PSDAnnotation</span>
-
-
-</h2>
-
-
-    <div class="doc doc-contents ">
-
-
-
-        <p>Marker class for PSD (Positive Semi-Definite) annotations.</p>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.linalg.utils.PSDAnnotation.__call__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__call__</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinearOperator</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Make PSD annotation callable.</p>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="gpjax.linalg.utils.psd" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">psd</span>
-
-
-</h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">psd</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinearOperator</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Mark a linear operator as positive semi-definite.</p>
-<p>This function acts as a marker/wrapper for positive semi-definite matrices.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>A</code></b>
-              (<code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A LinearOperator that is assumed to be positive semi-definite.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>
-          –
-          <div class="doc-md-description">
-            <p>The same LinearOperator, marked as PSD.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
 
 <div class="doc doc-object doc-function">
 
@@ -3904,52 +3758,48 @@
     <div class="doc doc-contents ">
 
         <p>Add jitter to the diagonal of a matrix for numerical stability.</p>
-<p>This function adds a small positive value (jitter) to the diagonal elements
-of a square matrix to improve numerical stability, particularly for
-Cholesky decompositions and matrix inversions.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>matrix</code></b>
-              (<code><span title="jaxtyping.Array">Array</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>A square matrix to which jitter will be added.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>jitter</code></b>
-              (<code><span title="float">float</span> | <span title="jaxtyping.Array">Array</span></code>, default:
-                  <code>1e-06</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>The jitter value to add to the diagonal. Defaults to 1e-6.</p>
-          </div>
-        </li>
-    </ul>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
 
 
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="jaxtyping.Array">Array</span></code>
-          –
-          <div class="doc-md-description">
-            <p>The matrix with jitter added to its diagonal.</p>
-          </div>
-        </li>
-    </ul>
+<h2 id="gpjax.linalg.utils.cholesky_factor" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">cholesky_factor</span>
 
 
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">gpjax.linalg.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_jitter</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">matrix</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">jittered_matrix</span> <span class="o">=</span> <span class="n">add_jitter</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">jitter</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cholesky_factor</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">op</span><span class="p">:</span> <span class="n">AbstractLinearOperator</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">lx</span><span class="o">.</span><span class="n">AbstractLinearOperator</span>
 </span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Cholesky factor of a PSD operator. Returns lower-triangular L s.t. A = L L^T.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="gpjax.linalg.utils.logdet" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">logdet</span>
+
+
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">logdet</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">AbstractLinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Log-determinant of a PSD operator via its Cholesky factor.</p>
 
 
     </div>

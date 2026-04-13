@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/linalg/operations/">
+        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/migration/">
       
       
-        <link rel="prev" href="../../likelihoods/">
+        <link rel="prev" href="../sharp_bits/">
       
       
-        <link rel="next" href="../operators/">
+        <link rel="next" href="../_examples/intro_to_gps/">
       
       
         
       
       
-      <link rel="icon" href="../../../static/favicon.ico">
+      <link rel="icon" href="../static/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
-        <title>Operations - GPJax</title>
+        <title>🚚 Migrating to 0.14 - GPJax</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,15 +53,15 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     
-      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-      <link rel="stylesheet" href="../../../stylesheets/permalinks.css">
+      <link rel="stylesheet" href="../stylesheets/permalinks.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gpjax.linalg.operations.lower_cholesky" class="md-skip">
+        <a href="#migration-guide-013x-0140" class="md-skip">
           Skip to content
         </a>
       
@@ -112,9 +112,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="GPJax" class="md-header__button md-logo" aria-label="GPJax" data-md-component="logo">
+    <a href=".." title="GPJax" class="md-header__button md-logo" aria-label="GPJax" data-md-component="logo">
       
-  <img src="../../../static/favicon.ico" alt="logo">
+  <img src="../static/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Operations
+              🚚 Migrating to 0.14
             
           </span>
         </div>
@@ -249,9 +249,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="GPJax" class="md-nav__button md-logo" aria-label="GPJax" data-md-component="logo">
+    <a href=".." title="GPJax" class="md-nav__button md-logo" aria-label="GPJax" data-md-component="logo">
       
-  <img src="../../../static/favicon.ico" alt="logo">
+  <img src="../static/favicon.ico" alt="logo">
 
     </a>
     GPJax
@@ -278,7 +278,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -302,8 +302,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -314,13 +316,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
@@ -341,7 +341,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -359,7 +359,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -387,7 +387,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../design/" class="md-nav__link">
+      <a href="../design/" class="md-nav__link">
         
   
   
@@ -415,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -443,7 +443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../sharp_bits/" class="md-nav__link">
+      <a href="../sharp_bits/" class="md-nav__link">
         
   
   
@@ -459,6 +459,219 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Breaking changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Breaking changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-backend-flaxnnxmodule-equinoxmodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Backend: flax.nnx.Module → equinox.Module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-parameter-classes-are-now-paramaxabstractunwrappable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Parameter classes are now paramax.AbstractUnwrappable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. LowerTriangular now requires a valid Cholesky factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. gpx.fit / fit_scipy / fit_lbfgs: removed params_bijection and trainable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-register_parameters-removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. register_parameters removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-gpjaxlinalg-rewrite-cola-lineax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. gpjax.linalg rewrite: cola → Lineax
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-custom-bijectors-replaced-with-numpyro-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Custom bijectors replaced with numpyro constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-breaking-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-breaking cleanup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -560,7 +773,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/intro_to_gps/" class="md-nav__link">
+      <a href="../_examples/intro_to_gps/" class="md-nav__link">
         
   
   
@@ -588,7 +801,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/intro_to_kernels/" class="md-nav__link">
+      <a href="../_examples/intro_to_kernels/" class="md-nav__link">
         
   
   
@@ -677,7 +890,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/regression/" class="md-nav__link">
+      <a href="../_examples/regression/" class="md-nav__link">
         
   
   
@@ -705,7 +918,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/classification/" class="md-nav__link">
+      <a href="../_examples/classification/" class="md-nav__link">
         
   
   
@@ -733,7 +946,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/poisson/" class="md-nav__link">
+      <a href="../_examples/poisson/" class="md-nav__link">
         
   
   
@@ -761,7 +974,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/barycentres/" class="md-nav__link">
+      <a href="../_examples/barycentres/" class="md-nav__link">
         
   
   
@@ -789,7 +1002,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/deep_kernels/" class="md-nav__link">
+      <a href="../_examples/deep_kernels/" class="md-nav__link">
         
   
   
@@ -817,7 +1030,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/graph_kernels/" class="md-nav__link">
+      <a href="../_examples/graph_kernels/" class="md-nav__link">
         
   
   
@@ -845,7 +1058,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/collapsed_vi/" class="md-nav__link">
+      <a href="../_examples/collapsed_vi/" class="md-nav__link">
         
   
   
@@ -873,7 +1086,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/uncollapsed_vi/" class="md-nav__link">
+      <a href="../_examples/uncollapsed_vi/" class="md-nav__link">
         
   
   
@@ -901,7 +1114,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oceanmodelling/" class="md-nav__link">
+      <a href="../_examples/oceanmodelling/" class="md-nav__link">
         
   
   
@@ -929,7 +1142,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/heteroscedastic_inference/" class="md-nav__link">
+      <a href="../_examples/heteroscedastic_inference/" class="md-nav__link">
         
   
   
@@ -957,7 +1170,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/multioutput/" class="md-nav__link">
+      <a href="../_examples/multioutput/" class="md-nav__link">
         
   
   
@@ -985,7 +1198,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oilmm/" class="md-nav__link">
+      <a href="../_examples/oilmm/" class="md-nav__link">
         
   
   
@@ -1013,7 +1226,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oak/" class="md-nav__link">
+      <a href="../_examples/oak/" class="md-nav__link">
         
   
   
@@ -1102,7 +1315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/numpyro_integration/" class="md-nav__link">
+      <a href="../_examples/numpyro_integration/" class="md-nav__link">
         
   
   
@@ -1130,7 +1343,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/spatial_linear_gp/" class="md-nav__link">
+      <a href="../_examples/spatial_linear_gp/" class="md-nav__link">
         
   
   
@@ -1219,7 +1432,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/constructing_new_kernels/" class="md-nav__link">
+      <a href="../_examples/constructing_new_kernels/" class="md-nav__link">
         
   
   
@@ -1247,7 +1460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/likelihoods_guide/" class="md-nav__link">
+      <a href="../_examples/likelihoods_guide/" class="md-nav__link">
         
   
   
@@ -1275,7 +1488,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/backend/" class="md-nav__link">
+      <a href="../_examples/backend/" class="md-nav__link">
         
   
   
@@ -1303,7 +1516,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/yacht/" class="md-nav__link">
+      <a href="../_examples/yacht/" class="md-nav__link">
         
   
   
@@ -1392,7 +1605,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../CODE_OF_CONDUCT/" class="md-nav__link">
+      <a href="../CODE_OF_CONDUCT/" class="md-nav__link">
         
   
   
@@ -1420,7 +1633,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOVERNANCE/" class="md-nav__link">
+      <a href="../GOVERNANCE/" class="md-nav__link">
         
   
   
@@ -1480,8 +1693,6 @@
       
   
   
-    
-  
   
   
     
@@ -1494,11 +1705,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
           <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
@@ -1519,7 +1732,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1534,8 +1747,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1545,11 +1756,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1" >
         
           
           <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
@@ -1570,7 +1783,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1588,7 +1801,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../citation/" class="md-nav__link">
+      <a href="../api/citation/" class="md-nav__link">
         
   
   
@@ -1616,7 +1829,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/" class="md-nav__link">
+      <a href="../api/dataset/" class="md-nav__link">
         
   
   
@@ -1644,7 +1857,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../distributions/" class="md-nav__link">
+      <a href="../api/distributions/" class="md-nav__link">
         
   
   
@@ -1672,7 +1885,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../fit/" class="md-nav__link">
+      <a href="../api/fit/" class="md-nav__link">
         
   
   
@@ -1700,7 +1913,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gps/" class="md-nav__link">
+      <a href="../api/gps/" class="md-nav__link">
         
   
   
@@ -1728,7 +1941,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrators/" class="md-nav__link">
+      <a href="../api/integrators/" class="md-nav__link">
         
   
   
@@ -1858,7 +2071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/decompose/" class="md-nav__link">
+      <a href="../api/kernels/additive/decompose/" class="md-nav__link">
         
   
   
@@ -1886,7 +2099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/oak/" class="md-nav__link">
+      <a href="../api/kernels/additive/oak/" class="md-nav__link">
         
   
   
@@ -1914,7 +2127,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/sobol/" class="md-nav__link">
+      <a href="../api/kernels/additive/sobol/" class="md-nav__link">
         
   
   
@@ -1942,7 +2155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/transforms/" class="md-nav__link">
+      <a href="../api/kernels/additive/transforms/" class="md-nav__link">
         
   
   
@@ -2029,7 +2242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/approximations/rff/" class="md-nav__link">
+      <a href="../api/kernels/approximations/rff/" class="md-nav__link">
         
   
   
@@ -2065,7 +2278,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/base/" class="md-nav__link">
+      <a href="../api/kernels/base/" class="md-nav__link">
         
   
   
@@ -2144,7 +2357,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/base/" class="md-nav__link">
+      <a href="../api/kernels/computations/base/" class="md-nav__link">
         
   
   
@@ -2172,7 +2385,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/basis_functions/" class="md-nav__link">
+      <a href="../api/kernels/computations/basis_functions/" class="md-nav__link">
         
   
   
@@ -2200,7 +2413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/constant_diagonal/" class="md-nav__link">
+      <a href="../api/kernels/computations/constant_diagonal/" class="md-nav__link">
         
   
   
@@ -2228,7 +2441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/dense/" class="md-nav__link">
+      <a href="../api/kernels/computations/dense/" class="md-nav__link">
         
   
   
@@ -2256,7 +2469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/diagonal/" class="md-nav__link">
+      <a href="../api/kernels/computations/diagonal/" class="md-nav__link">
         
   
   
@@ -2284,7 +2497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/eigen/" class="md-nav__link">
+      <a href="../api/kernels/computations/eigen/" class="md-nav__link">
         
   
   
@@ -2371,7 +2584,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/base/" class="md-nav__link">
+      <a href="../api/kernels/multioutput/base/" class="md-nav__link">
         
   
   
@@ -2399,7 +2612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/computation/" class="md-nav__link">
+      <a href="../api/kernels/multioutput/computation/" class="md-nav__link">
         
   
   
@@ -2427,7 +2640,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/icm/" class="md-nav__link">
+      <a href="../api/kernels/multioutput/icm/" class="md-nav__link">
         
   
   
@@ -2455,7 +2668,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/lcm/" class="md-nav__link">
+      <a href="../api/kernels/multioutput/lcm/" class="md-nav__link">
         
   
   
@@ -2542,7 +2755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/non_euclidean/graph/" class="md-nav__link">
+      <a href="../api/kernels/non_euclidean/graph/" class="md-nav__link">
         
   
   
@@ -2570,7 +2783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/non_euclidean/utils/" class="md-nav__link">
+      <a href="../api/kernels/non_euclidean/utils/" class="md-nav__link">
         
   
   
@@ -2657,7 +2870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/arccosine/" class="md-nav__link">
+      <a href="../api/kernels/nonstationary/arccosine/" class="md-nav__link">
         
   
   
@@ -2685,7 +2898,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/linear/" class="md-nav__link">
+      <a href="../api/kernels/nonstationary/linear/" class="md-nav__link">
         
   
   
@@ -2713,7 +2926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/polynomial/" class="md-nav__link">
+      <a href="../api/kernels/nonstationary/polynomial/" class="md-nav__link">
         
   
   
@@ -2800,7 +3013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/base/" class="md-nav__link">
+      <a href="../api/kernels/stationary/base/" class="md-nav__link">
         
   
   
@@ -2828,7 +3041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern12/" class="md-nav__link">
+      <a href="../api/kernels/stationary/matern12/" class="md-nav__link">
         
   
   
@@ -2856,7 +3069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern32/" class="md-nav__link">
+      <a href="../api/kernels/stationary/matern32/" class="md-nav__link">
         
   
   
@@ -2884,7 +3097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern52/" class="md-nav__link">
+      <a href="../api/kernels/stationary/matern52/" class="md-nav__link">
         
   
   
@@ -2912,7 +3125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/periodic/" class="md-nav__link">
+      <a href="../api/kernels/stationary/periodic/" class="md-nav__link">
         
   
   
@@ -2940,7 +3153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/powered_exponential/" class="md-nav__link">
+      <a href="../api/kernels/stationary/powered_exponential/" class="md-nav__link">
         
   
   
@@ -2968,7 +3181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/rational_quadratic/" class="md-nav__link">
+      <a href="../api/kernels/stationary/rational_quadratic/" class="md-nav__link">
         
   
   
@@ -2996,7 +3209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/rbf/" class="md-nav__link">
+      <a href="../api/kernels/stationary/rbf/" class="md-nav__link">
         
   
   
@@ -3024,7 +3237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/utils/" class="md-nav__link">
+      <a href="../api/kernels/stationary/utils/" class="md-nav__link">
         
   
   
@@ -3052,7 +3265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/white/" class="md-nav__link">
+      <a href="../api/kernels/stationary/white/" class="md-nav__link">
         
   
   
@@ -3096,7 +3309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../likelihoods/" class="md-nav__link">
+      <a href="../api/likelihoods/" class="md-nav__link">
         
   
   
@@ -3121,8 +3334,6 @@
                 
   
   
-    
-  
   
   
     
@@ -3132,11 +3343,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1_9" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_9" >
         
           
           <label class="md-nav__link" for="__nav_8_1_9" id="__nav_8_1_9_label" tabindex="0">
@@ -3157,7 +3370,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_9_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_1_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3172,132 +3385,17 @@
                 
   
   
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.lower_cholesky" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;lower_cholesky
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.solve" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;solve
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.logdet" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.diag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;diag
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
   
   
     <li class="md-nav__item">
-      <a href="../operators/" class="md-nav__link">
+      <a href="../api/linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+     Compat
   
 
     
@@ -3318,7 +3416,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../utils/" class="md-nav__link">
+      <a href="../api/linalg/custom_operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Operators
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/linalg/utils/" class="md-nav__link">
         
   
   
@@ -3354,7 +3480,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mean_functions/" class="md-nav__link">
+      <a href="../api/mean_functions/" class="md-nav__link">
         
   
   
@@ -3433,7 +3559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../models/oilmm/" class="md-nav__link">
+      <a href="../api/models/oilmm/" class="md-nav__link">
         
   
   
@@ -3469,35 +3595,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../objectives/" class="md-nav__link">
+      <a href="../api/objectives/" class="md-nav__link">
         
   
   
@@ -3525,7 +3623,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../parameters/" class="md-nav__link">
+      <a href="../api/parameters/" class="md-nav__link">
         
   
   
@@ -3553,7 +3651,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../scan/" class="md-nav__link">
+      <a href="../api/scan/" class="md-nav__link">
         
   
   
@@ -3581,7 +3679,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../typing/" class="md-nav__link">
+      <a href="../api/typing/" class="md-nav__link">
         
   
   
@@ -3609,7 +3707,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../variational_families/" class="md-nav__link">
+      <a href="../api/variational_families/" class="md-nav__link">
         
   
   
@@ -3662,6 +3760,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -3670,10 +3770,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.lower_cholesky" class="md-nav__link">
+  <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;lower_cholesky
+        Installation
       
     </span>
   </a>
@@ -3681,10 +3781,104 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.solve" class="md-nav__link">
+  <a href="#breaking-changes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;solve
+        Breaking changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Breaking changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-backend-flaxnnxmodule-equinoxmodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Backend: flax.nnx.Module → equinox.Module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-parameter-classes-are-now-paramaxabstractunwrappable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Parameter classes are now paramax.AbstractUnwrappable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. LowerTriangular now requires a valid Cholesky factor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. gpx.fit / fit_scipy / fit_lbfgs: removed params_bijection and trainable
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-register_parameters-removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. register_parameters removed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-gpjaxlinalg-rewrite-cola-lineax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. gpjax.linalg rewrite: cola → Lineax
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-custom-bijectors-replaced-with-numpyro-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Custom bijectors replaced with numpyro constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-breaking-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-breaking cleanup
       
     </span>
   </a>
@@ -3692,10 +3886,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.logdet" class="md-nav__link">
+  <a href="#upgrade-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet
+        Upgrade checklist
       
     </span>
   </a>
@@ -3703,10 +3897,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.linalg.operations.diag" class="md-nav__link">
+  <a href="#reporting-issues" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;diag
+        Reporting issues
       
     </span>
   </a>
@@ -3733,243 +3927,219 @@
   
 
 
-  <h1>Operations</h1>
-
-<div class="doc doc-object doc-module">
-
-
-
-
-    <div class="doc doc-contents first">
-
-        <p>Linear algebra operations for GPJax LinearOperators.</p>
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="gpjax.linalg.operations.lower_cholesky" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">lower_cholesky</span>
-
-
-</h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">lower_cholesky</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LinearOperator</span>
+<h1 id="migration-guide-013x-0140">Migration guide: <code>0.13.x</code> → <code>0.14.0</code><a class="headerlink" href="#migration-guide-013x-0140" title="Permanent link"></a></h1>
+<p>GPJax <code>0.14</code> replaces the Flax NNX backend with
+<a href="https://docs.kidger.site/equinox/">Equinox</a> +
+<a href="https://danielward27.github.io/paramax/">paramax</a>, and introduces a linear-algebra layer via
+<a href="https://docs.kidger.site/lineax/">Lineax</a>. It also removes the custom bijector
+stack in favour of
+<a href="https://num.pyro.ai/en/stable/distributions.html#constraints">numpyro constraints</a>.</p>
+<p>The changes are mostly internal. They surface in three places:</p>
+<ol>
+<li>How you <strong>define custom modules and custom parameter classes</strong>.</li>
+<li>How you <strong>read a parameter value</strong> (<code>param.unwrap()</code> / <code>paramax.unwrap(model)</code>
+   instead of <code>param.value</code>).</li>
+<li>How you <strong>freeze parameters</strong> (<code>paramax.non_trainable(...)</code> instead of the
+   <code>trainable=</code> filter argument on <code>fit</code>).</li>
+</ol>
+<p>If you only use the high-level API (<code>gpx.Prior</code>, <code>gpx.Posterior</code>, <code>gpx.fit</code>,
+etc.) most code keeps working once you update the two or three call sites
+below.</p>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0rc1&quot;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0rc1&quot;</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the lower Cholesky decomposition of a positive semi-definite operator.</p>
-<p>This function dispatches on the type of the input LinearOperator to provide
-efficient implementations for different operator structures.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>A</code></b>
-              (<code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A positive semi-definite LinearOperator.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>
-          –
-          <div class="doc-md-description">
-            <p>The lower triangular Cholesky factor L such that A = L @ L.T.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="gpjax.linalg.operations.solve" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">solve</span>
-
-
-</h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">solve</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">b</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">],</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot; N M&quot;</span><span class="p">]</span>
+<p>New dependencies (pulled in automatically): <code>equinox&gt;=0.11</code>, <code>paramax&gt;=0.0.5</code>.
+Flax is no longer a runtime dependency.</p>
+<h2 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link"></a></h2>
+<h3 id="1-backend-flaxnnxmodule-equinoxmodule">1. Backend: <code>flax.nnx.Module</code> → <code>equinox.Module</code><a class="headerlink" href="#1-backend-flaxnnxmodule-equinoxmodule" title="Permanent link"></a></h3>
+<p>If you subclassed <code>nnx.Module</code> to build a custom model, kernel, mean function,
+likelihood, or variational family, change the base class:</p>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flax</span><span class="w"> </span><span class="kn">import</span> <span class="n">nnx</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">nnx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Solve the linear system A @ x = b for x.</p>
-<p>This function dispatches on the type of the input LinearOperator to provide
-efficient implementations for different operator structures.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>A</code></b>
-              (<code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A LinearOperator representing the matrix A.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>b</code></b>
-              (<code><span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;] | <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]</code>)
-          –
-          <div class="doc-md-description">
-            <p>The right-hand side vector or matrix.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;] | <span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N M&#39;]</code>
-          –
-          <div class="doc-md-description">
-            <p>The solution x to the linear system.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="gpjax.linalg.operations.logdet" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">logdet</span>
-
-
-</h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">logdet</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ScalarFloat</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">lengthscale</span><span class="p">:</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Compute the log-determinant of a linear operator.</p>
-<p>This function dispatches on the type of the input LinearOperator to provide
-efficient implementations for different operator structures.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>A</code></b>
-              (<code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A LinearOperator.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="gpjax.typing.ScalarFloat">ScalarFloat</span></code>
-          –
-          <div class="doc-md-description">
-            <p>The log-determinant of A.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="gpjax.linalg.operations.diag" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">diag</span>
-
-
-</h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">diag</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">LinearOperator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39; N&#39;</span><span class="p">]</span>
+<p>Equinox requires <strong>class-level field annotations</strong> for every attribute, and
+static configuration fields should be marked with <code>eqx.field(static=True)</code>.</p>
+<h3 id="2-parameter-classes-are-now-paramaxabstractunwrappable">2. Parameter classes are now <code>paramax.AbstractUnwrappable</code><a class="headerlink" href="#2-parameter-classes-are-now-paramaxabstractunwrappable" title="Permanent link"></a></h3>
+<p><code>PositiveReal</code>, <code>NonNegativeReal</code>, <code>Real</code>, <code>SigmoidBounded</code>, and
+<code>LowerTriangular</code> all live in <code>gpjax.parameters</code> with the same names, but they
+now inherit from <code>paramax.AbstractUnwrappable</code> and store their value in an
+<strong>unconstrained</strong> internal field. The constraining bijection is applied at
+read time through <code>unwrap()</code>.</p>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Before (0.13.x) — nnx.Variable-based</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">length</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span>                <span class="c1"># -&gt; 0.5</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="mf">1.0</span>          <span class="c1"># in-place mutation (nnx)</span>
 </span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Extract the diagonal of a linear operator.</p>
-<p>This function dispatches on the type of the input LinearOperator to provide
-efficient implementations for different operator structures.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>A</code></b>
-              (<code><a class="autorefs autorefs-internal" title="LinearOperator (gpjax.linalg.operators.LinearOperator)" href="../operators/#gpjax.linalg.operators.LinearOperator">LinearOperator</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>A LinearOperator.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-              <code><span title="jaxtyping.Float">Float</span>[<span title="jax.Array">Array</span>, &#39; N&#39;]</code>
-          –
-          <div class="doc-md-description">
-            <p>The diagonal elements of A as a 1D array.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># After (0.14.0) — paramax.AbstractUnwrappable</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">length</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">length</span><span class="o">.</span><span class="n">unwrap</span><span class="p">()</span>             <span class="c1"># -&gt; 0.5  (applies softplus to the stored unconstrained value)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Unwrap an entire model tree in one call:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">model_resolved</span> <span class="o">=</span> <span class="n">paramax</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>Parameter</code> (the old generic base class), <code>DEFAULT_BIJECTION</code>, the
+<code>transform(...)</code> function, and <code>FillTriangularTransform</code> have been
+<strong>removed</strong>. <code>numpyro.distributions.biject_to</code> now handles every
+constraint → bijection mapping.</p>
+<h3 id="3-lowertriangular-now-requires-a-valid-cholesky-factor">3. <code>LowerTriangular</code> now requires a valid Cholesky factor<a class="headerlink" href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" title="Permanent link"></a></h3>
+<p>Previously <code>LowerTriangular</code> accepted any lower-triangular matrix (the
+diagonal was unconstrained). It is now parameterised via
+<code>numpyro.distributions.constraints.softplus_lower_cholesky</code>, so the diagonal
+<strong>must be strictly positive</strong>.</p>
+<ul>
+<li>Passing a matrix with zero or negative diagonal entries produces <code>NaN</code>
+  during construction (<code>inv_softplus</code> of a non-positive number).</li>
+<li>In-library usage is unaffected: the only consumer is
+  <code>VariationalGaussian.variational_root_covariance</code>, which is initialised to
+  the identity by default.</li>
+<li>If you previously supplied a custom <code>variational_root_covariance</code>, ensure
+  its diagonal is strictly positive. Under the old parameterisation, zero or
+  negative diagonals produced singular or sign-ambiguous variational
+  covariances.</li>
+</ul>
+<h3 id="4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable">4. <code>gpx.fit</code> / <code>fit_scipy</code> / <code>fit_lbfgs</code>: removed <code>params_bijection</code> and <code>trainable</code><a class="headerlink" href="#4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable" title="Permanent link"></a></h3>
+<p>Bijection handling is now automatic via <code>paramax.unwrap</code> inside the loss
+function, and freezing parameters is expressed by wrapping them in
+<code>paramax.non_trainable</code>:</p>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">params_bijection</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">trainable</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span>   <span class="c1"># filter-based trainability</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Freeze specific parameters up-front by wrapping them:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">replace_fn</span><span class="o">=</span><span class="n">paramax</span><span class="o">.</span><span class="n">non_trainable</span><span class="p">,</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Internally, <code>fit</code> now splits the model with <code>eqx.partition(model, eqx.is_array)</code>
+so only concrete JAX arrays participate in the gradient update; everything
+wrapped in <code>paramax.non_trainable</code> is held constant.</p>
+<h3 id="5-register_parameters-removed">5. <code>register_parameters</code> removed<a class="headerlink" href="#5-register_parameters-removed" title="Permanent link"></a></h3>
+<p>The <code>gpx.parameters.register_parameters</code> decorator (added in 0.13.x to mark
+NNX variables as GPJax parameters) is gone. With Equinox, GPJax identifies
+parameter classes through <code>isinstance</code> checks on <code>AbstractUnwrappable</code>, so
+registration is unnecessary.</p>
+<h3 id="6-gpjaxlinalg-rewrite-cola-lineax">6. <code>gpjax.linalg</code> rewrite: cola → Lineax<a class="headerlink" href="#6-gpjaxlinalg-rewrite-cola-lineax" title="Permanent link"></a></h3>
+<p>Kernel <code>gram()</code> now returns a <code>lineax.AbstractLinearOperator</code>
+(typically <code>lineax.MatrixLinearOperator</code>) instead of a <code>cola.LinearOperator</code>.
+Materialise with <code>.as_matrix()</code>.</p>
+<p>The following names have been <strong>removed</strong> from <code>gpjax.linalg</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Removed</th>
+<th>Replacement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PSD</code>, <code>psd</code></td>
+<td>Not needed — Lineax operators carry tags directly.</td>
+</tr>
+<tr>
+<td><code>Dense</code>, <code>Diagonal</code>, <code>Identity</code>, <code>Triangular</code></td>
+<td><code>lineax.MatrixLinearOperator</code>, <code>lineax.DiagonalLinearOperator</code>, <code>lineax.IdentityLinearOperator</code>, <code>lineax.TriangularLinearOperator</code></td>
+</tr>
+<tr>
+<td><code>LinearOperator</code></td>
+<td><code>lineax.AbstractLinearOperator</code></td>
+</tr>
+<tr>
+<td><code>diag</code>, <code>solve</code></td>
+<td><code>operator.diagonal()</code>, <code>lineax.linear_solve(...)</code></td>
+</tr>
+<tr>
+<td><code>lower_cholesky</code></td>
+<td><code>gpjax.linalg.cholesky_factor</code> (singledispatch, returns a lower-triangular operator)</td>
+</tr>
+</tbody>
+</table>
+<p><code>BlockDiag</code>, <code>Kronecker</code>, and <code>logdet</code> are unchanged. Use
+<code>gpjax.linalg.add_jitter</code> to add a jitter term to a covariance operator.</p>
+<h3 id="7-custom-bijectors-replaced-with-numpyro-constraints">7. Custom bijectors replaced with numpyro constraints<a class="headerlink" href="#7-custom-bijectors-replaced-with-numpyro-constraints" title="Permanent link"></a></h3>
+<p>If you had a custom <code>Parameter</code> subclass that declared a bijection, replace
+the bijection with a numpyro constraint and use <code>biject_to</code>:</p>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">):</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="c1"># Custom bijection registered via DEFAULT_BIJECTION</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="o">...</span>
+</span></code></pre></div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">numpyro.distributions</span><span class="w"> </span><span class="kn">import</span> <span class="n">biject_to</span><span class="p">,</span> <span class="n">constraints</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">paramax</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractUnwrappable</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">AbstractUnwrappable</span><span class="p">):</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">_constraint</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">positive</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">_unconstrained</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span> <span class="o">=</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unwrap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="k">return</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="non-breaking-cleanup">Non-breaking cleanup<a class="headerlink" href="#non-breaking-cleanup" title="Permanent link"></a></h2>
+<ul>
+<li><code>__description__</code> changed from <code>"Gaussian processes in JAX and Flax"</code> to
+  <code>"Gaussian processes in JAX"</code>, since Flax is no longer a dependency.</li>
+<li>Many kernel <code>compute_engine</code> internals moved; the public <code>kernel(x, y)</code>,
+  <code>kernel.gram(x)</code>, <code>kernel.cross_covariance(x, y)</code>, and <code>kernel.diagonal(x)</code>
+  methods are unchanged.</li>
+</ul>
+<h2 id="upgrade-checklist">Upgrade checklist<a class="headerlink" href="#upgrade-checklist" title="Permanent link"></a></h2>
+<ul>
+<li>[ ] Replace <code>nnx.Module</code> base classes with <code>eqx.Module</code>, and add class-level
+      type annotations for every field.</li>
+<li>[ ] Replace <code>param.value</code> reads with <code>param.unwrap()</code>, or call
+      <code>paramax.unwrap(model)</code> once at the top of your loss / prediction
+      function.</li>
+<li>[ ] Drop any <code>params_bijection=</code> / <code>trainable=</code> arguments passed to
+      <code>gpx.fit</code>. To freeze parameters, wrap them with <code>paramax.non_trainable</code>
+      using <code>eqx.tree_at</code>.</li>
+<li>[ ] Remove any <code>gpx.parameters.register_parameters</code> decorator calls.</li>
+<li>[ ] If you construct <code>LowerTriangular</code> from a custom matrix, verify the
+      diagonal is strictly positive.</li>
+<li>[ ] If you used <code>gpjax.linalg</code> operators directly, switch to the Lineax
+      equivalents listed above.</li>
+</ul>
+<h2 id="reporting-issues">Reporting issues<a class="headerlink" href="#reporting-issues" title="Permanent link"></a></h2>
+<p>This is a pre-release (<code>0.14.0rc1</code>). Please file migration issues at
+<a href="https://github.com/thomaspinder/GPJax/issues">https://github.com/thomaspinder/GPJax/issues</a> with the <code>0.14-migration</code>
+label so they can be triaged before the stable <code>0.14.0</code> release.</p>
 
 
 
@@ -4027,10 +4197,10 @@ efficient implementations for different operator structures.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
@@ -4038,7 +4208,7 @@ efficient implementations for different operator structures.</p>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
       
-        <script src="../../../javascripts/katex.js"></script>
+        <script src="../javascripts/katex.js"></script>
       
     
   </body>

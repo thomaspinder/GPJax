@@ -25,6 +25,10 @@
          <lastmod>2026-04-13</lastmod>
     </url>
     <url>
+         <loc>https://docs.jaxgaussianprocesses.com/migration/</loc>
+         <lastmod>2026-04-13</lastmod>
+    </url>
+    <url>
          <loc>https://docs.jaxgaussianprocesses.com/sharp_bits/</loc>
          <lastmod>2026-04-13</lastmod>
     </url>
@@ -146,10 +150,6 @@
     </url>
     <url>
          <loc>https://docs.jaxgaussianprocesses.com/api/mean_functions/</loc>
-         <lastmod>2026-04-13</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.jaxgaussianprocesses.com/api/numpyro_extras/</loc>
          <lastmod>2026-04-13</lastmod>
     </url>
     <url>
@@ -297,11 +297,11 @@
          <lastmod>2026-04-13</lastmod>
     </url>
     <url>
-         <loc>https://docs.jaxgaussianprocesses.com/api/linalg/operations/</loc>
+         <loc>https://docs.jaxgaussianprocesses.com/api/linalg/_compat/</loc>
          <lastmod>2026-04-13</lastmod>
     </url>
     <url>
-         <loc>https://docs.jaxgaussianprocesses.com/api/linalg/operators/</loc>
+         <loc>https://docs.jaxgaussianprocesses.com/api/linalg/custom_operators/</loc>
          <lastmod>2026-04-13</lastmod>
     </url>
     <url>

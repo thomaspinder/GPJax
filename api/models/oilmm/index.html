@@ -16,7 +16,7 @@
         <link rel="prev" href="../../mean_functions/">
       
       
-        <link rel="next" href="../../numpyro_extras/">
+        <link rel="next" href="../../objectives/">
       
       
         
@@ -451,6 +451,34 @@
     
   
     🔪 Sharp bits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
   
 
     
@@ -3175,14 +3203,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../linalg/operations/" class="md-nav__link">
+      <a href="../../linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3203,14 +3231,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../linalg/operators/" class="md-nav__link">
+      <a href="../../linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3619,34 +3647,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../objectives/" class="md-nav__link">
         
   
@@ -4043,7 +4043,7 @@
     <div class="doc doc-contents first">
 
         <p>Orthogonal Instantaneous Linear Mixing Model (OILMM) for multi-output GPs.</p>
-<p>OILMM achieves O(n³m) complexity instead of O(n³m³) by constraining the mixing
+<p>OILMM achieves O(n^3 m) complexity instead of O(n^3 m^3) by constraining the mixing
 matrix to have orthogonal columns, which causes the projected noise to be
 diagonal and enables inference to decompose into m independent single-output
 GP problems.</p>
@@ -4089,28 +4089,29 @@ Processes." ICML.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code></p>
 
 
 
         <p>Mixing matrix H = U S^(1/2) with orthogonal columns.</p>
 <p>Parameterizes an orthogonal mixing matrix for OILMM where:
-- U ∈ ℝ^(p×m) has orthonormal columns (U^T U = I_m)
-- S &gt; 0 is a diagonal scaling matrix (m × m)
+- U in R^(p x m) has orthonormal columns (U^T U = I_m)
+- S &gt; 0 is a diagonal scaling matrix (m x m)
 - H = U S^(1/2) is the mixing matrix
 - T = S^(-1/2) U^T is the projection matrix</p>
 
 
 <details class="the-orthogonality-of-u-ensures-that-the-projected-noise-is-diagonal" open>
   <summary>The orthogonality of U ensures that the projected noise is diagonal</summary>
-  <p>Σ_T = T Σ T^T = σ²S^(-1) + D</p>
-</details>        <p>where σ² is observation noise and D is latent noise.</p>
+  <p>Sigma_T = T Sigma T^T = sigma^2 S^(-1) + D</p>
+</details>        <p>where sigma^2 is observation noise and D is latent noise.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
     <ul>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.num_outputs">num_outputs</span></code></b>
+              (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
             <p>Number of output dimensions (p)</p>
@@ -4118,6 +4119,7 @@ Processes." ICML.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.num_latent_gps">num_latent_gps</span></code></b>
+              (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
             <p>Number of latent GP functions (m)</p>
@@ -4125,6 +4127,7 @@ Processes." ICML.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.U_latent">U_latent</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="Real (gpjax.parameters.Real)" href="../../parameters/#gpjax.parameters.Real">Real</a></code>)
           –
           <div class="doc-md-description">
             <p>Unconstrained matrix for SVD orthogonalization</p>
@@ -4132,6 +4135,7 @@ Processes." ICML.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.S">S</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="PositiveReal (gpjax.parameters.PositiveReal)" href="../../parameters/#gpjax.parameters.PositiveReal">PositiveReal</a></code>)
           –
           <div class="doc-md-description">
             <p>Positive diagonal scaling</p>
@@ -4139,13 +4143,15 @@ Processes." ICML.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.obs_noise_variance">obs_noise_variance</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="PositiveReal (gpjax.parameters.PositiveReal)" href="../../parameters/#gpjax.parameters.PositiveReal">PositiveReal</a></code>)
           –
           <div class="doc-md-description">
-            <p>Homogeneous observation noise (σ²)</p>
+            <p>Homogeneous observation noise (sigma^2)</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OrthogonalMixingMatrix.latent_noise_variance">latent_noise_variance</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="NonNegativeReal (gpjax.parameters.NonNegativeReal)" href="../../parameters/#gpjax.parameters.NonNegativeReal">NonNegativeReal</a></code>)
           –
           <div class="doc-md-description">
             <p>Per-latent heterogeneous noise (D), non-negative</p>
@@ -4170,7 +4176,7 @@ Processes." ICML.</p>
               (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
-            <p>Number of latent GPs (m), must satisfy m ≤ p</p>
+            <p>Number of latent GPs (m), must satisfy m &lt;= p</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4345,10 +4351,10 @@ This is the left pseudo-inverse of H: T @ H = I_m.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Element-wise H² for fast diagonal variance reconstruction.</p>
-<p>When computing marginal variances, we need H² @ latent_vars:
-    var_p = sum_m H²_pm * var_m
-This property caches H² to avoid recomputation.</p>
+        <p>Element-wise H^2 for fast diagonal variance reconstruction.</p>
+<p>When computing marginal variances, we need H^2 @ latent_vars:
+    var_p = sum_m H^2_pm * var_m
+This property caches H^2 to avoid recomputation.</p>
 
     </div>
 
@@ -4372,7 +4378,7 @@ This property caches H² to avoid recomputation.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Diagonal projected noise: Σ_T = σ²S^(-1) + D.</p>
+        <p>Diagonal projected noise: Sigma_T = sigma^2 S^(-1) + D.</p>
 <p>This is the noise variance for each independent latent GP after projection.
 The orthogonality of U ensures this is diagonal, which is what makes
 OILMM tractable.</p>
@@ -4424,23 +4430,23 @@ OILMM tractable.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code></p>
 
 
 
         <p>Orthogonal Instantaneous Linear Mixing Model.</p>
 <p>OILMM decomposes multi-output GP inference into M independent single-output
-GP problems by using an orthogonal mixing matrix. This achieves O(n³m)
-complexity instead of O(n³m³).</p>
+GP problems by using an orthogonal mixing matrix. This achieves O(n^3 m)
+complexity instead of O(n^3 m^3).</p>
 
 
 <details class="the-generative-model-is" open>
   <summary>The generative model is</summary>
   <p>x_i ~ GP(0, K(t,t'))          for i=1..M (latent GPs)
 f(t) = H x(t)                  (mixing)
-y | f ~ N(f(t), Σ)             (noise: Σ = σ²I + HDH^T)</p>
+y | f ~ N(f(t), Sigma)         (noise: Sigma = sigma^2 I + H D H^T)</p>
 </details>        <p>The orthogonality constraint (U^T U = I) ensures the projected noise is diagonal:
-    Σ_T = T Σ T^T = σ²S^(-1) + D
+    Sigma_T = T Sigma T^T = sigma^2 S^(-1) + D
 enabling independent inference for each latent GP.</p>
 
 
@@ -4448,6 +4454,7 @@ enabling independent inference for each latent GP.</p>
     <ul>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OILMMModel.num_outputs">num_outputs</span></code></b>
+              (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
             <p>Number of output dimensions (p)</p>
@@ -4455,6 +4462,7 @@ enabling independent inference for each latent GP.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OILMMModel.num_latent_gps">num_latent_gps</span></code></b>
+              (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
             <p>Number of latent GPs (m)</p>
@@ -4462,6 +4470,7 @@ enabling independent inference for each latent GP.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OILMMModel.mixing_matrix">mixing_matrix</span></code></b>
+              (<code><a class="autorefs autorefs-internal" title="OrthogonalMixingMatrix (gpjax.models.oilmm.OrthogonalMixingMatrix)" href="#gpjax.models.oilmm.OrthogonalMixingMatrix">OrthogonalMixingMatrix</a></code>)
           –
           <div class="doc-md-description">
             <p>OrthogonalMixingMatrix containing H, T, noise params</p>
@@ -4469,6 +4478,7 @@ enabling independent inference for each latent GP.</p>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="gpjax.models.oilmm.OILMMModel.latent_priors">latent_priors</span></code></b>
+              (<code><span title="tuple">tuple</span></code>)
           –
           <div class="doc-md-description">
             <p>Tuple of M independent Prior objects</p>
@@ -4493,7 +4503,7 @@ enabling independent inference for each latent GP.</p>
               (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
-            <p>Number of latent GPs (m), must satisfy m ≤ p</p>
+            <p>Number of latent GPs (m), must satisfy m &lt;= p</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -4634,9 +4644,9 @@ list of M kernels, each is used directly.</p>
         <p>Posterior distribution for OILMM.</p>
 <p>Wraps M independent ConjugatePosterior objects and provides a unified
 predict() interface that reconstructs predictions in output space.</p>
-<p>This is a plain class (not nnx.Module) because it holds Dataset objects
+<p>This is a plain class (not eqx.Module) because it holds Dataset objects
 which are not JAX pytree nodes. The latent posteriors and mixing matrix
-are still nnx.Modules and participate in JAX transformations when accessed.</p>
+are still eqx.Modules and participate in JAX transformations when accessed.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -4742,7 +4752,7 @@ are still nnx.Modules and participate in JAX transformations when accessed.</p>
 <p>Reconstructs predictions in output space from M independent latent posteriors:
 1. Predict each latent GP independently
 2. Reconstruct mean: f_mean = H @ latent_means
-3. Reconstruct covariance: Σ_f = (H ⊗ I) Σ_x (H ⊗ I)^T</p>
+3. Reconstruct covariance: Sigma_f = (H x I) Sigma_x (H x I)^T</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4777,7 +4787,7 @@ are still nnx.Modules and participate in JAX transformations when accessed.</p>
           <div class="doc-md-description">
             <p>GaussianDistribution with:
 - loc: [NP] flattened output-major
-- scale: Dense [NP, NP] covariance (full or diagonal)</p>
+- scale: lx.MatrixLinearOperator [NP, NP] covariance (full or diagonal)</p>
           </div>
         </li>
     </ul>
@@ -4811,7 +4821,7 @@ are still nnx.Modules and participate in JAX transformations when accessed.</p>
 
         <p>Log marginal likelihood for the OILMM.</p>
 <p>Implements Prop. 9 from Bruinsma et al. (2020):</p>
-<div class="language-text highlight"><pre><span></span><code>log p(Y) = correction_terms + Σᵢ log N((TY)ᵢ | 0, Kᵢ + noise_i Iₙ)
+<div class="language-text highlight"><pre><span></span><code>log p(Y) = correction_terms + sum_i log N((TY)_i | 0, K_i + noise_i I_n)
 </code></pre></div>
 <p>The correction terms prevent the projection from collapsing and account
 for data in the (p - m) dimensions orthogonal to the mixing matrix.</p>

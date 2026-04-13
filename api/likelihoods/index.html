@@ -16,7 +16,7 @@
         <link rel="prev" href="../kernels/stationary/white/">
       
       
-        <link rel="next" href="../linalg/operations/">
+        <link rel="next" href="../linalg/_compat/">
       
       
         
@@ -451,6 +451,34 @@
     
   
     🔪 Sharp bits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
   
 
     
@@ -3717,14 +3745,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operations/" class="md-nav__link">
+      <a href="../linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3745,14 +3773,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../linalg/operators/" class="md-nav__link">
+      <a href="../linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3912,34 +3940,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -4688,7 +4688,7 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code></p>
 
 
 
@@ -5032,7 +5032,7 @@ likelihoods.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="flax.nnx.Module">Module</span></code></p>
+              Bases: <code><span title="equinox.Module">Module</span></code></p>
 
 
 
@@ -5276,7 +5276,7 @@ likelihoods.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Return whether the tighter bound from Lázaro-Gredilla &amp; Titsias (2011)
+        <p>Return whether the tighter bound from Lazaro-Gredilla &amp; Titsias (2011)
 is applicable.</p>
 
 
@@ -5938,7 +5938,7 @@ likelihoods.</p>
 
         <p>Per-observation noise variance in output-major (Kronecker) order.</p>
 <p>Returns sigma_p^2 with each output's variance repeated N times,
-concatenated across outputs: [σ₁²...σ₁², σ₂²...σ₂², ...].</p>
+concatenated across outputs: [sigma_1^2...sigma_1^2, sigma_2^2...sigma_2^2, ...].</p>
 
 
     </div>

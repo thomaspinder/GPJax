@@ -16,7 +16,7 @@
         <link rel="prev" href="../contributing/">
       
       
-        <link rel="next" href="../_examples/intro_to_gps/">
+        <link rel="next" href="../migration/">
       
       
         
@@ -525,10 +525,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-does-gpjax-subclass-variable-not-param" class="md-nav__link">
+  <a href="#how-does-the-parameter-system-work" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why does GPJax subclass Variable, not Param?
+        How does the parameter system work?
       
     </span>
   </a>
@@ -617,6 +617,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    🚚 Migrating to 0.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3333,14 +3361,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/linalg/operations/" class="md-nav__link">
+      <a href="../api/linalg/_compat/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+     Compat
   
 
     
@@ -3361,14 +3389,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/linalg/operators/" class="md-nav__link">
+      <a href="../api/linalg/custom_operators/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Operators
+    Custom Operators
   
 
     
@@ -3528,34 +3556,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/numpyro_extras/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Numpyro Extras
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -3765,10 +3765,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-does-gpjax-subclass-variable-not-param" class="md-nav__link">
+  <a href="#how-does-the-parameter-system-work" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why does GPJax subclass Variable, not Param?
+        How does the parameter system work?
       
     </span>
   </a>
@@ -3957,31 +3957,20 @@ this value that we apply gradient updates to. When we wish to recover the constr
 value, we apply the inverse of the bijector, which is the exponential function in this
 case. This gives us back the blue cross.</p>
 <p>In GPJax, we supply bijective functions using <a href="https://num.pyro.ai/en/stable/distributions.html#transforms">Numpyro</a>.</p>
-<h2 id="why-does-gpjax-subclass-variable-not-param">Why does GPJax subclass <code>Variable</code>, not <code>Param</code>?<a class="headerlink" href="#why-does-gpjax-subclass-variable-not-param" title="Permanent link"></a></h2>
-<p>In Flax NNX, <code>nnx.Param</code> is a thin marker subclass of <code>nnx.Variable</code> that denotes
-standard learnable parameters (neural network weights and biases). GPJax's <code>Parameter</code>
-instead subclasses <code>nnx.Variable</code> directly, making it a <strong>sibling</strong> of <code>nnx.Param</code>
-rather than a child. This is deliberate: a GP hyperparameter is semantically different
-from a neural network weight because it carries a constraint <strong>tag</strong> (e.g. <code>"positive"</code>,
-<code>"sigmoid"</code>) that selects which bijection to apply during optimisation, and optionally
-an attached NumPyro prior for MCMC inference.</p>
-<p>This type separation matters in practice. In deep kernel learning, a single model
-contains both <code>nnx.Linear</code> layers (whose weights are <code>nnx.Param</code>) and GP kernel
-hyperparameters (which are <code>PositiveReal</code>, <code>Real</code>, etc.). When <code>fit()</code> calls
-<code>nnx.split(model, Parameter, ...)</code>, these two kinds of state are cleanly separated:</p>
-<ul>
-<li><strong><code>Parameter</code> instances</strong> are extracted, transformed to unconstrained space via their
-  tag's bijection, optimised, and transformed back.</li>
-<li><strong><code>nnx.Param</code> instances</strong> (and any other non-<code>Parameter</code> state) remain in the static
-  partition and pass through untouched.</li>
-</ul>
-<p>If <code>Parameter</code> extended <code>nnx.Param</code>, then any code that filters by <code>nnx.Param</code> — including
-NumPyro's <code>random_nnx_module</code> and standard Flax utilities — would capture GP
-hyperparameters without awareness of their bijection tags or attached priors.
-This follows the
-<a href="https://flax.readthedocs.io/en/latest/api_reference/flax.nnx/variables.html">Flax-recommended pattern</a>
-of subclassing <code>nnx.Variable</code> for custom variable types that represent a distinct kind
-of state.</p>
+<h2 id="how-does-the-parameter-system-work">How does the parameter system work?<a class="headerlink" href="#how-does-the-parameter-system-work" title="Permanent link"></a></h2>
+<p>GPJax uses <a href="https://github.com/danielward27/paramax">Paramax</a> to handle constrained
+parameters during optimisation. Each constrained parameter is a subclass of
+<code>paramax.AbstractUnwrappable</code> — an Equinox-compatible pytree node whose <code>unwrap()</code>
+method applies the constraining bijection (e.g. softplus for positivity, sigmoid for
+bounded parameters).</p>
+<p>During optimisation, <code>fit()</code> calls <code>paramax.unwrap(model)</code> inside the loss function.
+This recursively resolves every <code>AbstractUnwrappable</code> leaf in the model tree, mapping
+internal unconstrained values to their constrained counterparts. Gradients are computed
+in the unconstrained space, and updates are applied directly to the unconstrained
+arrays — no explicit forward/inverse transform step is needed.</p>
+<p>To freeze parameters so they are not updated during optimisation, wrap them with
+<code>paramax.non_trainable(param)</code>. This excludes the wrapped subtree from gradient
+updates while keeping its value available at evaluation time.</p>
 <h2 id="positive-definiteness">Positive-definiteness<a class="headerlink" href="#positive-definiteness" title="Permanent link"></a></h2>
 <blockquote>
 <p>"Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Highman, Accuracy and stability of numerical algorithms [@higham2022accuracy]</p>
