@@ -31,6 +31,8 @@ from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from examples.utils import use_mpl_style, clean_legend
+
 config.update("jax_enable_x64", True)
 
 
@@ -126,27 +128,26 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 # Note this is what will be defaulted if left blank.
 
 # %%
-# %% [markdown]
-# prior_dist = prior.predict(xtest, return_covariance_type="dense")
-#
-# prior_mean = prior_dist.mean
-# prior_std = prior_dist.variance
-# samples = prior_dist.sample(key=key, sample_shape=(20,))
-#
-#
-# fig, ax = plt.subplots()
-# ax.plot(xtest, samples.T, alpha=0.5, color=cols[0], label="Prior samples")
-# ax.plot(xtest, prior_mean, color=cols[1], label="Prior mean")
-# ax.fill_between(
-#     xtest.flatten(),
-#     prior_mean - prior_std,
-#     prior_mean + prior_std,
-#     alpha=0.3,
-#     color=cols[1],
-#     label="Prior variance",
-# )
-# ax.legend(loc="best")
-# ax = clean_legend(ax)
+prior_dist = prior.predict(xtest, return_covariance_type="dense")
+
+prior_mean = prior_dist.mean
+prior_std = prior_dist.variance
+samples = prior_dist.sample(key=key, sample_shape=(20,))
+
+
+fig, ax = plt.subplots()
+ax.plot(xtest, samples.T, alpha=0.5, color=cols[0], label="Prior samples")
+ax.plot(xtest, prior_mean, color=cols[1], label="Prior mean")
+ax.fill_between(
+    xtest.flatten(),
+    prior_mean - prior_std,
+    prior_mean + prior_std,
+    alpha=0.3,
+    color=cols[1],
+    label="Prior variance",
+)
+ax.legend(loc="best")
+clean_legend(ax)
 
 # %% [markdown]
 # ## Constructing the posterior
