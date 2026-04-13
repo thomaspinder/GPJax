@@ -46,8 +46,10 @@ class TestOILMMPerformance:
         elapsed = time.perf_counter() - start
 
         print(f"m={m}: {elapsed * 1000:.2f}ms")
-        # Just verify it completes (actual timing too noisy for CI)
-        assert elapsed < 1.0  # Should be fast
+        # Generous upper bound to tolerate CI runner contention (pytest -n 8
+        # on shared VMs). Local runs are ~200ms; a real regression would be
+        # orders of magnitude slower.
+        assert elapsed < 30.0
 
     def test_prediction_jit_compiles(self):
         """Verify prediction can be JIT compiled."""
