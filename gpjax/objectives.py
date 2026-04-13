@@ -23,7 +23,9 @@ from gpjax.linalg import (
     psd,
     solve,
 )
+from gpjax.linalg.operators import LowRank
 from gpjax.linalg.utils import add_jitter
+from gpjax.linalg.woodbury import woodbury_logdet, woodbury_quad
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -120,12 +122,25 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
     noise = posterior.likelihood.noise_vector(data.n)
 
     Kxx = kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
-    Sigma_dense = Kxx_dense + jnp.diag(noise)
-    Sigma = psd(Dense(Sigma_dense))
+    diff = jnp.atleast_1d((y_flat - mx_flat).squeeze())
 
-    mll = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
-    return mll.log_prob(jnp.atleast_1d(y_flat.squeeze())).squeeze()
+    if isinstance(Kxx, LowRank):
+        # Low-rank path: Sigma = W W^T + D.
+        # Use the Woodbury identity for O(N m^2) instead of O(N^3) Cholesky.
+        W = Kxx.factor
+        noise_with_jitter = noise + posterior.prior.jitter
+        num_datapoints = x.shape[0] * posterior.likelihood.num_outputs
+
+        log_det = woodbury_logdet(W, noise_with_jitter)
+        quadratic = woodbury_quad(W, noise_with_jitter, diff)
+
+        return -0.5 * (num_datapoints * jnp.log(2.0 * jnp.pi) + log_det + quadratic)
+
+    # Dense path: Sigma = Kxx + D.  Standard Cholesky-based log-probability.
+    Kxx_dense = add_jitter(Kxx.to_dense(), posterior.prior.jitter)
+    Sigma = psd(Dense(Kxx_dense + jnp.diag(noise)))
+    marginal = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
+    return marginal.log_prob(diff).squeeze()
 
 
 def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:

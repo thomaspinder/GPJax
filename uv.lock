@@ -17,7 +17,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-02-06T09:56:46.847909Z"
+exclude-newer = "2026-02-13T18:59:31.785479Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -951,6 +951,7 @@ wheels = [
 
 [[package]]
 name = "gpjax"
+version = "0.13.6"
 source = { editable = "." }
 dependencies = [
     { name = "beartype" },
@@ -985,6 +986,7 @@ docs = [
     { name = "networkx" },
     { name = "pandas" },
     { name = "pymdown-extensions" },
+    { name = "rdata" },
     { name = "scikit-learn" },
     { name = "seaborn" },
     { name = "ucimlrepo" },
@@ -1041,6 +1043,7 @@ requires-dist = [
     { name = "optax", specifier = ">0.2.1" },
     { name = "pandas", marker = "extra == 'docs'", specifier = ">=1.5.3" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.7.1" },
+    { name = "rdata", marker = "extra == 'docs'", specifier = ">=1.0.0" },
     { name = "scikit-learn", marker = "extra == 'docs'", specifier = ">=1.5.1" },
     { name = "seaborn", marker = "extra == 'docs'", specifier = ">=0.12.2" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'", specifier = "!=0.1.76" },
@@ -3112,6 +3115,21 @@ wheels = [
 ]
 
 [[package]]
+name = "rdata"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "typing-extensions" },
+    { name = "xarray" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/e5/c5626257359fde4662f9c2f658bcb37873ffad1490c8991640a361b8cf8e/rdata-1.0.0.tar.gz", hash = "sha256:d924d7657c9eeaee4b86a0ae87999f5beb0070ed47bd491c85bc79ee9644596d", size = 56618, upload-time = "2025-08-15T17:17:10.832Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/b6/aec7624eb1db90e58b7fa34ab6491ee06385020bbb9598d4b8a28051da81/rdata-1.0.0-py3-none-any.whl", hash = "sha256:b671e31676e158dc215297595d5085aee1674b91be3c26e38638ca056167d402", size = 72291, upload-time = "2025-08-15T17:17:09.404Z" },
+]
+
+[[package]]
 name = "readme-renderer"
 version = "44.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4119,6 +4137,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bd/f4/c67440c7fb409a71b7404b7aefcd7569a9c0d6bd071299bf4198ae7a5d95/widgetsnbextension-4.0.15.tar.gz", hash = "sha256:de8610639996f1567952d763a5a41af8af37f2575a41f9852a38f947eb82a3b9", size = 1097402, upload-time = "2025-11-01T21:15:55.178Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/0e/fa3b193432cfc60c93b42f3be03365f5f909d2b3ea410295cf36df739e31/widgetsnbextension-4.0.15-py3-none-any.whl", hash = "sha256:8156704e4346a571d9ce73b84bee86a29906c9abfd7223b7228a28899ccf3366", size = 2196503, upload-time = "2025-11-01T21:15:53.565Z" },
+]
+
+[[package]]
+name = "xarray"
+version = "2026.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/85/113ff1e2cde9e8a5b13c2f0ef4e9f5cd6ca3a036b6452f4dd523419289b5/xarray-2026.1.0.tar.gz", hash = "sha256:0c9814761f9d9a9545df37292d3fda89f83201f3e02ae0f09f03313d9cfdd5e2", size = 3107024, upload-time = "2026-01-28T17:49:03.822Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/8e/952a351c10df395d9bab850f611f4368834ae9104d6449049f5a49e00925/xarray-2026.1.0-py3-none-any.whl", hash = "sha256:5fcc03d3ed8dfb662aa254efe6cd65efc70014182bbc2126e4b90d291d970d41", size = 1403009, upload-time = "2026-01-28T17:49:01.538Z" },
 ]
 
 [[package]]

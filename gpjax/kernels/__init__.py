@@ -19,7 +19,7 @@ from gpjax.kernels import stationary
 from gpjax.kernels.additive import (
     OrthogonalAdditiveKernel,
 )
-from gpjax.kernels.approximations import RFF
+from gpjax.kernels.approximations import HSGP, RFF
 from gpjax.kernels.base import (
     AbstractKernel,
     Constant,
@@ -32,6 +32,7 @@ from gpjax.kernels.computations import (
     DenseKernelComputation,
     DiagonalKernelComputation,
     EigenKernelComputation,
+    HSGPComputation,
 )
 from gpjax.kernels.multioutput import (
     ICMKernel,
@@ -57,6 +58,7 @@ from gpjax.kernels.stationary import (
 )
 
 __all__ = [
+    "HSGP",
     "RBF",
     "RFF",
     "AbstractKernel",
@@ -68,6 +70,7 @@ __all__ = [
     "DiagonalKernelComputation",
     "EigenKernelComputation",
     "GraphKernel",
+    "HSGPComputation",
     "ICMKernel",
     "LCMKernel",
     "Linear",

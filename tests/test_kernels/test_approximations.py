@@ -13,7 +13,7 @@ from gpjax.kernels.stationary import (
     RationalQuadratic,
     StationaryKernel,
 )
-from gpjax.linalg.operators import Dense
+from gpjax.linalg.operators import LowRank
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -52,7 +52,7 @@ def test_gram(
     linop = approximate.gram(x)
 
     # Check the return type
-    assert isinstance(linop, Dense)
+    assert isinstance(linop, LowRank)
 
     Kxx = linop.to_dense() + jnp.eye(n_data) * _jitter
 

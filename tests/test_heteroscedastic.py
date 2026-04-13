@@ -167,11 +167,13 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
     # E[1/sigma^2]
     mc_inv_variance = jnp.mean(1.0 / transformed_samples)
 
-    # Allow for some MC error and quadrature approximation error
+    # Allow for some MC error and quadrature approximation error.
+    # atol covers near-zero values where rtol alone is unreliable.
     rtol = 0.15
-    assert jnp.allclose(moments.variance, mc_variance, rtol=rtol)
-    assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol)
-    assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol)
+    atol = 0.01
+    assert jnp.allclose(moments.variance, mc_variance, rtol=rtol, atol=atol)
+    assert jnp.allclose(moments.log_variance, mc_log_variance, rtol=rtol, atol=atol)
+    assert jnp.allclose(moments.inv_variance, mc_inv_variance, rtol=rtol, atol=atol)
 
 
 def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
