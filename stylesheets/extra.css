@@ -108,6 +108,25 @@ img[src$=".png"] {
   margin-right: auto;
 }
 
+/* Consulting call-to-action block, appended to the homepage and each
+   tutorial/experimental notebook by docs/scripts/gen_examples.py. */
+:root {
+    --linkcolor: #870d14;
+}
+
+.consulting-cta {
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--linkcolor);
+    border-left: 5px solid var(--linkcolor);
+    border-radius: 8px;
+    background-color: color-mix(in srgb, var(--linkcolor) 6%, transparent);
+}
+
+.consulting-cta p {
+    margin: 0;
+}
+
 /* Maximum space for text block */
 /* .md-grid {
   max-width: 65%; /* or 100%, if you want to stretch to full-width */
