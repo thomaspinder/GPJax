@@ -22,9 +22,9 @@ below.
 ## Installation
 
 ```bash
-pip install "gpjax==0.14.0rc1"
+pip install "gpjax==0.14.0"
 # or
-uv add "gpjax==0.14.0rc1"
+uv add "gpjax==0.14.0"
 ```
 
 New dependencies (pulled in automatically): `equinox>=0.11`, `paramax>=0.0.5`.
@@ -229,6 +229,6 @@ class MyParam(AbstractUnwrappable):
 
 ## Reporting issues
 
-This is a pre-release (`0.14.0rc1`). Please file migration issues at
+Please file migration issues at
 <https://github.com/thomaspinder/GPJax/issues> with the `0.14-migration`
-label so they can be triaged before the stable `0.14.0` release.
+label.
