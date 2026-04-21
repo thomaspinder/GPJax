@@ -1,22 +1,49 @@
-""" Convert python files in "examples" directory to markdown files using jupytext and nbconvert.
+"""Convert python files in "examples" directory to markdown files using jupytext and nbconvert.
 
 There's only a minor inconvenience with how supporting files are handled by nbconvert,
 see https://github.com/jupyter/nbconvert/issues/1164. But these will be under a private
 directory `_examples` in the docs folder, so it's not a big deal.
 
 """
+
 from argparse import ArgumentParser
-from pathlib import Path
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 import shutil
+import subprocess
 
 EXCLUDE = ["utils.py"]
+
+# Notebooks that should get the consulting CTA appended. Mirrors the
+# "Tutorials" and "Experimental" sections of mkdocs.yml.
+CTA_NOTEBOOKS = {
+    "regression",
+    "classification",
+    "poisson",
+    "barycentres",
+    "deep_kernels",
+    "graph_kernels",
+    "collapsed_vi",
+    "uncollapsed_vi",
+    "oceanmodelling",
+    "heteroscedastic_inference",
+    "multioutput",
+    "oilmm",
+    "oak",
+    "numpyro_integration",
+    "spatial_linear_gp",
+}
+
+CTA_HTML = """
+<section class="consulting-cta">
+    <p>We currently have some <strong>availability for consulting</strong> on how Gaussian processes, Bayesian modelling, and GPJax can be integrated into your team's work. If this sounds relevant to your work, <a href="https://calendly.com/hello-1761-izqw/15-minute-meeting-clone-1">book an introductory call</a>. These calls are for consulting inquiries only. For technical usage questions and free community support, please use GitHub Discussions and the documentation below.</p>
+</section>
+"""
 
 
 def process_file(file: Path, out_file: Path | None = None, execute: bool = False):
     """Converts a python file to markdown using jupytext and nbconvert.
-    
+
     Raises:
         subprocess.CalledProcessError: If the conversion fails.
     """
@@ -24,21 +51,27 @@ def process_file(file: Path, out_file: Path | None = None, execute: bool = False
     out_dir = out_file.parent
     command = f"cd {out_dir.as_posix()} && "
 
-    out_file = out_file.relative_to(out_dir).as_posix()
+    out_file_name = out_file.relative_to(out_dir).as_posix()
 
     if execute:
         command += f"jupytext --to ipynb {file} --output - "
-        command += (
-            f"| jupyter nbconvert --to markdown --execute --stdin --output {out_file}"
-        )
+        command += f"| jupyter nbconvert --to markdown --execute --stdin --output {out_file_name}"
     else:
-        command += f"jupytext --to markdown {file} --output {out_file}"
+        command += f"jupytext --to markdown {file} --output {out_file_name}"
 
-    result = subprocess.run(command, shell=True, check=False, capture_output=True, text=True)
+    result = subprocess.run(
+        command, shell=True, check=False, capture_output=True, text=True
+    )
     if result.returncode != 0:
         error_msg = f"Failed to process {file.name}: {result.stderr}"
         print(error_msg)
-        raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode, command, output=result.stdout, stderr=result.stderr
+        )
+
+    if file.stem in CTA_NOTEBOOKS:
+        with out_file.open("a", encoding="utf-8") as fd:
+            fd.write(CTA_HTML)
 
 
 def is_modified(file: Path, out_file: Path):
@@ -102,7 +135,7 @@ def main(args):
             except Exception as e:
                 print(f"Error processing {file.name}: {e}")
                 failures.append((file, e))
-    
+
     # Report failures and exit with error code if any failed
     if failures:
         print(f"\n{len(failures)} file(s) failed to process:")
@@ -116,6 +149,7 @@ def main(args):
 
 if __name__ == "__main__":
     import sys
+
     project_root = Path(__file__).parents[2]
 
     parser = ArgumentParser()

@@ -35,24 +35,9 @@ would write on paper, as shown below.
     \end{align}
     ```
 
-## Quick start
-
-!!! Install
-
-    GPJax can be installed via pip. See our [installation guide](installation.md) for further details.
-
-    ```bash
-    pip install gpjax
-    ```
-
-!!! New
-
-    New to GPs? Then why not check out our [introductory notebook](_examples/intro_to_gps.md) that starts from Bayes' theorem and univariate Gaussian distributions.
-
-!!! Begin
-
-    Looking for a good place to start? Then why not begin with our [regression
-    notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/).
+<section class="consulting-cta">
+    <p>We currently have some <strong>availability for consulting</strong> on how Gaussian processes, Bayesian modelling, and GPJax can be integrated into your team's work. If this sounds relevant to your work, <a href="https://calendly.com/hello-1761-izqw/15-minute-meeting-clone-1">book an introductory call</a>. These calls are for consulting inquiries only. For technical usage questions and free community support, please use GitHub Discussions and the documentation below.</p> 
+</section>
 
 ## Citing GPJax
 
