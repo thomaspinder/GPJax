@@ -36,7 +36,7 @@ would write on paper, as shown below.
     ```
 
 <section class="consulting-cta">
-    <p><strong>Available for consulting</strong> on Gaussian processes, Bayesian modelling, and open-source software implementation. If this sounds relevant to your work, <a href="https://calendly.com/hello-1761-izqw/15-minute-meeting-clone-1">book an introductory call</a>.</p>
+    <p>We currently have some <strong>availability for consulting</strong> on how Gaussian processes, Bayesian modelling, and GPJax can be integrated into your team's work. If this sounds relevant to your work, <a href="https://calendly.com/hello-1761-izqw/15-minute-meeting-clone-1">book an introductory call</a>. These calls are for consulting inquiries only. For technical usage questions and free community support, please use GitHub Discussions and the documentation below.</p> 
 </section>
 
 ## Citing GPJax
