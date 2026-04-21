@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 import paramax
 from paramax import AbstractUnwrappable
+import pytest
 
 
 def test_positive_real_unwraps_to_array():
@@ -95,6 +96,55 @@ def test_lower_triangular_positive_diagonal():
     assert jnp.allclose(val, L, atol=1e-5)
     assert val[0, 0] > 0
     assert val[1, 1] > 0
+
+
+@pytest.mark.parametrize(
+    "factory, storage_field",
+    [
+        (
+            lambda v: __import__(
+                "gpjax.parameters", fromlist=["PositiveReal"]
+            ).PositiveReal(v),
+            "_unconstrained",
+        ),
+        (
+            lambda v: __import__(
+                "gpjax.parameters", fromlist=["NonNegativeReal"]
+            ).NonNegativeReal(v),
+            "_unconstrained",
+        ),
+        (lambda v: __import__("gpjax.parameters", fromlist=["Real"]).Real(v), "value"),
+        (
+            lambda v: __import__(
+                "gpjax.parameters", fromlist=["SigmoidBounded"]
+            ).SigmoidBounded(v, low=0.0, high=1.0),
+            "_unconstrained",
+        ),
+    ],
+)
+def test_scalar_parameters_preserve_float32(factory, storage_field):
+    """Regression: parameters should preserve float32 inputs (discussion #628)."""
+    value = jnp.asarray(0.5, dtype=jnp.float32)
+    p = factory(value)
+    assert getattr(p, storage_field).dtype == jnp.float32
+    assert p.unwrap().dtype == jnp.float32
+
+
+def test_lower_triangular_preserves_float32():
+    """Regression: LowerTriangular preserves float32 inputs (discussion #628).
+
+    Relies on the local dtype-preserving variant of
+    SoftplusLowerCholeskyTransform (temporary workaround for numpyro's
+    untyped allocations in vec_to_tril_matrix).
+    """
+    from gpjax.parameters import LowerTriangular
+
+    L = jnp.asarray([[1.0, 0.0], [0.5, 1.0]], dtype=jnp.float32)
+    p = LowerTriangular(L)
+    assert p._flat.dtype == jnp.float32
+    val = p.unwrap()
+    assert val.dtype == jnp.float32
+    assert jnp.allclose(val, L, atol=1e-5)
 
 
 def test_coregionalization_matrix():

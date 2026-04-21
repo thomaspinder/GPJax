@@ -1,8 +1,12 @@
+import math
+
 import equinox as eqx
 import jax
+from jax.nn import softplus
 import jax.numpy as jnp
 import jax.random as jr
 from numpyro.distributions import biject_to, constraints
+from numpyro.distributions.transforms import SoftplusLowerCholeskyTransform
 from paramax import AbstractUnwrappable
 
 # numpyro's biject_to is a ConstraintRegistry that maps constraints to
@@ -17,6 +21,39 @@ from paramax import AbstractUnwrappable
 # biject_to(self._constraint).
 
 
+class _DtypePreservingSoftplusLowerCholeskyTransform(SoftplusLowerCholeskyTransform):
+    """Dtype-preserving variant of numpyro's SoftplusLowerCholeskyTransform.
+
+    TEMPORARY WORKAROUND. numpyro's upstream ``__call__`` routes through
+    ``vec_to_tril_matrix`` (``numpyro/distributions/util.py``) and
+    ``jnp.identity(n)``, both of which allocate arrays without a dtype
+    kwarg. That pulls JAX's default float (``float64`` when
+    ``jax_enable_x64`` is on) and forces the whole transform to
+    ``float64`` regardless of input dtype -- breaking ``float32`` round
+    trips via ``lax.scatter_add`` type-mismatch errors.
+
+    This subclass overrides only the forward pass so allocations inherit
+    ``x.dtype``. The inverse is already dtype-preserving upstream.
+
+    Remove this class once the upstream allocations accept ``dtype``.
+    See https://github.com/thomaspinder/GPJax/discussions/628.
+    """
+
+    def __call__(self, x):
+        n = round((math.sqrt(1 + 8 * x.shape[-1]) - 1) / 2)
+        off_diag = x[..., :-n]
+        diag = softplus(x[..., -n:])
+
+        z = jnp.zeros((*off_diag.shape[:-1], n, n), dtype=x.dtype)
+        row, col = jnp.tril_indices(n, k=-1)
+        z = z.at[..., row, col].set(off_diag)
+
+        return z + jnp.expand_dims(diag, axis=-1) * jnp.eye(n, dtype=x.dtype)
+
+
+_dtype_preserving_lower_cholesky = _DtypePreservingSoftplusLowerCholeskyTransform()
+
+
 class PositiveReal(AbstractUnwrappable):
     """Strictly positive parameter.
 
@@ -29,7 +66,7 @@ class PositiveReal(AbstractUnwrappable):
 
     def __init__(self, value):
         transform = biject_to(self._constraint)
-        self._unconstrained = transform.inv(jnp.asarray(value, dtype=jnp.float64))
+        self._unconstrained = transform.inv(jnp.asarray(value))
 
     def unwrap(self):
         return biject_to(self._constraint)(self._unconstrained)
@@ -47,7 +84,7 @@ class NonNegativeReal(AbstractUnwrappable):
 
     def __init__(self, value):
         transform = biject_to(self._constraint)
-        self._unconstrained = transform.inv(jnp.asarray(value, dtype=jnp.float64))
+        self._unconstrained = transform.inv(jnp.asarray(value))
 
     def unwrap(self):
         return biject_to(self._constraint)(self._unconstrained)
@@ -60,7 +97,7 @@ class Real(AbstractUnwrappable):
     value: jax.Array
 
     def __init__(self, value):
-        self.value = jnp.asarray(value, dtype=jnp.float64)
+        self.value = jnp.asarray(value)
 
     def unwrap(self):
         return self.value
@@ -74,7 +111,7 @@ class SigmoidBounded(AbstractUnwrappable):
     high: float = eqx.field(static=True)
 
     def __init__(self, value, *, low=0.0, high=1.0):
-        value = jnp.asarray(value, dtype=jnp.float64)
+        value = jnp.asarray(value)
         transform = biject_to(constraints.interval(low, high))
         self._unconstrained = transform.inv(value)
         self.low = low
@@ -99,12 +136,11 @@ class LowerTriangular(AbstractUnwrappable):
     _flat: jax.Array
 
     def __init__(self, value):
-        value = jnp.asarray(value, dtype=jnp.float64)
-        transform = biject_to(self._constraint)
-        self._flat = transform.inv(value)
+        value = jnp.asarray(value)
+        self._flat = _dtype_preserving_lower_cholesky.inv(value)
 
     def unwrap(self):
-        return biject_to(self._constraint)(self._flat)
+        return _dtype_preserving_lower_cholesky(self._flat)
 
 
 class CoregionalizationMatrix(eqx.Module):
