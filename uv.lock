@@ -17,7 +17,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-03-07T13:05:00.434105Z"
+exclude-newer = "2026-04-14T13:59:27.166665Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -980,8 +980,8 @@ requires-dist = [
     { name = "ipykernel", marker = "extra == 'docs'", specifier = ">=6.22.0" },
     { name = "ipython", marker = "extra == 'docs'", specifier = ">=8.11.0" },
     { name = "ipywidgets", marker = "extra == 'docs'", specifier = ">=8.0.5" },
-    { name = "jax", specifier = ">=0.5.0" },
-    { name = "jaxlib", specifier = ">=0.5.0" },
+    { name = "jax", specifier = ">=0.5.0,<0.10" },
+    { name = "jaxlib", specifier = ">=0.5.0,<0.10" },
     { name = "jaxtyping", specifier = ">0.2.10" },
     { name = "jupytext", marker = "extra == 'docs'", specifier = ">=1.14.5" },
     { name = "lineax", specifier = ">=0.0.6" },
