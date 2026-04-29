@@ -89,31 +89,6 @@ def test_state_space_conjugate_posterior_predict_dense_raises():
         posterior.predict(Xtest, train_data, return_covariance_type="dense")
 
 
-def test_state_space_conjugate_posterior_predict_smoothed_phase10_stub():
-    """Phase 10 will fill in the smoothed prediction; for now it raises."""
-    prior = StateSpacePrior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
-    )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=5, obs_stddev=0.1)
-    posterior = StateSpaceConjugatePosterior(prior=prior, likelihood=likelihood)
-    train_data = gpx.Dataset(X=jnp.zeros((5, 1)), y=jnp.zeros((5, 1)))
-    with pytest.raises(NotImplementedError, match=r"Phase 10|smooth"):
-        posterior.predict(jnp.array([[0.5]]), train_data)
-
-
-def test_state_space_conjugate_posterior_predict_filter_phase10_stub():
-    prior = StateSpacePrior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
-    )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=5, obs_stddev=0.1)
-    posterior = StateSpaceConjugatePosterior(prior=prior, likelihood=likelihood)
-    train_data = gpx.Dataset(X=jnp.zeros((5, 1)), y=jnp.zeros((5, 1)))
-    with pytest.raises(NotImplementedError, match=r"Phase 10|filter"):
-        posterior.predict_filter(jnp.array([[0.5]]), train_data)
-
-
 def test_state_space_prior_times_gaussian_returns_state_space_posterior():
     prior = StateSpacePrior(
         mean_function=gpx.mean_functions.Zero(),

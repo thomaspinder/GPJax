@@ -87,7 +87,11 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
             raise NotImplementedError(
                 "State-space posterior predict only supports return_covariance_type='diagonal' in v1."
             )
-        raise NotImplementedError("Smoothed state-space prediction lands in Phase 10.")
+        from gpjax.state_space.prediction import predict_smoothed
+
+        return predict_smoothed(
+            self, train_data, test_inputs, observation_mask=observation_mask
+        )
 
     def predict_filter(
         self,
@@ -101,7 +105,11 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
             raise NotImplementedError(
                 "State-space posterior predict_filter only supports return_covariance_type='diagonal' in v1."
             )
-        raise NotImplementedError("Filtered state-space prediction lands in Phase 10.")
+        from gpjax.state_space.prediction import predict_filtered
+
+        return predict_filtered(
+            self, train_data, test_inputs, observation_mask=observation_mask
+        )
 
 
 def _require_scalar_gaussian_likelihood(likelihood) -> None:
