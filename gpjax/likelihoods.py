@@ -24,6 +24,7 @@ import jax.nn as jnn
 import jax.numpy as jnp
 import jax.scipy as jsp
 from jaxtyping import Float
+import lineax as lx
 import numpy as np
 import numpyro.distributions as npd
 from paramax import AbstractUnwrappable
@@ -49,6 +50,22 @@ if TYPE_CHECKING:
 def _val(x):
     """Unwrap a paramax parameter or return the value directly."""
     return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
+def _diagonal_scale(op):
+    """Unwrap a single TaggedLinearOperator layer and return the inner diagonal, or None.
+
+    Returns the input itself if it is already a DiagonalLinearOperator; returns the
+    inner DiagonalLinearOperator if `op` is a TaggedLinearOperator wrapping one;
+    returns None otherwise (e.g. dense MatrixLinearOperator, nested tags).
+    """
+    if isinstance(op, lx.DiagonalLinearOperator):
+        return op
+    if isinstance(op, lx.TaggedLinearOperator) and isinstance(
+        op.operator, lx.DiagonalLinearOperator
+    ):
+        return op.operator
+    return None
 
 
 @dataclass(slots=True)
@@ -351,26 +368,37 @@ class Gaussian(AbstractLikelihood):
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
-    ) -> npd.MultivariateNormal:
-        r"""Evaluate the Gaussian likelihood.
+    ) -> GaussianDistribution:
+        r"""Evaluate the Gaussian likelihood at a predictive distribution.
 
-        Evaluate the Gaussian likelihood function at a given predictive
-        distribution. Computationally, this is equivalent to summing the
-        observation noise term to the diagonal elements of the predictive
-        distribution's covariance matrix.
+        Preserves diagonal scale when the input carries a
+        ``lineax.DiagonalLinearOperator`` (including when wrapped in
+        ``lx.TaggedLinearOperator`` as emitted by
+        ``DiagonalKernelComputation`` / ``ConstantDiagonalKernelComputation``).
+        Always returns ``GaussianDistribution``. This widens the previous return
+        type from ``numpyro.distributions.MultivariateNormal`` — see CHANGELOG v0.15.
 
         Args:
-            dist (npd.Distribution): The Gaussian process posterior,
-                evaluated at a finite set of test points.
+            dist: The Gaussian process posterior at a finite set of test points.
 
         Returns:
-            npd.Distribution: The predictive distribution.
+            GaussianDistribution: The predictive distribution with observation
+            noise added to the diagonal of the covariance.
         """
+        obs_var = _val(self.obs_stddev) ** 2
+
+        if isinstance(dist, GaussianDistribution):
+            diag = _diagonal_scale(dist.scale)
+            if diag is not None:
+                noisy_scale = lx.DiagonalLinearOperator(lx.diagonal(diag) + obs_var)
+                return GaussianDistribution(dist.mean, noisy_scale)
+
+        # Dense fallback — widen return type to GaussianDistribution for API
+        # consistency.
         n_data = dist.event_shape[0]
         cov = dist.covariance_matrix
-        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(_val(self.obs_stddev) ** 2)
-
-        return npd.MultivariateNormal(dist.mean, noisy_cov)
+        noisy_cov = cov.at[jnp.diag_indices(n_data)].add(obs_var)
+        return GaussianDistribution(dist.mean, lx.MatrixLinearOperator(noisy_cov))
 
     def noise_vector(self, n: int) -> Float[Array, " N"]:
         """Per-observation noise variance vector (scalar broadcast for single-output)."""
