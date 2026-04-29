@@ -74,11 +74,20 @@ class Matern12SDE(LinearSDE):
         )
 
     def discretise(self, time_step):
-        A_scalar = jnp.exp(-time_step / self.lengthscale)
-        L_Q_scalar = jnp.sqrt(
-            self.variance * -jnp.expm1(-2.0 * time_step / self.lengthscale)
-        )
-        return jnp.array([[A_scalar]]), jnp.array([[L_Q_scalar]])
+        eye = jnp.eye(1)
+        zeros = jnp.zeros((1, 1))
+
+        def zero_dt(_):
+            return eye, zeros
+
+        def positive_dt(dt):
+            A_scalar = jnp.exp(-dt / self.lengthscale)
+            L_Q_scalar = jnp.sqrt(
+                self.variance * -jnp.expm1(-2.0 * dt / self.lengthscale)
+            )
+            return jnp.array([[A_scalar]]), jnp.array([[L_Q_scalar]])
+
+        return jax.lax.cond(time_step == 0.0, zero_dt, positive_dt, time_step)
 
 
 def _psd_sqrt(matrix):
