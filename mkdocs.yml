@@ -46,6 +46,7 @@ nav:
     - 📜 Governance: GOVERNANCE.md
     - 📨 Contact: https://jaxgaussianprocesses.com/contact/
   - 📕 Reference: api/
+  - 📈 Benchmarks: benchmarks/index.html
 
 validation:
   nav:

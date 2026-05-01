@@ -160,3 +160,7 @@ AGENTS.md
 plans/
 *.ipynb
 reports/
+
+# ASV (continuous benchmarking)
+.asv/
+.asv-results/

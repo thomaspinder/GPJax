@@ -62,6 +62,25 @@ jobs:
           uv run python docs/scripts/gen_examples.py --execute
           uv run mkdocs build
 
+      - name: Checkout benchmark results
+        uses: actions/checkout@v6
+        with:
+          ref: asv-results
+          path: .asv-results
+          persist-credentials: false
+        continue-on-error: true
+
+      - name: Render benchmark dashboard
+        run: |
+          uv run asv publish || true
+          if [ -d ".asv/html" ]; then
+            mkdir -p site/benchmarks
+            cp -r .asv/html/* site/benchmarks/
+          else
+            echo "No benchmark HTML produced — skipping"
+          fi
+        continue-on-error: true
+
       - name: Deploy Page 🚀
         uses: JamesIves/github-pages-deploy-action@v4.8.0
         with:
