@@ -147,6 +147,36 @@ help = "Serve documentation locally"
 cmd = "python tests/integration_tests.py"
 help = "Run integration tests"
 
+# Benchmark tasks (continuous benchmarking via ASV)
+[tool.poe.tasks.bench-constraints]
+help = "Regenerate asv-constraints.txt from uv.lock so ASV envs install the same versions as .venv."
+cmd = "uv export --frozen --no-dev --no-emit-project --no-hashes --no-editable --no-annotate --no-header -o asv-constraints.txt"
+
+[tool.poe.tasks.bench]
+help = "Run ASV benchmarks against current HEAD on this machine. Pass an optional range via -- (e.g. uv run poe bench -- v0.10..HEAD)."
+shell = "asv run --machine $(hostname -s) HEAD^! ${@}"
+
+[tool.poe.tasks.bench-publish]
+help = "Generate the static HTML dashboard locally at .asv/html/."
+cmd = "asv publish"
+
+[tool.poe.tasks.bench-push]
+help = "Commit and push results in .asv-results worktree (the asv-results branch)."
+shell = """
+cd .asv-results && \
+git add results/ && \
+git commit -m \"bench results $(date -u +%Y-%m-%dT%H:%M:%SZ)\" && \
+git push
+"""
+
+[tool.poe.tasks.bench-all]
+help = "Chain: refresh constraints, run benchmarks, generate HTML, push results."
+sequence = ["bench-constraints", "bench", "bench-publish", "bench-push"]
+
+[tool.poe.tasks.bench-compare]
+help = "Run benchmarks on two refs and print a regression report. Usage: uv run poe bench-compare <baseline-ref> <branch-ref>"
+shell = "asv continuous --machine $(hostname -s) -e ${1} ${2}"
+
 # Combined tasks
 [tool.poe.tasks.all-tests]
 sequence = ["lint", "docstrings", "test"]
