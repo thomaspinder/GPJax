@@ -17,6 +17,7 @@ BENCH_MODULES = [
     "benchmarks.linalg",
     "benchmarks.objectives",
     "benchmarks.compile",
+    "benchmarks.state_space",
 ]
 
 
@@ -57,3 +58,11 @@ def test_compile_runs():
     suite.setup()
     elapsed = suite.track_compile_conjugate_mll()
     assert elapsed > 0
+
+
+def test_state_space_mll_runs():
+    from benchmarks.state_space import StateSpaceMllSuite
+
+    suite = StateSpaceMllSuite()
+    suite.setup(1000)
+    suite.time_state_space_mll(1000)
