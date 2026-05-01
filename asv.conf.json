@@ -1,0 +1,29 @@
+{
+    "//": "Continuous benchmarking config. Trends are only comparable across runs that pinned Python 3.13. Bumping the pin resets the historical series.",
+    "version": 1,
+    "project": "gpjax",
+    "project_url": "https://github.com/JaxGaussianProcesses/GPJax",
+    "repo": ".",
+    "branches": ["main"],
+    "default_branch": "main",
+    "dvcs": "git",
+    "environment_type": "virtualenv",
+    "show_commit_url": "https://github.com/JaxGaussianProcesses/GPJax/commit/",
+    "pythons": ["3.13"],
+    "matrix": {},
+    "benchmark_dir": "benchmarks",
+    "env_dir": ".asv/env",
+    "results_dir": ".asv-results/results",
+    "html_dir": ".asv/html",
+    "build_command": [
+        "python -m pip install build uv",
+        "python -m build --wheel -o {build_cache_dir} {build_dir}"
+    ],
+    "install_command": [
+        "uv pip install --python {env_dir}/bin/python --constraint {build_dir}/asv-constraints.txt {wheel_file}"
+    ],
+    "uninstall_command": [
+        "return-code=any python -m pip uninstall -y {project}"
+    ],
+    "timer": "perf_counter"
+}
