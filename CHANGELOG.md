@@ -5,6 +5,36 @@ All notable changes to GPJax are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`gpjax.state_space` sub-package**: state-space (Markovian) Gaussian
+  processes with a square-root Kalman filter (chunked checkpointed scan
+  for `O(sqrt(N) · d²)` reverse-mode AD memory) and an RTS smoother.
+  Public API:
+  - `StateSpacePrior`, `StateSpaceConjugatePosterior`
+  - `TruncatedPeriodic` (Solin & Särkkä 2014 truncated-Fourier kernel)
+  - `to_sde` singledispatch dispatching kernels to closed-form SDEs
+  - `state_space_mll` MLL objective
+  - `fit`, `fit_scipy`, `fit_lbfgs` thin wrappers around the
+    corresponding `gpjax.fit_*` optimisers
+  - Supports `Matern12`, `Matern32`, `Matern52`, `TruncatedPeriodic`,
+    and their `SumKernel` compositions on 1-D temporal data.
+- **New poe task**: `all-tests-slow` runs long-running numerical and
+  memory stress tests opt-in via the `slow` pytest marker.
+
+### Changed (breaking)
+
+- **`gpjax.likelihoods.Gaussian.predict`** now returns
+  `gpjax.distributions.GaussianDistribution` (was
+  `numpyro.distributions.MultivariateNormal`). The diagonal fast path
+  preserves a `lineax.DiagonalLinearOperator` scale; the dense path
+  wraps a `lineax.MatrixLinearOperator`. Callers relying on
+  `MultivariateNormal`-specific attributes (`scale_tril`,
+  `precision_matrix`, etc.) must update; callers using `mean`,
+  `variance`, `covariance_matrix` are unaffected.
+
 ## [0.14.0] — 2026-04-21
 
 See [`docs/migration.md`](docs/migration.md) for full upgrade instructions.

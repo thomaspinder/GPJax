@@ -69,6 +69,14 @@ def validate_state_space_data(X, y, observation_mask=None) -> None:
         raise ValueError("X contains non-finite (NaN or Inf) entries.")
     if not bool(jnp.all(jnp.isfinite(y_array))):
         raise ValueError("y contains non-finite (NaN or Inf) entries.")
+    if X_array.dtype != jnp.float64 or y_array.dtype != jnp.float64:
+        warnings.warn(
+            f"Running state-space inference with X dtype={X_array.dtype}, "
+            f"y dtype={y_array.dtype}. Numerical conditioning can degrade for "
+            "long sequences; enable jax_enable_x64.",
+            UserWarning,
+            stacklevel=2,
+        )
     if observation_mask is not None:
         mask_array = jnp.asarray(observation_mask)
         if mask_array.shape[0] != X_array.shape[0]:

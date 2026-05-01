@@ -377,3 +377,24 @@ def test_sum_sde_zero_dt_returns_identity_and_zero_noise():
     np.testing.assert_array_equal(
         np.asarray(L_Q), np.zeros((sde_sum.state_dim, sde_sum.state_dim))
     )
+
+
+@pytest.mark.parametrize("sde_cls", [Matern32SDE, Matern52SDE])
+@pytest.mark.parametrize("n", [50, 200, 1000, 2000])
+def test_matern_sde_gradient_through_lengthscale_at_realistic_N(sde_cls, n):
+    """Gradient through the Matern SDE must be finite for time-densely-sampled
+    data, where Q can pick up round-off-induced tiny negative eigenvalues."""
+    times = jnp.linspace(0.0, 20.0, n)
+
+    def loss(lengthscale):
+        sde = sde_cls(lengthscale=lengthscale, variance=1.0)
+
+        def step_loss(time_step):
+            A, L_Q = sde.discretise(time_step)
+            return jnp.sum(A) + jnp.sum(L_Q @ L_Q.T)
+
+        time_steps = jnp.diff(times)
+        return jax.vmap(step_loss)(time_steps).sum()
+
+    grad_value = jax.grad(loss)(jnp.asarray(1.0))
+    assert jnp.isfinite(grad_value)

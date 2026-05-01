@@ -91,16 +91,37 @@ class Matern12SDE(LinearSDE):
 
 
 def _psd_sqrt(matrix):
-    """PSD matrix square root via eigendecomposition with non-negative clipping.
+    """PSD matrix square root via eigendecomposition with gradient-safe clipping.
 
     Returns ``M`` such that ``M @ M.T`` reconstructs the input up to round-off,
     even when round-off has produced eigenvalues marginally below zero. This is
     not a Cholesky factor (not lower-triangular); use only where the consumer
     needs any square root, not specifically a Cholesky one.
+
+    Gradient safety. The naive ``jnp.maximum(eigvals, 0.0)`` clip combined
+    with ``sqrt`` is gradient-fragile: ``maximum`` is non-differentiable at
+    zero and ``d sqrt(x)/dx = 0.5 / sqrt(x)`` is unbounded as ``x -> 0``.
+    When the input ``Q = P_inf - A P_inf A.T`` of a Matern SDE picks up a
+    round-off-induced eigenvalue near zero (which happens for Matern-5/2 at
+    realistic time-densely-sampled N because the third eigenvalue of Q
+    involves a ``dt^5/lengthscale^5`` cancellation), the reverse-mode
+    gradient through that branch becomes NaN.
+
+    We use the double-``where`` idiom to make the gradient finite everywhere:
+    on non-positive eigenvalues we route the value through a constant-1.0
+    placeholder (so ``sqrt`` is differentiated at 1, never at 0), and we mask
+    the output back to 0 with a second ``where``. This preserves the forward
+    value (the placeholder branch never reaches the output) and guarantees
+    finite gradients without applying any forward jitter to ``Q``.
     """
     eigvals, eigvecs = jnp.linalg.eigh(matrix)
-    eigvals_nonneg = jnp.maximum(eigvals, 0.0)
-    return eigvecs * jnp.sqrt(eigvals_nonneg)
+    is_positive = eigvals > 0.0
+    # Use the double-where idiom: route negatives to a safe positive value
+    # for both forward and gradient computation, then mask the output.
+    # This avoids the inf derivative of sqrt at 0 entirely.
+    safe_eigvals = jnp.where(is_positive, eigvals, 1.0)
+    sqrt_eigvals = jnp.where(is_positive, jnp.sqrt(safe_eigvals), 0.0)
+    return eigvecs * sqrt_eigvals
 
 
 def _matern32_discrete_q(dt, lengthscale, variance):

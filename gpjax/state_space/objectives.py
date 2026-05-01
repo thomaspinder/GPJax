@@ -28,6 +28,25 @@ def state_space_mll(
     in the ``state_space.fit*`` wrappers.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 1.
+
+    Example:
+    ```python
+        >>> import jax.numpy as jnp
+        >>> import gpjax as gpx
+        >>> from gpjax.state_space import StateSpacePrior, state_space_mll
+        >>> X = jnp.linspace(0.0, 5.0, 20).reshape(-1, 1)
+        >>> y = jnp.sin(X)
+        >>> prior = StateSpacePrior(
+        ...     mean_function=gpx.mean_functions.Zero(),
+        ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
+        ... )
+        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> posterior = prior * likelihood
+        >>> train_data = gpx.Dataset(X=X, y=y)
+        >>> mll = state_space_mll(posterior, train_data)
+        >>> bool(jnp.isfinite(mll))
+        True
+    ```
     """
     posterior = paramax.unwrap(posterior)
     prior = posterior.prior

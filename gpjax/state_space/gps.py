@@ -20,6 +20,18 @@ class StateSpacePrior(Prior):
     Identical to ``gpjax.gps.Prior`` except predictions are diagonal-only
     (the prior is stationary in time, so off-diagonal covariance carries no
     extra information for v1's diagonal-only predictive contract).
+
+    Example:
+    ```python
+        >>> import gpjax as gpx
+        >>> from gpjax.state_space import StateSpacePrior
+        >>> prior = StateSpacePrior(
+        ...     mean_function=gpx.mean_functions.Zero(),
+        ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
+        ... )
+        >>> isinstance(prior.kernel, gpx.kernels.Matern32)
+        True
+    ```
     """
 
     def __call__(self, test_inputs, *, return_covariance_type="diagonal"):
@@ -58,6 +70,20 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
       - ``__call__``       : delegates to ``predict``
     Both ``predict`` and ``predict_filter`` reject ``return_covariance_type="dense"``
     in favour of v1's diagonal-only contract before any further dispatch.
+
+    Example:
+    ```python
+        >>> import gpjax as gpx
+        >>> from gpjax.state_space import StateSpacePrior
+        >>> prior = StateSpacePrior(
+        ...     mean_function=gpx.mean_functions.Zero(),
+        ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
+        ... )
+        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> posterior = prior * likelihood
+        >>> posterior.__class__.__name__
+        'StateSpaceConjugatePosterior'
+    ```
     """
 
     def __call__(
