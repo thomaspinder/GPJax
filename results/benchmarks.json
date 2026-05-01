@@ -1,21 +1,30 @@
 {
     "compile.CompileSuite.track_compile_conjugate_mll": {
-        "code": "class CompileSuite:\n    def track_compile_conjugate_mll(self):\n        t0 = time.perf_counter()\n        realise(self.jitted_mll(self.posterior, self.data))\n        return time.perf_counter() - t0\n\n    def setup(self):\n        jax.clear_caches()\n    \n        n = 200\n        X = make_inputs(n)\n        y = make_outputs(n)\n        self.data = gpx.Dataset(X=X, y=y)\n        kernel = gpx.kernels.RBF()\n        mean = gpx.mean_functions.Zero()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        self.posterior = prior * likelihood\n    \n        self.jitted_mll = jax.jit(objectives.conjugate_mll)\n        self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())\n        self.X_warm = X",
+        "code": "class CompileSuite:\n    def track_compile_conjugate_mll(self):\n        t0 = time.perf_counter()\n        realise(self.jitted_mll(self.posterior, self.data))\n        return time.perf_counter() - t0\n\n    def setup(self):\n        jax.clear_caches()\n    \n        n = 200\n        X = make_inputs(n)\n        y = make_outputs(n)\n        self.data = gpx.Dataset(X=X, y=y)\n        kernel = gpx.kernels.RBF()\n        mean = gpx.mean_functions.Zero()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        self.posterior = prior * likelihood\n        self.q = VariationalGaussian(\n            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]\n        )\n    \n        self.jitted_mll = jax.jit(objectives.conjugate_mll)\n        self.jitted_elbo = jax.jit(objectives.elbo)\n        self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())\n        self.X_warm = X",
         "name": "compile.CompileSuite.track_compile_conjugate_mll",
         "param_names": [],
         "params": [],
         "type": "track",
         "unit": "seconds",
-        "version": "e962a6096b6546fffc753e90dcb92d147e90f2ec2d312faf76f6401bba631b9f"
+        "version": "46f010e1b0bf8dfb909623f270b998abe5fb41e5a2b348360a071dbfde0499ce"
+    },
+    "compile.CompileSuite.track_compile_elbo": {
+        "code": "class CompileSuite:\n    def track_compile_elbo(self):\n        t0 = time.perf_counter()\n        realise(self.jitted_elbo(self.q, self.data))\n        return time.perf_counter() - t0\n\n    def setup(self):\n        jax.clear_caches()\n    \n        n = 200\n        X = make_inputs(n)\n        y = make_outputs(n)\n        self.data = gpx.Dataset(X=X, y=y)\n        kernel = gpx.kernels.RBF()\n        mean = gpx.mean_functions.Zero()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        self.posterior = prior * likelihood\n        self.q = VariationalGaussian(\n            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]\n        )\n    \n        self.jitted_mll = jax.jit(objectives.conjugate_mll)\n        self.jitted_elbo = jax.jit(objectives.elbo)\n        self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())\n        self.X_warm = X",
+        "name": "compile.CompileSuite.track_compile_elbo",
+        "param_names": [],
+        "params": [],
+        "type": "track",
+        "unit": "seconds",
+        "version": "370ba819d1e97b8e4ceeb52d4cdc928d62c6f167ebfe78d3853d5f5988fa8414"
     },
     "compile.CompileSuite.track_compile_kernel_gram": {
-        "code": "class CompileSuite:\n    def track_compile_kernel_gram(self):\n        t0 = time.perf_counter()\n        realise(self.jitted_gram(self.X_warm))\n        return time.perf_counter() - t0\n\n    def setup(self):\n        jax.clear_caches()\n    \n        n = 200\n        X = make_inputs(n)\n        y = make_outputs(n)\n        self.data = gpx.Dataset(X=X, y=y)\n        kernel = gpx.kernels.RBF()\n        mean = gpx.mean_functions.Zero()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        self.posterior = prior * likelihood\n    \n        self.jitted_mll = jax.jit(objectives.conjugate_mll)\n        self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())\n        self.X_warm = X",
+        "code": "class CompileSuite:\n    def track_compile_kernel_gram(self):\n        t0 = time.perf_counter()\n        realise(self.jitted_gram(self.X_warm))\n        return time.perf_counter() - t0\n\n    def setup(self):\n        jax.clear_caches()\n    \n        n = 200\n        X = make_inputs(n)\n        y = make_outputs(n)\n        self.data = gpx.Dataset(X=X, y=y)\n        kernel = gpx.kernels.RBF()\n        mean = gpx.mean_functions.Zero()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        self.posterior = prior * likelihood\n        self.q = VariationalGaussian(\n            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]\n        )\n    \n        self.jitted_mll = jax.jit(objectives.conjugate_mll)\n        self.jitted_elbo = jax.jit(objectives.elbo)\n        self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())\n        self.X_warm = X",
         "name": "compile.CompileSuite.track_compile_kernel_gram",
         "param_names": [],
         "params": [],
         "type": "track",
         "unit": "seconds",
-        "version": "aca465071be5cab4b949e4b26b8a8330b238fbe5ac9ca35d0552838484b2a014"
+        "version": "78cdeb785f42a67310fc7ccf76b982b6639576be790f21f6bbc898d3d34741ab"
     },
     "kernels.CrossCovarianceSuite.time_cross_covariance": {
         "code": "class CrossCovarianceSuite:\n    def time_cross_covariance(self, kernel, n):\n        realise(self.kernel.cross_covariance(self.X, self.Y))\n\n    def setup(self, kernel, n):\n        self.X = make_inputs(n, key=jr.key(1))\n        self.Y = make_inputs(n, key=jr.key(2))\n        self.kernel = _KERNELS[kernel]()\n        realise(self.kernel.cross_covariance(self.X, self.Y))",
@@ -107,6 +116,65 @@
         "type": "time",
         "unit": "seconds",
         "version": "d49ad881a4f2979441c973f85941fc27fc4e98ef374aa9ddf49b7e7ea606a008",
+        "warmup_time": -1
+    },
+    "kernels.MultiOutputGramSuite.time_gram": {
+        "code": "class MultiOutputGramSuite:\n    def time_gram(self, model, n):\n        realise(self.kernel.gram(self.X).as_matrix())\n\n    def setup(self, model, n):\n        kind, q_str = model.split(\"_Q\")\n        Q = int(q_str)\n        P = 4\n        self.X = make_inputs(n, d=1)\n        if kind == \"ICM\":\n            coreg = CoregionalizationMatrix(num_outputs=P, rank=2, key=jr.key(11))\n            self.kernel = ICMKernel(\n                base_kernel=gpx.kernels.RBF(), coregionalization_matrix=coreg\n            )\n        else:\n            kernels = [gpx.kernels.RBF() for _ in range(Q)]\n            mats = [\n                CoregionalizationMatrix(num_outputs=P, rank=2, key=jr.key(20 + i))\n                for i in range(Q)\n            ]\n            self.kernel = LCMKernel(kernels=kernels, coregionalization_matrices=mats)\n        realise(self.kernel.gram(self.X).as_matrix())",
+        "min_run_count": 2,
+        "name": "kernels.MultiOutputGramSuite.time_gram",
+        "number": 0,
+        "param_names": [
+            "model",
+            "n"
+        ],
+        "params": [
+            [
+                "'ICM_Q1'",
+                "'LCM_Q2'",
+                "'LCM_Q4'"
+            ],
+            [
+                "200"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "b24790c58a903d63db155b4baca14271266ce0382f3cfc449540fea2e31766c7",
+        "warmup_time": -1
+    },
+    "kernels.RffGramSuite.time_gram": {
+        "code": "class RffGramSuite:\n    def time_gram(self, base, approx, n):\n        realise(self.kernel.gram(self.X).as_matrix())\n\n    def setup(self, base, approx, n):\n        self.X = make_inputs(n, d=1)\n        base_kernel = _KERNELS[base](n_dims=1)\n        if approx == \"exact\":\n            self.kernel = base_kernel\n        else:\n            self.kernel = RFF(\n                base_kernel=base_kernel,\n                num_basis_fns=_RFF_NUM_BASIS,\n                key=jr.key(0),\n            )\n        realise(self.kernel.gram(self.X).as_matrix())",
+        "min_run_count": 2,
+        "name": "kernels.RffGramSuite.time_gram",
+        "number": 0,
+        "param_names": [
+            "base",
+            "approx",
+            "n"
+        ],
+        "params": [
+            [
+                "'RBF'",
+                "'Matern52'"
+            ],
+            [
+                "'exact'",
+                "'rff'"
+            ],
+            [
+                "1000",
+                "3000"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "9e19c500ec97e9b707a7c10143f8a320d98c2be2741e95a0865e500e730ccde9",
         "warmup_time": -1
     },
     "linalg.AddJitterSuite.time_add_jitter": {
@@ -222,27 +290,6 @@
         "version": "7db71d7eba5cb5e3d617115f7858225cea1091891f8da4b63fad1e5485da8c41",
         "warmup_time": -1
     },
-    "objectives.CollapsedElboSuite.time_collapsed_elbo": {
-        "code": "class CollapsedElboSuite:\n    def time_collapsed_elbo(self, n):\n        realise(objectives.collapsed_elbo(self.q, self.data))\n\n    def setup(self, n):\n        data = _gaussian_dataset(n)\n        kernel = gpx.kernels.RBF()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=gpx.mean_functions.Zero())\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        posterior = prior * likelihood\n        Z = data.X[:50]\n        self.q = gpx.variational_families.CollapsedVariationalGaussian(\n            posterior=posterior, inducing_inputs=Z\n        )\n        self.data = data\n        realise(objectives.collapsed_elbo(self.q, self.data))",
-        "min_run_count": 2,
-        "name": "objectives.CollapsedElboSuite.time_collapsed_elbo",
-        "number": 0,
-        "param_names": [
-            "n"
-        ],
-        "params": [
-            [
-                "500"
-            ]
-        ],
-        "repeat": 0,
-        "rounds": 2,
-        "sample_time": 0.01,
-        "type": "time",
-        "unit": "seconds",
-        "version": "f3d3ed4013ed2f963cc9311327b20eb537a55e1b8894dc66df5dacda38020f87",
-        "warmup_time": -1
-    },
     "objectives.ConjugateMllSuite.time_conjugate_mll": {
         "code": "class ConjugateMllSuite:\n    def time_conjugate_mll(self, n):\n        realise(objectives.conjugate_mll(self.posterior, self.data))\n\n    def setup(self, n):\n        self.posterior, self.data = _conjugate_posterior(n)\n        realise(objectives.conjugate_mll(self.posterior, self.data))",
         "min_run_count": 2,
@@ -253,8 +300,8 @@
         ],
         "params": [
             [
-                "200",
-                "1000"
+                "1000",
+                "3000"
             ]
         ],
         "repeat": 0,
@@ -265,29 +312,8 @@
         "version": "84af0d4f90a413883688773918832326f9e56c25801072d117fc7986d4614c2d",
         "warmup_time": -1
     },
-    "objectives.ElboSuite.time_elbo": {
-        "code": "class ElboSuite:\n    def time_elbo(self, n):\n        realise(objectives.elbo(self.q, self.data))\n\n    def setup(self, n):\n        data = _gaussian_dataset(n)\n        kernel = gpx.kernels.RBF()\n        prior = gpx.gps.Prior(kernel=kernel, mean_function=gpx.mean_functions.Zero())\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)\n        posterior = prior * likelihood\n        Z = data.X[:50]\n        self.q = gpx.variational_families.VariationalGaussian(\n            posterior=posterior, inducing_inputs=Z\n        )\n        self.data = data\n        realise(objectives.elbo(self.q, self.data))",
-        "min_run_count": 2,
-        "name": "objectives.ElboSuite.time_elbo",
-        "number": 0,
-        "param_names": [
-            "n"
-        ],
-        "params": [
-            [
-                "500"
-            ]
-        ],
-        "repeat": 0,
-        "rounds": 2,
-        "sample_time": 0.01,
-        "type": "time",
-        "unit": "seconds",
-        "version": "4aa9b5737dd9b63e558b3471586eee823418e4e4734f20513b790a47317b5992",
-        "warmup_time": -1
-    },
     "objectives.HeteroscedasticElboSuite.time_heteroscedastic_elbo": {
-        "code": "class HeteroscedasticElboSuite:\n    def time_heteroscedastic_elbo(self, n):\n        realise(objectives.heteroscedastic_elbo(self.q, self.data))\n\n    def setup(self, n):\n        data = _gaussian_dataset(n)\n        signal_kernel = gpx.kernels.RBF()\n        noise_kernel = gpx.kernels.RBF()\n        signal_prior = gpx.gps.Prior(\n            kernel=signal_kernel, mean_function=gpx.mean_functions.Zero()\n        )\n        noise_prior = gpx.gps.Prior(\n            kernel=noise_kernel, mean_function=gpx.mean_functions.Zero()\n        )\n        likelihood = HeteroscedasticGaussian(num_datapoints=n, noise_prior=noise_prior)\n        posterior = signal_prior * likelihood\n        Z = data.X[:50]\n        self.q = HeteroscedasticVariationalFamily(\n            posterior=posterior, inducing_inputs=Z, inducing_inputs_g=Z\n        )\n        self.data = data\n        realise(objectives.heteroscedastic_elbo(self.q, self.data))",
+        "code": "class HeteroscedasticElboSuite:\n    def time_heteroscedastic_elbo(self, n):\n        realise(objectives.heteroscedastic_elbo(self.q, self.data))\n\n    def setup(self, n):\n        data = make_shared_dataset(n)\n        signal_kernel = gpx.kernels.RBF()\n        noise_kernel = gpx.kernels.RBF()\n        signal_prior = gpx.gps.Prior(\n            kernel=signal_kernel, mean_function=gpx.mean_functions.Zero()\n        )\n        noise_prior = gpx.gps.Prior(\n            kernel=noise_kernel, mean_function=gpx.mean_functions.Zero()\n        )\n        likelihood = HeteroscedasticGaussian(num_datapoints=n, noise_prior=noise_prior)\n        posterior = signal_prior * likelihood\n        Z = data.X[:M_INDUCING]\n        self.q = HeteroscedasticVariationalFamily(\n            posterior=posterior, inducing_inputs=Z, inducing_inputs_g=Z\n        )\n        self.data = data\n        realise(objectives.heteroscedastic_elbo(self.q, self.data))",
         "min_run_count": 2,
         "name": "objectives.HeteroscedasticElboSuite.time_heteroscedastic_elbo",
         "number": 0,
@@ -304,7 +330,7 @@
         "sample_time": 0.01,
         "type": "time",
         "unit": "seconds",
-        "version": "ab1a50e2f45bc913bb8624d6d42dac7a1c1cd6f436648f422499b239c1cd59a4",
+        "version": "bb9052a1aeaa34a9c2f3ade6f19789d46a06d6732f5d5e40812cfda1f80e3ac5",
         "warmup_time": -1
     },
     "objectives.OilmmPredictSuite.time_predict": {
@@ -328,6 +354,89 @@
         "type": "time",
         "unit": "seconds",
         "version": "df30a18db2edcf78d917dd1728c9ef8266fe99dafd97a889682d1903bba74c98",
+        "warmup_time": -1
+    },
+    "objectives.SvgpElboSuite.time_elbo": {
+        "code": "class SvgpElboSuite:\n    def time_elbo(self, n, m, batch_size):\n        realise(objectives.elbo(self.q, self.batch))\n\n    def setup(self, n, m, batch_size):\n        posterior, data, Z = _sparse_setup(n, m=m)\n        self.q = VariationalGaussian(posterior=posterior, inducing_inputs=Z)\n        self.batch = Dataset(X=data.X[:batch_size], y=data.y[:batch_size])\n        realise(objectives.elbo(self.q, self.batch))",
+        "min_run_count": 2,
+        "name": "objectives.SvgpElboSuite.time_elbo",
+        "number": 0,
+        "param_names": [
+            "n",
+            "m",
+            "batch_size"
+        ],
+        "params": [
+            [
+                "1000",
+                "3000"
+            ],
+            [
+                "32",
+                "128"
+            ],
+            [
+                "128",
+                "512"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "be3bad471637cf137291b4cac7362fd72a556bff4e816ac5451bdf2634612681",
+        "warmup_time": -1
+    },
+    "objectives.VariationalParametrisationSuite.time_elbo": {
+        "code": "class VariationalParametrisationSuite:\n    def time_elbo(self, family):\n        realise(objectives.elbo(self.q, self.data))\n\n    def setup(self, family):\n        n = 1000\n        posterior, self.data, Z = _sparse_setup(n)\n        self.q = _VARIATIONAL_FAMILIES[family](posterior=posterior, inducing_inputs=Z)\n        realise(objectives.elbo(self.q, self.data))",
+        "min_run_count": 2,
+        "name": "objectives.VariationalParametrisationSuite.time_elbo",
+        "number": 0,
+        "param_names": [
+            "family"
+        ],
+        "params": [
+            [
+                "'standard'",
+                "'whitened'",
+                "'natural'",
+                "'expectation'"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "07c0743d0ecde168c0d917109c86a778e94a880fd4e0b1747e84824a4311b6da",
+        "warmup_time": -1
+    },
+    "objectives.VfeElboSuite.time_collapsed_elbo": {
+        "code": "class VfeElboSuite:\n    def time_collapsed_elbo(self, n, m):\n        realise(objectives.collapsed_elbo(self.q, self.data))\n\n    def setup(self, n, m):\n        posterior, self.data, Z = _sparse_setup(n, m=m)\n        self.q = CollapsedVariationalGaussian(posterior=posterior, inducing_inputs=Z)\n        realise(objectives.collapsed_elbo(self.q, self.data))",
+        "min_run_count": 2,
+        "name": "objectives.VfeElboSuite.time_collapsed_elbo",
+        "number": 0,
+        "param_names": [
+            "n",
+            "m"
+        ],
+        "params": [
+            [
+                "1000",
+                "3000"
+            ],
+            [
+                "32",
+                "128"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "6fcb31a376dbba8ce4cc6a672af2937760b4431ea590e56b5d89425b4e337c67",
         "warmup_time": -1
     },
     "version": 2
