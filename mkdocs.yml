@@ -10,6 +10,7 @@ nav:
   - 🏡 Home: index.md
   - Getting started:
     - 🛠️ Installation: installation.md
+    - 📈 Benchmarks: benchmarks/index.html
     - 🎨 Design principles: design.md
     - 🤝 Contributing: contributing.md
     - 🔪 Sharp bits: sharp_bits.md
@@ -46,7 +47,6 @@ nav:
     - 📜 Governance: GOVERNANCE.md
     - 📨 Contact: https://jaxgaussianprocesses.com/contact/
   - 📕 Reference: api/
-  - 📈 Benchmarks: benchmarks/index.html
 
 validation:
   nav:
