@@ -10,6 +10,7 @@ nav:
   - 🏡 Home: index.md
   - Getting started:
     - 🛠️ Installation: installation.md
+    - 📈 Benchmarks: benchmarks/index.html
     - 🎨 Design principles: design.md
     - 🤝 Contributing: contributing.md
     - 🔪 Sharp bits: sharp_bits.md

@@ -51,8 +51,8 @@ class Kronecker(lx.AbstractLinearOperator):
         # C-order vec trick: (A kron B)x = vec_C(A @ X @ B^T)
         # where X = x.reshape(n, m) in C (row-major) order.
         # Note: row @ B^T = B @ row (as 1D vectors), so we use B.mv on rows.
-        n = self.A.out_structure().shape[0]
-        m = self.B.out_structure().shape[0]
+        n = self.A.in_structure().shape[0]
+        m = self.B.in_structure().shape[0]
         X = x.reshape(n, m)  # n x m, C-order
         # Compute A @ X by applying A.mv to each column of X
         AX = jax.vmap(self.A.mv, in_axes=1, out_axes=1)(X)
