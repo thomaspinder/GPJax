@@ -105,16 +105,16 @@ help = "Run Github actions locally"
 # Formatting tasks
 [tool.poe.tasks.format]
 sequence = [
-  { cmd = "ruff check --select I --fix ./gpjax ./tests" },
-  { cmd = "ruff format ./gpjax ./tests" }
+  { cmd = "ruff check --select I --fix ./gpjax ./tests ./benchmarks" },
+  { cmd = "ruff format ./gpjax ./tests ./benchmarks" }
 ]
 help = "Format code using ruff"
 
 # Linting tasks
 [tool.poe.tasks.lint]
 sequence = [
-  { cmd = "ruff format --check --diff ./gpjax ./tests" },
-  { cmd = "ruff check --fix ./gpjax ./tests" }
+  { cmd = "ruff format --check --diff ./gpjax ./tests ./benchmarks" },
+  { cmd = "ruff check --fix ./gpjax ./tests ./benchmarks" }
 ]
 help = "Check code formatting and style"
 
@@ -148,6 +148,10 @@ cmd = "python tests/integration_tests.py"
 help = "Run integration tests"
 
 # Benchmark tasks (continuous benchmarking via ASV)
+[tool.poe.tasks.bench-check]
+help = "Validate benchmark suite structure (does NOT run benchmarks). Requires asv-constraints.txt + benchmarks/ to exist on the commit referenced by asv.conf.json's `branches`."
+cmd = "asv check"
+
 [tool.poe.tasks.bench-constraints]
 help = "Regenerate asv-constraints.txt from uv.lock so ASV envs install the same versions as .venv."
 cmd = "uv export --frozen --no-dev --no-emit-project --no-hashes --no-editable --no-annotate --no-header -o asv-constraints.txt"
@@ -211,7 +215,7 @@ fix = true
 cache-dir = "~/.cache/ruff"
 exclude = ["docs/", "examples/"]
 line-length = 88
-src = ["gpjax", "tests"]
+src = ["gpjax", "tests", "benchmarks"]
 target-version = "py311"
 
 [tool.ruff.lint]
