@@ -117,6 +117,16 @@ def test_kronecker_mv():
     assert jnp.allclose(result, expected, atol=1e-5)
 
 
+def test_kronecker_mv_rectangular():
+    A = lx.MatrixLinearOperator(jnp.array([[1.0, 2.0, 3.0], [3.0, 4.0, 5.0]]))
+    B = lx.MatrixLinearOperator(jnp.array([[5.0, 6.0], [7.0, 8.0]]))
+    kron = Kronecker(A=A, B=B)
+    x = jnp.ones(6)
+    expected = jnp.kron(A.as_matrix(), B.as_matrix()) @ x
+    result = kron.mv(x)
+    assert jnp.allclose(result, expected, atol=1e-5)
+
+
 def test_kronecker_as_matrix():
     A = lx.MatrixLinearOperator(jnp.array([[1.0, 0.0], [0.0, 2.0]]))
     B = lx.MatrixLinearOperator(jnp.eye(3))
