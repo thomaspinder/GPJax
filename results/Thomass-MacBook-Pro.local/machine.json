@@ -1,0 +1,9 @@
+{
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "machine": "Thomass-MacBook-Pro.local",
+    "num_cpu": "14",
+    "os": "Darwin 25.3.0",
+    "ram": "38654705664",
+    "version": 1
+}
