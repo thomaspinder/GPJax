@@ -1,25 +1,52 @@
-"""Objective meso-benchmarks: conjugate_mll, elbo, collapsed_elbo, heteroscedastic_elbo, oilmm_predict."""
+"""Objective meso-benchmarks.
+
+Three suites — ConjugateMllSuite, SvgpElboSuite, VfeElboSuite — share
+``ALIGNED_NS`` on the n-axis and the same underlying data drawn from
+``make_shared_dataset``. ASV's dashboard plots them on a common N axis,
+which is the headline sparse-vs-full comparison for users.
+
+SvgpElboSuite (uncollapsed VariationalGaussian + stochastic ELBO) varies
+both M (inducing count) and batch_size; VfeElboSuite (collapsed analytic
+ELBO) varies M only — the collapsed objective requires the full dataset.
+
+VariationalParametrisationSuite compares the four variational Gaussian
+parameterisations (standard, whitened, natural, expectation) at one
+fixed (n, M) so users can see the per-step cost of the choice.
+
+HeteroscedasticElboSuite and OilmmPredictSuite are independent — they
+do not participate in the alignment because their model structure
+differs.
+"""
 
 from __future__ import annotations
 
 import gpjax as gpx
 from gpjax import objectives
+from gpjax.dataset import Dataset
 from gpjax.likelihoods import HeteroscedasticGaussian
-from gpjax.variational_families import HeteroscedasticVariationalFamily
+from gpjax.variational_families import (
+    CollapsedVariationalGaussian,
+    ExpectationVariationalGaussian,
+    HeteroscedasticVariationalFamily,
+    NaturalVariationalGaussian,
+    VariationalGaussian,
+    WhitenedVariationalGaussian,
+)
 import jax.numpy as jnp
 import jax.random as jr
 
-from benchmarks._setup import KEY, make_inputs, make_outputs, realise
-
-
-def _gaussian_dataset(n: int, key=KEY) -> gpx.Dataset:
-    X = make_inputs(n)
-    y = make_outputs(n, key=jr.fold_in(key, 1))
-    return gpx.Dataset(X=X, y=y)
+from benchmarks._setup import (
+    ALIGNED_NS,
+    M_INDUCING,
+    M_INDUCING_GRID,
+    SVGP_BATCH_SIZES,
+    make_shared_dataset,
+    realise,
+)
 
 
 def _conjugate_posterior(n: int):
-    data = _gaussian_dataset(n)
+    data = make_shared_dataset(n)
     kernel = gpx.kernels.RBF()
     mean = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)
@@ -27,8 +54,15 @@ def _conjugate_posterior(n: int):
     return prior * likelihood, data
 
 
+def _sparse_setup(n: int, m: int = M_INDUCING):
+    """Posterior + dataset + first ``m`` inducing points."""
+    posterior, data = _conjugate_posterior(n)
+    Z = data.X[:m]
+    return posterior, data, Z
+
+
 class ConjugateMllSuite:
-    params = ([200, 1000],)
+    params = (list(ALIGNED_NS),)
     param_names = ("n",)
 
     def setup(self, n):
@@ -39,48 +73,74 @@ class ConjugateMllSuite:
         realise(objectives.conjugate_mll(self.posterior, self.data))
 
 
-class ElboSuite:
-    """Sparse VFE ELBO."""
+class SvgpElboSuite:
+    """Stochastic Variational GP ELBO with a non-conjugate-style minibatch.
 
-    params = ([500],)
-    param_names = ("n",)
+    The variational family is the uncollapsed ``VariationalGaussian``.
+    ``elbo`` rescales the variational expectation by ``num_datapoints /
+    data.n`` so passing a batch slice gives the standard SVGP estimator.
+    """
 
-    def setup(self, n):
-        data = _gaussian_dataset(n)
-        kernel = gpx.kernels.RBF()
-        prior = gpx.gps.Prior(kernel=kernel, mean_function=gpx.mean_functions.Zero())
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
-        posterior = prior * likelihood
-        Z = data.X[:50]
-        self.q = gpx.variational_families.VariationalGaussian(
-            posterior=posterior, inducing_inputs=Z
-        )
-        self.data = data
-        realise(objectives.elbo(self.q, self.data))
+    params = (list(ALIGNED_NS), list(M_INDUCING_GRID), list(SVGP_BATCH_SIZES))
+    param_names = ("n", "m", "batch_size")
 
-    def time_elbo(self, n):
-        realise(objectives.elbo(self.q, self.data))
+    def setup(self, n, m, batch_size):
+        posterior, data, Z = _sparse_setup(n, m=m)
+        self.q = VariationalGaussian(posterior=posterior, inducing_inputs=Z)
+        self.batch = Dataset(X=data.X[:batch_size], y=data.y[:batch_size])
+        realise(objectives.elbo(self.q, self.batch))
+
+    def time_elbo(self, n, m, batch_size):
+        realise(objectives.elbo(self.q, self.batch))
 
 
-class CollapsedElboSuite:
-    params = ([500],)
-    param_names = ("n",)
+class VfeElboSuite:
+    """Variational Free Energy (collapsed sparse GP) ELBO.
 
-    def setup(self, n):
-        data = _gaussian_dataset(n)
-        kernel = gpx.kernels.RBF()
-        prior = gpx.gps.Prior(kernel=kernel, mean_function=gpx.mean_functions.Zero())
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
-        posterior = prior * likelihood
-        Z = data.X[:50]
-        self.q = gpx.variational_families.CollapsedVariationalGaussian(
-            posterior=posterior, inducing_inputs=Z
-        )
-        self.data = data
+    Uses ``CollapsedVariationalGaussian``, which marginalises q(u)
+    analytically and therefore operates on the full dataset — there is
+    no mini-batch axis to vary.
+    """
+
+    params = (list(ALIGNED_NS), list(M_INDUCING_GRID))
+    param_names = ("n", "m")
+
+    def setup(self, n, m):
+        posterior, self.data, Z = _sparse_setup(n, m=m)
+        self.q = CollapsedVariationalGaussian(posterior=posterior, inducing_inputs=Z)
         realise(objectives.collapsed_elbo(self.q, self.data))
 
-    def time_collapsed_elbo(self, n):
+    def time_collapsed_elbo(self, n, m):
         realise(objectives.collapsed_elbo(self.q, self.data))
+
+
+_VARIATIONAL_FAMILIES = {
+    "standard": VariationalGaussian,
+    "whitened": WhitenedVariationalGaussian,
+    "natural": NaturalVariationalGaussian,
+    "expectation": ExpectationVariationalGaussian,
+}
+
+
+class VariationalParametrisationSuite:
+    """Per-step ELBO cost across the four variational Gaussian families.
+
+    All four parameterise the same q(u); the differences are in how the
+    KL term and predictive moments are computed. Holding (n, M) fixed
+    isolates the parameterisation cost.
+    """
+
+    params = (list(_VARIATIONAL_FAMILIES),)
+    param_names = ("family",)
+
+    def setup(self, family):
+        n = 1000
+        posterior, self.data, Z = _sparse_setup(n)
+        self.q = _VARIATIONAL_FAMILIES[family](posterior=posterior, inducing_inputs=Z)
+        realise(objectives.elbo(self.q, self.data))
+
+    def time_elbo(self, family):
+        realise(objectives.elbo(self.q, self.data))
 
 
 class HeteroscedasticElboSuite:
@@ -88,7 +148,7 @@ class HeteroscedasticElboSuite:
     param_names = ("n",)
 
     def setup(self, n):
-        data = _gaussian_dataset(n)
+        data = make_shared_dataset(n)
         signal_kernel = gpx.kernels.RBF()
         noise_kernel = gpx.kernels.RBF()
         signal_prior = gpx.gps.Prior(
@@ -99,7 +159,7 @@ class HeteroscedasticElboSuite:
         )
         likelihood = HeteroscedasticGaussian(num_datapoints=n, noise_prior=noise_prior)
         posterior = signal_prior * likelihood
-        Z = data.X[:50]
+        Z = data.X[:M_INDUCING]
         self.q = HeteroscedasticVariationalFamily(
             posterior=posterior, inducing_inputs=Z, inducing_inputs_g=Z
         )
