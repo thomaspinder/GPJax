@@ -1,4 +1,4 @@
-"""Objective meso-benchmarks: conjugate_mll, elbo, collapsed_elbo, heteroscedastic_elbo."""
+"""Objective meso-benchmarks: conjugate_mll, elbo, collapsed_elbo, heteroscedastic_elbo, oilmm_predict."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import gpjax as gpx
 from gpjax import objectives
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.variational_families import HeteroscedasticVariationalFamily
+import jax.numpy as jnp
 import jax.random as jr
 
 from benchmarks._setup import KEY, make_inputs, make_outputs, realise
@@ -107,3 +108,24 @@ class HeteroscedasticElboSuite:
 
     def time_heteroscedastic_elbo(self, n):
         realise(objectives.heteroscedastic_elbo(self.q, self.data))
+
+
+class OilmmPredictSuite:
+    """Replaces the wall-clock assertion in tests/test_models_oilmm_performance.py."""
+
+    params = ([1, 2, 3],)
+    param_names = ("m",)
+
+    def setup(self, m):
+        N, P = 50, 6
+        key = jr.key(42)
+        model = gpx.models.create_oilmm(num_outputs=P, num_latent_gps=m, key=key)
+        X = jnp.linspace(0, 1, N).reshape(-1, 1)
+        y = jr.normal(key, (N, P))
+        dataset = gpx.Dataset(X=X, y=y)
+        self.posterior = model.condition_on_observations(dataset)
+        self.X_test = jnp.linspace(0.1, 0.9, 20).reshape(-1, 1)
+        realise(self.posterior.predict(self.X_test))
+
+    def time_predict(self, m):
+        realise(self.posterior.predict(self.X_test))

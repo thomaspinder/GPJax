@@ -1,82 +1,43 @@
-"""Performance tests for OILMM scaling properties."""
+"""OILMM structural correctness tests.
 
-import time
+Wall-clock scaling assertions previously here have been moved to
+``benchmarks/objectives.py::OilmmPredictSuite`` (tracked by ASV). What
+remains here are tests that check the model has the expected structural
+properties (e.g. that prediction can be JIT-compiled at all), not its
+runtime performance.
+"""
 
+import gpjax as gpx
 import jax
+from jax import config
 import jax.numpy as jnp
 import jax.random as jr
-import pytest
 
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 
 
-class TestOILMMPerformance:
-    """Tests verifying OILMM achieves expected complexity."""
+def test_prediction_jit_compiles():
+    """Verify prediction can be JIT compiled."""
+    key = jr.key(123)
+    model = gpx.models.create_oilmm(
+        num_outputs=4,
+        num_latent_gps=2,
+        key=key,
+    )
 
-    @pytest.mark.parametrize("m", [1, 2, 3])
-    def test_scales_linearly_in_m(self, m):
-        """Test that cost scales ~linearly with num_latent_gps."""
-        import gpjax as gpx
+    N = 30
+    X = jnp.linspace(0, 1, N).reshape(-1, 1)
+    y = jr.normal(key, (N, 4))
+    dataset = gpx.Dataset(X=X, y=y)
+    posterior = model.condition_on_observations(dataset)
 
-        key = jr.key(42)
-        N, P = 50, 6
+    @jax.jit
+    def predict_fn(X_test):
+        pred = posterior.predict(X_test)
+        return pred.loc, pred.covariance()
 
-        # Create model
-        model = gpx.models.create_oilmm(
-            num_outputs=P,
-            num_latent_gps=m,
-            key=key,
-        )
+    X_test = jnp.linspace(0, 1, 10).reshape(-1, 1)
+    mean, cov = predict_fn(X_test)
 
-        # Create data
-        X = jnp.linspace(0, 1, N).reshape(-1, 1)
-        y = jr.normal(key, (N, P))
-        dataset = gpx.Dataset(X=X, y=y)
-
-        # Condition
-        posterior = model.condition_on_observations(dataset)
-
-        # Time prediction (JIT first call)
-        X_test = jnp.linspace(0.1, 0.9, 20).reshape(-1, 1)
-        _ = posterior.predict(X_test)  # Warm-up
-
-        # Time second call
-        start = time.perf_counter()
-        _ = posterior.predict(X_test)
-        elapsed = time.perf_counter() - start
-
-        print(f"m={m}: {elapsed * 1000:.2f}ms")
-        # Generous upper bound to tolerate CI runner contention (pytest -n 8
-        # on shared VMs). Local runs are ~200ms; a real regression would be
-        # orders of magnitude slower.
-        assert elapsed < 30.0
-
-    def test_prediction_jit_compiles(self):
-        """Verify prediction can be JIT compiled."""
-        import gpjax as gpx
-
-        key = jr.key(123)
-        model = gpx.models.create_oilmm(
-            num_outputs=4,
-            num_latent_gps=2,
-            key=key,
-        )
-
-        N = 30
-        X = jnp.linspace(0, 1, N).reshape(-1, 1)
-        y = jr.normal(key, (N, 4))
-        dataset = gpx.Dataset(X=X, y=y)
-        posterior = model.condition_on_observations(dataset)
-
-        # Define JIT function that returns raw arrays
-        @jax.jit
-        def predict_fn(X_test):
-            pred = posterior.predict(X_test)
-            return pred.loc, pred.covariance()
-
-        # Should compile without error
-        X_test = jnp.linspace(0, 1, 10).reshape(-1, 1)
-        mean, cov = predict_fn(X_test)
-
-        assert jnp.all(jnp.isfinite(mean))
-        assert jnp.all(jnp.isfinite(cov))
+    assert jnp.all(jnp.isfinite(mean))
+    assert jnp.all(jnp.isfinite(cov))
