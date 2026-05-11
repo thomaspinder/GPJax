@@ -16,7 +16,7 @@ optax==0.2.6
 optimistix==0.1.0
 paramax==0.0.5
 scipy==1.17.0
-tensorstore==0.1.80 ; sys_platform == 'darwin'
+tensorstore==0.1.83 ; sys_platform == 'darwin'
 toolz==1.1.0
 tqdm==4.67.1
 typing-extensions==4.15.0
