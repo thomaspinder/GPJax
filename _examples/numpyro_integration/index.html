@@ -3898,7 +3898,7 @@ common.</p>
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;True Signal&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f2167b89850&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f91cd057550&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_3_1.png" /></p>
 <h2 id="model-definition">Model Definition<a class="headerlink" href="#model-definition" title="Permanent link"></a></h2>
@@ -3990,12 +3990,12 @@ multiple chains using the <code>num_chains</code> argument in the <code>MCMC</co
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>                   mean       std    median      5.0%     95.0%     n_eff     r_hat
-    intercept      0.58      1.50      0.59     -1.71      3.11    229.89      1.00
-  lengthscale      2.46      0.79      2.27      1.37      3.74    199.46      1.00
-    obs_noise      0.79      0.05      0.79      0.71      0.86    425.82      1.00
-       period      0.80      0.02      0.80      0.77      0.83    371.64      1.00
-        slope      0.51      0.31      0.52     -0.03      0.97    224.30      1.00
-     variance      7.86      6.07      6.21      1.26     15.67    223.51      1.00
+    intercept      0.59      1.45      0.60     -1.97      2.67    440.39      1.00
+  lengthscale      2.43      0.75      2.31      1.31      3.53    277.04      1.00
+    obs_noise      0.79      0.04      0.79      0.72      0.86    380.26      1.00
+       period      0.80      0.02      0.80      0.77      0.83    210.58      1.01
+        slope      0.51      0.29      0.50      0.03      0.97    303.14      1.00
+     variance      7.46      5.01      5.86      1.58     15.07    309.37      1.00
 
 Number of divergences: 0
 </code></pre></div>
@@ -4036,7 +4036,7 @@ credible interval and compare our model's predictions to the underlying data.</p
 </span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="p">)</span>
 </span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f215499c1d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f91c4ff41d0&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_12_1.png" /></p>
 <h2 id="conclusions">Conclusions<a class="headerlink" href="#conclusions" title="Permanent link"></a></h2>
@@ -4052,7 +4052,7 @@ notebook.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Fri, 01 May 2026
+Last updated: Sun, 17 May 2026
 
 Python implementation: CPython
 Python version       : 3.11.15
