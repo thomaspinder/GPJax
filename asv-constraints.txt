@@ -2,17 +2,17 @@ absl-py==2.4.0
 beartype==0.22.9
 chex==0.1.91
 colorama==0.4.6 ; sys_platform == 'win32'
-equinox==0.13.5
-jax==0.9.0
-jaxlib==0.9.0
-jaxtyping==0.3.6
+equinox==0.13.8
+jax==0.10.0
+jaxlib==0.10.0
+jaxtyping==0.3.9
 lineax==0.1.1
 ml-dtypes==0.5.4
 multipledispatch==1.0.0
 numpy==2.4.1
 numpyro==0.21.0
 opt-einsum==3.4.0
-optax==0.2.6
+optax==0.2.8
 optimistix==0.1.0
 paramax==0.0.5
 scipy==1.17.0
