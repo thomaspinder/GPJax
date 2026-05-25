@@ -9,13 +9,13 @@ jaxtyping==0.3.10
 lineax==0.1.1
 ml-dtypes==0.5.4
 multipledispatch==1.0.0
-numpy==2.4.1
+numpy==2.4.6
 numpyro==0.21.0
 opt-einsum==3.4.0
 optax==0.2.8
 optimistix==0.1.0
 paramax==0.0.5
-scipy==1.17.0
+scipy==1.17.1
 tensorstore==0.1.84 ; sys_platform == 'darwin'
 toolz==1.1.0
 tqdm==4.67.3
