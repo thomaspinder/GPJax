@@ -129,20 +129,22 @@ def _psd_sqrt(matrix):
     return eigvecs * sqrt_eigvals
 
 
-def _matern32_discrete_q(dt, lengthscale, variance):
-    """Discrete process-noise covariance Q(Δt) via stationary identity, symmetrised."""
-    lam = jnp.sqrt(3.0) / lengthscale
-    dtl = dt * lam
-    exp_neg_dtl = jnp.exp(-dtl)
-    A = exp_neg_dtl * jnp.array(
+def _matern32_discrete_transition_and_q(time_step, lengthscale, variance):
+    """Return (A(Δt), Q(Δt)) for Matern-3/2 via the stationary identity."""
+    decay_rate = jnp.sqrt(3.0) / lengthscale
+    scaled_time = time_step * decay_rate
+    exp_neg_scaled_time = jnp.exp(-scaled_time)
+    transition_matrix = exp_neg_scaled_time * jnp.array(
         [
-            [1.0 + dtl, dt],
-            [-(lam**2) * dt, 1.0 - dtl],
+            [1.0 + scaled_time, time_step],
+            [-(decay_rate**2) * time_step, 1.0 - scaled_time],
         ]
     )
-    P_inf = jnp.diag(jnp.stack([variance, 3.0 * variance / lengthscale**2]))
-    Q = P_inf - A @ P_inf @ A.T
-    return 0.5 * (Q + Q.T)
+    stationary_cov = jnp.diag(jnp.stack([variance, 3.0 * variance / lengthscale**2]))
+    process_noise_cov = (
+        stationary_cov - transition_matrix @ stationary_cov @ transition_matrix.T
+    )
+    return transition_matrix, 0.5 * (process_noise_cov + process_noise_cov.T)
 
 
 class Matern32SDE(LinearSDE):
@@ -180,50 +182,53 @@ class Matern32SDE(LinearSDE):
             return eye, zeros
 
         def positive_dt(dt):
-            lam = jnp.sqrt(3.0) / self.lengthscale
-            dtl = dt * lam
-            exp_neg_dtl = jnp.exp(-dtl)
-            A = exp_neg_dtl * jnp.array(
-                [
-                    [1.0 + dtl, dt],
-                    [-(lam**2) * dt, 1.0 - dtl],
-                ]
+            transition_matrix, process_noise_cov = _matern32_discrete_transition_and_q(
+                dt, self.lengthscale, self.variance
             )
-            Q = _matern32_discrete_q(dt, self.lengthscale, self.variance)
-            L_Q = _psd_sqrt(Q)
-            return A, L_Q
+            return transition_matrix, _psd_sqrt(process_noise_cov)
 
         return jax.lax.cond(time_step == 0.0, zero_dt, positive_dt, time_step)
 
 
-def _matern52_discrete_q(dt, lengthscale, variance):
-    lam = jnp.sqrt(5.0) / lengthscale
-    dtlam = dt * lam
-    A = jnp.exp(-dtlam) * (
-        dt
+def _matern52_discrete_transition_and_q(time_step, lengthscale, variance):
+    """Return (A(Δt), Q(Δt)) for Matern-5/2 via the stationary identity."""
+    decay_rate = jnp.sqrt(5.0) / lengthscale
+    scaled_time = time_step * decay_rate
+    transition_matrix = jnp.exp(-scaled_time) * (
+        time_step
         * jnp.array(
             [
-                [lam * (0.5 * dtlam + 1.0), dtlam + 1.0, 0.5 * dt],
-                [-0.5 * dtlam * lam**2, lam * (1.0 - dtlam), 1.0 - 0.5 * dtlam],
                 [
-                    lam**3 * (0.5 * dtlam - 1.0),
-                    lam**2 * (dtlam - 3.0),
-                    lam * (0.5 * dtlam - 2.0),
+                    decay_rate * (0.5 * scaled_time + 1.0),
+                    scaled_time + 1.0,
+                    0.5 * time_step,
+                ],
+                [
+                    -0.5 * scaled_time * decay_rate**2,
+                    decay_rate * (1.0 - scaled_time),
+                    1.0 - 0.5 * scaled_time,
+                ],
+                [
+                    decay_rate**3 * (0.5 * scaled_time - 1.0),
+                    decay_rate**2 * (scaled_time - 3.0),
+                    decay_rate * (0.5 * scaled_time - 2.0),
                 ],
             ]
         )
         + jnp.eye(3)
     )
     kappa = 5.0 / 3.0 * variance / lengthscale**2
-    P_inf = jnp.array(
+    stationary_cov = jnp.array(
         [
             [variance, 0.0, -kappa],
             [0.0, kappa, 0.0],
             [-kappa, 0.0, 25.0 * variance / lengthscale**4],
         ]
     )
-    Q = P_inf - A @ P_inf @ A.T
-    return 0.5 * (Q + Q.T)
+    process_noise_cov = (
+        stationary_cov - transition_matrix @ stationary_cov @ transition_matrix.T
+    )
+    return transition_matrix, 0.5 * (process_noise_cov + process_noise_cov.T)
 
 
 class Matern52SDE(LinearSDE):
@@ -274,29 +279,10 @@ class Matern52SDE(LinearSDE):
             return eye, zeros
 
         def positive_dt(dt):
-            lam = jnp.sqrt(5.0) / self.lengthscale
-            dtlam = dt * lam
-            A = jnp.exp(-dtlam) * (
-                dt
-                * jnp.array(
-                    [
-                        [lam * (0.5 * dtlam + 1.0), dtlam + 1.0, 0.5 * dt],
-                        [
-                            -0.5 * dtlam * lam**2,
-                            lam * (1.0 - dtlam),
-                            1.0 - 0.5 * dtlam,
-                        ],
-                        [
-                            lam**3 * (0.5 * dtlam - 1.0),
-                            lam**2 * (dtlam - 3.0),
-                            lam * (0.5 * dtlam - 2.0),
-                        ],
-                    ]
-                )
-                + jnp.eye(3)
+            transition_matrix, process_noise_cov = _matern52_discrete_transition_and_q(
+                dt, self.lengthscale, self.variance
             )
-            Q = _matern52_discrete_q(dt, self.lengthscale, self.variance)
-            return A, _psd_sqrt(Q)
+            return transition_matrix, _psd_sqrt(process_noise_cov)
 
         return jax.lax.cond(time_step == 0.0, zero_dt, positive_dt, time_step)
 

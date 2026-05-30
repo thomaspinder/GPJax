@@ -14,6 +14,7 @@ from gpjax.state_space.sde import (
 )
 import jax
 import jax.numpy as jnp
+import jax.scipy.linalg as jsl
 import numpy as np
 import pytest
 import scipy.linalg
@@ -34,6 +35,17 @@ def _trivial_matern12_sde(lengthscale=1.0, variance=1.0):
         stationary_state_cov_sqrt=L_inf,
         state_dim=1,
     )
+
+
+@pytest.mark.parametrize("nu_name", ["Matern12SDE", "Matern32SDE", "Matern52SDE"])
+def test_discrete_transition_equals_matrix_exponential(nu_name):
+    import gpjax.state_space.sde as sde_module
+
+    sde = getattr(sde_module, nu_name)(lengthscale=0.7, variance=1.3)
+    time_step = jnp.asarray(0.37)
+    transition_matrix, _ = sde.discretise(time_step)
+    expected = jsl.expm(sde.drift_matrix * time_step)
+    assert jnp.allclose(transition_matrix, expected, atol=1e-8)
 
 
 def test_linear_sde_discretise_zero_dt_is_identity_transition():
