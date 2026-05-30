@@ -128,3 +128,19 @@ def test_state_space_prior_times_gaussian_with_array_obs_stddev_raises():
     likelihood = gpx.likelihoods.Gaussian(num_datapoints=3, obs_stddev=jnp.ones(3))
     with pytest.raises(ValueError, match=r"scalar|obs_stddev"):
         prior * likelihood
+
+
+def test_state_space_predict_rejects_dense_with_actionable_message():
+    data = gpx.Dataset(
+        X=jnp.linspace(0, 5, 10).reshape(-1, 1),
+        y=jnp.sin(jnp.linspace(0, 5, 10)).reshape(-1, 1),
+    )
+    posterior = StateSpacePrior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
+    ) * gpx.likelihoods.Gaussian(num_datapoints=10, obs_stddev=0.1)
+
+    with pytest.raises(NotImplementedError, match=r"diagonal-only|follow-up|v1"):
+        posterior.predict(
+            jnp.linspace(0, 5, 4).reshape(-1, 1), data, return_covariance_type="dense"
+        )
