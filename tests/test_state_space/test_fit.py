@@ -122,6 +122,15 @@ def test_fit_scipy_warns_on_unsorted_input_and_sorts_internally():
         fit_scipy(model=posterior, train_data=train_data, max_iters=10, verbose=False)
 
 
+def test_fit_lbfgs_does_not_expose_verbose():
+    """fit_lbfgs must not advertise a verbose flag the optimiser ignores."""
+    import inspect
+
+    from gpjax.state_space import fit_lbfgs
+
+    assert "verbose" not in inspect.signature(fit_lbfgs).parameters
+
+
 def test_fit_lbfgs_returns_state_space_posterior_type():
     n = 50
     X, y = _build_matern52_synthetic(n=n, seed=3)
@@ -138,7 +147,6 @@ def test_fit_lbfgs_returns_state_space_posterior_type():
         model=posterior,
         train_data=train_data,
         max_iters=10,
-        verbose=False,
     )
     assert isinstance(fitted_posterior, StateSpaceConjugatePosterior)
 

@@ -91,7 +91,6 @@ def fit_lbfgs(
     train_data: Dataset,
     observation_mask=None,
     max_iters: int = 500,
-    verbose: bool = True,
     safe: bool = True,
 ):
     """Fit a state-space posterior with Optax's L-BFGS (``while_loop`` driver).
@@ -115,7 +114,6 @@ def fit_lbfgs(
         ...     model=posterior,
         ...     train_data=gpx.Dataset(X=X, y=y),
         ...     max_iters=2,
-        ...     verbose=False,
         ... )
         >>> fitted is not None
         True
