@@ -398,3 +398,22 @@ def test_matern_sde_gradient_through_lengthscale_at_realistic_N(sde_cls, n):
 
     grad_value = jax.grad(loss)(jnp.asarray(1.0))
     assert jnp.isfinite(grad_value)
+
+
+@pytest.mark.parametrize("sde_name", ["Matern12SDE", "Matern32SDE", "Matern52SDE"])
+def test_continuous_lyapunov_stationarity(sde_name):
+    """F P∞ + P∞ Fᵀ + L Qc Lᵀ = 0 ties the stored Qc to the drift and P∞."""
+    import gpjax.state_space.sde as sde_module
+
+    sde = getattr(sde_module, sde_name)(lengthscale=0.7, variance=1.3)
+    drift = sde.drift_matrix
+    diffusion = sde.diffusion_matrix
+    spectral_density = sde.process_noise_spectral_density
+    stationary_cov = sde.stationary_state_cov_sqrt @ sde.stationary_state_cov_sqrt.T
+
+    residual = (
+        drift @ stationary_cov
+        + stationary_cov @ drift.T
+        + diffusion @ spectral_density @ diffusion.T
+    )
+    assert jnp.allclose(residual, 0.0, atol=1e-9)

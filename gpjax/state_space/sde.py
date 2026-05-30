@@ -22,6 +22,11 @@ class LinearSDE(eqx.Module):
 
     Kernel-specific closed-form discretisations override ``discretise``; the
     base implementation returns the algebraic Δt = 0 result (A = I, L_Q = 0).
+
+    ``process_noise_spectral_density`` (``Q_c``) defines the continuous-time
+    model and is validated by the Lyapunov identity ``F P∞ + P∞ Fᵀ + L Q_c Lᵀ
+    = 0`` in the tests; it is **not** consumed by ``discretise``, which uses
+    the closed-form stationary identity ``Q(Δt) = P∞ − A(Δt) P∞ A(Δt)ᵀ``.
     """
 
     drift_matrix: Float[Array, "state_dim state_dim"]
