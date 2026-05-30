@@ -24,8 +24,14 @@ def state_space_mll(
       4. Computes ``sigma_eff = sqrt(obs_stddev² + prior.jitter)``.
       5. Delegates to ``kalman_filter``.
 
-    Pure-JAX; assumes prevalidated, sorted data. Validation belongs upstream
-    in the ``state_space.fit*`` wrappers.
+    Pure-JAX. **Assumes time-sorted input.** Unsorted times yield negative Δt and
+    silently incorrect (NaN/garbage) results — there is no internal sort, because
+    a data-dependent reorder inside this traced objective is avoided to keep it
+    jit/grad/MCMC-clean. Sorting and validation are the responsibility of the
+    eager ``state_space.fit*`` wrappers (``sort_state_space_data`` warns and
+    reorders; ``validate_state_space_data`` checks finiteness/shape). Callers
+    invoking this objective directly (e.g. custom MCMC/optimisers) must pre-sort
+    by time, e.g. via ``sort_state_space_data(X, y, mask)``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 1.
 
