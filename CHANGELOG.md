@@ -26,11 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking)
 
-- **`gpjax.likelihoods.Gaussian.predict`** now returns
+- **`gpjax.likelihoods.Gaussian.predict` and
+  `gpjax.likelihoods.HeteroscedasticGaussian.predict`** now return
   `gpjax.distributions.GaussianDistribution` (was
-  `numpyro.distributions.MultivariateNormal`). The diagonal fast path
-  preserves a `lineax.DiagonalLinearOperator` scale; the dense path
-  wraps a `lineax.MatrixLinearOperator`. Callers relying on
+  `numpyro.distributions.MultivariateNormal`). For `Gaussian.predict`, the
+  diagonal fast path preserves a `lineax.DiagonalLinearOperator` scale; the
+  dense path wraps a `lineax.MatrixLinearOperator`.
+  `HeteroscedasticGaussian.predict` wraps its (always-dense) covariance in a
+  `lineax.MatrixLinearOperator`. Callers relying on
   `MultivariateNormal`-specific attributes (`scale_tril`,
   `precision_matrix`, etc.) must update; callers using `mean`,
   `variance`, `covariance_matrix` are unaffected.

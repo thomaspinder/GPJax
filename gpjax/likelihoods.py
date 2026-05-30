@@ -460,7 +460,7 @@ class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
         noise_dist: tp.Optional[
             tp.Union[npd.MultivariateNormal, GaussianDistribution]
         ] = None,
-    ) -> npd.MultivariateNormal:
+    ) -> GaussianDistribution:
         if noise_dist is None:
             raise ValueError(
                 "noise_dist must be provided for heteroscedastic prediction."
@@ -476,7 +476,7 @@ class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
         cov = dist.covariance_matrix
         noisy_cov = cov.at[jnp.diag_indices(n_data)].add(noise_stats.variance.squeeze())
 
-        return npd.MultivariateNormal(dist.mean, noisy_cov)
+        return GaussianDistribution(dist.mean, lx.MatrixLinearOperator(noisy_cov))
 
     def link_function(self, f: Float[Array, ...]) -> npd.Normal:
         sigma2 = self.noise_transform(jnp.zeros_like(f))

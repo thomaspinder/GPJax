@@ -8,6 +8,7 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 import lineax as lx
+import paramax
 
 from gpjax.distributions import GaussianDistribution
 from gpjax.state_space.inference import _sqrt_filter_forward, rts_smoother
@@ -65,8 +66,6 @@ def predict_smoothed(posterior, train_data, test_inputs, *, observation_mask=Non
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4.
     """
-    import paramax
-
     posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood
@@ -140,8 +139,6 @@ def predict_filtered(posterior, train_data, test_inputs, *, observation_mask=Non
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4.
     """
-    import paramax
-
     posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood

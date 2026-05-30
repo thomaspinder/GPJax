@@ -28,9 +28,11 @@ def _large_c_scaled_ive(c, truncation_order: int):
         Ĩ_{k+1}(c) = Ĩ_{k-1}(c) - (2k/c) Ĩ_k(c)
 
     inherits stability from the unscaled identity since the e^{-c} factor
-    cancels. Forward recurrence is the correct direction for large `c` because
-    `I_k(c)` is the minimal solution there; backward recurrence would amplify
-    the exponentially-large `K_k(c)` contamination of the seed values.
+    cancels. For ``c > truncation_order`` the values ``I_k(c)`` are comparable
+    in magnitude across ``k``, so upward (forward) recurrence is numerically
+    stable here; downward (Miller) recurrence is reserved for
+    ``c <= truncation_order``, where ``I_k(c)`` decays in ``k`` and forward
+    recurrence would amplify round-off.
     """
     c = jnp.asarray(c)
     bessel_at_order_0 = jsp.i0e(c)
