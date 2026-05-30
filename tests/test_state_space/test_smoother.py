@@ -4,8 +4,9 @@ See plans/2026-04-21-state-space-gps-design.md §Stage 3.
 """
 
 import gpjax as gpx
+from gpjax.state_space import StateSpacePrior
 from gpjax.state_space.inference import _sqrt_filter_forward, rts_smoother
-from gpjax.state_space.sde import Matern12SDE
+from gpjax.state_space.sde import Matern12SDE, _psd_sqrt
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -164,3 +165,57 @@ def test_rts_smoother_matches_numpy_reference_to_machine_precision():
     np.testing.assert_allclose(
         np.asarray(smoothed_covs), covs_reference, atol=1e-12, rtol=1e-12
     )
+
+
+def test_smoother_is_finite_under_near_noiseless_dense_sampling():
+    """Robustness guard: stiff regime (tiny obs noise, dense Matern-5/2 grid)
+    must stay finite.
+
+    Green both before and after the _psd_sqrt swap — documents the contract, not
+    a red→green reproduction.
+    """
+    dense_times = jnp.linspace(0.0, 1.0, 200).reshape(-1, 1)
+    targets = jnp.sin(20.0 * dense_times)
+    data = gpx.Dataset(X=dense_times, y=targets)
+
+    prior = StateSpacePrior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=gpx.kernels.Matern52(lengthscale=0.05, variance=1.0),
+    )
+    likelihood = gpx.likelihoods.Gaussian(num_datapoints=200, obs_stddev=1e-4)
+    posterior = prior * likelihood
+
+    test_times = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)
+    predictive = posterior.predict(test_times, data)
+
+    assert bool(jnp.all(jnp.isfinite(predictive.mean)))
+    assert bool(jnp.all(jnp.isfinite(predictive.variance)))
+    assert bool(jnp.all(predictive.variance >= 0.0))
+
+
+def test_psd_sqrt_handles_marginally_indefinite_where_cholesky_nans():
+    """The smoother's PSD-difference P can be marginally indefinite from round-off.
+
+    jnp.linalg.cholesky NaNs on such a matrix; _psd_sqrt (used by rts_smoother
+    after this fix) clips the tiny negative eigenvalue and stays finite,
+    reconstructing the PSD part via L @ L.T. This is the failure mode Issue #3
+    fixes — green on _psd_sqrt, red on cholesky.
+    """
+    # Fixed orthogonal basis (QR of a deterministic matrix; no RNG).
+    basis, _ = jnp.linalg.qr(
+        jnp.array([[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]])
+    )
+    eigenvalues = jnp.array([1.0, 1e-3, -2e-16])  # tiny negative from "round-off"
+    marginally_indefinite = basis @ jnp.diag(eigenvalues) @ basis.T
+    symmetrised = 0.5 * (marginally_indefinite + marginally_indefinite.T)
+
+    # RED path: cholesky NaNs on the (marginally) non-PSD matrix.
+    cholesky_factor = jnp.linalg.cholesky(symmetrised)
+    assert bool(jnp.any(jnp.isnan(cholesky_factor)))
+
+    # GREEN path: _psd_sqrt stays finite and reconstructs the PSD part.
+    psd_root = _psd_sqrt(symmetrised)
+    assert bool(jnp.all(jnp.isfinite(psd_root)))
+    psd_part = basis @ jnp.diag(jnp.clip(eigenvalues, 0.0)) @ basis.T
+    # float64 round-trip; conftest enables x64
+    assert jnp.allclose(psd_root @ psd_root.T, psd_part, atol=1e-10)

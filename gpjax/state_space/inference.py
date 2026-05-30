@@ -8,6 +8,8 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
+from gpjax.state_space.sde import _psd_sqrt
+
 
 def _sign_normalise(R):
     """Flip row signs so the diagonal of R is non-negative without changing R.T @ R.
@@ -315,8 +317,10 @@ def rts_smoother(sde, forward_outputs, time_steps):
 
     Runs the standard Särkkä & Solin (2019) §10.7 backward recursion on the
     forward filter trajectory. Internally materialises ``P = L @ L.T`` for the
-    smoother gain computation and re-Choleskies after each backward step.
-    The recursion is
+    smoother gain computation and re-roots the smoothed covariance after each
+    backward step with :func:`gpjax.state_space.sde._psd_sqrt`. The returned
+    ``Ls`` are therefore non-triangular ``V·Λ^½`` square roots (neither Cholesky
+    nor symmetric); consumers must rely only on ``L @ Lᵀ``. The recursion is
 
     .. math::
 
@@ -382,9 +386,13 @@ def rts_smoother(sde, forward_outputs, time_steps):
             P_filtered
             + smoother_gain @ (P_smoothed_next - P_predicted_next) @ smoother_gain.T
         )
-        # Symmetrise to kill round-off antisymmetric error before Cholesky.
+        # Symmetrise to kill round-off antisymmetric error, then take a
+        # gradient-safe PSD square root (cholesky NaNs on marginally-indefinite
+        # round-off; _psd_sqrt clips negative eigenvalues to zero). _psd_sqrt
+        # returns V·Λ^½ — a non-triangular root that is neither Cholesky nor
+        # symmetric; this is fine because every consumer uses L @ L.T.
         P_smoothed = 0.5 * (P_smoothed + P_smoothed.T)
-        L_smoothed = jnp.linalg.cholesky(P_smoothed)
+        L_smoothed = _psd_sqrt(P_smoothed)
 
         return (mean_smoothed, L_smoothed), (mean_smoothed, L_smoothed)
 
