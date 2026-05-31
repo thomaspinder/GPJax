@@ -15,140 +15,341 @@
 # ---
 
 # %% [markdown]
-# # State-Space GPs: Runtime Scaling Comparison
+# # State-Space (Markovian) Gaussian Processes
 #
-# This notebook benchmarks the dense Gaussian process implementation against
-# the state-space (Markovian) implementation provided by `gpjax.state_space`.
-# Dense GP inference scales as $\mathcal{O}(N^3)$ in the number of
-# observations, while state-space inference scales as $\mathcal{O}(N \cdot
-# d^3)$ where $d$ is the latent state dimension. For 1-D temporal data with
-# moderate state dimension, this turns a cubic scaling problem into a linear
-# one.
+# A Gaussian process whose inputs lie on the real line — a time axis — can often
+# be rewritten as the solution of a linear stochastic differential equation
+# (SDE). When that rewriting exists, inference no longer needs the dense
+# $\mathcal{O}(N^3)$ Cholesky factorisation of the Gram matrix: a forward Kalman
+# filter and backward smoother return the *exact* same posterior in
+# $\mathcal{O}(N)$ time. For long, one-dimensional temporal data this turns a
+# cubic problem into a linear one.
 #
-# We measure three quantities at increasing $N$:
+# In this notebook we use the `gpjax.state_space` module to model the Mauna Loa
+# atmospheric CO$_2$ record. We:
 #
-# 1. forward marginal log-likelihood (MLL) evaluation,
-# 2. reverse-mode gradient of the MLL with respect to the parameters,
-# 3. posterior prediction at $M = 200$ test points.
-#
-# We then visualise the runtime curves on log-log axes and confirm that the
-# two methods produce equivalent posteriors at a moderate $N$.
+# 1. build a state-space prior from a sum of Matérn and periodic kernels,
+# 2. fit its hyperparameters and form the smoothed posterior,
+# 3. fill a held-out gap with the `observation_mask` argument,
+# 4. contrast the smoothed posterior with the *causal* (filtered) one, and
+# 5. confirm empirically that inference scales linearly in $N$.
 
 # %%
-import time
-
-from examples.utils import use_mpl_style
+# Enable Float64 for more stable matrix factorisations.
+from examples.utils import clean_legend, use_mpl_style
 import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pandas as pd
 
 config.update("jax_enable_x64", True)
 
-import gpjax as gpx
-from gpjax.state_space import (
-    StateSpacePrior,
-    state_space_mll,
-)
+
+with install_import_hook("gpjax", "beartype.beartype"):
+    import gpjax as gpx
+    from gpjax.state_space import (
+        StateSpacePrior,
+        TruncatedPeriodic,
+        fit_scipy,
+    )
+
 
 key = jr.key(123)
+
+# set the default style for plotting
 use_mpl_style()
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 # %% [markdown]
-# ## Simulating data
+# ## Background: Gaussian processes as stochastic differential equations
 #
-# We draw a single ground-truth function from a `Matern52` prior at
-# $N_{\max} = 10\,000$ sorted timestamps in $[0, 50]$, observed under
-# Gaussian noise with standard deviation $0.1$. Smaller-$N$ benchmarks reuse
-# the leading prefix of the same dataset, keeping the comparison
-# apples-to-apples across sizes.
+# A *Markovian* Gaussian process is one whose value at time $t$, augmented with
+# a finite number of its derivatives, forms a state vector
+# $\boldsymbol{s}(t) \in \mathbb{R}^d$ that evolves under a linear SDE
 #
-# Note: the simulation itself uses an $\mathcal{O}(N^3)$ Cholesky factor
-# of the prior covariance. At $N = 10^4$ this is the most expensive step in
-# the notebook; we pay it once.
-
-# %%
-LENGTHSCALE_TRUE = 5.0
-VARIANCE_TRUE = 1.0
-OBS_STDDEV_TRUE = 0.1
-N_MAX = 10_000
-
-
-def simulate_dataset(n, seed=0):
-    sim_key = jr.key(seed)
-    key_x, key_f, key_eps = jr.split(sim_key, 3)
-    inputs = jnp.sort(jr.uniform(key_x, shape=(n,), minval=0.0, maxval=50.0))
-    kernel = gpx.kernels.Matern52(lengthscale=LENGTHSCALE_TRUE, variance=VARIANCE_TRUE)
-    gram = kernel.gram(inputs.reshape(-1, 1)).as_matrix()
-    chol = jnp.linalg.cholesky(gram + 1e-6 * jnp.eye(n))
-    latent = chol @ jr.normal(key_f, shape=(n,))
-    targets = latent + OBS_STDDEV_TRUE * jr.normal(key_eps, shape=(n,))
-    return inputs.reshape(-1, 1), targets.reshape(-1, 1)
-
-
-X_full, y_full = simulate_dataset(N_MAX, seed=0)
-print(f"Simulated N = {N_MAX} observations on [0, 50].")
+# $$ \mathrm{d}\boldsymbol{s}(t) = \mathbf{F}\,\boldsymbol{s}(t)\,\mathrm{d}t + \mathbf{L}\,\mathrm{d}\boldsymbol{\beta}(t), \qquad f(t) = \mathbf{H}\,\boldsymbol{s}(t), $$
+#
+# where $\boldsymbol{\beta}(t)$ is a Wiener process and $\mathbf{H}$ reads the
+# function value off the state. The observations are
+# $y_i = f(t_i) + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$.
+# Crucially, the Matérn family admits an *exact* representation of this form
+# <strong data-cite="hartikainen2010kalman"></strong>: the state dimension is
+# $d = 1, 2, 3$ for the Matérn-1/2, 3/2 and 5/2 kernels respectively. Periodic
+# structure is captured to arbitrary accuracy by a truncated harmonic expansion
+# <strong data-cite="solin2014explicit"></strong>, and sums of these kernels
+# simply stack their states.
+#
+# Because the process is Markovian, the marginal log-likelihood and the
+# posterior are computed by a forward Kalman filter followed by a backward
+# Rauch–Tung–Striebel (RTS) smoother. Each step manipulates $d \times d$
+# matrices, so the whole sweep costs $\mathcal{O}(N d^3)$ — linear in the number
+# of observations, against the dense path's $\mathcal{O}(N^3)$. The classic
+# reference for this construction is
+# <strong data-cite="sarkka2019applied"></strong>.
+#
+# Two structural caveats follow from requiring a *finite* state. The RBF kernel
+# has no exact finite-dimensional state (its SDE is infinite order), and kernel
+# *products* would multiply state dimensions in a way `gpjax.state_space` does
+# not support in v1. The expressible building blocks are therefore Matérn-1/2,
+# 3/2, 5/2, `TruncatedPeriodic`, and sums of these.
 
 # %% [markdown]
-# ## Building dense and state-space posteriors
+# ## The Mauna Loa CO$_2$ record
 #
-# Both implementations share the same kernel class, mean function and
-# likelihood. The only structural difference is the `Prior`: the dense path
-# uses `gpx.gps.Prior`, while the state-space path uses
-# `gpjax.state_space.StateSpacePrior`. The latent state dimension for
-# `Matern52` is $d = 3$.
-
+# We load the monthly mean CO$_2$ concentration measured at the Mauna Loa
+# Observatory in Hawaii. The series has a clear upward trend and a strong annual
+# cycle — exactly the trend-plus-seasonality structure that a sum kernel can
+# describe. We shift the time axis to start at zero (so lengthscales read in
+# years) and centre the targets (so a constant mean function suffices).
 
 # %%
-def build_dense_posterior(num_datapoints):
-    kernel = gpx.kernels.Matern52(lengthscale=1.0, variance=1.0)
-    prior = gpx.gps.Prior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=kernel,
-    )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=num_datapoints, obs_stddev=0.1)
-    return prior * likelihood
+co2_data = pd.read_csv(
+    "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.csv", comment="#"
+)
+co2_data = co2_data.loc[co2_data["average"] > 0]
 
+time_years = co2_data["decimal date"].values
+co2_ppm = co2_data["average"].values
 
-def build_state_space_posterior(num_datapoints):
-    kernel = gpx.kernels.Matern52(lengthscale=1.0, variance=1.0)
-    prior = StateSpacePrior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=kernel,
-    )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=num_datapoints, obs_stddev=0.1)
-    return prior * likelihood
+t0 = time_years.min()
+y_mean = co2_ppm.mean()
 
+x = (time_years - t0).reshape(-1, 1)
+y = (co2_ppm - y_mean).reshape(-1, 1)
+
+D = gpx.Dataset(X=x, y=y)
+print(f"Loaded N = {D.n} monthly observations spanning {x.max():.1f} years.")
+
+fig, ax = plt.subplots(figsize=(7.5, 2.5))
+ax.plot(x + t0, y + y_mean, color=cols[0], linewidth=1)
+ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", title="Mauna Loa CO$_2$ record")
 
 # %% [markdown]
-# ## Timing methodology
+# ## Building the model
 #
-# JAX compiles functions lazily on first call, so a naive timing call would
-# capture compilation cost rather than runtime. We:
+# We compose three kernels by summation:
 #
-# - run each function once as a warm-up, blocking on the result,
-# - then time several invocations, again blocking, and report the minimum
-#   to suppress system jitter,
-# - call `block_until_ready()` (or recurse into tuples / pytrees) so that
-#   the asynchronous JAX dispatch completes before we stop the clock.
-
+# - a long-lengthscale `Matern52` for the slow upward trend,
+# - a `TruncatedPeriodic` with a one-year period for the seasonal cycle, and
+# - a short-lengthscale `Matern32` for medium-scale wiggles.
+#
+# The only structural difference from a dense GPJax model is the prior: we use
+# `StateSpacePrior` in place of `gpx.gps.Prior`. Everything else — the kernels,
+# the constant mean function, the Gaussian likelihood, and the `*` operator that
+# forms the posterior — is the usual GPJax API.
 
 # %%
+trend_kernel = gpx.kernels.Matern52(lengthscale=20.0, variance=100.0)
+seasonal_kernel = TruncatedPeriodic(
+    lengthscale=1.0, variance=2.0, period=1.0, truncation_order=6
+)
+short_kernel = gpx.kernels.Matern32(lengthscale=1.0, variance=1.0)
+kernel = trend_kernel + seasonal_kernel + short_kernel
+
+prior = StateSpacePrior(
+    mean_function=gpx.mean_functions.Constant(),
+    kernel=kernel,
+)
+likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.5)
+posterior = prior * likelihood
+
+# %% [markdown]
+# ## Fitting
+#
+# The `gpjax.state_space` module ships fitting wrappers that mirror the dense
+# API. We use `fit_scipy`, which optimises the state-space marginal
+# log-likelihood with SciPy's L-BFGS-B; it validates and sorts the inputs and
+# threads the (here trivial) observation mask through the objective for us. For
+# large or mini-batched problems the module also provides an Optax-based `fit`.
+
+# %%
+opt_posterior, history = fit_scipy(
+    model=posterior,
+    train_data=D,
+    verbose=False,
+)
+
+# %% [markdown]
+# ## Smoothed prediction
+#
+# Calling `predict` returns the RTS-smoothed posterior: each test point
+# conditions on the *entire* observation record, past and future. The marginal
+# variances are exact. We predict on a dense grid spanning the data and a short
+# extrapolation beyond it.
+
+# %%
+xtest = jnp.linspace(0.0, float(x.max()) + 3.0, 600).reshape(-1, 1)
+
+smoothed = opt_posterior.predict(xtest, D)
+smoothed_mean = smoothed.mean + y_mean
+smoothed_std = jnp.sqrt(smoothed.variance)
+
+fig, ax = plt.subplots(figsize=(7.5, 3.0))
+ax.plot(x + t0, y + y_mean, "x", color=cols[0], alpha=0.3, label="Observations")
+ax.plot(xtest + t0, smoothed_mean, color=cols[1], label="Smoothed mean")
+ax.fill_between(
+    (xtest + t0).squeeze(),
+    smoothed_mean - 2 * smoothed_std,
+    smoothed_mean + 2 * smoothed_std,
+    color=cols[1],
+    alpha=0.2,
+    label="Two sigma",
+)
+ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)")
+ax.legend(loc="upper left")
+clean_legend(ax)
+
+# %% [markdown]
+# ## Gap-filling with an observation mask
+#
+# Real records have gaps. The state-space predictive accepts an
+# `observation_mask` — a boolean vector over the training points — that excludes
+# masked observations from the filter updates while still propagating the state
+# through them. This yields a principled interpolation across the gap, with the
+# posterior uncertainty widening over the unobserved interval and tightening
+# again at the edges where data resumes.
+#
+# Here we mask a contiguous five-year interior interval and predict across it.
+# We zoom in on the masked window. The widening is modest, and deliberately so:
+# the trend and seasonal components are *global*, so even an unobserved stretch
+# stays constrained by the locked phase of the annual cycle and the
+# slowly-varying trend.
+
+# %%
+gap_lo, gap_hi = 30.0, 35.0
+observation_mask = ~((x.squeeze() >= gap_lo) & (x.squeeze() < gap_hi))
+
+xgap = jnp.linspace(gap_lo - 6.0, gap_hi + 6.0, 400).reshape(-1, 1)
+in_gap = (xgap.squeeze() >= gap_lo) & (xgap.squeeze() < gap_hi)
+
+gap_pred = opt_posterior.predict(xgap, D, observation_mask=observation_mask)
+gap_mean = gap_pred.mean + y_mean
+gap_std = jnp.sqrt(gap_pred.variance)
+
+fig, ax = plt.subplots(figsize=(7.5, 3.0))
+ax.plot(
+    (x + t0).squeeze()[observation_mask],
+    (y + y_mean).squeeze()[observation_mask],
+    "x",
+    color=cols[0],
+    alpha=0.3,
+    label="Retained observations",
+)
+ax.plot(
+    (x + t0).squeeze()[~observation_mask],
+    (y + y_mean).squeeze()[~observation_mask],
+    "x",
+    color="grey",
+    alpha=0.5,
+    label="Masked observations",
+)
+ax.plot(xgap + t0, gap_mean, color=cols[1], label="Posterior mean")
+ax.fill_between(
+    (xgap + t0).squeeze(),
+    gap_mean - 2 * gap_std,
+    gap_mean + 2 * gap_std,
+    color=cols[1],
+    alpha=0.2,
+    label="Two sigma",
+)
+ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", xlim=(t0 + gap_lo - 6, t0 + gap_hi + 6))
+ax.legend(loc="upper left")
+clean_legend(ax)
+
+print(
+    "Mean two-sigma width inside the gap: "
+    f"{float(4 * gap_std[in_gap].mean()):.2f} ppm; outside: "
+    f"{float(4 * gap_std[~in_gap].mean()):.2f} ppm."
+)
+
+# %% [markdown]
+# ## Causal prediction: filtering versus smoothing
+#
+# The smoother estimates the latent function using *all* the data. In an online
+# setting we instead want the *causal* estimate at each time — conditioning only
+# on observations up to and including that time. The state-space posterior
+# exposes this through `predict_filter`, which reads marginals off the forward
+# Kalman trajectory rather than the backward smoother.
+#
+# On the dense, low-noise CO$_2$ record the two are nearly identical wherever
+# data is plentiful. The gap is where causality bites: inside the masked
+# interval the filter has only *pre-gap* data, so its mean drifts and its
+# uncertainty grows steadily across the window, whereas the smoother — informed
+# by the data on *both* sides — stays tight. We reuse the same mask and overlay
+# the two predictives.
+
+# %%
+filtered_gap = opt_posterior.predict_filter(xgap, D, observation_mask=observation_mask)
+filtered_mean = filtered_gap.mean + y_mean
+filtered_std = jnp.sqrt(filtered_gap.variance)
+
+fig, ax = plt.subplots(figsize=(7.5, 3.0))
+ax.plot(
+    (x + t0).squeeze()[observation_mask],
+    (y + y_mean).squeeze()[observation_mask],
+    "x",
+    color=cols[0],
+    alpha=0.25,
+    label="Retained observations",
+)
+ax.plot(xgap + t0, gap_mean, color=cols[1], label="Smoothed (both sides)")
+ax.fill_between(
+    (xgap + t0).squeeze(),
+    gap_mean - 2 * gap_std,
+    gap_mean + 2 * gap_std,
+    color=cols[1],
+    alpha=0.18,
+)
+ax.plot(xgap + t0, filtered_mean, color=cols[2], label="Filtered (causal)")
+ax.fill_between(
+    (xgap + t0).squeeze(),
+    filtered_mean - 2 * filtered_std,
+    filtered_mean + 2 * filtered_std,
+    color=cols[2],
+    alpha=0.18,
+)
+ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", xlim=(t0 + gap_lo - 6, t0 + gap_hi + 6))
+ax.legend(loc="upper left")
+clean_legend(ax)
+
+print(
+    "Inside the gap — smoothed two-sigma: "
+    f"{float(4 * gap_std[in_gap].mean()):.2f} ppm; "
+    f"filtered two-sigma: {float(4 * filtered_std[in_gap].mean()):.2f} ppm."
+)
+
+# %% [markdown]
+# ## Does it scale?
+#
+# The motivation for all of this machinery is linear-time inference. We confirm
+# it empirically by timing the forward marginal log-likelihood and its gradient
+# for the dense and state-space paths over a range of $N$, on synthetic data
+# drawn so that both paths see identical inputs. JAX compiles lazily, so we warm
+# each function up once and report the minimum of three timed runs.
+#
+# This in-notebook sweep is deliberately small and only illustrates the slopes;
+# the maintained, rigorous benchmarks live in `benchmarks/state_space.py` (run
+# with [`asv`](https://asv.readthedocs.io/)).
+
+# %%
+import time
+
+from gpjax.state_space import state_space_mll
+
+
 def block_pytree(pytree):
-    leaves = jax.tree_util.tree_leaves(pytree)
-    for leaf in leaves:
+    for leaf in jax.tree_util.tree_leaves(pytree):
         if hasattr(leaf, "block_until_ready"):
             leaf.block_until_ready()
 
 
 def time_function(fn, num_warmup=1, num_runs=3):
-    """Warm-up `num_warmup` times, then time `num_runs` invocations.
-
-    Returns the minimum elapsed time across timed runs.
-    """
     for _ in range(num_warmup):
         block_pytree(fn())
     timings = []
@@ -160,269 +361,100 @@ def time_function(fn, num_warmup=1, num_runs=3):
     return min(timings)
 
 
-# %% [markdown]
-# ## Sweep
-#
-# We sweep over a range of $N$ values. The dense path is only run up to
-# $N = 5000$ to keep the docs CI runtime reasonable; the state-space path
-# is run for the full sweep up to $N = 10\,000$.
-
-# %%
-N_VALUES = [200, 500, 1000, 2000, 5000, 10_000, 20_000]
-DENSE_N_LIMIT = 5000
-M_TEST = 200
-
-dense_results = {"forward": {}, "grad": {}, "predict": {}}
-ss_results = {"forward": {}, "grad": {}, "predict": {}}
+def simulate_dataset(n, seed=0):
+    sim_key = jr.key(seed)
+    key_x, key_f = jr.split(sim_key)
+    inputs = jnp.sort(jr.uniform(key_x, shape=(n,), minval=0.0, maxval=50.0))
+    targets = jnp.sin(inputs) + 0.1 * jr.normal(key_f, shape=(n,))
+    return inputs.reshape(-1, 1), targets.reshape(-1, 1)
 
 
-def make_dense_callables(num_datapoints):
-    posterior = build_dense_posterior(num_datapoints)
-    data = gpx.Dataset(X=X_full[:num_datapoints], y=y_full[:num_datapoints])
-    test_x = jnp.linspace(0.0, 50.0, M_TEST).reshape(-1, 1)
+def make_loss_callables(num_datapoints, state_space):
+    bench_kernel = gpx.kernels.Matern52(lengthscale=1.0, variance=1.0)
+    prior_cls = StateSpacePrior if state_space else gpx.gps.Prior
+    bench_prior = prior_cls(
+        mean_function=gpx.mean_functions.Zero(), kernel=bench_kernel
+    )
+    bench_lik = gpx.likelihoods.Gaussian(num_datapoints=num_datapoints, obs_stddev=0.1)
+    model = bench_prior * bench_lik
+    bench_x, bench_y = simulate_dataset(num_datapoints)
+    data = gpx.Dataset(X=bench_x, y=bench_y)
 
-    def loss(model):
-        return -gpx.objectives.conjugate_mll(model, data)
+    if state_space:
+        loss = lambda m: -state_space_mll(m, data)
+    else:
+        loss = lambda m: -gpx.objectives.conjugate_mll(m, data)
 
     forward_fn = jax.jit(loss)
     grad_fn = jax.jit(jax.grad(loss))
-
-    def predict_raw(model):
-        predictive = model.predict(test_x, data)
-        return predictive.mean, predictive.variance
-
-    predict_fn = jax.jit(predict_raw)
-
-    return (
-        lambda: forward_fn(posterior),
-        lambda: grad_fn(posterior),
-        lambda: predict_fn(posterior),
-    )
+    return lambda: forward_fn(model), lambda: grad_fn(model)
 
 
-def make_state_space_callables(num_datapoints):
-    posterior = build_state_space_posterior(num_datapoints)
-    data = gpx.Dataset(X=X_full[:num_datapoints], y=y_full[:num_datapoints])
-    test_x = jnp.linspace(0.0, 50.0, M_TEST).reshape(-1, 1)
+N_VALUES = [200, 500, 1000, 2000, 5000]
+DENSE_N_LIMIT = 2000
 
-    def loss(model):
-        return -state_space_mll(model, data)
-
-    forward_fn = jax.jit(loss)
-    grad_fn = jax.jit(jax.grad(loss))
-
-    def predict_raw(model):
-        predictive = model.predict(test_x, data)
-        return predictive.mean, predictive.variance
-
-    predict_fn = jax.jit(predict_raw)
-
-    return (
-        lambda: forward_fn(posterior),
-        lambda: grad_fn(posterior),
-        lambda: predict_fn(posterior),
-    )
-
+results = {"dense": {"forward": {}, "grad": {}}, "ss": {"forward": {}, "grad": {}}}
 
 for n in N_VALUES:
-    print(f"--- N = {n} ---")
-    ss_forward, ss_grad, ss_predict = make_state_space_callables(n)
-    ss_results["forward"][n] = time_function(ss_forward)
-    ss_results["grad"][n] = time_function(ss_grad)
-    ss_results["predict"][n] = time_function(ss_predict)
-    print(
-        f"  state-space  forward: {ss_results['forward'][n]:.4f}s"
-        f"  grad: {ss_results['grad'][n]:.4f}s"
-        f"  predict: {ss_results['predict'][n]:.4f}s"
-    )
-
+    ss_forward, ss_grad = make_loss_callables(n, state_space=True)
+    results["ss"]["forward"][n] = time_function(ss_forward)
+    results["ss"]["grad"][n] = time_function(ss_grad)
     if n <= DENSE_N_LIMIT:
-        dense_forward, dense_grad, dense_predict = make_dense_callables(n)
-        dense_results["forward"][n] = time_function(dense_forward)
-        dense_results["grad"][n] = time_function(dense_grad)
-        dense_results["predict"][n] = time_function(dense_predict)
-        print(
-            f"  dense        forward: {dense_results['forward'][n]:.4f}s"
-            f"  grad: {dense_results['grad'][n]:.4f}s"
-            f"  predict: {dense_results['predict'][n]:.4f}s"
-        )
-    else:
-        print(f"  dense        skipped (N > {DENSE_N_LIMIT})")
-
-# %% [markdown]
-# ## Runtime curves
-#
-# We plot the timings on log-log axes. A method that scales as $N^p$ shows
-# up as a straight line of slope $p$. Dense GPs are expected to have slope
-# $\approx 3$ (cubic Cholesky), while state-space inference is expected to
-# have slope $\approx 1$ (linear Kalman filter, fixed state dimension).
+        dense_forward, dense_grad = make_loss_callables(n, state_space=False)
+        results["dense"]["forward"][n] = time_function(dense_forward)
+        results["dense"]["grad"][n] = time_function(dense_grad)
 
 # %%
-fig, axes = plt.subplots(1, 3, figsize=(16, 5), sharex=True)
-operation_titles = [
-    ("forward", "Forward MLL"),
-    ("grad", "MLL gradient"),
-    ("predict", "Posterior predict"),
-]
-for ax, (op_key, op_title) in zip(axes, operation_titles, strict=True):
-    dense_xs = sorted(dense_results[op_key].keys())
-    dense_ys = [dense_results[op_key][n] for n in dense_xs]
-    ss_xs = sorted(ss_results[op_key].keys())
-    ss_ys = [ss_results[op_key][n] for n in ss_xs]
+fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharex=True)
+for ax, op, op_title in zip(
+    axes, ["forward", "grad"], ["Forward MLL", "MLL gradient"], strict=True
+):
+    dense_xs = sorted(results["dense"][op])
+    ss_xs = sorted(results["ss"][op])
     ax.loglog(
         dense_xs,
-        dense_ys,
+        [results["dense"][op][n] for n in dense_xs],
         marker="o",
         color=cols[0],
         label="Dense GP",
     )
     ax.loglog(
         ss_xs,
-        ss_ys,
+        [results["ss"][op][n] for n in ss_xs],
         marker="s",
         color=cols[1],
         label="State-space GP",
     )
-    ax.set_xlabel("N")
-    ax.set_ylabel("Runtime (s)")
-    ax.set_title(op_title)
+    ax.set(xlabel="N", ylabel="Runtime (s)", title=op_title)
     ax.grid(True, which="both", alpha=0.3)
     ax.legend()
-fig.tight_layout()
 
 # %% [markdown]
-# The dense curves bend upwards: doubling $N$ multiplies runtime by roughly
-# eight, the signature of cubic scaling. The state-space curves track a
-# straight line with slope close to one. Beyond $N \approx 5000$ the dense
-# path becomes uncomfortable on a laptop, while state-space inference
-# remains tractable well past $N = 10^4$.
-
-# %% [markdown]
-# ## Why does the dense path win for small $N$?
-#
-# The two curves cross at $N \approx 10^3$. For smaller datasets the dense
-# implementation is faster, despite its asymptotically worse complexity.
-# Three effects combine to produce this crossover:
-#
-# 1. **Constant per-step overhead in the scan.** Each step of the Kalman
-#    filter performs a small `discretise(dt)` call, two QR factorisations
-#    (in `_sqrt_predict` and `_sqrt_update`), a sign normalisation and a
-#    `lax.cond` for the observation mask. The total runtime is approximately
-#    $c \cdot N$ with a non-trivial constant $c$.
-# 2. **Two nested `lax.scan`s plus `jax.checkpoint`.** `kalman_filter`
-#    runs an outer scan over chunks of size $\sqrt{N}$ and an inner scan
-#    within each chunk, with the inner scan wrapped in a checkpoint to
-#    bound reverse-mode AD memory at $\mathcal{O}(\sqrt{N} \cdot d^2)$.
-#    At $N = 200$ this overhead buys nothing useful; we still pay it.
-# 3. **LAPACK Cholesky is extremely fast on small matrices.** A
-#    $200 \times 200$ Cholesky is roughly five million flops, fits in
-#    cache, and ships off to a single hand-tuned BLAS kernel. XLA can
-#    also fuse the dense path's matrix multiplications more aggressively
-#    than it can fuse a sequential scan body, where data dependencies
-#    between steps block parallelisation.
-#
-# The takeaway is that state-space inference is paying a fixed launch and
-# control-flow overhead in exchange for linear scaling. For $N \lesssim
-# 10^3$, the dense path is strictly preferable. For $N \gtrsim 10^4$, the
-# dense path is infeasible regardless: at $N = 10^5$ the gram matrix alone
-# requires $\sim 80$ GB of memory.
-
-# %% [markdown]
-# ## Sanity check: do the two methods agree?
-#
-# At a moderate sample size ($N = 1000$) we fit both models and compare
-# their posterior means and credible intervals on a shared test grid. The
-# two posteriors should be visually indistinguishable apart from numerical
-# rounding.
-
-# %%
-import optax as ox
-
-N_FIT = 1000
-fit_data = gpx.Dataset(X=X_full[:N_FIT], y=y_full[:N_FIT])
-
-dense_posterior = build_dense_posterior(N_FIT)
-ss_posterior = build_state_space_posterior(N_FIT)
-
-fitted_dense, _ = gpx.fit(
-    model=dense_posterior,
-    objective=lambda m, d: -gpx.objectives.conjugate_mll(m, d),
-    train_data=fit_data,
-    optim=ox.adam(learning_rate=5e-2),
-    num_iters=200,
-    key=key,
-    verbose=False,
-)
-fitted_ss, _ = gpx.fit(
-    model=ss_posterior,
-    objective=lambda m, d: -state_space_mll(m, d),
-    train_data=fit_data,
-    optim=ox.adam(learning_rate=5e-2),
-    num_iters=200,
-    key=key,
-    verbose=False,
-)
-
-test_x = jnp.linspace(0.0, 50.0, 400).reshape(-1, 1)
-dense_predictive = fitted_dense.predict(test_x, fit_data)
-ss_predictive = fitted_ss.predict(test_x, fit_data)
-
-dense_mean = dense_predictive.mean
-dense_std = jnp.sqrt(dense_predictive.variance)
-ss_mean = ss_predictive.mean
-ss_std = jnp.sqrt(ss_predictive.variance)
-
-# %%
-fig, axes = plt.subplots(1, 2, figsize=(15, 5), sharey=True)
-
-for ax, mean, std, title, colour in zip(
-    axes,
-    [dense_mean, ss_mean],
-    [dense_std, ss_std],
-    ["Dense GP", "State-space GP"],
-    [cols[0], cols[1]],
-    strict=True,
-):
-    ax.plot(
-        fit_data.X.squeeze(),
-        fit_data.y.squeeze(),
-        "x",
-        color="grey",
-        alpha=0.3,
-        label="Observations",
-    )
-    ax.fill_between(
-        test_x.squeeze(),
-        mean - 2 * std,
-        mean + 2 * std,
-        color=colour,
-        alpha=0.2,
-        label="Two sigma",
-    )
-    ax.plot(test_x.squeeze(), mean, color=colour, label=f"{title} mean")
-    ax.set_xlabel("t")
-    ax.set_title(title)
-    ax.legend(loc="best")
-axes[0].set_ylabel("y")
-fig.tight_layout()
-
-# %% [markdown]
-# The two posteriors agree closely: the means trace the same curve and the
-# uncertainty ribbons overlap. The minor differences come from the two
-# optimisers settling at slightly different hyperparameter values.
+# The dense curves bend upwards — the signature of cubic scaling — while the
+# state-space curves track a near-straight line of slope one. For small $N$ the
+# dense path is actually faster: a tiny LAPACK Cholesky fits in cache and beats
+# the fixed launch and control-flow overhead of the Kalman scan. The state-space
+# path earns its keep as $N$ grows, and remains tractable far beyond where the
+# dense Gram matrix stops fitting in memory.
 
 # %% [markdown]
 # ## Summary
 #
-# - State-space inference replaces the dense $\mathcal{O}(N^3)$ Cholesky
-#   factorisation with a linear-time Kalman filter, making 1-D temporal
-#   GPs with $N \gtrsim 10^4$ tractable on commodity hardware.
-# - For the supported kernel families (`Matern12`, `Matern32`, `Matern52`,
-#   `TruncatedPeriodic`, and sums thereof), `gpjax.state_space` is a
-#   drop-in replacement for the dense path.
-# - The two posteriors are equivalent in distribution, modulo numerical
-#   precision and optimiser noise, so the only practical decision is one of
-#   problem size: dense for small $N$, state-space for large $N$.
-# - The state-space posterior also provides `predict_filter` for causal
-#   (filtered) predictions and accepts an `observation_mask` argument for
-#   principled gap-filling, which are not the focus of this notebook.
+# - For one-dimensional temporal data, `gpjax.state_space` replaces the dense
+#   $\mathcal{O}(N^3)$ Cholesky with a linear-time Kalman filter and RTS
+#   smoother, returning the *same* posterior.
+# - The expressible kernels are `Matern12`, `Matern32`, `Matern52`,
+#   `TruncatedPeriodic`, and sums thereof; building a `StateSpacePrior` is
+#   otherwise identical to a dense `Prior`.
+# - `predict` gives the smoothed posterior, `predict_filter` the causal
+#   (filtered) one, and the `observation_mask` argument enables principled
+#   gap-filling.
+# - Dense inference is preferable for small $N$; state-space inference wins
+#   decisively once $N$ grows into the thousands and beyond.
+
+# %% [markdown]
+# ## System configuration
+
+# %%
+# %reload_ext watermark
+# %watermark -n -u -v -iv -w -a 'Thomas Pinder'
