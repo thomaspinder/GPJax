@@ -10,6 +10,10 @@ compile cost. Each iteration:
 Because each setup creates a new function object, JAX has nothing cached
 for it; the first call inside track_compile_* triggers tracing+lowering+
 compilation.
+
+The conjugate_mll vs elbo pair is the headline comparison here: variational
+posteriors carry more pytree structure through the trace, so the compile
+gap (not just steady-state cost) matters for iteration speed.
 """
 
 from __future__ import annotations
@@ -18,9 +22,10 @@ import time
 
 import gpjax as gpx
 from gpjax import objectives
+from gpjax.variational_families import VariationalGaussian
 import jax
 
-from benchmarks._setup import make_inputs, make_outputs, realise
+from benchmarks._setup import M_INDUCING, make_inputs, make_outputs, realise
 
 
 class CompileSuite:
@@ -36,8 +41,12 @@ class CompileSuite:
         prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)
         likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
         self.posterior = prior * likelihood
+        self.q = VariationalGaussian(
+            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]
+        )
 
         self.jitted_mll = jax.jit(objectives.conjugate_mll)
+        self.jitted_elbo = jax.jit(objectives.elbo)
         self.jitted_gram = jax.jit(lambda X: kernel.gram(X).as_matrix())
         self.X_warm = X
 
@@ -47,6 +56,13 @@ class CompileSuite:
         return time.perf_counter() - t0
 
     track_compile_conjugate_mll.unit = "seconds"
+
+    def track_compile_elbo(self):
+        t0 = time.perf_counter()
+        realise(self.jitted_elbo(self.q, self.data))
+        return time.perf_counter() - t0
+
+    track_compile_elbo.unit = "seconds"
 
     def track_compile_kernel_gram(self):
         t0 = time.perf_counter()

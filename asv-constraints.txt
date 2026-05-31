@@ -1,23 +1,23 @@
-absl-py==2.3.1
+absl-py==2.4.0
 beartype==0.22.9
 chex==0.1.91
 colorama==0.4.6 ; sys_platform == 'win32'
-equinox==0.13.5
-jax==0.9.0
-jaxlib==0.9.0
-jaxtyping==0.3.6
-lineax==0.1.0
+equinox==0.13.8
+jax==0.10.1
+jaxlib==0.10.1
+jaxtyping==0.3.10
+lineax==0.1.1
 ml-dtypes==0.5.4
 multipledispatch==1.0.0
-numpy==2.4.1
-numpyro==0.19.0
+numpy==2.4.6
+numpyro==0.21.0
 opt-einsum==3.4.0
-optax==0.2.6
+optax==0.2.8
 optimistix==0.1.0
 paramax==0.0.5
-scipy==1.17.0
-tensorstore==0.1.80 ; sys_platform == 'darwin'
+scipy==1.17.1
+tensorstore==0.1.84 ; sys_platform == 'darwin'
 toolz==1.1.0
-tqdm==4.67.1
+tqdm==4.67.3
 typing-extensions==4.15.0
 wadler-lindig==0.1.7
