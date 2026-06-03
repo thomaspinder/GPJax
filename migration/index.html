@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migration-guide-013x-0140" class="md-skip">
+        <a href="#migration-guide-014x-0150" class="md-skip">
           Skip to content
         </a>
       
@@ -559,10 +559,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#installation" class="md-nav__link">
+  <a href="#breaking-change-likelihood-predict-return-type" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Installation
+        Breaking change: likelihood .predict return type
       
     </span>
   </a>
@@ -570,126 +570,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#breaking-changes" class="md-nav__link">
+  <a href="#new-state-space-gaussian-processes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Breaking changes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Breaking changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-backend-flaxnnxmodule-equinoxmodule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Backend: flax.nnx.Module → equinox.Module
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-parameter-classes-are-now-paramaxabstractunwrappable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Parameter classes are now paramax.AbstractUnwrappable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. LowerTriangular now requires a valid Cholesky factor
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. gpx.fit / fit_scipy / fit_lbfgs: removed params_bijection and trainable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-register_parameters-removed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. register_parameters removed
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#6-gpjaxlinalg-rewrite-cola-lineax" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. gpjax.linalg rewrite: cola → Lineax
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#7-custom-bijectors-replaced-with-numpyro-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. Custom bijectors replaced with numpyro constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#non-breaking-cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Non-breaking cleanup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrade-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrade checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting issues
+        New: state-space Gaussian processes
       
     </span>
   </a>
@@ -1122,6 +1006,34 @@
     
   
     Stochastic sparse GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../_examples/state_space_gps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State-Space GPs
   
 
     
@@ -3706,6 +3618,317 @@
   
   
   
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_1_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1_15" id="__nav_8_1_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Space
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_8_1_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    State Space
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/_bessel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+     Bessel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/_validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+     Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/fit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/gps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/kernels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kernels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/objectives/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Objectives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/state_space/sde/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sde
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../api/typing/" class="md-nav__link">
         
@@ -3798,10 +4021,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#installation" class="md-nav__link">
+  <a href="#breaking-change-likelihood-predict-return-type" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Installation
+        Breaking change: likelihood .predict return type
       
     </span>
   </a>
@@ -3809,126 +4032,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#breaking-changes" class="md-nav__link">
+  <a href="#new-state-space-gaussian-processes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Breaking changes
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Breaking changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-backend-flaxnnxmodule-equinoxmodule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Backend: flax.nnx.Module → equinox.Module
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-parameter-classes-are-now-paramaxabstractunwrappable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Parameter classes are now paramax.AbstractUnwrappable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-lowertriangular-now-requires-a-valid-cholesky-factor" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. LowerTriangular now requires a valid Cholesky factor
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-gpxfit-fit_scipy-fit_lbfgs-removed-params_bijection-and-trainable" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. gpx.fit / fit_scipy / fit_lbfgs: removed params_bijection and trainable
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-register_parameters-removed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. register_parameters removed
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#6-gpjaxlinalg-rewrite-cola-lineax" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. gpjax.linalg rewrite: cola → Lineax
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#7-custom-bijectors-replaced-with-numpyro-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. Custom bijectors replaced with numpyro constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#non-breaking-cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Non-breaking cleanup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrade-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrade checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-issues" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting issues
+        New: state-space Gaussian processes
       
     </span>
   </a>
@@ -3955,6 +4062,42 @@
   
 
 
+<h1 id="migration-guide-014x-0150">Migration guide: 0.14.x → 0.15.0<a class="headerlink" href="#migration-guide-014x-0150" title="Permanent link"></a></h1>
+<p>GPJax <code>0.15</code> adds the <code>gpjax.state_space</code> sub-package (state-space / Markovian
+Gaussian processes) and makes <strong>one</strong> breaking change to likelihood prediction.
+Everything else is additive.</p>
+<h2 id="breaking-change-likelihood-predict-return-type">Breaking change: likelihood <code>.predict</code> return type<a class="headerlink" href="#breaking-change-likelihood-predict-return-type" title="Permanent link"></a></h2>
+<p><code>gpjax.likelihoods.Gaussian.predict</code> and
+<code>gpjax.likelihoods.HeteroscedasticGaussian.predict</code> now return a
+<code>gpjax.distributions.GaussianDistribution</code> instead of a
+<code>numpyro.distributions.MultivariateNormal</code>.</p>
+<ul>
+<li>If you read <code>mean</code>, <code>variance</code>, or <code>covariance_matrix</code>, <strong>no change is
+  needed</strong> — these attributes exist on both types.</li>
+<li>If you relied on <code>MultivariateNormal</code>-specific attributes (<code>scale_tril</code>,
+  <code>precision_matrix</code>, etc.), update your call site. The covariance is now backed
+  by a <a href="https://docs.kidger.site/lineax/">Lineax</a> operator: <code>Gaussian.predict</code>
+  keeps a <code>lineax.DiagonalLinearOperator</code> scale on its diagonal fast path and
+  wraps a <code>lineax.MatrixLinearOperator</code> on the dense path;
+  <code>HeteroscedasticGaussian.predict</code> always wraps a <code>lineax.MatrixLinearOperator</code>.</li>
+</ul>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Before (0.14.x)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">dist</span> <span class="o">=</span> <span class="n">likelihood</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">latent_dist</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">tril</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">scale_tril</span>            <span class="c1"># MultivariateNormal attribute</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># After (0.15.0)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">dist</span> <span class="o">=</span> <span class="n">likelihood</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">latent_dist</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">mean</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">mean</span>                  <span class="c1"># unchanged</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">cov</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">covariance_matrix</span>      <span class="c1"># unchanged</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># need a Cholesky factor? materialise it explicitly:</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">tril</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">covariance_matrix</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="new-state-space-gaussian-processes">New: state-space Gaussian processes<a class="headerlink" href="#new-state-space-gaussian-processes" title="Permanent link"></a></h2>
+<p><code>gpjax.state_space</code> is a new, opt-in sub-package — importing or upgrading does
+not change any existing behaviour. See the
+<a href="../_examples/state_space_gps/">State-Space GPs example</a> to get started.</p>
+<hr />
 <h1 id="migration-guide-013x-0140">Migration guide: 0.13.x → 0.14.0<a class="headerlink" href="#migration-guide-013x-0140" title="Permanent link"></a></h1>
 <p>GPJax <code>0.14</code> replaces the Flax NNX backend with
 <a href="https://docs.kidger.site/equinox/">Equinox</a> +
@@ -3974,9 +4117,9 @@ stack in favour of
 etc.) most code keeps working once you update the two or three call sites
 below.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0&quot;</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0&quot;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># or</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s2">&quot;gpjax==0.14.0&quot;</span>
 </span></code></pre></div>
 <p>New dependencies (pulled in automatically): <code>equinox&gt;=0.11</code>, <code>paramax&gt;=0.0.5</code>.
 Flax is no longer a runtime dependency.</p>
@@ -3984,21 +4127,21 @@ Flax is no longer a runtime dependency.</p>
 <h3 id="1-backend-flaxnnxmodule-equinoxmodule">1. Backend: flax.nnx.Module → equinox.Module<a class="headerlink" href="#1-backend-flaxnnxmodule-equinoxmodule" title="Permanent link"></a></h3>
 <p>If you subclassed <code>nnx.Module</code> to build a custom model, kernel, mean function,
 likelihood, or variational family, change the base class:</p>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Before (0.13.x)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flax</span><span class="w"> </span><span class="kn">import</span> <span class="n">nnx</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">nnx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
-</span></code></pre></div>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># After (0.14.0)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">flax</span><span class="w"> </span><span class="kn">import</span> <span class="n">nnx</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">lengthscale</span><span class="p">:</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">nnx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">equinox</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">eqx</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyKernel</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">lengthscale</span><span class="p">:</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lengthscale</span><span class="p">):</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">lengthscale</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="n">lengthscale</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Equinox requires <strong>class-level field annotations</strong> for every attribute, and
 static configuration fields should be marked with <code>eqx.field(static=True)</code>.</p>
@@ -4008,18 +4151,18 @@ static configuration fields should be marked with <code>eqx.field(static=True)</
 now inherit from <code>paramax.AbstractUnwrappable</code> and store their value in an
 <strong>unconstrained</strong> internal field. The constraining bijection is applied at
 read time through <code>unwrap()</code>.</p>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Before (0.13.x) — nnx.Variable-based</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">length</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span>                <span class="c1"># -&gt; 0.5</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="mf">1.0</span>          <span class="c1"># in-place mutation (nnx)</span>
-</span></code></pre></div>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># After (0.14.0) — paramax.AbstractUnwrappable</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Before (0.13.x) — nnx.Variable-based</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">length</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">length</span><span class="o">.</span><span class="n">unwrap</span><span class="p">()</span>             <span class="c1"># -&gt; 0.5  (applies softplus to the stored unconstrained value)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Unwrap an entire model tree in one call:</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">model_resolved</span> <span class="o">=</span> <span class="n">paramax</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span>                <span class="c1"># -&gt; 0.5</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">length</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="mf">1.0</span>          <span class="c1"># in-place mutation (nnx)</span>
+</span></code></pre></div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># After (0.14.0) — paramax.AbstractUnwrappable</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">length</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">PositiveReal</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">length</span><span class="o">.</span><span class="n">unwrap</span><span class="p">()</span>             <span class="c1"># -&gt; 0.5  (applies softplus to the stored unconstrained value)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Unwrap an entire model tree in one call:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">model_resolved</span> <span class="o">=</span> <span class="n">paramax</span><span class="o">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>Parameter</code> (the old generic base class), <code>DEFAULT_BIJECTION</code>, the
 <code>transform(...)</code> function, and <code>FillTriangularTransform</code> have been
@@ -4045,32 +4188,32 @@ diagonal was unconstrained). It is now parameterised via
 <p>Bijection handling is now automatic via <code>paramax.unwrap</code> inside the loss
 function, and freezing parameters is expressed by wrapping them in
 <code>paramax.non_trainable</code>:</p>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Before (0.13.x)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">params_bijection</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">trainable</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span>   <span class="c1"># filter-based trainability</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
-</span></code></pre></div>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># After (0.14.0)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Freeze specific parameters up-front by wrapping them:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">posterior</span><span class="p">,</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">replace_fn</span><span class="o">=</span><span class="n">paramax</span><span class="o">.</span><span class="n">non_trainable</span><span class="p">,</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">params_bijection</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">DEFAULT_BIJECTION</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">trainable</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">,</span>   <span class="c1"># filter-based trainability</span>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">)</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">paramax</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Freeze specific parameters up-front by wrapping them:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="n">lengthscale</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">replace_fn</span><span class="o">=</span><span class="n">paramax</span><span class="o">.</span><span class="n">non_trainable</span><span class="p">,</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">opt_model</span><span class="p">,</span> <span class="n">history</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">model</span><span class="o">=</span><span class="n">posterior</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">objective</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">,</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">train_data</span><span class="o">=</span><span class="n">D</span><span class="p">,</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">optim</span><span class="o">=</span><span class="n">ox</span><span class="o">.</span><span class="n">adam</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">),</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Internally, <code>fit</code> now splits the model with <code>eqx.partition(model, eqx.is_array)</code>
 so only concrete JAX arrays participate in the gradient update; everything
@@ -4120,25 +4263,25 @@ Materialise with <code>.as_matrix()</code>.</p>
 <h3 id="7-custom-bijectors-replaced-with-numpyro-constraints">7. Custom bijectors replaced with numpyro constraints<a class="headerlink" href="#7-custom-bijectors-replaced-with-numpyro-constraints" title="Permanent link"></a></h3>
 <p>If you had a custom <code>Parameter</code> subclass that declared a bijection, replace
 the bijection with a numpyro constraint and use <code>biject_to</code>:</p>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Before (0.13.x)</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">):</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="c1"># Custom bijection registered via DEFAULT_BIJECTION</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="o">...</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Before (0.13.x)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">gpx</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">Parameter</span><span class="p">):</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="c1"># Custom bijection registered via DEFAULT_BIJECTION</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="o">...</span>
 </span></code></pre></div>
-<div class="language-py highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># After (0.14.0)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">numpyro.distributions</span><span class="w"> </span><span class="kn">import</span> <span class="n">biject_to</span><span class="p">,</span> <span class="n">constraints</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">paramax</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractUnwrappable</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">AbstractUnwrappable</span><span class="p">):</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">_constraint</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">positive</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">_unconstrained</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span> <span class="o">=</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unwrap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="k">return</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span><span class="p">)</span>
+<div class="language-py highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># After (0.14.0)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">numpyro.distributions</span><span class="w"> </span><span class="kn">import</span> <span class="n">biject_to</span><span class="p">,</span> <span class="n">constraints</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">paramax</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractUnwrappable</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyParam</span><span class="p">(</span><span class="n">AbstractUnwrappable</span><span class="p">):</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">_constraint</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">positive</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">_unconstrained</span><span class="p">:</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span> <span class="o">=</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unwrap</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="k">return</span> <span class="n">biject_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_constraint</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">_unconstrained</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="non-breaking-cleanup">Non-breaking cleanup<a class="headerlink" href="#non-breaking-cleanup" title="Permanent link"></a></h2>
 <ul>
