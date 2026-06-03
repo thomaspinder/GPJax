@@ -17,13 +17,14 @@
 # %% [markdown]
 # # State-Space (Markovian) Gaussian Processes
 #
-# A Gaussian process whose inputs lie on the real line — a time axis — can often
+# A Gaussian process whose inputs lie on the real line e.g., a time axis, can often
 # be rewritten as the solution of a linear stochastic differential equation
-# (SDE). When that rewriting exists, inference no longer needs the dense
-# $\mathcal{O}(N^3)$ Cholesky factorisation of the Gram matrix: a forward Kalman
-# filter and backward smoother return the *exact* same posterior in
-# $\mathcal{O}(N)$ time. For long, one-dimensional temporal data this turns a
-# cubic problem into a linear one.
+# (SDE). When that rearrangement exists, inference no longer needs the dense
+# $\mathcal{O}(N^3)$ Cholesky factorisation of the Gram matrix, as seen in
+# our [Regression Notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# Instead a forward Kalman filter and backward smoother can be used to estimate an
+# identical posterior in $\mathcal{O}(N)$ time. For long, one-dimensional temporal
+# data this turns a cubic problem into a linear one.
 #
 # In this notebook we use the `gpjax.state_space` module to model the Mauna Loa
 # atmospheric CO$_2$ record. We:
@@ -65,7 +66,7 @@ use_mpl_style()
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 # %% [markdown]
-# ## Background: Gaussian processes as stochastic differential equations
+# ## Gaussian processes as stochastic differential equations
 #
 # A *Markovian* Gaussian process is one whose value at time $t$, augmented with
 # a finite number of its derivatives, forms a state vector
@@ -76,25 +77,26 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # where $\boldsymbol{\beta}(t)$ is a Wiener process and $\mathbf{H}$ reads the
 # function value off the state. The observations are
 # $y_i = f(t_i) + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$.
-# Crucially, the Matérn family admits an *exact* representation of this form
-# <strong data-cite="hartikainen2010kalman"></strong>: the state dimension is
+# The Matérn kernel family admits an exact representation of this form
+# [Hartikainen and Särkkä (2010)](https://ieeexplore.ieee.org/abstract/document/5589113)
+# whereby the state dimension is
 # $d = 1, 2, 3$ for the Matérn-1/2, 3/2 and 5/2 kernels respectively. Periodic
 # structure is captured to arbitrary accuracy by a truncated harmonic expansion
-# <strong data-cite="solin2014explicit"></strong>, and sums of these kernels
-# simply stack their states.
+# [Solin and Särkkä (2014)](https://proceedings.mlr.press/v33/solin14.html),
+# and sums of these kernels simply stack their states.
 #
 # Because the process is Markovian, the marginal log-likelihood and the
 # posterior are computed by a forward Kalman filter followed by a backward
 # Rauch–Tung–Striebel (RTS) smoother. Each step manipulates $d \times d$
 # matrices, so the whole sweep costs $\mathcal{O}(N d^3)$ — linear in the number
-# of observations, against the dense path's $\mathcal{O}(N^3)$. The classic
-# reference for this construction is
-# <strong data-cite="sarkka2019applied"></strong>.
+# of observations, against the dense path's $\mathcal{O}(N^3)$. For a complete
+# reference on this construction, see
+# [Solin and Särkkä (2019)](https://users.aalto.fi/~asolin/sde-book/sde-book.pdf)
 #
-# Two structural caveats follow from requiring a *finite* state. The RBF kernel
+# Two structural caveats follow from requiring a finite state. The RBF kernel
 # has no exact finite-dimensional state (its SDE is infinite order), and kernel
 # *products* would multiply state dimensions in a way `gpjax.state_space` does
-# not support in v1. The expressible building blocks are therefore Matérn-1/2,
+# not currently support. The expressible building blocks are, therefore, Matérn-1/2,
 # 3/2, 5/2, `TruncatedPeriodic`, and sums of these.
 
 # %% [markdown]
@@ -104,7 +106,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Observatory in Hawaii. The series has a clear upward trend and a strong annual
 # cycle — exactly the trend-plus-seasonality structure that a sum kernel can
 # describe. We shift the time axis to start at zero (so lengthscales read in
-# years) and centre the targets (so a constant mean function suffices).
+# years) and centre the targets (so a constant mean function suffices). A
+# comparative approach to modelling this data using traditional GP models
+# may be found in our [Introduction to Kernels](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/#putting-it-all-together-on-a-real-world-dataset)
+# notebook.
 
 # %%
 co2_data = pd.read_csv(
@@ -122,7 +127,6 @@ x = (time_years - t0).reshape(-1, 1)
 y = (co2_ppm - y_mean).reshape(-1, 1)
 
 D = gpx.Dataset(X=x, y=y)
-print(f"Loaded N = {D.n} monthly observations spanning {x.max():.1f} years.")
 
 fig, ax = plt.subplots(figsize=(7.5, 2.5))
 ax.plot(x + t0, y + y_mean, color=cols[0], linewidth=1)
@@ -137,10 +141,9 @@ ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", title="Mauna Loa CO$_2$ record")
 # - a `TruncatedPeriodic` with a one-year period for the seasonal cycle, and
 # - a short-lengthscale `Matern32` for medium-scale wiggles.
 #
-# The only structural difference from a dense GPJax model is the prior: we use
-# `StateSpacePrior` in place of `gpx.gps.Prior`. Everything else — the kernels,
-# the constant mean function, the Gaussian likelihood, and the `*` operator that
-# forms the posterior — is the usual GPJax API.
+# The only structural difference from a dense GPJax model is the prior where we
+# replace `gpx.gps.Prior` with  `StateSpacePrior`. Everything else is the
+# usual GPJax API.
 
 # %%
 trend_kernel = gpx.kernels.Matern52(lengthscale=20.0, variance=100.0)
@@ -160,7 +163,7 @@ posterior = prior * likelihood
 # %% [markdown]
 # ## Fitting
 #
-# The `gpjax.state_space` module ships fitting wrappers that mirror the dense
+# The `gpjax.state_space` module exposes fitting wrappers that mirror the dense
 # API. We use `fit_scipy`, which optimises the state-space marginal
 # log-likelihood with SciPy's L-BFGS-B; it validates and sorts the inputs and
 # threads the (here trivial) observation mask through the objective for us. For
@@ -176,8 +179,8 @@ opt_posterior, history = fit_scipy(
 # %% [markdown]
 # ## Smoothed prediction
 #
-# Calling `predict` returns the RTS-smoothed posterior: each test point
-# conditions on the *entire* observation record, past and future. The marginal
+# Calling `predict` returns the RTS-smoothed posterior where each test point
+# conditions on the entire observation record, past and future. The marginal
 # variances are exact. We predict on a dense grid spanning the data and a short
 # extrapolation beyond it.
 
@@ -188,26 +191,48 @@ smoothed = opt_posterior.predict(xtest, D)
 smoothed_mean = smoothed.mean + y_mean
 smoothed_std = jnp.sqrt(smoothed.variance)
 
+xtest_years = (xtest + t0).squeeze()
+obs_years = (x + t0).squeeze()
+obs_ppm = (y + y_mean).squeeze()
+lower = smoothed_mean - 2 * smoothed_std
+upper = smoothed_mean + 2 * smoothed_std
+
+
+def draw_smoothed(target_ax):
+    target_ax.plot(
+        obs_years, obs_ppm, "x", color=cols[0], alpha=0.3, label="Observations"
+    )
+    target_ax.plot(xtest_years, smoothed_mean, color=cols[1], label="Smoothed mean")
+    target_ax.fill_between(
+        xtest_years, lower, upper, color=cols[1], alpha=0.2, label="Two sigma"
+    )
+
+
 fig, ax = plt.subplots(figsize=(7.5, 3.0))
-ax.plot(x + t0, y + y_mean, "x", color=cols[0], alpha=0.3, label="Observations")
-ax.plot(xtest + t0, smoothed_mean, color=cols[1], label="Smoothed mean")
-ax.fill_between(
-    (xtest + t0).squeeze(),
-    smoothed_mean - 2 * smoothed_std,
-    smoothed_mean + 2 * smoothed_std,
-    color=cols[1],
-    alpha=0.2,
-    label="Two sigma",
-)
+draw_smoothed(ax)
 ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)")
 ax.legend(loc="upper left")
 clean_legend(ax)
+
+zoom_lo = float(x.max()) - 5.0 + t0
+zoom_hi = float(x.max()) + 3.0 + t0
+in_zoom = (xtest_years >= zoom_lo) & (xtest_years <= zoom_hi)
+
+axins = ax.inset_axes([0.52, 0.07, 0.45, 0.5])
+draw_smoothed(axins)
+axins.set(
+    xlim=(zoom_lo, zoom_hi),
+    ylim=(float(lower[in_zoom].min()) - 1.0, float(upper[in_zoom].max()) + 1.0),
+)
+axins.tick_params(labelsize=7)
+axins.set_xticklabels([])
+ax.indicate_inset_zoom(axins, edgecolor="grey")
 
 # %% [markdown]
 # ## Gap-filling with an observation mask
 #
 # Real records have gaps. The state-space predictive accepts an
-# `observation_mask` — a boolean vector over the training points — that excludes
+# `observation_mask` boolean vector over the training points that excludes
 # masked observations from the filter updates while still propagating the state
 # through them. This yields a principled interpolation across the gap, with the
 # posterior uncertainty widening over the unobserved interval and tightening
@@ -215,7 +240,7 @@ clean_legend(ax)
 #
 # Here we mask a contiguous five-year interior interval and predict across it.
 # We zoom in on the masked window. The widening is modest, and deliberately so:
-# the trend and seasonal components are *global*, so even an unobserved stretch
+# the trend and seasonal components are global, so even an unobserved stretch
 # stays constrained by the locked phase of the annual cycle and the
 # slowly-varying trend.
 
@@ -230,36 +255,54 @@ gap_pred = opt_posterior.predict(xgap, D, observation_mask=observation_mask)
 gap_mean = gap_pred.mean + y_mean
 gap_std = jnp.sqrt(gap_pred.variance)
 
+xgap_years = (xgap + t0).squeeze()
+gap_lower = gap_mean - 2 * gap_std
+gap_upper = gap_mean + 2 * gap_std
+
+
+def draw_gap(target_ax):
+    target_ax.plot(
+        (x + t0).squeeze()[observation_mask],
+        (y + y_mean).squeeze()[observation_mask],
+        "x",
+        color=cols[0],
+        alpha=0.3,
+        label="Retained observations",
+    )
+    target_ax.plot(
+        (x + t0).squeeze()[~observation_mask],
+        (y + y_mean).squeeze()[~observation_mask],
+        "x",
+        color="grey",
+        alpha=0.5,
+        label="Masked observations",
+    )
+    target_ax.plot(xgap_years, gap_mean, color=cols[1], label="Posterior mean")
+    target_ax.fill_between(
+        xgap_years, gap_lower, gap_upper, color=cols[1], alpha=0.2, label="Two sigma"
+    )
+    target_ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+
+
 fig, ax = plt.subplots(figsize=(7.5, 3.0))
-ax.plot(
-    (x + t0).squeeze()[observation_mask],
-    (y + y_mean).squeeze()[observation_mask],
-    "x",
-    color=cols[0],
-    alpha=0.3,
-    label="Retained observations",
-)
-ax.plot(
-    (x + t0).squeeze()[~observation_mask],
-    (y + y_mean).squeeze()[~observation_mask],
-    "x",
-    color="grey",
-    alpha=0.5,
-    label="Masked observations",
-)
-ax.plot(xgap + t0, gap_mean, color=cols[1], label="Posterior mean")
-ax.fill_between(
-    (xgap + t0).squeeze(),
-    gap_mean - 2 * gap_std,
-    gap_mean + 2 * gap_std,
-    color=cols[1],
-    alpha=0.2,
-    label="Two sigma",
-)
-ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+draw_gap(ax)
 ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", xlim=(t0 + gap_lo - 6, t0 + gap_hi + 6))
 ax.legend(loc="upper left")
 clean_legend(ax)
+
+zoom_in_gap = (xgap_years >= gap_lo + t0) & (xgap_years <= gap_hi + t0)
+axins = ax.inset_axes([0.62, 0.07, 0.35, 0.45])
+draw_gap(axins)
+axins.set(
+    xlim=(gap_lo + t0, gap_hi + t0),
+    ylim=(
+        float(gap_lower[zoom_in_gap].min()) - 0.5,
+        float(gap_upper[zoom_in_gap].max()) + 0.5,
+    ),
+)
+axins.tick_params(labelsize=7)
+axins.set_xticklabels([])
+ax.indicate_inset_zoom(axins, edgecolor="grey")
 
 print(
     "Mean two-sigma width inside the gap: "
@@ -268,10 +311,10 @@ print(
 )
 
 # %% [markdown]
-# ## Causal prediction: filtering versus smoothing
+# ## Filtering versus smoothing
 #
-# The smoother estimates the latent function using *all* the data. In an online
-# setting we instead want the *causal* estimate at each time — conditioning only
+# The smoother estimates the latent function using all the data. In an online
+# setting we instead want the causal estimate at each time, achieved by conditioning only
 # on observations up to and including that time. The state-space posterior
 # exposes this through `predict_filter`, which reads marginals off the forward
 # Kalman trajectory rather than the backward smoother.
@@ -288,44 +331,49 @@ filtered_gap = opt_posterior.predict_filter(xgap, D, observation_mask=observatio
 filtered_mean = filtered_gap.mean + y_mean
 filtered_std = jnp.sqrt(filtered_gap.variance)
 
+filtered_lower = filtered_mean - 2 * filtered_std
+filtered_upper = filtered_mean + 2 * filtered_std
+
+
+def draw_filter_compare(target_ax):
+    target_ax.plot(
+        (x + t0).squeeze()[observation_mask],
+        (y + y_mean).squeeze()[observation_mask],
+        "x",
+        color=cols[0],
+        alpha=0.25,
+        label="Retained observations",
+    )
+    target_ax.plot(xgap_years, gap_mean, color=cols[1], label="Smoothed (both sides)")
+    target_ax.fill_between(xgap_years, gap_lower, gap_upper, color=cols[1], alpha=0.18)
+    target_ax.plot(xgap_years, filtered_mean, color=cols[2], label="Filtered (causal)")
+    target_ax.fill_between(
+        xgap_years, filtered_lower, filtered_upper, color=cols[2], alpha=0.18
+    )
+    target_ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+
+
 fig, ax = plt.subplots(figsize=(7.5, 3.0))
-ax.plot(
-    (x + t0).squeeze()[observation_mask],
-    (y + y_mean).squeeze()[observation_mask],
-    "x",
-    color=cols[0],
-    alpha=0.25,
-    label="Retained observations",
-)
-ax.plot(xgap + t0, gap_mean, color=cols[1], label="Smoothed (both sides)")
-ax.fill_between(
-    (xgap + t0).squeeze(),
-    gap_mean - 2 * gap_std,
-    gap_mean + 2 * gap_std,
-    color=cols[1],
-    alpha=0.18,
-)
-ax.plot(xgap + t0, filtered_mean, color=cols[2], label="Filtered (causal)")
-ax.fill_between(
-    (xgap + t0).squeeze(),
-    filtered_mean - 2 * filtered_std,
-    filtered_mean + 2 * filtered_std,
-    color=cols[2],
-    alpha=0.18,
-)
-ax.axvspan(gap_lo + t0, gap_hi + t0, color="grey", alpha=0.1)
+draw_filter_compare(ax)
 ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", xlim=(t0 + gap_lo - 6, t0 + gap_hi + 6))
 ax.legend(loc="upper left")
 clean_legend(ax)
 
-print(
-    "Inside the gap — smoothed two-sigma: "
-    f"{float(4 * gap_std[in_gap].mean()):.2f} ppm; "
-    f"filtered two-sigma: {float(4 * filtered_std[in_gap].mean()):.2f} ppm."
+axins = ax.inset_axes([0.62, 0.07, 0.35, 0.45])
+draw_filter_compare(axins)
+axins.set(
+    xlim=(gap_lo + t0, gap_hi + t0),
+    ylim=(
+        float(filtered_lower[zoom_in_gap].min()) - 0.5,
+        float(gap_upper[zoom_in_gap].max()) + 0.5,
+    ),
 )
+axins.tick_params(labelsize=7)
+axins.set_xticklabels([])
+ax.indicate_inset_zoom(axins, edgecolor="grey")
 
 # %% [markdown]
-# ## Does it scale?
+# ## Scalability
 #
 # The motivation for all of this machinery is linear-time inference. We confirm
 # it empirically by timing the forward marginal log-likelihood and its gradient
@@ -334,8 +382,8 @@ print(
 # each function up once and report the minimum of three timed runs.
 #
 # This in-notebook sweep is deliberately small and only illustrates the slopes;
-# the maintained, rigorous benchmarks live in `benchmarks/state_space.py` (run
-# with [`asv`](https://asv.readthedocs.io/)).
+# the maintained, rigorous benchmarks live in our
+# [Benchmarks](https://docs.jaxgaussianprocesses.com/benchmarks/)
 
 # %%
 import time
@@ -430,12 +478,12 @@ for ax, op, op_title in zip(
     ax.legend()
 
 # %% [markdown]
-# The dense curves bend upwards — the signature of cubic scaling — while the
-# state-space curves track a near-straight line of slope one. For small $N$ the
-# dense path is actually faster: a tiny LAPACK Cholesky fits in cache and beats
-# the fixed launch and control-flow overhead of the Kalman scan. The state-space
-# path earns its keep as $N$ grows, and remains tractable far beyond where the
-# dense Gram matrix stops fitting in memory.
+# The dense curves display cubic scaling, whilst the
+# state-space curves form a linear path. For small $N$ the
+# dense path is actually faster as a tiny LAPACK Cholesky fits in cache and beats
+# the fixed launch and control-flow overhead of the Kalman scan. However, the more
+# efficient state-space scaling emerges as $N$ grows, and remains tractable far
+# beyond where the dense Gram matrix stops fitting in memory.
 
 # %% [markdown]
 # ## Summary
