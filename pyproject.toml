@@ -120,8 +120,12 @@ help = "Check code formatting and style"
 
 # Testing tasks
 [tool.poe.tasks.test]
-cmd = "pytest tests -v -n 8 --beartype-packages='gpjax'"
+cmd = "pytest tests -v -n 8 -m 'not slow' --beartype-packages='gpjax'"
 help = "Run tests with pytest"
+
+[tool.poe.tasks.test-slow]
+cmd = "pytest tests -v -n 8 --beartype-packages='gpjax'"
+help = "Run tests including slow tests"
 
 [tool.poe.tasks.coverage]
 cmd = "pytest . -v --cov=./gpjax --cov-report=xml:./coverage.xml"
@@ -186,7 +190,9 @@ shell = "asv continuous --machine $(hostname -s) -e ${1} ${2}"
 sequence = ["lint", "docstrings", "test"]
 help = "Run all checks and tests"
 
-
+[tool.poe.tasks.all-tests-slow]
+sequence = ["lint", "docstrings", "test-slow"]
+help = "Run all checks and tests including slow tests"
 
 [tool.coverage.run]
 source_pkgs = ["gpjax", "tests"]
@@ -209,6 +215,9 @@ skip_covered = true
 filterwarnings = ["error", "ignore::DeprecationWarning"]
 testpaths = ["tests"]
 xfail_strict = true
+markers = [
+    "slow: long-running numerical and memory stress tests (opt-in via poe all-tests-slow)",
+]
 
 [tool.ruff] # https://github.com/charliermarsh/ruff
 fix = true

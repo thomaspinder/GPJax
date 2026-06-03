@@ -15,6 +15,7 @@
 
 from collections.abc import Callable
 
+from gpjax.distributions import GaussianDistribution
 from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
@@ -60,16 +61,14 @@ def test_gaussian_likelihood(n: int, obs_stddev: float):
     # Construct latent function distribution.
     latent_dist, latent_mean, latent_cov = _compute_latent_dist(n)
     pred_dist = likelihood(latent_dist)
-    assert isinstance(pred_dist, npd.MultivariateNormal)
+    assert isinstance(pred_dist, GaussianDistribution)
 
     # Check predictive mean and variance.
     assert (pred_dist.mean == latent_mean).all()
     noise_matrix = (
         jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev.unwrap() ** 2
     )
-    assert np.allclose(
-        pred_dist.scale_tril, jnp.linalg.cholesky(latent_cov + noise_matrix)
-    )
+    assert np.allclose(pred_dist.covariance_matrix, latent_cov + noise_matrix)
 
 
 @pytest.mark.parametrize("n", [1, 2, 10])

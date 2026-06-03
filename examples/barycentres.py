@@ -159,7 +159,7 @@ plt.show()
 
 
 # %%
-def fit_gp(x: jax.Array, y: jax.Array) -> npd.MultivariateNormal:
+def fit_gp(x: jax.Array, y: jax.Array) -> gpx.distributions.GaussianDistribution:
     if y.ndim == 1:
         y = y.reshape(-1, 1)
     D = gpx.Dataset(X=x, y=y)
@@ -202,7 +202,7 @@ def sqrtm(A: jax.Array):
 
 
 def wasserstein_barycentres(
-    distributions: list[npd.MultivariateNormal], weights: jax.Array
+    distributions: list[gpx.distributions.GaussianDistribution], weights: jax.Array
 ):
     covariances = [d.covariance_matrix for d in distributions]
     cov_stack = jnp.stack(covariances)
@@ -252,7 +252,7 @@ barycentre_process = npd.MultivariateNormal(barycentre_mean, scale_tril=L)
 
 # %%
 def plot(
-    dist: npd.MultivariateNormal,
+    dist: npd.MultivariateNormal | gpx.distributions.GaussianDistribution,
     ax,
     color: str,
     label: str = None,

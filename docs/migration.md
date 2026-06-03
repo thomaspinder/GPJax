@@ -1,3 +1,47 @@
+# Migration guide: 0.14.x → 0.15.0
+
+GPJax `0.15` adds the `gpjax.state_space` sub-package (state-space / Markovian
+Gaussian processes) and makes **one** breaking change to likelihood prediction.
+Everything else is additive.
+
+## Breaking change: likelihood `.predict` return type
+
+`gpjax.likelihoods.Gaussian.predict` and
+`gpjax.likelihoods.HeteroscedasticGaussian.predict` now return a
+`gpjax.distributions.GaussianDistribution` instead of a
+`numpyro.distributions.MultivariateNormal`.
+
+- If you read `mean`, `variance`, or `covariance_matrix`, **no change is
+  needed** — these attributes exist on both types.
+- If you relied on `MultivariateNormal`-specific attributes (`scale_tril`,
+  `precision_matrix`, etc.), update your call site. The covariance is now backed
+  by a [Lineax](https://docs.kidger.site/lineax/) operator: `Gaussian.predict`
+  keeps a `lineax.DiagonalLinearOperator` scale on its diagonal fast path and
+  wraps a `lineax.MatrixLinearOperator` on the dense path;
+  `HeteroscedasticGaussian.predict` always wraps a `lineax.MatrixLinearOperator`.
+
+```py
+# Before (0.14.x)
+dist = likelihood.predict(latent_dist)
+tril = dist.scale_tril            # MultivariateNormal attribute
+
+# After (0.15.0)
+dist = likelihood.predict(latent_dist)
+mean = dist.mean                  # unchanged
+cov = dist.covariance_matrix      # unchanged
+# need a Cholesky factor? materialise it explicitly:
+import jax.numpy as jnp
+tril = jnp.linalg.cholesky(dist.covariance_matrix)
+```
+
+## New: state-space Gaussian processes
+
+`gpjax.state_space` is a new, opt-in sub-package — importing or upgrading does
+not change any existing behaviour. See the
+[State-Space GPs example](_examples/state_space_gps.md) to get started.
+
+---
+
 # Migration guide: 0.13.x → 0.14.0
 
 GPJax `0.14` replaces the Flax NNX backend with
