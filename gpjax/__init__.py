@@ -27,6 +27,7 @@ from gpjax import (
     models,
     objectives,
     parameters,
+    state_space,
     typing as typing,
     variational_families,
 )
@@ -43,7 +44,7 @@ __license__ = "MIT"
 __description__ = "Gaussian processes in JAX"
 __url__ = "https://github.com/thomaspinder/GPJax"
 __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
-__version__ = "0.14.0"
+__version__ = "0.15.0"
 
 __all__ = [
     "Dataset",
@@ -60,6 +61,7 @@ __all__ = [
     "models",
     "objectives",
     "parameters",
+    "state_space",
     "typing",
     "variational_families",
 ]
