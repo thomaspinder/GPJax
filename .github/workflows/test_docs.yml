@@ -24,7 +24,7 @@ jobs:
     steps:
       # Grap the latest commit from the branch
       - name: Checkout the branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
