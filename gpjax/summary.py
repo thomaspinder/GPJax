@@ -176,7 +176,8 @@ def _render(
         table.add_row(*cells, style=None if record.trainable else "dim")
         n_trainable += int(record.trainable)
 
-    table.caption = f"{len(records)} parameters, {n_trainable} trainable"
+    plural = "" if len(records) == 1 else "s"
+    table.caption = f"{len(records)} parameter{plural}, {n_trainable} trainable"
     table.caption_justify = "left"
     return table
 
@@ -220,9 +221,15 @@ def summarise(
     if not records:
         target.print("no trainable parameters")
         return
+    cols = tuple(columns) if columns is not None else _DEFAULT_COLUMNS
+    unknown = [c for c in cols if c not in _DEFAULT_COLUMNS]
+    if unknown:
+        raise ValueError(
+            f"unknown column(s) {unknown}; valid columns are {list(_DEFAULT_COLUMNS)}"
+        )
     table = _render(
         records,
-        columns=tuple(columns) if columns is not None else _DEFAULT_COLUMNS,
+        columns=cols,
         title=title if title is not None else type(model).__name__,
         max_array=max_array,
         precision=precision,

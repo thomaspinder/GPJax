@@ -257,3 +257,17 @@ def test_summarise_is_jit_safe():
 
     f(Prior(mean_function=Zero(), kernel=RBF()))  # must not raise
     assert "traced" in console.export_text()
+
+
+def test_summarise_rejects_unknown_columns():
+    with pytest.raises(ValueError, match="unknown column"):
+        summary.summarise(
+            Prior(mean_function=Zero(), kernel=RBF()),
+            console=Console(record=True, file=io.StringIO()),
+            columns=["Bijektor"],
+        )
+
+
+def test_render_caption_singular_for_one_parameter():
+    table = summary._render(summary._collect(PositiveReal(1.0)))
+    assert table.caption == "1 parameter, 1 trainable"
