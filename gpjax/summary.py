@@ -50,7 +50,7 @@ class ParamRecord(tp.NamedTuple):
     cls: str
     value: tp.Any
     bijector: str
-    prior: str
+    prior: tp.Any
     trainable: bool
     shape: tuple[int, ...]
     dtype: str
@@ -110,8 +110,41 @@ def _format_value(value: tp.Any, *, max_array: int, precision: int) -> str:
     return f"[{shown}]"
 
 
-def _collect(model: tp.Any) -> list[ParamRecord]:
-    """Walk ``model`` and produce one :class:`ParamRecord` per parameter."""
+def _format_prior(prior: tp.Any, *, precision: int) -> str:
+    """Friendly label for a parameter's prior (or ``-`` when absent).
+
+    Accepts ``None`` (renders ``-``), a pre-formatted string, or any object
+    exposing NumPyro-style ``arg_constraints`` (e.g. a ``numpyro`` distribution),
+    which is rendered as ``Name(arg=value, ...)``.
+    """
+    if prior is None:
+        return "-"
+    if isinstance(prior, str):
+        return prior
+    arg_constraints = getattr(type(prior), "arg_constraints", None)
+    if isinstance(arg_constraints, dict) and arg_constraints:
+        parts = []
+        for arg in arg_constraints:
+            try:
+                value = float(np.asarray(getattr(prior, arg)))
+            except (TypeError, ValueError, AttributeError):
+                parts = []
+                break
+            parts.append(f"{arg}={value:.{precision}g}")
+        if parts:
+            return f"{type(prior).__name__}({', '.join(parts)})"
+    return type(prior).__name__
+
+
+def _collect(
+    model: tp.Any, *, priors: tp.Mapping[str, tp.Any] | None = None
+) -> list[ParamRecord]:
+    """Walk ``model`` and produce one :class:`ParamRecord` per parameter.
+
+    ``priors`` optionally maps a parameter's name (as shown in the Parameter
+    column) to a prior object, populating the otherwise-empty Prior column.
+    """
+    prior_map = priors or {}
     records: list[ParamRecord] = []
     paths_leaves, _ = jax.tree_util.tree_flatten_with_path(
         model, is_leaf=_is_param_leaf
@@ -127,13 +160,14 @@ def _collect(model: tp.Any) -> list[ParamRecord]:
             cls = "Array"
         else:
             cls = type(leaf).__name__
+        name = jax.tree_util.keystr(path).lstrip(".")
         records.append(
             ParamRecord(
-                name=jax.tree_util.keystr(path).lstrip("."),
+                name=name,
                 cls=cls,
                 value=value,
                 bijector=_bijector_name(leaf) if is_param else "Identity",
-                prior="-",
+                prior=prior_map.get(name),
                 trainable=not _is_frozen(leaf),
                 shape=tuple(getattr(value, "shape", ())),
                 dtype=_short_dtype(value.dtype) if hasattr(value, "dtype") else "?",
@@ -162,7 +196,7 @@ def _render(
             r.value, max_array=max_array, precision=precision
         ),
         "Bijector": lambda r: r.bijector,
-        "Prior": lambda r: r.prior,
+        "Prior": lambda r: _format_prior(r.prior, precision=precision),
         "Trainable": lambda r: (
             "[green]yes[/green]" if r.trainable else "[dim red]no[/dim red]"
         ),
@@ -190,6 +224,7 @@ def summarise(
     max_array: int = 4,
     precision: int = 3,
     title: str | None = None,
+    priors: tp.Mapping[str, tp.Any] | None = None,
 ) -> None:
     """Print a ``rich`` table summarising a GPJax model's parameters.
 
@@ -206,6 +241,9 @@ def summarise(
         max_array: Maximum number of array elements shown per value.
         precision: Significant figures for numeric values.
         title: Table title; defaults to the model's class name.
+        priors: Optional mapping from a parameter's name (as shown in the
+            Parameter column) to a prior object (e.g. a NumPyro distribution),
+            used to populate the Prior column. Defaults to ``None`` (all ``-``).
 
     Example:
         >>> import gpjax as gpx
@@ -219,7 +257,7 @@ def summarise(
             f"unknown column(s) {unknown}; valid columns are {list(_DEFAULT_COLUMNS)}"
         )
     table = _render(
-        _collect(model),
+        _collect(model, priors=priors),
         columns=cols,
         title=title if title is not None else type(model).__name__,
         max_array=max_array,

@@ -5,6 +5,7 @@ import jax
 from jax import config
 import jax.numpy as jnp
 import numpy as np
+import numpyro.distributions as npd
 import paramax
 import pytest
 from rich.console import Console
@@ -342,3 +343,36 @@ def test_summarise_validates_columns_for_parameter_free_model():
         summary.summarise(
             (), columns=["BadCol"], console=Console(record=True, file=io.StringIO())
         )
+
+
+def test_format_prior_handles_none_str_and_distribution():
+    assert summary._format_prior(None, precision=3) == "-"
+    assert summary._format_prior("LogNormal(0, 1)", precision=3) == "LogNormal(0, 1)"
+    assert (
+        summary._format_prior(npd.LogNormal(0.0, 0.5), precision=3)
+        == "LogNormal(loc=0, scale=0.5)"
+    )
+
+
+def test_collect_attaches_priors_by_name():
+    model = Prior(mean_function=Zero(), kernel=RBF())
+    priors = {"kernel.lengthscale": npd.LogNormal(0.0, 1.0)}
+    records = summary._collect(model, priors=priors)
+    matched = _record_by_name(records, "kernel.lengthscale")
+    assert isinstance(matched.prior, npd.LogNormal)
+    # Parameters without a registered prior stay empty.
+    assert _record_by_name(records, "kernel.variance").prior is None
+
+
+def test_summarise_renders_prior_column_when_priors_given():
+    model = Prior(mean_function=Zero(), kernel=RBF())
+    priors = {
+        "kernel.lengthscale": npd.LogNormal(0.0, 1.0),
+        "kernel.variance": npd.LogNormal(0.0, 1.0),
+    }
+    assert "LogNormal" in _capture(model, priors=priors)
+
+
+def test_summarise_prior_column_defaults_to_dash():
+    # Without a priors map the Prior column is present but unpopulated.
+    assert "LogNormal" not in _capture(Prior(mean_function=Zero(), kernel=RBF()))
