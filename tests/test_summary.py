@@ -192,3 +192,23 @@ def test_collect_frozen_bare_array_keeps_array_class():
     assert rec.cls == "Array"
     assert rec.trainable is False
     assert rec.bijector == "Identity"
+
+
+def test_render_returns_table_with_row_per_record():
+    records = summary._collect(Prior(mean_function=Zero(), kernel=RBF()))
+    table = summary._render(records)
+    assert isinstance(table, Table)
+    assert table.row_count == len(records)
+    assert [c.header for c in table.columns] == list(summary._DEFAULT_COLUMNS)
+
+
+def test_render_footer_counts_trainable():
+    table = summary._render(summary._collect(_frozen_prior()))
+    # frozen prior: lengthscale frozen, variance + mean constant trainable.
+    assert table.caption == "3 parameters, 2 trainable"
+
+
+def test_render_respects_column_subset():
+    records = summary._collect(Prior(mean_function=Zero(), kernel=RBF()))
+    table = summary._render(records, columns=["Parameter", "Trainable"])
+    assert [c.header for c in table.columns] == ["Parameter", "Trainable"]

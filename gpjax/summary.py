@@ -140,3 +140,42 @@ def _collect(model: tp.Any) -> list[ParamRecord]:
             )
         )
     return records
+
+
+def _render(
+    records: list[ParamRecord],
+    *,
+    columns: tp.Sequence[str] = _DEFAULT_COLUMNS,
+    title: str | None = None,
+    max_array: int = 4,
+    precision: int = 3,
+) -> Table:
+    """Render collected records into a ``rich.Table``."""
+    table = Table(title=title, box=box.ROUNDED, title_justify="left")
+    for column in columns:
+        table.add_column(column, overflow="fold")
+
+    accessors: dict[str, tp.Callable[[ParamRecord], str]] = {
+        "Parameter": lambda r: r.name,
+        "Class": lambda r: r.cls,
+        "Value": lambda r: _format_value(
+            r.value, max_array=max_array, precision=precision
+        ),
+        "Bijector": lambda r: r.bijector,
+        "Prior": lambda r: r.prior,
+        "Trainable": lambda r: (
+            "[green]yes[/green]" if r.trainable else "[dim red]no[/dim red]"
+        ),
+        "Shape": lambda r: str(r.shape),
+        "Dtype": lambda r: r.dtype,
+    }
+
+    n_trainable = 0
+    for record in records:
+        cells = [accessors[column](record) for column in columns]
+        table.add_row(*cells, style=None if record.trainable else "dim")
+        n_trainable += int(record.trainable)
+
+    table.caption = f"{len(records)} parameters, {n_trainable} trainable"
+    table.caption_justify = "left"
+    return table
