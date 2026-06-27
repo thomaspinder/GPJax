@@ -193,28 +193,24 @@ def summarise(
 ) -> None:
     """Print a ``rich`` table summarising a GPJax model's parameters.
 
-    Parameters
-    ----------
-    model
-        Any GPJax pytree (kernel, prior, posterior, likelihood, variational
-        family, ...).
-    columns
-        Subset/ordering of columns to show. Defaults to the full GPflow-style
-        column set.
-    console
-        Target ``rich.Console``; defaults to a fresh one.
-    max_array
-        Maximum number of array elements shown per value.
-    precision
-        Significant figures for numeric values.
-    title
-        Table title; defaults to the model's class name.
+    Renders one row per parameter -- showing the constrained value, bijector,
+    trainability, shape, and dtype -- for any GPJax model (kernel, prior,
+    posterior, likelihood, or variational family).
 
-    Examples
-    --------
-    >>> import gpjax as gpx
-    >>> kernel = gpx.kernels.RBF()
-    >>> gpx.summarise(kernel)  # doctest: +SKIP
+    Args:
+        model: Any GPJax pytree (kernel, prior, posterior, likelihood,
+            variational family, ...).
+        columns: Subset/ordering of columns to show. Defaults to the full
+            GPflow-style column set.
+        console: Target ``rich.Console``; defaults to a fresh one.
+        max_array: Maximum number of array elements shown per value.
+        precision: Significant figures for numeric values.
+        title: Table title; defaults to the model's class name.
+
+    Example:
+        >>> import gpjax as gpx
+        >>> kernel = gpx.kernels.RBF()
+        >>> gpx.summarise(kernel)  # doctest: +SKIP
     """
     cols = tuple(columns) if columns is not None else _DEFAULT_COLUMNS
     unknown = [c for c in cols if c not in _DEFAULT_COLUMNS]
