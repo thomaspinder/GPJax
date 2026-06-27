@@ -67,3 +67,14 @@ def _is_frozen(leaf: tp.Any) -> bool:
         leaf, is_leaf=lambda y: isinstance(y, paramax.NonTrainable)
     )
     return any(isinstance(x, paramax.NonTrainable) for x in leaves)
+
+
+def _bijector_name(leaf: tp.Any) -> str:
+    """Friendly bijector label for a parameter leaf."""
+    if isinstance(leaf, SigmoidBounded):
+        return f"Sigmoid[{leaf.low:g}, {leaf.high:g}]"
+    constraint = getattr(leaf, "_constraint", None)
+    if constraint is None:
+        return "Identity"
+    raw = type(biject_to(constraint)).__name__
+    return _BIJECTOR_NAMES.get(raw, raw)

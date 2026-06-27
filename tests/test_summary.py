@@ -65,3 +65,27 @@ def test_is_frozen_true_for_frozen_parameter():
 
 def test_is_frozen_false_for_plain_parameter():
     assert summary._is_frozen(PositiveReal(1.0)) is False
+
+
+@pytest.mark.parametrize(
+    ("param", "expected"),
+    [
+        (PositiveReal(2.0), "Softplus"),
+        (NonNegativeReal(0.5), "Softplus"),
+        (Real(-3.0), "Identity"),
+        (LowerTriangular(jnp.eye(2)), "LowerCholesky"),
+    ],
+)
+def test_bijector_name_mapping(param, expected):
+    assert summary._bijector_name(param) == expected
+
+
+def test_bijector_name_sigmoid_bounded_uses_bounds():
+    param = SigmoidBounded(0.5, low=0.0, high=2.0)
+    assert summary._bijector_name(param) == "Sigmoid[0, 2]"
+
+
+def test_bijector_name_falls_back_to_identity_without_constraint():
+    # A NonTrainable-wrapped bare array has no `_constraint`.
+    wrapped = paramax.non_trainable(jnp.array(1.0))
+    assert summary._bijector_name(wrapped) == "Identity"
