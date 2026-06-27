@@ -50,3 +50,18 @@ def test_paramrecord_fields_exist():
     assert rec.name == "kernel.lengthscale"
     assert rec.trainable is True
     assert rec.prior == "-"
+
+
+def test_is_param_leaf_stops_at_parameters():
+    assert summary._is_param_leaf(PositiveReal(1.0)) is True
+    assert summary._is_param_leaf(jnp.array(1.0)) is False
+
+
+def test_is_frozen_true_for_frozen_parameter():
+    frozen = _frozen_prior()
+    assert summary._is_frozen(frozen.kernel.lengthscale) is True
+    assert summary._is_frozen(frozen.kernel.variance) is False
+
+
+def test_is_frozen_false_for_plain_parameter():
+    assert summary._is_frozen(PositiveReal(1.0)) is False

@@ -54,3 +54,16 @@ class ParamRecord(tp.NamedTuple):
     trainable: bool
     shape: tuple[int, ...]
     dtype: str
+
+
+def _is_param_leaf(x: tp.Any) -> bool:
+    """Stop pytree traversal at parameter objects."""
+    return isinstance(x, AbstractUnwrappable)
+
+
+def _is_frozen(leaf: tp.Any) -> bool:
+    """True iff ``leaf``'s subtree contains a ``paramax.NonTrainable``."""
+    leaves = jax.tree_util.tree_leaves(
+        leaf, is_leaf=lambda y: isinstance(y, paramax.NonTrainable)
+    )
+    return any(isinstance(x, paramax.NonTrainable) for x in leaves)
