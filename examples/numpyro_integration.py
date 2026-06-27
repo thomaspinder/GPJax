@@ -174,6 +174,36 @@ def model(X, Y, X_new=None):
         numpyro.deterministic("y_pred", total_prediction)
         return total_prediction
 
+# %% [markdown]
+# ### Inspecting the model and its priors
+#
+# Before running inference it is helpful to lay out the model's parameters alongside the
+# priors we placed on them. Because the priors are sampled *by name* inside ``model`` and
+# passed into the GPJax constructors, they are not stored on the parameter objects -- so
+# `gpx.summarise` cannot infer them automatically. We can still display them by passing a
+# ``priors`` mapping keyed by each parameter's name (the entries in the *Parameter*
+# column; call ``gpx.summarise(example_posterior)`` without the mapping to discover them).
+# The parameter *values* shown are placeholders -- they are resampled from these priors at
+# every step of MCMC.
+
+# %%
+example_kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0) * gpx.kernels.Periodic(
+    lengthscale=1.0, period=1.0
+)
+example_posterior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Constant(), kernel=example_kernel
+) * gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=1.0)
+
+parameter_priors = {
+    "prior.kernel.kernels[0].lengthscale": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[0].variance": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[1].lengthscale": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[1].period": dist.LogNormal(0.0, 0.5),
+    "likelihood.obs_stddev": dist.LogNormal(0.0, 1.0),
+}
+
+gpx.summarise(example_posterior, priors=parameter_priors)
+
 
 # %% [markdown]
 # ## Running MCMC

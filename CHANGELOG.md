@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bijector, trainability, shape, and dtype. User-facing abstract bases gain
   `__rich__` and `_repr_mimebundle_` hooks for `rich.print(model)` and
   Jupyter auto-rendering; `repr()` is unchanged. `rich` is now a core
-  runtime dependency.
+  runtime dependency. An optional `priors` mapping (parameter name → prior,
+  e.g. a NumPyro distribution) populates the otherwise-empty Prior column.
 
 ## [0.15.0] — 2026-06-03
 
