@@ -216,11 +216,6 @@ def summarise(
     >>> kernel = gpx.kernels.RBF()
     >>> gpx.summarise(kernel)  # doctest: +SKIP
     """
-    records = _collect(model)
-    target = console if console is not None else Console()
-    if not records:
-        target.print("no trainable parameters")
-        return
     cols = tuple(columns) if columns is not None else _DEFAULT_COLUMNS
     unknown = [c for c in cols if c not in _DEFAULT_COLUMNS]
     if unknown:
@@ -228,12 +223,13 @@ def summarise(
             f"unknown column(s) {unknown}; valid columns are {list(_DEFAULT_COLUMNS)}"
         )
     table = _render(
-        records,
+        _collect(model),
         columns=cols,
         title=title if title is not None else type(model).__name__,
         max_array=max_array,
         precision=precision,
     )
+    target = console if console is not None else Console()
     target.print(table)
 
 

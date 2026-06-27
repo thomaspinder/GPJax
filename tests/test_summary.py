@@ -242,9 +242,10 @@ def test_summarise_column_subset_hides_other_columns():
     assert "Bijector" not in text
 
 
-def test_summarise_empty_model_message():
+def test_summarise_empty_model_renders_empty_table():
     text = _capture(())  # a pytree with no leaves
-    assert "no trainable parameters" in text
+    assert "0 parameters, 0 trainable" in text
+    assert "Parameter" in text  # header row still rendered
 
 
 def test_summarise_is_jit_safe():
@@ -334,3 +335,10 @@ def test_summary_mixin_leaves_repr_to_equinox():
     # The mixin must NOT define its own __repr__; Equinox owns model repr.
     assert "__repr__" not in vars(summary._SummaryMixin)
     assert repr(RBF()).startswith("RBF(")
+
+
+def test_summarise_validates_columns_for_parameter_free_model():
+    with pytest.raises(ValueError, match="unknown column"):
+        summary.summarise(
+            (), columns=["BadCol"], console=Console(record=True, file=io.StringIO())
+        )
