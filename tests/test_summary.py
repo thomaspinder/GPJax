@@ -293,7 +293,10 @@ def test_summary_mixin_mimebundle_has_text_and_html():
     bundle = _M()._repr_mimebundle_()
     assert "text/plain" in bundle
     assert "text/html" in bundle
-    assert "<" in bundle["text/html"]
+    html = bundle["text/html"]
+    assert "<pre" in html
+    assert "<!DOCTYPE" not in html
+    assert "body {" not in html
     assert "x" in bundle["text/plain"]
 
 
@@ -325,3 +328,9 @@ def test_variational_family_has_rich_protocol():
 def test_summarise_is_publicly_exported():
     assert gpx.summarise is summary.summarise
     assert "summarise" in gpx.__all__
+
+
+def test_summary_mixin_leaves_repr_to_equinox():
+    # The mixin must NOT define its own __repr__; Equinox owns model repr.
+    assert "__repr__" not in vars(summary._SummaryMixin)
+    assert repr(RBF()).startswith("RBF(")

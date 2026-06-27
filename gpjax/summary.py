@@ -254,5 +254,8 @@ class _SummaryMixin:
         console.print(self.__rich__())
         return {
             "text/plain": console.export_text(clear=False),
-            "text/html": console.export_html(),
+            "text/html": console.export_html(
+                inline_styles=True,
+                code_format='<pre style="font-family:Menlo,monospace">{code}</pre>',
+            ),
         }
