@@ -39,6 +39,7 @@ from gpjax.fit import (
     fit_lbfgs,
     fit_scipy,
 )
+from gpjax.summary import summarise
 
 __license__ = "MIT"
 __description__ = "Gaussian processes in JAX"
@@ -62,6 +63,7 @@ __all__ = [
     "objectives",
     "parameters",
     "state_space",
+    "summarise",
     "typing",
     "variational_families",
 ]

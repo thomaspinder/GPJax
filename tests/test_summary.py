@@ -320,3 +320,8 @@ def test_variational_family_has_rich_protocol():
         posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
     )
     assert isinstance(q.__rich__(), Table)
+
+
+def test_summarise_is_publicly_exported():
+    assert gpx.summarise is summary.summarise
+    assert "summarise" in gpx.__all__
