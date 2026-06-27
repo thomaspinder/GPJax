@@ -5,6 +5,18 @@ All notable changes to GPJax are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`gpjax.summarise(model)`**: render any GPJax pytree (kernel, prior,
+  posterior, likelihood, variational family, ...) as a flat `rich` table —
+  one row per parameter — showing parameter path, class, constrained value,
+  bijector, trainability, shape, and dtype. User-facing abstract bases gain
+  `__rich__` and `_repr_mimebundle_` hooks for `rich.print(model)` and
+  Jupyter auto-rendering; `repr()` is unchanged. `rich` is now a core
+  runtime dependency.
+
 ## [0.15.0] — 2026-06-03
 
 ### Added
