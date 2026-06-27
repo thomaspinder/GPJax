@@ -179,3 +179,52 @@ def _render(
     table.caption = f"{len(records)} parameters, {n_trainable} trainable"
     table.caption_justify = "left"
     return table
+
+
+def summarise(
+    model: tp.Any,
+    *,
+    columns: tp.Sequence[str] | None = None,
+    console: Console | None = None,
+    max_array: int = 4,
+    precision: int = 3,
+    title: str | None = None,
+) -> None:
+    """Print a ``rich`` table summarising a GPJax model's parameters.
+
+    Parameters
+    ----------
+    model
+        Any GPJax pytree (kernel, prior, posterior, likelihood, variational
+        family, ...).
+    columns
+        Subset/ordering of columns to show. Defaults to the full GPflow-style
+        column set.
+    console
+        Target ``rich.Console``; defaults to a fresh one.
+    max_array
+        Maximum number of array elements shown per value.
+    precision
+        Significant figures for numeric values.
+    title
+        Table title; defaults to the model's class name.
+
+    Examples
+    --------
+    >>> import gpjax as gpx
+    >>> kernel = gpx.kernels.RBF()
+    >>> gpx.summarise(kernel)  # doctest: +SKIP
+    """
+    records = _collect(model)
+    target = console if console is not None else Console()
+    if not records:
+        target.print("no trainable parameters")
+        return
+    table = _render(
+        records,
+        columns=tuple(columns) if columns is not None else _DEFAULT_COLUMNS,
+        title=title if title is not None else type(model).__name__,
+        max_array=max_array,
+        precision=precision,
+    )
+    target.print(table)

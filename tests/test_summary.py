@@ -212,3 +212,48 @@ def test_render_respects_column_subset():
     records = summary._collect(Prior(mean_function=Zero(), kernel=RBF()))
     table = summary._render(records, columns=["Parameter", "Trainable"])
     assert [c.header for c in table.columns] == ["Parameter", "Trainable"]
+
+
+def _capture(model, **kwargs):
+    console = Console(record=True, file=io.StringIO(), width=120)
+    summary.summarise(model, console=console, **kwargs)
+    return console.export_text()
+
+
+def test_summarise_prints_parameter_names_and_footer():
+    text = _capture(Prior(mean_function=Zero(), kernel=RBF()))
+    assert "kernel.lengthscale" in text
+    assert "Bijector" in text
+    assert "parameters," in text  # footer present
+
+
+def test_summarise_marks_frozen_row():
+    text = _capture(_frozen_prior())
+    # markup is stripped in export_text, leaving plain yes/no tokens.
+    assert "no" in text
+    assert "yes" in text
+
+
+def test_summarise_column_subset_hides_other_columns():
+    text = _capture(
+        Prior(mean_function=Zero(), kernel=RBF()), columns=["Parameter", "Trainable"]
+    )
+    assert "Parameter" in text
+    assert "Bijector" not in text
+
+
+def test_summarise_empty_model_message():
+    text = _capture(())  # a pytree with no leaves
+    assert "no trainable parameters" in text
+
+
+def test_summarise_is_jit_safe():
+    console = Console(record=True, file=io.StringIO(), width=120)
+
+    @jax.jit
+    def f(m):
+        summary.summarise(m, console=console)
+        return m
+
+    f(Prior(mean_function=Zero(), kernel=RBF()))  # must not raise
+    assert "traced" in console.export_text()
