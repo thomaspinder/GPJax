@@ -78,3 +78,28 @@ def _bijector_name(leaf: tp.Any) -> str:
         return "Identity"
     raw = type(biject_to(constraint)).__name__
     return _BIJECTOR_NAMES.get(raw, raw)
+
+
+def _short_dtype(dtype: tp.Any) -> str:
+    """Abbreviate a dtype name, e.g. float64 -> f64."""
+    name = np.dtype(dtype).name
+    return name.replace("float", "f").replace("complex", "c").replace("int", "i")
+
+
+def _is_traced(value: tp.Any) -> bool:
+    """True for abstract values seen under a ``jax.jit`` trace."""
+    return isinstance(value, jax.core.Tracer)
+
+
+def _format_value(value: tp.Any, *, max_array: int, precision: int) -> str:
+    """Format a parameter value; never crashes on traced values."""
+    if _is_traced(value):
+        return f"<traced {_short_dtype(value.dtype)}{list(value.shape)}>"
+    arr = np.asarray(value)
+    if arr.ndim == 0:
+        return f"{float(arr):.{precision}g}"
+    flat = arr.reshape(-1)
+    shown = ", ".join(f"{float(v):.{precision}g}" for v in flat[:max_array])
+    if flat.size > max_array:
+        shown += ", ..."
+    return f"[{shown}]"

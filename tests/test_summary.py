@@ -89,3 +89,26 @@ def test_bijector_name_falls_back_to_identity_without_constraint():
     # A NonTrainable-wrapped bare array has no `_constraint`.
     wrapped = paramax.non_trainable(jnp.array(1.0))
     assert summary._bijector_name(wrapped) == "Identity"
+
+
+def test_short_dtype_abbreviates():
+    assert summary._short_dtype(jnp.float64) == "f64"
+    assert summary._short_dtype(jnp.float32) == "f32"
+    assert summary._short_dtype(jnp.int32) == "i32"
+
+
+def test_format_value_scalar_uses_precision():
+    assert summary._format_value(jnp.array(1.0), max_array=4, precision=3) == "1"
+    assert (
+        summary._format_value(jnp.array(0.123456), max_array=4, precision=3) == "0.123"
+    )
+
+
+def test_format_value_array_truncates():
+    out = summary._format_value(jnp.arange(6.0), max_array=4, precision=3)
+    assert out == "[0, 1, 2, 3, ...]"
+
+
+def test_format_value_short_array_not_truncated():
+    out = summary._format_value(jnp.array([1.0, 2.0]), max_array=4, precision=3)
+    assert out == "[1, 2]"
