@@ -112,3 +112,59 @@ def test_format_value_array_truncates():
 def test_format_value_short_array_not_truncated():
     out = summary._format_value(jnp.array([1.0, 2.0]), max_array=4, precision=3)
     assert out == "[1, 2]"
+
+
+def _record_by_name(records, name):
+    matches = [r for r in records if r.name == name]
+    assert matches, f"{name!r} not in {[r.name for r in records]}"
+    return matches[0]
+
+
+def test_collect_isotropic_rbf_prior():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    records = summary._collect(prior)
+    names = {r.name for r in records}
+    assert "kernel.lengthscale" in names
+    assert "kernel.variance" in names
+
+    ls = _record_by_name(records, "kernel.lengthscale")
+    assert ls.cls == "PositiveReal"
+    assert ls.bijector == "Softplus"
+    assert ls.trainable is True
+    assert ls.shape == ()
+    assert ls.dtype == "f64"
+
+
+def test_collect_renders_bare_array_leaf():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    rec = _record_by_name(summary._collect(prior), "mean_function.constant")
+    assert rec.cls == "Array"
+    assert rec.bijector == "Identity"
+    assert rec.trainable is True
+
+
+def test_collect_composite_kernel_paths():
+    prior = Prior(mean_function=Zero(), kernel=RBF() + Linear())
+    names = {r.name for r in summary._collect(prior)}
+    assert "kernel.kernels[0].lengthscale" in names
+    assert "kernel.kernels[1].variance" in names
+
+
+def test_collect_marks_and_unwraps_frozen_parameter():
+    records = summary._collect(_frozen_prior())
+    ls = _record_by_name(records, "kernel.lengthscale")
+    assert ls.trainable is False
+    # paramax.unwrap returns a concrete constrained value even when frozen.
+    assert float(np.asarray(ls.value)) > 0.0
+
+
+def test_collect_variational_family_lower_cholesky():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    posterior = prior * Gaussian(num_datapoints=5)
+    q = gpx.variational_families.VariationalGaussian(
+        posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
+    )
+    rec = _record_by_name(summary._collect(q), "variational_root_covariance")
+    assert rec.cls == "LowerTriangular"
+    assert rec.bijector == "LowerCholesky"
+    assert rec.shape == (5, 5)

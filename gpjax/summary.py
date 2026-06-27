@@ -103,3 +103,29 @@ def _format_value(value: tp.Any, *, max_array: int, precision: int) -> str:
     if flat.size > max_array:
         shown += ", ..."
     return f"[{shown}]"
+
+
+def _collect(model: tp.Any) -> list[ParamRecord]:
+    """Walk ``model`` and produce one :class:`ParamRecord` per parameter."""
+    records: list[ParamRecord] = []
+    paths_leaves, _ = jax.tree_util.tree_flatten_with_path(
+        model, is_leaf=_is_param_leaf
+    )
+    for path, leaf in paths_leaves:
+        is_param = _is_param_leaf(leaf)
+        if not (is_param or isinstance(leaf, (jax.Array, np.ndarray))):
+            continue
+        value = paramax.unwrap(leaf) if is_param else leaf
+        records.append(
+            ParamRecord(
+                name=jax.tree_util.keystr(path).lstrip("."),
+                cls=type(leaf).__name__ if is_param else "Array",
+                value=value,
+                bijector=_bijector_name(leaf) if is_param else "Identity",
+                prior="-",
+                trainable=not _is_frozen(leaf),
+                shape=tuple(getattr(value, "shape", ())),
+                dtype=_short_dtype(value.dtype) if hasattr(value, "dtype") else "?",
+            )
+        )
+    return records
