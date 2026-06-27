@@ -12,8 +12,8 @@ import io
 import beartype.typing as tp
 import jax
 import numpy as np
-import paramax
 from numpyro.distributions import biject_to
+import paramax
 from paramax import AbstractUnwrappable
 from rich import box
 from rich.console import Console

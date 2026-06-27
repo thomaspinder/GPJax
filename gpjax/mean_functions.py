@@ -26,6 +26,7 @@ from jaxtyping import (
 )
 from paramax import AbstractUnwrappable
 
+from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -37,7 +38,7 @@ def _val(x):
     return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
-class AbstractMeanFunction(eqx.Module):
+class AbstractMeanFunction(_SummaryMixin, eqx.Module):
     r"""Mean function that is used to parameterise the Gaussian process."""
 
     @abc.abstractmethod

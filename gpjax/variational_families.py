@@ -48,6 +48,7 @@ from gpjax.parameters import (
     LowerTriangular,
     Real,
 )
+from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -79,7 +80,7 @@ def _tri_solve(L, B):
     return jsp.linalg.solve_triangular(L, B, lower=True)
 
 
-class AbstractVariationalFamily(eqx.Module, tp.Generic[L]):
+class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
     r"""
     Abstract base class used to represent families of distributions that can be
     used within variational inference.

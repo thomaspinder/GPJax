@@ -1,8 +1,8 @@
 import io
 
 import equinox as eqx
-from jax import config
 import jax
+from jax import config
 import jax.numpy as jnp
 import numpy as np
 import paramax
@@ -295,3 +295,28 @@ def test_summary_mixin_mimebundle_has_text_and_html():
     assert "text/html" in bundle
     assert "<" in bundle["text/html"]
     assert "x" in bundle["text/plain"]
+
+
+@pytest.mark.parametrize(
+    "model_fn",
+    [
+        lambda: RBF(),
+        lambda: Zero(),
+        lambda: Gaussian(num_datapoints=5),
+        lambda: Prior(mean_function=Zero(), kernel=RBF()),
+        lambda: Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(num_datapoints=5),
+    ],
+)
+def test_abstract_bases_have_rich_protocol(model_fn):
+    model = model_fn()
+    assert isinstance(model.__rich__(), Table)
+    assert "text/html" in model._repr_mimebundle_()
+
+
+def test_variational_family_has_rich_protocol():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    posterior = prior * Gaussian(num_datapoints=5)
+    q = gpx.variational_families.VariationalGaussian(
+        posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
+    )
+    assert isinstance(q.__rich__(), Table)

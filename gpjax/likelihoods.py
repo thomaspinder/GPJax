@@ -38,6 +38,7 @@ from gpjax.integrators import (
 from gpjax.parameters import (
     NonNegativeReal,
 )
+from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -82,7 +83,7 @@ jax.tree_util.register_pytree_node(
 )
 
 
-class AbstractLikelihood(eqx.Module):
+class AbstractLikelihood(_SummaryMixin, eqx.Module):
     r"""Abstract base class for likelihoods.
 
     All likelihoods must inherit from this class and implement the `predict` and

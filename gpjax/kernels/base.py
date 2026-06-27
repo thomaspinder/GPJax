@@ -30,13 +30,14 @@ from gpjax.kernels.computations import (
     DenseKernelComputation,
 )
 from gpjax.parameters import Real
+from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
 
 
-class AbstractKernel(eqx.Module):
+class AbstractKernel(_SummaryMixin, eqx.Module):
     r"""Base kernel class.
 
     This class is the base class for all kernels in GPJax. It provides the basic
