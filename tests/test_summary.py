@@ -168,3 +168,27 @@ def test_collect_variational_family_lower_cholesky():
     assert rec.cls == "LowerTriangular"
     assert rec.bijector == "LowerCholesky"
     assert rec.shape == (5, 5)
+
+
+def test_format_value_traced_value_placeholder():
+    captured = {}
+
+    @jax.jit
+    def f(x):
+        captured["s"] = summary._format_value(x, max_array=4, precision=3)
+        return x
+
+    f(jnp.arange(3.0))
+    assert captured["s"].startswith("<traced")
+    assert "[3]" in captured["s"]
+
+
+def test_collect_frozen_bare_array_keeps_array_class():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    frozen = eqx.tree_at(
+        lambda m: m.mean_function.constant, prior, replace_fn=paramax.non_trainable
+    )
+    rec = _record_by_name(summary._collect(frozen), "mean_function.constant")
+    assert rec.cls == "Array"
+    assert rec.trainable is False
+    assert rec.bijector == "Identity"

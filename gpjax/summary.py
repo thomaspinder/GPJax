@@ -83,7 +83,12 @@ def _bijector_name(leaf: tp.Any) -> str:
 def _short_dtype(dtype: tp.Any) -> str:
     """Abbreviate a dtype name, e.g. float64 -> f64."""
     name = np.dtype(dtype).name
-    return name.replace("float", "f").replace("complex", "c").replace("int", "i")
+    return (
+        name.replace("float", "f")
+        .replace("complex", "c")
+        .replace("uint", "u")
+        .replace("int", "i")
+    )
 
 
 def _is_traced(value: tp.Any) -> bool:
@@ -116,10 +121,16 @@ def _collect(model: tp.Any) -> list[ParamRecord]:
         if not (is_param or isinstance(leaf, (jax.Array, np.ndarray))):
             continue
         value = paramax.unwrap(leaf) if is_param else leaf
+        # A frozen *bare* array stops traversal at a NonTrainable wrapper; label
+        # it like its unfrozen form ("Array"), not "NonTrainable".
+        if not is_param or isinstance(leaf, paramax.NonTrainable):
+            cls = "Array"
+        else:
+            cls = type(leaf).__name__
         records.append(
             ParamRecord(
                 name=jax.tree_util.keystr(path).lstrip("."),
-                cls=type(leaf).__name__ if is_param else "Array",
+                cls=cls,
                 value=value,
                 bijector=_bijector_name(leaf) if is_param else "Identity",
                 prior="-",
