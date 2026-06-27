@@ -271,3 +271,27 @@ def test_summarise_rejects_unknown_columns():
 def test_render_caption_singular_for_one_parameter():
     table = summary._render(summary._collect(PositiveReal(1.0)))
     assert table.caption == "1 parameter, 1 trainable"
+
+
+def test_summary_mixin_rich_returns_table():
+    class _M(summary._SummaryMixin, eqx.Module):
+        x: jax.Array
+
+        def __init__(self):
+            self.x = jnp.array(1.0)
+
+    assert isinstance(_M().__rich__(), Table)
+
+
+def test_summary_mixin_mimebundle_has_text_and_html():
+    class _M(summary._SummaryMixin, eqx.Module):
+        x: jax.Array
+
+        def __init__(self):
+            self.x = jnp.array(1.0)
+
+    bundle = _M()._repr_mimebundle_()
+    assert "text/plain" in bundle
+    assert "text/html" in bundle
+    assert "<" in bundle["text/html"]
+    assert "x" in bundle["text/plain"]

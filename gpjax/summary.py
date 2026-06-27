@@ -235,3 +235,24 @@ def summarise(
         precision=precision,
     )
     target.print(table)
+
+
+class _SummaryMixin:
+    """Adds ``rich`` / notebook rendering to user-facing GPJax bases.
+
+    ``repr`` is intentionally left to Equinox; this only powers
+    ``rich.print(model)`` and Jupyter auto-rendering.
+    """
+
+    def __rich__(self) -> Table:
+        return _render(_collect(self), title=type(self).__name__)
+
+    def _repr_mimebundle_(
+        self, include: tp.Any = None, exclude: tp.Any = None
+    ) -> dict[str, str]:
+        console = Console(record=True, file=io.StringIO(), width=120)
+        console.print(self.__rich__())
+        return {
+            "text/plain": console.export_text(clear=False),
+            "text/html": console.export_html(),
+        }
