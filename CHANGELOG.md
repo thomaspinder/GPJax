@@ -5,7 +5,7 @@ All notable changes to GPJax are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.16.0] — 2026-06-28
 
 ### Added
 
@@ -108,5 +108,6 @@ See [`docs/migration.md`](docs/migration.md) for full upgrade instructions.
 - Added: `equinox>=0.11`, `paramax>=0.0.5`, `lineax`.
 - Removed: `flax`, `cola-ml`.
 
+[0.16.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.16.0
 [0.15.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.15.0
 [0.14.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.14.0
