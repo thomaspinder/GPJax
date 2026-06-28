@@ -106,13 +106,10 @@ ax.legend()
 # as its support matches that of our lengthscale parameter. Priors are standard
 # [NumPyro distributions](https://num.pyro.ai/en/stable/distributions.html) sampled directly
 # inside the model function with ``numpyro.sample``.
-
-# %%
+#
 # Priors are defined as NumPyro distributions and sampled directly inside the model
 # function below. GPJax parameter constructors accept raw JAX arrays from
 # numpyro.sample, so no special registration step is needed.
-
-# %% [markdown]
 #
 # We'll construct the Gaussian process inside the NumPyro model function, passing
 # sampled hyperparameters directly to the GPJax constructors. For a deeper look at
@@ -142,12 +139,8 @@ def model(X, Y, X_new=None):
     period = numpyro.sample("period", dist.LogNormal(0.0, 0.5))
     obs_noise = numpyro.sample("obs_noise", dist.LogNormal(0.0, 1.0))
 
-    stationary_component = gpx.kernels.RBF(
-        lengthscale=lengthscale, variance=variance
-    )
-    periodic_component = gpx.kernels.Periodic(
-        lengthscale=lengthscale, period=period
-    )
+    stationary_component = gpx.kernels.RBF(lengthscale=lengthscale, variance=variance)
+    periodic_component = gpx.kernels.Periodic(lengthscale=lengthscale, period=period)
     kernel = stationary_component * periodic_component
 
     meanf = gpx.mean_functions.Constant()
@@ -173,6 +166,7 @@ def model(X, Y, X_new=None):
         total_prediction = slope * X_new + intercept + f_new + y_noise
         numpyro.deterministic("y_pred", total_prediction)
         return total_prediction
+
 
 # %% [markdown]
 # ### Inspecting the model and its priors
