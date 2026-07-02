@@ -28,7 +28,7 @@ jobs:
     steps:
       # Grap the latest commit from the branch
       - name: Checkout the branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -63,7 +63,7 @@ jobs:
           uv run mkdocs build
 
       - name: Checkout benchmark results
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: asv-results
           path: .asv-results
