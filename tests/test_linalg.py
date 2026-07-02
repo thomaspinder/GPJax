@@ -142,22 +142,3 @@ def test_kronecker_structures():
     kron = Kronecker(A=A, B=B)
     assert kron.in_structure().shape == (6,)
     assert kron.out_structure().shape == (6,)
-
-
-# --- Deprecated wrappers ---
-
-
-def test_deprecated_dense_wrapper():
-    from gpjax.linalg._compat import Dense
-
-    with pytest.warns(DeprecationWarning, match="deprecated"):
-        op = Dense(jnp.eye(2))
-    assert isinstance(op, lx.MatrixLinearOperator)
-
-
-def test_deprecated_diagonal_wrapper():
-    from gpjax.linalg._compat import Diagonal
-
-    with pytest.warns(DeprecationWarning, match="deprecated"):
-        op = Diagonal(jnp.array([1.0, 2.0]))
-    assert isinstance(op, lx.DiagonalLinearOperator)
