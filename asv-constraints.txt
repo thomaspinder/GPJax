@@ -1,6 +1,6 @@
 absl-py==2.4.0
 beartype==0.22.9
-chex==0.1.91
+chex==0.1.92
 colorama==0.4.6 ; sys_platform == 'win32'
 equinox==0.13.8
 jax==0.10.1
