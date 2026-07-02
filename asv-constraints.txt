@@ -3,9 +3,9 @@ beartype==0.22.9
 chex==0.1.92
 colorama==0.4.6 ; sys_platform == 'win32'
 equinox==0.13.8
-jax==0.10.1
-jaxlib==0.10.1
-jaxtyping==0.3.10
+jax==0.10.2
+jaxlib==0.10.2
+jaxtyping==0.3.11
 lineax==0.1.1
 ml-dtypes==0.5.4
 multipledispatch==1.0.0
