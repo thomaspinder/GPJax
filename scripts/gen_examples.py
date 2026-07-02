@@ -15,7 +15,7 @@ import subprocess
 EXCLUDE = ["utils.py"]
 
 # Notebooks that should get the consulting CTA appended. Mirrors the
-# "Tutorials" and "Experimental" sections of mkdocs.yml.
+# "Tutorials" section of mkdocs.yml.
 CTA_NOTEBOOKS = {
     "regression",
     "classification",

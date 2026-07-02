@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/state_space/gps/">
+        <link rel="canonical" href="https://docs.jaxgaussianprocesses.com/api/summary/">
       
       
-        <link rel="prev" href="../fit/">
+        <link rel="prev" href="../state_space/sde/">
       
       
-        <link rel="next" href="../inference/">
+        <link rel="next" href="../typing/">
       
       
         
       
       
-      <link rel="icon" href="../../../static/favicon.ico">
+      <link rel="icon" href="../../static/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
-        <title>GPs - GPJax</title>
+        <title>Summary - GPJax</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,15 +53,15 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     
-      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-      <link rel="stylesheet" href="../../../stylesheets/permalinks.css">
+      <link rel="stylesheet" href="../../stylesheets/permalinks.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
   
@@ -96,7 +96,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#gpjax.state_space.gps.StateSpacePrior" class="md-skip">
+        <a href="#gpjax.summary.ParamRecord" class="md-skip">
           Skip to content
         </a>
       
@@ -112,9 +112,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="GPJax" class="md-header__button md-logo" aria-label="GPJax" data-md-component="logo">
+    <a href="../.." title="GPJax" class="md-header__button md-logo" aria-label="GPJax" data-md-component="logo">
       
-  <img src="../../../static/favicon.ico" alt="logo">
+  <img src="../../static/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -131,7 +131,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              GPs
+              Summary
             
           </span>
         </div>
@@ -249,9 +249,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="GPJax" class="md-nav__button md-logo" aria-label="GPJax" data-md-component="logo">
+    <a href="../.." title="GPJax" class="md-nav__button md-logo" aria-label="GPJax" data-md-component="logo">
       
-  <img src="../../../static/favicon.ico" alt="logo">
+  <img src="../../static/favicon.ico" alt="logo">
 
     </a>
     GPJax
@@ -278,7 +278,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -359,7 +359,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   
@@ -387,7 +387,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../benchmarks/index.html" class="md-nav__link">
+      <a href="../../benchmarks/index.html" class="md-nav__link">
         
   
   
@@ -415,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../design/" class="md-nav__link">
+      <a href="../../design/" class="md-nav__link">
         
   
   
@@ -443,7 +443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -471,7 +471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../sharp_bits/" class="md-nav__link">
+      <a href="../../sharp_bits/" class="md-nav__link">
         
   
   
@@ -499,7 +499,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/" class="md-nav__link">
+      <a href="../../migration/" class="md-nav__link">
         
   
   
@@ -616,7 +616,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/intro_to_gps/" class="md-nav__link">
+      <a href="../../_examples/intro_to_gps/" class="md-nav__link">
         
   
   
@@ -644,7 +644,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/intro_to_kernels/" class="md-nav__link">
+      <a href="../../_examples/intro_to_kernels/" class="md-nav__link">
         
   
   
@@ -733,7 +733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/regression/" class="md-nav__link">
+      <a href="../../_examples/regression/" class="md-nav__link">
         
   
   
@@ -761,7 +761,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/classification/" class="md-nav__link">
+      <a href="../../_examples/classification/" class="md-nav__link">
         
   
   
@@ -789,7 +789,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/poisson/" class="md-nav__link">
+      <a href="../../_examples/poisson/" class="md-nav__link">
         
   
   
@@ -817,7 +817,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/barycentres/" class="md-nav__link">
+      <a href="../../_examples/barycentres/" class="md-nav__link">
         
   
   
@@ -845,7 +845,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/deep_kernels/" class="md-nav__link">
+      <a href="../../_examples/deep_kernels/" class="md-nav__link">
         
   
   
@@ -873,7 +873,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/graph_kernels/" class="md-nav__link">
+      <a href="../../_examples/graph_kernels/" class="md-nav__link">
         
   
   
@@ -901,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/collapsed_vi/" class="md-nav__link">
+      <a href="../../_examples/collapsed_vi/" class="md-nav__link">
         
   
   
@@ -929,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/uncollapsed_vi/" class="md-nav__link">
+      <a href="../../_examples/uncollapsed_vi/" class="md-nav__link">
         
   
   
@@ -957,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/state_space_gps/" class="md-nav__link">
+      <a href="../../_examples/state_space_gps/" class="md-nav__link">
         
   
   
@@ -985,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oceanmodelling/" class="md-nav__link">
+      <a href="../../_examples/oceanmodelling/" class="md-nav__link">
         
   
   
@@ -1013,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/heteroscedastic_inference/" class="md-nav__link">
+      <a href="../../_examples/heteroscedastic_inference/" class="md-nav__link">
         
   
   
@@ -1041,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/multioutput/" class="md-nav__link">
+      <a href="../../_examples/multioutput/" class="md-nav__link">
         
   
   
@@ -1069,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oilmm/" class="md-nav__link">
+      <a href="../../_examples/oilmm/" class="md-nav__link">
         
   
   
@@ -1097,7 +1097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/oak/" class="md-nav__link">
+      <a href="../../_examples/oak/" class="md-nav__link">
         
   
   
@@ -1125,7 +1125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/numpyro_integration/" class="md-nav__link">
+      <a href="../../_examples/numpyro_integration/" class="md-nav__link">
         
   
   
@@ -1153,7 +1153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/spatial_linear_gp/" class="md-nav__link">
+      <a href="../../_examples/spatial_linear_gp/" class="md-nav__link">
         
   
   
@@ -1242,7 +1242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/constructing_new_kernels/" class="md-nav__link">
+      <a href="../../_examples/constructing_new_kernels/" class="md-nav__link">
         
   
   
@@ -1270,7 +1270,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/likelihoods_guide/" class="md-nav__link">
+      <a href="../../_examples/likelihoods_guide/" class="md-nav__link">
         
   
   
@@ -1298,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/backend/" class="md-nav__link">
+      <a href="../../_examples/backend/" class="md-nav__link">
         
   
   
@@ -1326,7 +1326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../_examples/yacht/" class="md-nav__link">
+      <a href="../../_examples/yacht/" class="md-nav__link">
         
   
   
@@ -1415,7 +1415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../CODE_OF_CONDUCT/" class="md-nav__link">
+      <a href="../../CODE_OF_CONDUCT/" class="md-nav__link">
         
   
   
@@ -1443,7 +1443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../GOVERNANCE/" class="md-nav__link">
+      <a href="../../GOVERNANCE/" class="md-nav__link">
         
   
   
@@ -1611,7 +1611,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../citation/" class="md-nav__link">
+      <a href="../citation/" class="md-nav__link">
         
   
   
@@ -1639,7 +1639,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/" class="md-nav__link">
+      <a href="../dataset/" class="md-nav__link">
         
   
   
@@ -1667,7 +1667,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../distributions/" class="md-nav__link">
+      <a href="../distributions/" class="md-nav__link">
         
   
   
@@ -1695,7 +1695,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../fit/" class="md-nav__link">
+      <a href="../fit/" class="md-nav__link">
         
   
   
@@ -1723,7 +1723,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gps/" class="md-nav__link">
+      <a href="../gps/" class="md-nav__link">
         
   
   
@@ -1751,7 +1751,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrators/" class="md-nav__link">
+      <a href="../integrators/" class="md-nav__link">
         
   
   
@@ -1881,7 +1881,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/decompose/" class="md-nav__link">
+      <a href="../kernels/additive/decompose/" class="md-nav__link">
         
   
   
@@ -1909,7 +1909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/oak/" class="md-nav__link">
+      <a href="../kernels/additive/oak/" class="md-nav__link">
         
   
   
@@ -1937,7 +1937,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/sobol/" class="md-nav__link">
+      <a href="../kernels/additive/sobol/" class="md-nav__link">
         
   
   
@@ -1965,7 +1965,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/additive/transforms/" class="md-nav__link">
+      <a href="../kernels/additive/transforms/" class="md-nav__link">
         
   
   
@@ -2052,7 +2052,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/approximations/rff/" class="md-nav__link">
+      <a href="../kernels/approximations/rff/" class="md-nav__link">
         
   
   
@@ -2088,7 +2088,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/base/" class="md-nav__link">
+      <a href="../kernels/base/" class="md-nav__link">
         
   
   
@@ -2167,7 +2167,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/base/" class="md-nav__link">
+      <a href="../kernels/computations/base/" class="md-nav__link">
         
   
   
@@ -2195,7 +2195,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/basis_functions/" class="md-nav__link">
+      <a href="../kernels/computations/basis_functions/" class="md-nav__link">
         
   
   
@@ -2223,7 +2223,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/constant_diagonal/" class="md-nav__link">
+      <a href="../kernels/computations/constant_diagonal/" class="md-nav__link">
         
   
   
@@ -2251,7 +2251,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/dense/" class="md-nav__link">
+      <a href="../kernels/computations/dense/" class="md-nav__link">
         
   
   
@@ -2279,7 +2279,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/diagonal/" class="md-nav__link">
+      <a href="../kernels/computations/diagonal/" class="md-nav__link">
         
   
   
@@ -2307,7 +2307,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/computations/eigen/" class="md-nav__link">
+      <a href="../kernels/computations/eigen/" class="md-nav__link">
         
   
   
@@ -2394,7 +2394,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/base/" class="md-nav__link">
+      <a href="../kernels/multioutput/base/" class="md-nav__link">
         
   
   
@@ -2422,7 +2422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/computation/" class="md-nav__link">
+      <a href="../kernels/multioutput/computation/" class="md-nav__link">
         
   
   
@@ -2450,7 +2450,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/icm/" class="md-nav__link">
+      <a href="../kernels/multioutput/icm/" class="md-nav__link">
         
   
   
@@ -2478,7 +2478,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/multioutput/lcm/" class="md-nav__link">
+      <a href="../kernels/multioutput/lcm/" class="md-nav__link">
         
   
   
@@ -2565,7 +2565,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/non_euclidean/graph/" class="md-nav__link">
+      <a href="../kernels/non_euclidean/graph/" class="md-nav__link">
         
   
   
@@ -2593,7 +2593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/non_euclidean/utils/" class="md-nav__link">
+      <a href="../kernels/non_euclidean/utils/" class="md-nav__link">
         
   
   
@@ -2680,7 +2680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/arccosine/" class="md-nav__link">
+      <a href="../kernels/nonstationary/arccosine/" class="md-nav__link">
         
   
   
@@ -2708,7 +2708,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/linear/" class="md-nav__link">
+      <a href="../kernels/nonstationary/linear/" class="md-nav__link">
         
   
   
@@ -2736,7 +2736,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/nonstationary/polynomial/" class="md-nav__link">
+      <a href="../kernels/nonstationary/polynomial/" class="md-nav__link">
         
   
   
@@ -2823,7 +2823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/base/" class="md-nav__link">
+      <a href="../kernels/stationary/base/" class="md-nav__link">
         
   
   
@@ -2851,7 +2851,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern12/" class="md-nav__link">
+      <a href="../kernels/stationary/matern12/" class="md-nav__link">
         
   
   
@@ -2879,7 +2879,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern32/" class="md-nav__link">
+      <a href="../kernels/stationary/matern32/" class="md-nav__link">
         
   
   
@@ -2907,7 +2907,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/matern52/" class="md-nav__link">
+      <a href="../kernels/stationary/matern52/" class="md-nav__link">
         
   
   
@@ -2935,7 +2935,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/periodic/" class="md-nav__link">
+      <a href="../kernels/stationary/periodic/" class="md-nav__link">
         
   
   
@@ -2963,7 +2963,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/powered_exponential/" class="md-nav__link">
+      <a href="../kernels/stationary/powered_exponential/" class="md-nav__link">
         
   
   
@@ -2991,7 +2991,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/rational_quadratic/" class="md-nav__link">
+      <a href="../kernels/stationary/rational_quadratic/" class="md-nav__link">
         
   
   
@@ -3019,7 +3019,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/rbf/" class="md-nav__link">
+      <a href="../kernels/stationary/rbf/" class="md-nav__link">
         
   
   
@@ -3047,7 +3047,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/utils/" class="md-nav__link">
+      <a href="../kernels/stationary/utils/" class="md-nav__link">
         
   
   
@@ -3075,7 +3075,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../kernels/stationary/white/" class="md-nav__link">
+      <a href="../kernels/stationary/white/" class="md-nav__link">
         
   
   
@@ -3119,7 +3119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../likelihoods/" class="md-nav__link">
+      <a href="../likelihoods/" class="md-nav__link">
         
   
   
@@ -3198,7 +3198,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../linalg/_compat/" class="md-nav__link">
+      <a href="../linalg/_compat/" class="md-nav__link">
         
   
   
@@ -3226,7 +3226,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../linalg/custom_operators/" class="md-nav__link">
+      <a href="../linalg/custom_operators/" class="md-nav__link">
         
   
   
@@ -3254,7 +3254,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../linalg/utils/" class="md-nav__link">
+      <a href="../linalg/utils/" class="md-nav__link">
         
   
   
@@ -3290,7 +3290,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mean_functions/" class="md-nav__link">
+      <a href="../mean_functions/" class="md-nav__link">
         
   
   
@@ -3369,7 +3369,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../models/oilmm/" class="md-nav__link">
+      <a href="../models/oilmm/" class="md-nav__link">
         
   
   
@@ -3393,408 +3393,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../objectives/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Objectives
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../parameters/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Parameters
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../scan/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scan
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_15" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_7_1_15" id="__nav_7_1_15_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    State Space
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_15_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_7_1_15">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    State Space
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../_bessel/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-     Bessel
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../_validation/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-     Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../fit/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Fit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    GPs
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    GPs
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpacePrior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;StateSpacePrior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" StateSpacePrior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpacePrior.sample_approx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample_approx
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpaceConjugatePosterior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;StateSpaceConjugatePosterior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label=" StateSpaceConjugatePosterior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpaceConjugatePosterior.sample_approx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample_approx
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../inference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Inference
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../kernels/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Kernels
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -3835,7 +3433,310 @@
   
   
     <li class="md-nav__item">
-      <a href="../prediction/" class="md-nav__link">
+      <a href="../parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_1_15" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_15" id="__nav_7_1_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Space
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    State Space
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/_bessel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+     Bessel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/_validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+     Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/fit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/gps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/kernels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kernels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/objectives/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Objectives
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state_space/prediction/" class="md-nav__link">
         
   
   
@@ -3863,7 +3764,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sde/" class="md-nav__link">
+      <a href="../state_space/sde/" class="md-nav__link">
         
   
   
@@ -3896,10 +3797,35 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../summary/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summary
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3915,6 +3841,46 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.summary.ParamRecord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ParamRecord
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.summary.summarise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;summarise
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3927,7 +3893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../typing/" class="md-nav__link">
+      <a href="../typing/" class="md-nav__link">
         
   
   
@@ -3955,7 +3921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../variational_families/" class="md-nav__link">
+      <a href="../variational_families/" class="md-nav__link">
         
   
   
@@ -4016,58 +3982,24 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpacePrior" class="md-nav__link">
+  <a href="#gpjax.summary.ParamRecord" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;StateSpacePrior
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ParamRecord
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" StateSpacePrior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpacePrior.sample_approx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample_approx
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpaceConjugatePosterior" class="md-nav__link">
+  <a href="#gpjax.summary.summarise" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;StateSpaceConjugatePosterior
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;summarise
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" StateSpaceConjugatePosterior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#gpjax.state_space.gps.StateSpaceConjugatePosterior.sample_approx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;sample_approx
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -4091,7 +4023,7 @@
   
 
 
-  <h1>GPs</h1>
+  <h1>Summary</h1>
 
 <div class="doc doc-object doc-module">
 
@@ -4100,8 +4032,12 @@
 
     <div class="doc doc-contents first">
 
-        <p>StateSpacePrior and StateSpaceConjugatePosterior classes.</p>
-<p>See plans/2026-04-21-state-space-gps-design.md.</p>
+        <p>Human-readable model summaries for GPJax pytrees.</p>
+<p>Render any GPJax model (kernel, prior, posterior, likelihood, variational
+family, ...) as a flat <code>rich</code> table -- one row per parameter -- in the
+spirit of GPflow's <code>print_summary</code>. Use the free function :func:<code>summarise</code>,
+or rely on the <code>__rich__</code> / <code>_repr_mimebundle_</code> hooks attached to the
+user-facing abstract bases for <code>rich.print</code> and notebook auto-rendering.</p>
 
 
 
@@ -4126,63 +4062,20 @@
 
 
 
-<h2 id="gpjax.state_space.gps.StateSpacePrior" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">StateSpacePrior</span>
+<h2 id="gpjax.summary.ParamRecord" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ParamRecord</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">StateSpacePrior</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kernel</span><span class="p">:</span> <span class="n">K</span><span class="p">,</span> <span class="n">mean_function</span><span class="p">:</span> <span class="n">M</span><span class="p">,</span> <span class="n">jitter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-06</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
-</span></code></pre></div>
+
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="Prior (gpjax.gps.Prior)" href="../../gps/#gpjax.gps.Prior">Prior</a></code></p>
+              Bases: <code><span title="beartype.typing.NamedTuple">NamedTuple</span></code></p>
 
 
 
-        <p>Prior for a state-space (Markovian) GP.</p>
-<p>Identical to <code>gpjax.gps.Prior</code> except predictions are diagonal-only
-(the prior is stationary in time, so off-diagonal covariance carries no
-extra information for v1's diagonal-only predictive contract).</p>
-<p><strong>Predictive contract (v1):</strong> prediction returns diagonal (marginal)
-covariance only; the marginals are exact. A dense joint predictive is not
-implemented in v1 and is tracked as a follow-up. This predictive is
-therefore not Liskov-substitutable for a dense
-<code>gpjax.gps.ConjugatePosterior</code> predictive.</p>
-<p>Example:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">gpjax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpx</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">gpjax.state_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSpacePrior</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">StateSpacePrior</span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">...</span>     <span class="n">mean_function</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">mean_functions</span><span class="o">.</span><span class="n">Zero</span><span class="p">(),</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">...</span>     <span class="n">kernel</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">kernels</span><span class="o">.</span><span class="n">Matern32</span><span class="p">(</span><span class="n">lengthscale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">variance</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="o">...</span> <span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">prior</span><span class="o">.</span><span class="n">kernel</span><span class="p">,</span> <span class="n">gpx</span><span class="o">.</span><span class="n">kernels</span><span class="o">.</span><span class="n">Matern32</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="kc">True</span>
-</span></code></pre></div></p>
-
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>kernel</code></b>
-              (<code><span title="gpjax.gps.K">K</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>kernel object inheriting from AbstractKernel.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>mean_function</code></b>
-              (<code><span title="gpjax.gps.M">M</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>mean function object inheriting from AbstractMeanFunction.</p>
-          </div>
-        </li>
-    </ul>
+        <p>A single rendered parameter row (rendering-agnostic).</p>
 
 
 
@@ -4205,110 +4098,6 @@ therefore not Liskov-substitutable for a dense
 
 
 
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.state_space.gps.StateSpacePrior.sample_approx" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">sample_approx</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample_approx</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">num_features</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FunctionalSample</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Approximate samples from the Gaussian process prior.</p>
-<p>Build an approximate sample from the Gaussian process prior. This method
-provides a function that returns the evaluations of a sample across any
-given inputs.</p>
-<p>In particular, we approximate the Gaussian processes' prior as the
-finite feature approximation
-<span class="arithmatex">\(\hat{f}(x) = \sum_{i=1}^m\phi_i(x)\theta_i\)</span> where <span class="arithmatex">\(\phi_i\)</span> are <span class="arithmatex">\(m\)</span> features
-sampled from the Fourier feature decomposition of the model's kernel and
-<span class="arithmatex">\(\theta_i\)</span> are samples from a unit Gaussian.</p>
-<p>A key property of such functional samples is that the same sample draw is
-evaluated for all queries. Consistency is a property that is prohibitively costly
-to ensure when sampling exactly from the GP prior, as the cost of exact sampling
-scales cubically with the size of the sample. In contrast, finite feature representations
-can be evaluated with constant cost regardless of the required number of queries.</p>
-<p>In the following example, we build 10 such samples and then evaluate them
-over the interval <span class="arithmatex">\([0, 1]\)</span>:</p>
-<p>For a <code>prior</code> distribution, the following code snippet will
-build and evaluate an approximate sample.</p>
-<p>Example:
-<div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">    &gt;&gt;&gt; import gpjax as gpx</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">    &gt;&gt;&gt; import jax.numpy as jnp</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">    &gt;&gt;&gt; import jax.random as jr</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">    &gt;&gt;&gt; key = jr.key(123)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">    &gt;&gt;&gt;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">    &gt;&gt;&gt; meanf = gpx.mean_functions.Zero()</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">    &gt;&gt;&gt; kernel = gpx.kernels.RBF(n_dims=1)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">    &gt;&gt;&gt; prior = gpx.gps.Prior(mean_function=meanf, kernel = kernel)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">    &gt;&gt;&gt;</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">    &gt;&gt;&gt; sample_fn = prior.sample_approx(10, key)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">    &gt;&gt;&gt; sample_fn(jnp.linspace(0, 1, 100).reshape(-1, 1))</span>
-</span></code></pre></div></p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-            <b><code>num_samples</code></b>
-              (<code><span title="int">int</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>The desired number of samples.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>key</code></b>
-              (<code><span title="gpjax.typing.KeyArray">KeyArray</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>The random seed used for the sample(s).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>num_features</code></b>
-              (<code><span title="int">int</span></code>, default:
-                  <code>100</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>The number of features used when approximating the
-kernel.</p>
-          </div>
-        </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
-        <li class="doc-section-item field-body">
-<b><code>FunctionalSample</code></b> (              <code><a class="autorefs autorefs-internal" title="FunctionalSample
-
-
-  
-      module-attribute
-   (gpjax.typing.FunctionalSample)" href="../../typing/#gpjax.typing.FunctionalSample">FunctionalSample</a></code>
-)          –
-          <div class="doc-md-description">
-            <p>A function representing an approximate sample from the
-Gaussian process prior.</p>
-          </div>
-        </li>
-    </ul>
-
-
-    </div>
-
-</div>
-
 
 
   </div>
@@ -4317,216 +4106,128 @@ Gaussian process prior.</p>
 
 </div>
 
-<div class="doc doc-object doc-class">
+
+<div class="doc doc-object doc-function">
 
 
-
-<h2 id="gpjax.state_space.gps.StateSpaceConjugatePosterior" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">StateSpaceConjugatePosterior</span>
+<h2 id="gpjax.summary.summarise" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">summarise</span>
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">StateSpaceConjugatePosterior</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">prior</span><span class="p">:</span> <span class="n">AbstractPrior</span><span class="p">[</span><span class="n">M</span><span class="p">,</span> <span class="n">K</span><span class="p">],</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">likelihood</span><span class="p">:</span> <span class="n">L</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">jitter</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-06</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">summarise</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">columns</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">console</span><span class="p">:</span> <span class="n">Console</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">max_array</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">precision</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">priors</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="ConjugatePosterior (gpjax.gps.ConjugatePosterior)" href="../../gps/#gpjax.gps.ConjugatePosterior">ConjugatePosterior</a></code></p>
 
-
-
-        <p>Conjugate posterior for a state-space (Markovian) GP.</p>
-
-
-<details class="v1-prediction-surface" open>
-  <summary>v1 prediction surface</summary>
-  <ul>
-<li><code>predict</code>        : smoothed-latent prediction (Phase 10)</li>
-<li><code>predict_filter</code> : causal filtered prediction (Phase 10)</li>
-<li><code>__call__</code>       : delegates to <code>predict</code></li>
-</ul>
-</details>        <p>Both <code>predict</code> and <code>predict_filter</code> reject <code>return_covariance_type="dense"</code>
-in favour of v1's diagonal-only contract before any further dispatch.</p>
-<p><strong>Predictive contract (v1):</strong> prediction returns diagonal (marginal)
-covariance only; the marginals are exact. A dense joint predictive is not
-implemented in v1 and is tracked as a follow-up. This predictive is
-therefore not Liskov-substitutable for a dense
-<code>gpjax.gps.ConjugatePosterior</code> predictive.</p>
-<p>Example:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="kn">import</span><span class="w"> </span><span class="nn">gpjax</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpx</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span><span class="w"> </span><span class="nn">gpjax.state_space</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateSpacePrior</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">StateSpacePrior</span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">...</span>     <span class="n">mean_function</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">mean_functions</span><span class="o">.</span><span class="n">Zero</span><span class="p">(),</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">...</span>     <span class="n">kernel</span><span class="o">=</span><span class="n">gpx</span><span class="o">.</span><span class="n">kernels</span><span class="o">.</span><span class="n">Matern32</span><span class="p">(</span><span class="n">lengthscale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">variance</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="o">...</span> <span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="n">likelihood</span> <span class="o">=</span> <span class="n">gpx</span><span class="o">.</span><span class="n">likelihoods</span><span class="o">.</span><span class="n">Gaussian</span><span class="p">(</span><span class="n">num_datapoints</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">obs_stddev</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="o">&gt;&gt;&gt;</span> <span class="n">posterior</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s1">&#39;StateSpaceConjugatePosterior&#39;</span>
-</span></code></pre></div></p>
-
+        <p>Print a <code>rich</code> table summarising a GPJax model's parameters.</p>
+<p>Renders one row per parameter -- showing the constrained value, bijector,
+trainability, shape, and dtype -- for any GPJax model (kernel, prior,
+posterior, likelihood, or variational family).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>prior</code></b>
-              (<code><a class="autorefs autorefs-internal" title="AbstractPrior (gpjax.gps.AbstractPrior)" href="../../gps/#gpjax.gps.AbstractPrior">AbstractPrior</a></code>)
+            <b><code>model</code></b>
+              (<code><span title="beartype.typing.Any">Any</span></code>)
           –
           <div class="doc-md-description">
-            <p>The prior distribution.</p>
+            <p>Any GPJax pytree (kernel, prior, posterior, likelihood,
+variational family, ...).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>likelihood</code></b>
-              (<code><a class="autorefs autorefs-internal" title="AbstractLikelihood (gpjax.likelihoods.AbstractLikelihood)" href="../../likelihoods/#gpjax.likelihoods.AbstractLikelihood">AbstractLikelihood</a></code>)
-          –
-          <div class="doc-md-description">
-            <p>The likelihood distribution.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>jitter</code></b>
-              (<code><span title="float">float</span></code>, default:
-                  <code>1e-06</code>
+            <b><code>columns</code></b>
+              (<code><span title="beartype.typing.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>, default:
+                  <code>None</code>
 )
           –
           <div class="doc-md-description">
-            <p>A small constant added to the diagonal of the
-covariance matrix to ensure numerical stability.</p>
+            <p>Subset/ordering of columns to show. Defaults to the full
+GPflow-style column set.</p>
           </div>
         </li>
-    </ul>
-
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="gpjax.state_space.gps.StateSpaceConjugatePosterior.sample_approx" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">sample_approx</span>
-
-
-</h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample_approx</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">train_data</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">key</span><span class="p">:</span> <span class="n">KeyArray</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">num_features</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FunctionalSample</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Draw approximate samples from the Gaussian process posterior.</p>
-<p>Build an approximate sample from the Gaussian process posterior. This method
-provides a function that returns the evaluations of a sample across any given
-inputs.</p>
-<p>Unlike when building approximate samples from a Gaussian process prior, decompositions
-based on Fourier features alone rarely give accurate samples. Therefore, we must also
-include an additional set of features (known as canonical features) to better model the
-transition from Gaussian process prior to Gaussian process posterior. For more details
-see <a href="https://arxiv.org/abs/2002.09309">Wilson et. al. (2020)</a>.</p>
-<p>In particular, we approximate the Gaussian processes' posterior as the finite
-feature approximation
-<span class="arithmatex">\(\hat{f}(x) = \sum_{i=1}^m \phi_i(x)\theta_i + \sum{j=1}^N v_jk(.,x_j)\)</span>
-where <span class="arithmatex">\(\phi_i\)</span> are m features sampled from the Fourier feature decomposition of
-the model's kernel and <span class="arithmatex">\(k(., x_j)\)</span> are N canonical features. The Fourier
-weights <span class="arithmatex">\(\theta_i\)</span> are samples from a unit Gaussian. See
-<a href="https://arxiv.org/abs/2002.09309">Wilson et. al. (2020)</a> for expressions
-for the canonical weights <span class="arithmatex">\(v_j\)</span>.</p>
-<p>A key property of such functional samples is that the same sample draw is
-evaluated for all queries. Consistency is a property that is prohibitively costly
-to ensure when sampling exactly from the GP prior, as the cost of exact sampling
-scales cubically with the size of the sample. In contrast, finite feature representations
-can be evaluated with constant cost regardless of the required number of queries.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <ul>
         <li class="doc-section-item field-body">
-            <b><code>num_samples</code></b>
-              (<code><span title="int">int</span></code>)
+            <b><code>console</code></b>
+              (<code><span title="rich.console.Console">Console</span> | None</code>, default:
+                  <code>None</code>
+)
           –
           <div class="doc-md-description">
-            <p>The desired number of samples.</p>
+            <p>Target <code>rich.Console</code>; defaults to a fresh one.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
-            <b><code>key</code></b>
-              (<code><span title="gpjax.typing.KeyArray">KeyArray</span></code>)
-          –
-          <div class="doc-md-description">
-            <p>The random seed used for the sample(s).</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>num_features</code></b>
+            <b><code>max_array</code></b>
               (<code><span title="int">int</span></code>, default:
-                  <code>100</code>
+                  <code>4</code>
 )
           –
           <div class="doc-md-description">
-            <p>The number of features used when approximating the
-kernel.</p>
+            <p>Maximum number of array elements shown per value.</p>
           </div>
         </li>
-    </ul>
-
-
-<p><span class="doc-section-title">Returns:</span></p>
-    <ul>
         <li class="doc-section-item field-body">
-<b><code>FunctionalSample</code></b> (              <code><a class="autorefs autorefs-internal" title="FunctionalSample
-
-
-  
-      module-attribute
-   (gpjax.typing.FunctionalSample)" href="../../typing/#gpjax.typing.FunctionalSample">FunctionalSample</a></code>
-)          –
+            <b><code>precision</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code>3</code>
+)
+          –
           <div class="doc-md-description">
-            <p>A function representing an approximate sample from the Gaussian
-process prior.</p>
+            <p>Significant figures for numeric values.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>title</code></b>
+              (<code><span title="str">str</span> | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Table title; defaults to the model's class name.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>priors</code></b>
+              (<code><span title="beartype.typing.Mapping">Mapping</span>[<span title="str">str</span>, <span title="beartype.typing.Any">Any</span>] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Optional mapping from a parameter's name (as shown in the
+Parameter column) to a prior object (e.g. a NumPyro distribution),
+used to populate the Prior column. Defaults to <code>None</code> (all <code>-</code>).</p>
           </div>
         </li>
     </ul>
 
 
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>import gpjax as gpx
+kernel = gpx.kernels.RBF()
+gpx.summarise(kernel)  # doctest: +SKIP</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
     </div>
 
 </div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
 
 
 
@@ -4592,10 +4293,10 @@ process prior.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
@@ -4603,7 +4304,7 @@ process prior.</p>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
       
-        <script src="../../../javascripts/katex.js"></script>
+        <script src="../../javascripts/katex.js"></script>
       
     
   </body>
