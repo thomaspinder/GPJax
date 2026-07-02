@@ -39,12 +39,13 @@ from gpjax.fit import (
     fit_lbfgs,
     fit_scipy,
 )
+from gpjax.summary import summarise
 
 __license__ = "MIT"
 __description__ = "Gaussian processes in JAX"
 __url__ = "https://github.com/thomaspinder/GPJax"
 __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 __all__ = [
     "Dataset",
@@ -62,6 +63,7 @@ __all__ = [
     "objectives",
     "parameters",
     "state_space",
+    "summarise",
     "typing",
     "variational_families",
 ]

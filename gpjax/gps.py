@@ -45,6 +45,7 @@ from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     Real,
 )
+from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     FunctionalSample,
@@ -64,7 +65,7 @@ def _val(x):
     return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
-class AbstractPrior(eqx.Module, tp.Generic[M, K]):
+class AbstractPrior(_SummaryMixin, eqx.Module, tp.Generic[M, K]):
     r"""Abstract Gaussian process prior."""
 
     kernel: K
@@ -377,7 +378,7 @@ P = tp.TypeVar("P", bound=AbstractPrior)
 #######################
 # GP Posteriors
 #######################
-class AbstractPosterior(eqx.Module, tp.Generic[P, L]):
+class AbstractPosterior(_SummaryMixin, eqx.Module, tp.Generic[P, L]):
     r"""Abstract Gaussian process posterior.
 
     The base GP posterior object conditioned on an observed dataset. All

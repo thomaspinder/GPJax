@@ -208,6 +208,14 @@ opt_posterior, history = gpx.fit_scipy(
 print(-gpx.objectives.conjugate_mll(opt_posterior, D))
 
 # %% [markdown]
+# To inspect the learned hyperparameters, we can render a summary table of the optimised
+# posterior with `gpx.summarise`. This shows each parameter's constrained value, its
+# bijector, and whether it is trainable — a quick sanity check after optimisation.
+
+# %%
+gpx.summarise(opt_posterior)
+
+# %% [markdown]
 # ## Prediction
 #
 # Equipped with the posterior and a set of optimised hyperparameter values, we are now

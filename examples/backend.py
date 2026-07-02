@@ -151,6 +151,25 @@ posterior = likelihood * prior
 print(posterior)
 
 # %% [markdown]
+# ### Summarising a model
+#
+# The `print(posterior)` output above is Equinox's representation: it exposes each
+# parameter's *unconstrained* internal storage and conveys nothing about bijectors or
+# trainability. For a human-readable overview, use `gpx.summarise`, which renders a flat
+# table — one row per parameter — showing the constrained value, the bijector, whether
+# the parameter is trainable, and its shape and dtype. It works on any GPJax model: a
+# kernel, prior, posterior, likelihood, or variational family.
+
+# %%
+gpx.summarise(posterior)
+
+# %% [markdown]
+# `summarise` traverses the model as a PyTree, so composite objects (e.g. sum kernels)
+# and frozen parameters are handled automatically — frozen rows are dimmed and reported
+# as non-trainable. The same table backs `rich.print(posterior)` and Jupyter's automatic
+# display, while `repr(posterior)` is left untouched.
+
+# %% [markdown]
 # Now contained within the posterior there are four parameters: the kernel's lengthscale
 # and variance, the noise variance of the likelihood, and the constant of the mean
 # function. With Equinox, we can partition the model into its array leaves and static

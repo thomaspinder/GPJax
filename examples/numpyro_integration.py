@@ -106,13 +106,10 @@ ax.legend()
 # as its support matches that of our lengthscale parameter. Priors are standard
 # [NumPyro distributions](https://num.pyro.ai/en/stable/distributions.html) sampled directly
 # inside the model function with ``numpyro.sample``.
-
-# %%
+#
 # Priors are defined as NumPyro distributions and sampled directly inside the model
 # function below. GPJax parameter constructors accept raw JAX arrays from
 # numpyro.sample, so no special registration step is needed.
-
-# %% [markdown]
 #
 # We'll construct the Gaussian process inside the NumPyro model function, passing
 # sampled hyperparameters directly to the GPJax constructors. For a deeper look at
@@ -142,12 +139,8 @@ def model(X, Y, X_new=None):
     period = numpyro.sample("period", dist.LogNormal(0.0, 0.5))
     obs_noise = numpyro.sample("obs_noise", dist.LogNormal(0.0, 1.0))
 
-    stationary_component = gpx.kernels.RBF(
-        lengthscale=lengthscale, variance=variance
-    )
-    periodic_component = gpx.kernels.Periodic(
-        lengthscale=lengthscale, period=period
-    )
+    stationary_component = gpx.kernels.RBF(lengthscale=lengthscale, variance=variance)
+    periodic_component = gpx.kernels.Periodic(lengthscale=lengthscale, period=period)
     kernel = stationary_component * periodic_component
 
     meanf = gpx.mean_functions.Constant()
@@ -173,6 +166,37 @@ def model(X, Y, X_new=None):
         total_prediction = slope * X_new + intercept + f_new + y_noise
         numpyro.deterministic("y_pred", total_prediction)
         return total_prediction
+
+
+# %% [markdown]
+# ### Inspecting the model and its priors
+#
+# Before running inference it is helpful to lay out the model's parameters alongside the
+# priors we placed on them. Because the priors are sampled *by name* inside ``model`` and
+# passed into the GPJax constructors, they are not stored on the parameter objects -- so
+# `gpx.summarise` cannot infer them automatically. We can still display them by passing a
+# ``priors`` mapping keyed by each parameter's name (the entries in the *Parameter*
+# column; call ``gpx.summarise(example_posterior)`` without the mapping to discover them).
+# The parameter *values* shown are placeholders -- they are resampled from these priors at
+# every step of MCMC.
+
+# %%
+example_kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0) * gpx.kernels.Periodic(
+    lengthscale=1.0, period=1.0
+)
+example_posterior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Constant(), kernel=example_kernel
+) * gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=1.0)
+
+parameter_priors = {
+    "prior.kernel.kernels[0].lengthscale": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[0].variance": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[1].lengthscale": dist.LogNormal(0.0, 1.0),
+    "prior.kernel.kernels[1].period": dist.LogNormal(0.0, 0.5),
+    "likelihood.obs_stddev": dist.LogNormal(0.0, 1.0),
+}
+
+gpx.summarise(example_posterior, priors=parameter_priors)
 
 
 # %% [markdown]

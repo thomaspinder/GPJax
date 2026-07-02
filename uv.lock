@@ -17,7 +17,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-24T20:37:42.717195Z"
+exclude-newer = "2026-06-20T07:57:15.444069Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -991,6 +991,7 @@ dependencies = [
     { name = "optax" },
     { name = "optimistix" },
     { name = "paramax" },
+    { name = "rich" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'" },
     { name = "tqdm" },
 ]
@@ -1075,6 +1076,7 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'docs'", specifier = ">=1.5.3" },
     { name = "paramax", specifier = ">=0.0.5" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.7.1" },
+    { name = "rich", specifier = ">=13.0.0" },
     { name = "scikit-learn", marker = "extra == 'docs'", specifier = ">=1.5.1" },
     { name = "seaborn", marker = "extra == 'docs'", specifier = ">=0.12.2" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'", specifier = "!=0.1.76" },
