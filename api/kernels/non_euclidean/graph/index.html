@@ -4224,13 +4224,16 @@
 
 
         <p>The Matérn graph kernel defined on the vertex set of a graph.</p>
-<p>A Matérn graph kernel defined on the vertices of a graph.</p>
-<p>Computes the covariance for pairs of vertices <span class="arithmatex">\((v_i, v_j)\)</span> with variance <span class="arithmatex">\(\sigma^2\)</span>:
+<p>A Matérn graph kernel defined through the graph Laplacian spectrum.</p>
+<p>The kernel evaluates a Matérn spectral filter on each Laplacian eigenvalue
+<span class="arithmatex">\(\lambda\)</span>:
 $$
-k(v_i, v_j) = \sigma^2 \exp\Bigg(-\frac{\lVert v_i - v_j \rVert^2_2}{2\ell^2}\Bigg)
+\Phi(\lambda) = \left(\frac{2\nu}{\ell^2} + \lambda\right)^{-\nu},
 $$
-where <span class="arithmatex">\(\ell\)</span> is the lengthscale parameter and <span class="arithmatex">\(\sigma^2\)</span> is the variance.</p>
-<p>The key reference for this object is Borovitskiy et. al., (2020).</p>
+where <span class="arithmatex">\(\ell\)</span> is the lengthscale parameter and <span class="arithmatex">\(\nu\)</span> is the smoothness
+parameter. The resulting spectral weights are normalised and scaled by the
+variance parameter.</p>
+<p>The key reference for this object is Borovitskiy et al. (2021).</p>
 
 
 

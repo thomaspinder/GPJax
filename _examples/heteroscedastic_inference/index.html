@@ -4290,7 +4290,7 @@ visualising posterior fits and predictive uncertainty.</p>
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$y$&quot;</span><span class="p">)</span>
 </span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f5c70578190&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7fda40733fd0&gt;
 </code></pre></div>
 <p><img alt="png" src="../heteroscedastic_inference_files/heteroscedastic_inference_3_1.png" /></p>
 <p>For a homoscedastic baseline, compare this figure with the
@@ -4368,7 +4368,7 @@ optimisation iteratively updates the inducing posteriors for both latent GPs.</p
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">loss_trace</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">history</span><span class="p">)</span>
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final regression ELBO: </span><span class="si">{</span><span class="o">-</span><span class="n">loss_trace</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>Final regression ELBO: 141.805
+<div class="language-text highlight"><pre><span></span><code>Final regression ELBO: 141.383
 </code></pre></div>
 <h2 id="prediction">Prediction<a class="headerlink" href="#prediction" title="Permanent link"></a></h2>
 <p>After training we obtain posterior marginals for both latent functions. To make a
@@ -4585,7 +4585,7 @@ functions have markedly different smoothness properties.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder
 
-Last updated: Thu, 02 Jul 2026
+Last updated: Fri, 03 Jul 2026
 
 Python implementation: CPython
 Python version       : 3.11.15
