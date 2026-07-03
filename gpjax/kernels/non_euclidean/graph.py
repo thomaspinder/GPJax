@@ -44,15 +44,18 @@ from gpjax.typing import (
 class GraphKernel(StationaryKernel):
     r"""The Matérn graph kernel defined on the vertex set of a graph.
 
-    A Matérn graph kernel defined on the vertices of a graph.
+    A Matérn graph kernel defined through the graph Laplacian spectrum.
 
-    Computes the covariance for pairs of vertices $(v_i, v_j)$ with variance $\sigma^2$:
+    The kernel evaluates a Matérn spectral filter on each Laplacian eigenvalue
+    $\lambda$:
     $$
-    k(v_i, v_j) = \sigma^2 \exp\Bigg(-\frac{\lVert v_i - v_j \rVert^2_2}{2\ell^2}\Bigg)
+    \Phi(\lambda) = \left(\frac{2\nu}{\ell^2} + \lambda\right)^{-\nu},
     $$
-    where $\ell$ is the lengthscale parameter and $\sigma^2$ is the variance.
+    where $\ell$ is the lengthscale parameter and $\nu$ is the smoothness
+    parameter. The resulting spectral weights are normalised and scaled by the
+    variance parameter.
 
-    The key reference for this object is Borovitskiy et. al., (2020).
+    The key reference for this object is Borovitskiy et al. (2021).
 
     """
 
