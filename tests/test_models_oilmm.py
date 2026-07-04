@@ -1023,3 +1023,34 @@ def test_create_oilmm_from_data_two_points_finite():
     from gpjax.models.oilmm import _val
 
     assert jnp.all(jnp.isfinite(_val(model.mixing_matrix.S)))
+
+def test_oilmm_predict_diagonal_returns_diagonal_operator():
+    """The diagonal predict branch must return a DiagonalLinearOperator, not
+    a densified MatrixLinearOperator."""
+    import gpjax as gpx
+    import lineax as lx
+    from gpjax.models.oilmm import OILMMModel
+
+    key = jax.random.PRNGKey(99)
+    model = OILMMModel(
+        num_outputs=2,
+        num_latent_gps=2,
+        kernel=gpx.kernels.RBF(),
+        key=key,
+    )
+
+    N, P = 8, 2
+    X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
+    y = jr.normal(key, (N, P))
+    dataset = gpx.Dataset(X=X, y=y)
+    posterior = model.condition_on_observations(dataset)
+
+    X_test = jnp.linspace(0.1, 0.9, 5).reshape(-1, 1)
+    pred_diag = posterior.predict(X_test, return_full_cov=False)
+
+    assert isinstance(pred_diag.scale, lx.DiagonalLinearOperator), (
+        f"Expected DiagonalLinearOperator, got {type(pred_diag.scale).__name__}"
+    )
+    # Entries must still match the full-cov diagonal
+    pred_full = posterior.predict(X_test, return_full_cov=True)
+    assert jnp.allclose(jnp.diag(pred_full.covariance()), jnp.diag(pred_diag.covariance()), atol=1e-6)
