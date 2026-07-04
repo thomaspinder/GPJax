@@ -52,6 +52,7 @@ from gpjax.mean_functions import (
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import lineax as lx
 from numpyro.distributions import Distribution as NumpyroDistribution
 import pytest
 
@@ -616,6 +617,46 @@ class TestMultiOutputValidation:
         lik = Gaussian(num_datapoints=10)
         with pytest.raises(ValueError, match="MultiOutputGaussian"):
             prior * lik
+
+
+def test_predict_diagonal_returns_diagonal_operator():
+    """The diagonal predict path must return a DiagonalLinearOperator whose
+    diagonal matches the dense path — not a densified M x M jnp.diag."""
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.3))
+    meanf = Zero()
+    prior = Prior(mean_function=meanf, kernel=kernel)
+    xtest = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
+
+    # Prior
+    diag = prior(xtest, return_covariance_type="diagonal")
+    dense = prior(xtest, return_covariance_type="dense")
+    assert isinstance(diag.scale, lx.DiagonalLinearOperator)
+    assert jnp.allclose(
+        diag.scale.as_matrix().diagonal(), dense.covariance().diagonal()
+    )
+
+    # Conjugate posterior (single-output)
+    x = jnp.linspace(0.0, 1.0, 15).reshape(-1, 1)
+    D = Dataset(X=x, y=jnp.sin(3.0 * x))
+    posterior = prior * Gaussian(num_datapoints=D.n)
+    pdiag = posterior(xtest, D, return_covariance_type="diagonal")
+    pdense = posterior(xtest, D, return_covariance_type="dense")
+    assert isinstance(pdiag.scale, lx.DiagonalLinearOperator)
+    assert jnp.allclose(
+        pdiag.scale.as_matrix().diagonal(), pdense.covariance().diagonal()
+    )
+
+
+def test_predict_diagonal_jit_smoke():
+    """Both branches must jit (the Literal is static, not traced)."""
+    import jax
+
+    kernel = RBF(active_dims=[0])
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+    xtest = jnp.linspace(0.0, 1.0, 6).reshape(-1, 1)
+    for cov_type in ("dense", "diagonal"):
+        fn = jax.jit(lambda t, c=cov_type: prior(t, return_covariance_type=c).mean)
+        _ = fn(xtest)
 
 
 if __name__ == "__main__":
