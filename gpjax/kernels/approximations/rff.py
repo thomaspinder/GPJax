@@ -1,7 +1,9 @@
 """Compute Random Fourier Feature (RFF) kernel approximations."""
 
 import beartype.typing as tp
+import jax.numpy as jnp
 import jax.random as jr
+import numpyro.distributions as npd
 from jaxtyping import Float
 
 from gpjax.kernels.base import AbstractKernel
@@ -63,9 +65,22 @@ class RFF(AbstractKernel):
                     "Expected the number of dimensions to be specified for the base kernel. "
                     "Please specify the n_dims argument for the base kernel."
                 )
-            frequencies = base_kernel.spectral_density.sample(
-                key=key, sample_shape=(num_basis_fns, n_dims)
-            )
+            sd = base_kernel.spectral_density
+            if isinstance(sd, npd.StudentT):
+                # Isotropic Matérn: one shared inverse-χ² per row couples the
+                # dimensions. iid-per-dim StudentT would give a tensor-product
+                # Matérn instead. MVT(df, scale_tril=I) has StudentT(df)
+                # marginals, so 1-D output is bit-identical to before.
+                mvt = npd.MultivariateStudentT(
+                    df=sd.df, loc=jnp.zeros(n_dims), scale_tril=jnp.eye(n_dims)
+                )
+                frequencies = mvt.sample(key, (num_basis_fns,))  # [M, D], coupled
+            else:
+                # Normal spectral density (RBF): a product of Gaussians is
+                # already isotropic, so iid-per-dim is correct.
+                frequencies = sd.sample(
+                    key=key, sample_shape=(num_basis_fns, n_dims)
+                )
 
         self.base_kernel = base_kernel
         self.num_basis_fns = num_basis_fns
