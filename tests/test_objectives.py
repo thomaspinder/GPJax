@@ -13,6 +13,7 @@ from gpjax.objectives import (
 import jax
 from jax import config
 import jax.numpy as jnp
+import jax.scipy as jsp
 import jax.random as jr
 import paramax
 import pytest
@@ -298,3 +299,55 @@ class TestMultiOutputConjugateMLL:
         posterior = prior * lik
         mll = conjugate_mll(posterior, data)
         assert jnp.isfinite(mll)
+
+
+def test_conjugate_loocv_multioutput_matches_brute_force():
+    r"""Multi-output LOOCV (leave-one-scalar-out on the flattened NP system)
+    must match an independent brute-force reference that drops row/col i from
+    Sigma and re-solves.  The scalar-noise/raw-y bug mis-scores this."""
+    import numpyro.distributions as npd
+    from gpjax.kernels.multioutput.icm import ICMKernel
+    from gpjax.kernels.stationary import RBF
+    from gpjax.likelihoods import MultiOutputGaussian
+    from gpjax.mean_functions import Zero
+    from gpjax.parameters import CoregionalizationMatrix
+
+    key = jr.key(0)
+    N, P = 6, 2
+    X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
+    y = jnp.column_stack([jnp.sin(X.squeeze()), jnp.cos(X.squeeze())])
+    data = Dataset(X=X, y=y)
+
+    coreg = CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
+    kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+    lik = MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+    posterior = paramax.unwrap(prior * lik)
+
+    # --- Independent brute-force reference on the full [NP, NP] system ---
+    mx = posterior.prior.mean_function(X)
+    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
+    y_flat = y_flat.reshape(-1)
+    mx_flat = mx_flat.reshape(-1)
+    noise = posterior.likelihood.noise_vector(N)
+    Kxx = posterior.prior.kernel.gram(X).as_matrix()
+    Sigma = Kxx + jnp.eye(Kxx.shape[0]) * posterior.prior.jitter + jnp.diag(noise)
+
+    NP_dim = Sigma.shape[0]
+    total = 0.0
+    for i in range(NP_dim):
+        idx = jnp.array([j for j in range(NP_dim) if j != i])
+        S_i = Sigma[jnp.ix_(idx, idx)]
+        y_i = y_flat[idx]
+        mx_i = mx_flat[idx]
+        L_i = jnp.linalg.cholesky(S_i)
+        alpha_i = jsp.linalg.cho_solve((L_i, True), y_i - mx_i)
+        loo_mean_i = mx_flat[i] + Sigma[i, idx] @ alpha_i
+        v_i = jsp.linalg.solve_triangular(L_i, Sigma[idx, i], lower=True)
+        loo_var_i = Sigma[i, i] - jnp.dot(v_i, v_i)
+        total += npd.Normal(loc=loo_mean_i, scale=jnp.sqrt(loo_var_i)).log_prob(y_flat[i])
+
+    # --- Closed-form LOOCV via the implementation ---
+    closed_form = conjugate_loocv(posterior, data)
+
+    assert jnp.allclose(closed_form, total, atol=1e-5)
