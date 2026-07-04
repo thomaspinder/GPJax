@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`models.OILMMPosterior.predict(..., return_full_cov=False)`** now returns a
   `lineax.DiagonalLinearOperator` scale (was a densified `MatrixLinearOperator`).
   Values are unchanged.
+- **`Prior.predict` / `ConjugatePosterior.predict` / `NonConjugatePosterior.predict`
+  with `return_covariance_type="diagonal"`** now return a
+  `lineax.DiagonalLinearOperator` scale (was a densified `MatrixLinearOperator`).
+  Values are unchanged; construction drops from O(M²) to O(M) memory and the
+  `predict(...,"diagonal") → likelihood()` chain now uses the O(M) fast path.
 
 #### Migration
 
@@ -53,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OILMM diagonal predict**: `predict(..., return_full_cov=False).scale` is now a
   `DiagonalLinearOperator`. Use `.as_matrix()` / `.diagonal` rather than assuming a
   dense matrix.
+- **Diagonal predict**: `predict(..., "diagonal").scale` is now a
+  `DiagonalLinearOperator`. Use `.as_matrix()` / `.diagonal`, not `.matrix`.
 
 ## [0.16.0] — 2026-06-28
 
