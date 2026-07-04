@@ -4496,6 +4496,10 @@ marginal log-likelihood.</p>
 section 5.4.2 of Rasmussen et al. 2006 - Gaussian Processes for Machine Learning. This metric
 calculates the average performance of all models that can be obtained by training on all but one
 data point, and then predicting the left out data point.</p>
+<p>For multi-output likelihoods this performs <strong>leave-one-scalar-out</strong> on the
+flattened NP system (per-element predictive), the natural generalisation of
+the scalar R&amp;W LOOCV to multiple outputs.  Per-datapoint LOOCV has no
+closed form in the multi-output case.</p>
 <p>The returned metric can then be used for gradient based optimisation
 of the model's parameters or for model comparison. The implementation
 given here enables exact estimation of the Gaussian process' latent
