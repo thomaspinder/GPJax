@@ -4600,8 +4600,8 @@ of the optimiser's updates to the unconstrained representation.</p>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">UtU</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">U</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">UtU</span><span class="p">,</span> <span class="n">decimals</span><span class="o">=</span><span class="mi">6</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>[[ 1. -0.]
- [-0.  1.]]
+<div class="language-text highlight"><pre><span></span><code>[[1. 0.]
+ [0. 1.]]
 </code></pre></div>
 <h2 id="conditioning-on-observations">Conditioning on observations<a class="headerlink" href="#conditioning-on-observations" title="Permanent link"></a></h2>
 <p>Before optimising any parameters, we condition with the PCA-initialised
@@ -4708,18 +4708,14 @@ of each latent GP, the unconstrained mixing matrix <span class="arithmatex">\(\m
   if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
 
 
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_optimize.py:1474: RuntimeWarning: invalid value encountered in scalar multiply
-  if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
-/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_optimize.py:1474: RuntimeWarning: invalid value encountered in scalar multiply
-  if (alpha_k*vecnorm(pk) &lt;= xrtol*(xrtol + vecnorm(xk))):
 /home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
   res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
 
 
          Current function value: -75.663012
-         Iterations: 208
-         Function evaluations: 327
-         Gradient evaluations: 307
+         Iterations: 215
+         Function evaluations: 279
+         Gradient evaluations: 267
 
 
 Initial MLL: -500.287
