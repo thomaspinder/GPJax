@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are now wrapped in `NonNegativeReal`. They were previously assigned raw —
   silently frozen (Python-float default, excluded by `eqx.partition`) or
   trainable-but-unconstrained (array value, driveable negative → NaN).
+- **`models.create_oilmm_from_data`**: now performs the documented PCA
+  eigen-initialisation of the mixing matrix (top-M eigenvectors/eigenvalues of
+  the empirical output covariance) instead of returning the random default. Raises
+  `ValueError` for `N < 2` (empirical covariance is undefined).
 
 ### Changed
 
@@ -36,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-dimensional Matérn `RFF` Gram matrices now converge to the isotropic
   Matérn. `d > 1` outputs differ from `0.16.0`. No restore path.
 - Multi-output `conjugate_loocv` values differ from `0.16.0`. No restore path.
+- **`models.OILMMPosterior.predict(..., return_full_cov=False)`** now returns a
+  `lineax.DiagonalLinearOperator` scale (was a densified `MatrixLinearOperator`).
+  Values are unchanged.
 
 #### Migration
 
@@ -43,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `bias_variance`, restore it explicitly with `paramax.non_trainable(...)`.
 - **`sample_approx` / multi-dim Matérn RFF / multi-output LOOCV**: no restore
   path — the previous outputs were incorrect.
+- **OILMM diagonal predict**: `predict(..., return_full_cov=False).scale` is now a
+  `DiagonalLinearOperator`. Use `.as_matrix()` / `.diagonal` rather than assuming a
+  dense matrix.
 
 ## [0.16.0] — 2026-06-28
 
