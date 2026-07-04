@@ -5,6 +5,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import paramax
+import pytest
 
 jax.config.update("jax_enable_x64", True)
 
@@ -975,3 +976,50 @@ class TestCovarianceEquivalence:
         kron_cov_n_major = kron_cov[n_major_idx][:, n_major_idx]
 
         assert jnp.allclose(einsum_cov, kron_cov_n_major, atol=1e-6)
+
+def test_create_oilmm_from_data_recovers_planted_subspace():
+    """PCA init must recover the column space of a known low-rank mixing.
+    Random init does not (this is why the no-op shipped undetected)."""
+    from gpjax.dataset import Dataset
+    from gpjax.models.oilmm import create_oilmm_from_data
+
+    key = jr.key(0)
+    N, P, M = 60, 4, 2
+    X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
+    # Two latent signals mixed into P=4 outputs via a planted orthonormal basis.
+    latent = jnp.column_stack(
+        [jnp.sin(6.0 * X.squeeze()), jnp.cos(4.0 * X.squeeze())]
+    )  # [N, M]
+    planted, _ = jnp.linalg.qr(jr.normal(key, (P, M)))  # [P, M] orthonormal
+    Y = latent @ planted.T  # [N, P], rank M
+    data = Dataset(X=X, y=Y)
+
+    model = create_oilmm_from_data(dataset=data, num_latent_gps=M, key=jr.key(1))
+    U = model.mixing_matrix.U  # [P, M] orthonormal
+
+    # Principal angles between the recovered and planted column spaces.
+    cos_angles = jnp.linalg.svd(planted.T @ U, compute_uv=False)
+    assert jnp.all(cos_angles > 0.99)  # cos-angles ~= 1.0
+
+
+def test_create_oilmm_from_data_requires_two_points():
+    """N==1 -> jnp.cov divides by 0 -> NaN params. Guard, don't ship NaN."""
+    from gpjax.dataset import Dataset
+    from gpjax.models.oilmm import create_oilmm_from_data
+
+    data = Dataset(X=jnp.zeros((1, 1)), y=jnp.ones((1, 2)))
+    with pytest.raises(ValueError, match="2"):
+        create_oilmm_from_data(dataset=data, num_latent_gps=2, key=jr.key(0))
+
+
+def test_create_oilmm_from_data_two_points_finite():
+    """N==2, m==2 is valid (clamp path); parameters must be finite."""
+    from gpjax.dataset import Dataset
+    from gpjax.models.oilmm import create_oilmm_from_data
+
+    data = Dataset(X=jnp.array([[0.0], [1.0]]), y=jnp.array([[1.0, 2.0], [3.0, 4.0]]))
+    model = create_oilmm_from_data(dataset=data, num_latent_gps=2, key=jr.key(0))
+    assert jnp.all(jnp.isfinite(model.mixing_matrix.U))
+    from gpjax.models.oilmm import _val
+
+    assert jnp.all(jnp.isfinite(_val(model.mixing_matrix.S)))
