@@ -27,7 +27,6 @@ from jaxtyping import Float
 import lineax as lx
 import numpy as np
 import numpyro.distributions as npd
-from paramax import AbstractUnwrappable
 
 from gpjax.distributions import GaussianDistribution
 from gpjax.integrators import (
@@ -37,6 +36,7 @@ from gpjax.integrators import (
 )
 from gpjax.parameters import (
     NonNegativeReal,
+    _val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
@@ -46,11 +46,6 @@ from gpjax.typing import (
 
 if TYPE_CHECKING:
     from gpjax.gps import Prior
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 def _diagonal_scale(op):

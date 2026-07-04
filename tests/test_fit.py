@@ -45,6 +45,7 @@ from gpjax.objectives import (
 )
 from gpjax.parameters import (
     PositiveReal,
+    _val,
 )
 from gpjax.typing import Array
 from gpjax.variational_families import VariationalGaussian
@@ -56,14 +57,8 @@ from jaxtyping import (
 )
 import optax as ox
 import paramax
-from paramax import AbstractUnwrappable
 import pytest
 import scipy
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 class LinearModel(eqx.Module):

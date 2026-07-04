@@ -44,6 +44,7 @@ from gpjax.linalg.utils import add_jitter
 from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     Real,
+    _val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
@@ -58,11 +59,6 @@ L = tp.TypeVar("L", bound=AbstractLikelihood)
 NGL = tp.TypeVar("NGL", bound=NonGaussian)
 GL = tp.TypeVar("GL", bound=Gaussian)
 HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 class AbstractPrior(_SummaryMixin, eqx.Module, tp.Generic[M, K]):
