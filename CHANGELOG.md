@@ -5,6 +5,45 @@ All notable changes to GPJax are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.17.0] — 2026-07-04
+
+### Fixed
+
+- **`Prior.sample_approx` / `ConjugatePosterior.sample_approx`**: split the PRNG
+  key before drawing RFF frequencies, Fourier weights, and (posterior) noise.
+  They previously shared one key, making the pathwise-sample cross-covariance
+  biased (Wilson et al. 2020 §3 requires independence). Marginals were
+  unaffected.
+- **`kernels.approximations.RFF`**: multi-dimensional Matérn frequencies are now
+  drawn from a `MultivariateStudentT` (shared inverse-χ² per row), matching the
+  isotropic Matérn spectral density. Previously iid-per-dim `StudentT` draws
+  approximated a *tensor-product* Matérn in `d > 1`. `d == 1` is unchanged.
+- **`objectives.conjugate_loocv`**: now routes noise and targets through the
+  likelihood protocol, so multi-output (`MultiOutputGaussian`) LOOCV is correct
+  (leave-one-scalar-out on the flattened NP system). Also removed a redundant
+  `jnp.linalg.inv` (audit #662).
+- **`kernels.nonstationary.ArcCosine`**: `weight_variance` and `bias_variance`
+  are now wrapped in `NonNegativeReal`. They were previously assigned raw —
+  silently frozen (Python-float default, excluded by `eqx.partition`) or
+  trainable-but-unconstrained (array value, driveable negative → NaN).
+
+### Changed
+
+- Pathwise samples from `sample_approx` with a fixed `key` now differ from
+  `0.16.0` (the old draws were biased — see Fixed above). No restore path; the
+  old outputs were incorrect.
+- Multi-dimensional Matérn `RFF` Gram matrices now converge to the isotropic
+  Matérn. `d > 1` outputs differ from `0.16.0`. No restore path.
+- Multi-output `conjugate_loocv` values differ from `0.16.0`. No restore path.
+
+#### Migration
+
+- **ArcCosine**: if you relied on the accidental freeze of `weight_variance` /
+  `bias_variance`, restore it explicitly with `paramax.non_trainable(...)`.
+- **`sample_approx` / multi-dim Matérn RFF / multi-output LOOCV**: no restore
+  path — the previous outputs were incorrect.
+
 ## [0.16.0] — 2026-06-28
 
 ### Added
@@ -109,5 +148,6 @@ See [`docs/migration.md`](docs/migration.md) for full upgrade instructions.
 - Removed: `flax`, `cola-ml`.
 
 [0.16.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.16.0
+[0.17.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.17.0
 [0.15.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.15.0
 [0.14.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.14.0
