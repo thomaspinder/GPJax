@@ -439,5 +439,27 @@
         "version": "6fcb31a376dbba8ce4cc6a672af2937760b4431ea590e56b5d89425b4e337c67",
         "warmup_time": -1
     },
+    "state_space.StateSpaceMllSuite.time_state_space_mll": {
+        "code": "class StateSpaceMllSuite:\n    def time_state_space_mll(self, n):\n        realise(state_space_mll(self.posterior, self.data))\n\n    def setup(self, n):\n        prior = StateSpacePrior(\n            mean_function=gpx.mean_functions.Zero(),\n            kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),\n        )\n        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.1)\n        self.posterior = StateSpaceConjugatePosterior(\n            prior=prior, likelihood=likelihood\n        )\n        self.data = _temporal_dataset(n)\n        realise(state_space_mll(self.posterior, self.data))",
+        "min_run_count": 2,
+        "name": "state_space.StateSpaceMllSuite.time_state_space_mll",
+        "number": 0,
+        "param_names": [
+            "n"
+        ],
+        "params": [
+            [
+                "1000",
+                "10000"
+            ]
+        ],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "ae1881134ef497a1d03b33bd01ac40bf3dd14d6392ea535dd787a7fe7dc04a88",
+        "warmup_time": -1
+    },
     "version": 2
 }
