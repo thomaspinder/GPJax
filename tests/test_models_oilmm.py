@@ -977,6 +977,7 @@ class TestCovarianceEquivalence:
 
         assert jnp.allclose(einsum_cov, kron_cov_n_major, atol=1e-6)
 
+
 def test_create_oilmm_from_data_recovers_planted_subspace():
     """PCA init must recover the column space of a known low-rank mixing.
     Random init does not (this is why the no-op shipped undetected)."""
@@ -1024,12 +1025,13 @@ def test_create_oilmm_from_data_two_points_finite():
 
     assert jnp.all(jnp.isfinite(_val(model.mixing_matrix.S)))
 
+
 def test_oilmm_predict_diagonal_returns_diagonal_operator():
     """The diagonal predict branch must return a DiagonalLinearOperator, not
     a densified MatrixLinearOperator."""
     import gpjax as gpx
-    import lineax as lx
     from gpjax.models.oilmm import OILMMModel
+    import lineax as lx
 
     key = jax.random.PRNGKey(99)
     model = OILMMModel(
@@ -1053,4 +1055,6 @@ def test_oilmm_predict_diagonal_returns_diagonal_operator():
     )
     # Entries must still match the full-cov diagonal
     pred_full = posterior.predict(X_test, return_full_cov=True)
-    assert jnp.allclose(jnp.diag(pred_full.covariance()), jnp.diag(pred_diag.covariance()), atol=1e-6)
+    assert jnp.allclose(
+        jnp.diag(pred_full.covariance()), jnp.diag(pred_diag.covariance()), atol=1e-6
+    )

@@ -636,9 +636,7 @@ def create_oilmm_from_data(
     output_cov = jnp.cov(Y, rowvar=False)  # column-centred empirical cov [P, P]
     eigvals, eigvecs = jnp.linalg.eigh(output_cov)  # ascending
     top_eigvecs = eigvecs[:, ::-1][:, :num_latent_gps]  # [P, M]
-    top_eigvals = jnp.clip(
-        eigvals[::-1][:num_latent_gps], min=1e-6
-    )  # [M]
+    top_eigvals = jnp.clip(eigvals[::-1][:num_latent_gps], min=1e-6)  # [M]
 
     model = eqx.tree_at(
         lambda m: (m.mixing_matrix.U_latent, m.mixing_matrix.S),
