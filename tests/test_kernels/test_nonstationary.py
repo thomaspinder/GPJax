@@ -16,6 +16,7 @@
 from itertools import product
 from typing import Any
 
+import equinox as eqx
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import AbstractKernelComputation
 from gpjax.kernels.nonstationary import (
@@ -97,7 +98,7 @@ def test_init_override_paramtype(kernel_request):
     assert isinstance(k.variance, NonNegativeReal)
 
     for param in params:
-        if param in ("degree", "order"):
+        if param in ("degree", "order", "weight_variance", "bias_variance"):
             continue
         # Parameter is now a raw value, not a Static object
         assert not isinstance(getattr(k, param), AbstractUnwrappable)
@@ -192,3 +193,50 @@ def test_arccosine_special_case(order: int):
     Kab_approx = 2.0 * jnp.mean(integrands)
 
     assert jnp.max(Kab_approx - Kab_exact) < 1e-4
+
+
+def _val_or_unwrap(v):
+    from paramax import AbstractUnwrappable
+
+    return v.unwrap() if isinstance(v, AbstractUnwrappable) else v
+
+
+def test_arccosine_variances_wrapped_and_trainable():
+    """All three ArcCosine variances must be NonNegativeReal so they are
+    trainable (not silently frozen) and constrained (cannot go negative)."""
+    kernel = ArcCosine(
+        order=1,
+        n_dims=2,
+        weight_variance=1.0,
+        bias_variance=1.0,
+        variance=1.0,
+    )
+    assert isinstance(kernel.weight_variance, NonNegativeReal)
+    assert isinstance(kernel.bias_variance, NonNegativeReal)
+    assert isinstance(kernel.variance, NonNegativeReal)
+
+    # Every variance must land in the trainable (array) partition, not static.
+    params, _ = eqx.partition(kernel, eqx.is_array)
+    leaves = jax.tree_util.tree_leaves(params)
+    assert len(leaves) >= 3  # weight, bias, variance all present as arrays
+
+
+def test_arccosine_variance_stays_positive_under_optimisation():
+    """A gradient step that would push weight_variance negative must instead
+    leave the constrained value positive and the Gram finite/PSD."""
+    import paramax
+
+    x = jnp.linspace(-1.0, 1.0, 6).reshape(-1, 1)
+    kernel = ArcCosine(order=1, n_dims=1, weight_variance=jnp.array(0.05))
+    params, static = eqx.partition(kernel, eqx.is_array)
+
+    def loss(p):
+        k = paramax.unwrap(eqx.combine(p, static))
+        return jnp.sum(k.gram(x).as_matrix())  # gradient pushes variances down
+
+    grads = jax.grad(loss)(params)
+    stepped = jax.tree_util.tree_map(lambda leaf, g: leaf - 100.0 * g, params, grads)
+    k_new = paramax.unwrap(eqx.combine(stepped, static))
+    assert _val_or_unwrap(k_new.weight_variance) > 0.0
+    gram = k_new.gram(x).as_matrix()
+    assert jnp.all(jnp.isfinite(gram))

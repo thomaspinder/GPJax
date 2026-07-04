@@ -360,9 +360,10 @@ class Prior(AbstractPrior[M, K]):
         if (not isinstance(num_samples, int)) or num_samples <= 0:
             raise ValueError("num_samples must be a positive integer")
 
-        fourier_feature_fn = _build_fourier_features_fn(self, num_features, key)
+        freq_key, weight_key = jr.split(key)
+        fourier_feature_fn = _build_fourier_features_fn(self, num_features, freq_key)
 
-        feature_weights = jr.normal(key, [num_samples, 2 * num_features])
+        feature_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
 
         def sample_fn(test_inputs: Float[Array, "N D"]) -> Float[Array, "N B"]:
             feature_evals = fourier_feature_fn(test_inputs)
@@ -692,15 +693,18 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             raise ValueError("num_samples must be a positive integer")
 
         # sample fourier features
-        fourier_feature_fn = _build_fourier_features_fn(self.prior, num_features, key)
+        freq_key, weight_key, noise_key = jr.split(key, 3)
+        fourier_feature_fn = _build_fourier_features_fn(
+            self.prior, num_features, freq_key
+        )
 
-        fourier_weights = jr.normal(key, [num_samples, 2 * num_features])
+        fourier_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
 
         obs_var = _val(self.likelihood.obs_stddev) ** 2
         Kxx = self.prior.kernel.gram(train_data.X)
         Sigma_dense = add_jitter(Kxx.as_matrix(), obs_var + self.jitter)
         L_sigma = jnp.linalg.cholesky(Sigma_dense)
-        eps = jnp.sqrt(obs_var) * jr.normal(key, [train_data.n, num_samples])
+        eps = jnp.sqrt(obs_var) * jr.normal(noise_key, [train_data.n, num_samples])
         y = train_data.y - self.prior.mean_function(train_data.X)
         Phi = fourier_feature_fn(train_data.X)
         # Solve L_sigma @ canonical_weights = rhs

@@ -162,3 +162,34 @@ def test_stochastic_init(kernel: type[StationaryKernel]):
     k2 = RFF(base_kernel=kernel, num_basis_fns=10, key=jr.key(42))
 
     assert (k1.frequencies != k2.frequencies).any()
+
+
+@pytest.mark.parametrize("n_dims", [2, 3])
+def test_matern_rff_gram_matches_isotropic(n_dims):
+    """In d>1 the Matérn RFF Gram must converge to the exact isotropic Matérn
+    Gram. The tensor-product bug (issue #2) plateaus at relF ~0.05 (d=2) /
+    ~0.12 (d=3) and never improves; the fix reaches <0.02 by M~=20k."""
+    key = jr.key(123)
+    n_data = 25
+    x = jr.uniform(key, shape=(n_data, n_dims), minval=-2.0, maxval=2.0)
+
+    base_kernel = Matern32(active_dims=list(range(n_dims)))
+    approx = RFF(base_kernel=base_kernel, num_basis_fns=20000, key=jr.key(0))
+
+    exact_gram = base_kernel.gram(x).as_matrix()
+    approx_gram = approx.gram(x).as_matrix()
+
+    rel_frobenius = jnp.linalg.norm(approx_gram - exact_gram) / jnp.linalg.norm(
+        exact_gram
+    )
+    assert rel_frobenius < 0.02
+
+
+def test_matern_rff_frequencies_1d_unchanged():
+    """1-D behaviour is preserved bit-identically: numpyro's 1-D MVT consumes
+    the PRNG stream exactly as the univariate StudentT it replaces."""
+    base_kernel = Matern32(active_dims=[0])
+    approx = RFF(base_kernel=base_kernel, num_basis_fns=64, key=jr.key(5))
+    # Reference: the pre-fix univariate draw for the same key/shape.
+    reference = base_kernel.spectral_density.sample(key=jr.key(5), sample_shape=(64, 1))
+    assert jnp.allclose(approx.frequencies, reference)

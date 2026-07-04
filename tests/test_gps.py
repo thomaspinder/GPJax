@@ -487,6 +487,52 @@ def test_conjugate_posterior_sample_approx(num_datapoints, kernel, mean_function
     assert max_error_in_var < 0.05  # check that samples are correct
 
 
+def test_prior_sample_approx_covariance_structure():
+    """Pathwise prior samples must reproduce the kernel Gram in their
+    empirical cross-covariance, not just the marginal variance. The shared-key
+    bug leaves marginals correct but biases the cross-covariance."""
+    key = jr.key(42)
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.2))
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+
+    grid = jnp.linspace(0.0, 1.0, 8).reshape(-1, 1)
+    sample_fn = prior.sample_approx(num_samples=4000, key=key, num_features=400)
+    draws = sample_fn(grid)  # [8, 4000]
+
+    empirical_cov = jnp.cov(draws)  # [8, 8]
+    exact_cov = kernel.gram(grid).as_matrix()
+
+    rel_frobenius = jnp.linalg.norm(empirical_cov - exact_cov) / jnp.linalg.norm(
+        exact_cov
+    )
+    assert rel_frobenius < 0.1
+
+
+def test_conjugate_posterior_sample_approx_covariance_structure():
+    """Pathwise posterior samples must reproduce predict()'s covariance."""
+    key = jr.key(7)
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.2))
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+    x = jnp.linspace(0.0, 1.0, 12).reshape(-1, 1)
+    y = jnp.sin(3.0 * x)
+    D = Dataset(X=x, y=y)
+    posterior = prior * Gaussian(num_datapoints=D.n)
+
+    grid = jnp.linspace(0.0, 1.0, 8).reshape(-1, 1)
+    sample_fn = posterior.sample_approx(
+        num_samples=4000, train_data=D, key=key, num_features=400
+    )
+    draws = sample_fn(grid)  # [8, 4000]
+
+    empirical_cov = jnp.cov(draws)
+    exact_cov = posterior(grid, D, return_covariance_type="dense").covariance()
+
+    rel_frobenius = jnp.linalg.norm(empirical_cov - exact_cov) / jnp.linalg.norm(
+        exact_cov
+    )
+    assert rel_frobenius < 0.15
+
+
 class TestMultiOutputPosteriorPredict:
     @pytest.fixture
     def mo_setup(self):
