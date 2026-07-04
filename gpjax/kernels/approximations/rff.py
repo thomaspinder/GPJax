@@ -3,8 +3,8 @@
 import beartype.typing as tp
 import jax.numpy as jnp
 import jax.random as jr
-import numpyro.distributions as npd
 from jaxtyping import Float
+import numpyro.distributions as npd
 
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import BasisFunctionComputation
@@ -78,9 +78,7 @@ class RFF(AbstractKernel):
             else:
                 # Normal spectral density (RBF): a product of Gaussians is
                 # already isotropic, so iid-per-dim is correct.
-                frequencies = sd.sample(
-                    key=key, sample_shape=(num_basis_fns, n_dims)
-                )
+                frequencies = sd.sample(key=key, sample_shape=(num_basis_fns, n_dims))
 
         self.base_kernel = base_kernel
         self.num_basis_fns = num_basis_fns

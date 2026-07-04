@@ -198,9 +198,7 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
 
     # diag(Sigma^-1) straight from L (R&W eq. 5.12) — no separate jnp.linalg.inv
     # (folds in audit #662).
-    Linv = jsp.linalg.solve_triangular(
-        L, jnp.eye(Sigma_dense.shape[0]), lower=True
-    )
+    Linv = jsp.linalg.solve_triangular(L, jnp.eye(Sigma_dense.shape[0]), lower=True)
     Sigma_inv_diag = jnp.sum(Linv**2, axis=0).reshape(-1, 1)  # [NP, 1]
 
     resid = (y_flat - mx_flat).reshape(-1, 1)

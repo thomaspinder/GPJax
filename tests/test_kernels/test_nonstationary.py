@@ -16,6 +16,7 @@
 from itertools import product
 from typing import Any
 
+import equinox as eqx
 from gpjax.kernels.base import AbstractKernel
 from gpjax.kernels.computations import AbstractKernelComputation
 from gpjax.kernels.nonstationary import (
@@ -24,7 +25,6 @@ from gpjax.kernels.nonstationary import (
     Polynomial,
 )
 from gpjax.parameters import NonNegativeReal
-import equinox as eqx
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -194,6 +194,7 @@ def test_arccosine_special_case(order: int):
 
     assert jnp.max(Kab_approx - Kab_exact) < 1e-4
 
+
 def _val_or_unwrap(v):
     from paramax import AbstractUnwrappable
 
@@ -234,9 +235,7 @@ def test_arccosine_variance_stays_positive_under_optimisation():
         return jnp.sum(k.gram(x).as_matrix())  # gradient pushes variances down
 
     grads = jax.grad(loss)(params)
-    stepped = jax.tree_util.tree_map(
-        lambda leaf, g: leaf - 100.0 * g, params, grads
-    )
+    stepped = jax.tree_util.tree_map(lambda leaf, g: leaf - 100.0 * g, params, grads)
     k_new = paramax.unwrap(eqx.combine(stepped, static))
     assert _val_or_unwrap(k_new.weight_variance) > 0.0
     gram = k_new.gram(x).as_matrix()

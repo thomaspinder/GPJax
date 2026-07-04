@@ -191,7 +191,5 @@ def test_matern_rff_frequencies_1d_unchanged():
     base_kernel = Matern32(active_dims=[0])
     approx = RFF(base_kernel=base_kernel, num_basis_fns=64, key=jr.key(5))
     # Reference: the pre-fix univariate draw for the same key/shape.
-    reference = base_kernel.spectral_density.sample(
-        key=jr.key(5), sample_shape=(64, 1)
-    )
+    reference = base_kernel.spectral_density.sample(key=jr.key(5), sample_shape=(64, 1))
     assert jnp.allclose(approx.frequencies, reference)

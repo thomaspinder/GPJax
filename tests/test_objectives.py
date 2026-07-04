@@ -13,8 +13,8 @@ from gpjax.objectives import (
 import jax
 from jax import config
 import jax.numpy as jnp
-import jax.scipy as jsp
 import jax.random as jr
+import jax.scipy as jsp
 import paramax
 import pytest
 
@@ -305,12 +305,12 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
     r"""Multi-output LOOCV (leave-one-scalar-out on the flattened NP system)
     must match an independent brute-force reference that drops row/col i from
     Sigma and re-solves.  The scalar-noise/raw-y bug mis-scores this."""
-    import numpyro.distributions as npd
     from gpjax.kernels.multioutput.icm import ICMKernel
     from gpjax.kernels.stationary import RBF
     from gpjax.likelihoods import MultiOutputGaussian
     from gpjax.mean_functions import Zero
     from gpjax.parameters import CoregionalizationMatrix
+    import numpyro.distributions as npd
 
     key = jr.key(0)
     N, P = 6, 2
@@ -345,7 +345,9 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
         loo_mean_i = mx_flat[i] + Sigma[i, idx] @ alpha_i
         v_i = jsp.linalg.solve_triangular(L_i, Sigma[idx, i], lower=True)
         loo_var_i = Sigma[i, i] - jnp.dot(v_i, v_i)
-        total += npd.Normal(loc=loo_mean_i, scale=jnp.sqrt(loo_var_i)).log_prob(y_flat[i])
+        total += npd.Normal(loc=loo_mean_i, scale=jnp.sqrt(loo_var_i)).log_prob(
+            y_flat[i]
+        )
 
     # --- Closed-form LOOCV via the implementation ---
     closed_form = conjugate_loocv(posterior, data)
