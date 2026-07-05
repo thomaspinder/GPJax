@@ -20,20 +20,14 @@ import jax.numpy as jnp
 import jax.random as jr
 from jaxtyping import Array, Float
 import lineax as lx
-from paramax import AbstractUnwrappable
 
 from gpjax.distributions import GaussianDistribution
-from gpjax.parameters import NonNegativeReal, PositiveReal, Real
+from gpjax.parameters import NonNegativeReal, PositiveReal, Real, _val
 from gpjax.typing import ScalarFloat
 
 if tp.TYPE_CHECKING:
     from gpjax.dataset import Dataset
     from gpjax.kernels.base import AbstractKernel
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 class OrthogonalMixingMatrix(eqx.Module):
