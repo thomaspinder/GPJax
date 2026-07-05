@@ -52,6 +52,7 @@ from gpjax.mean_functions import (
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import lineax as lx
 from numpyro.distributions import Distribution as NumpyroDistribution
 import pytest
 
@@ -487,6 +488,52 @@ def test_conjugate_posterior_sample_approx(num_datapoints, kernel, mean_function
     assert max_error_in_var < 0.05  # check that samples are correct
 
 
+def test_prior_sample_approx_covariance_structure():
+    """Pathwise prior samples must reproduce the kernel Gram in their
+    empirical cross-covariance, not just the marginal variance. The shared-key
+    bug leaves marginals correct but biases the cross-covariance."""
+    key = jr.key(42)
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.2))
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+
+    grid = jnp.linspace(0.0, 1.0, 8).reshape(-1, 1)
+    sample_fn = prior.sample_approx(num_samples=4000, key=key, num_features=400)
+    draws = sample_fn(grid)  # [8, 4000]
+
+    empirical_cov = jnp.cov(draws)  # [8, 8]
+    exact_cov = kernel.gram(grid).as_matrix()
+
+    rel_frobenius = jnp.linalg.norm(empirical_cov - exact_cov) / jnp.linalg.norm(
+        exact_cov
+    )
+    assert rel_frobenius < 0.1
+
+
+def test_conjugate_posterior_sample_approx_covariance_structure():
+    """Pathwise posterior samples must reproduce predict()'s covariance."""
+    key = jr.key(7)
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.2))
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+    x = jnp.linspace(0.0, 1.0, 12).reshape(-1, 1)
+    y = jnp.sin(3.0 * x)
+    D = Dataset(X=x, y=y)
+    posterior = prior * Gaussian(num_datapoints=D.n)
+
+    grid = jnp.linspace(0.0, 1.0, 8).reshape(-1, 1)
+    sample_fn = posterior.sample_approx(
+        num_samples=4000, train_data=D, key=key, num_features=400
+    )
+    draws = sample_fn(grid)  # [8, 4000]
+
+    empirical_cov = jnp.cov(draws)
+    exact_cov = posterior(grid, D, return_covariance_type="dense").covariance()
+
+    rel_frobenius = jnp.linalg.norm(empirical_cov - exact_cov) / jnp.linalg.norm(
+        exact_cov
+    )
+    assert rel_frobenius < 0.15
+
+
 class TestMultiOutputPosteriorPredict:
     @pytest.fixture
     def mo_setup(self):
@@ -570,6 +617,46 @@ class TestMultiOutputValidation:
         lik = Gaussian(num_datapoints=10)
         with pytest.raises(ValueError, match="MultiOutputGaussian"):
             prior * lik
+
+
+def test_predict_diagonal_returns_diagonal_operator():
+    """The diagonal predict path must return a DiagonalLinearOperator whose
+    diagonal matches the dense path — not a densified M x M jnp.diag."""
+    kernel = RBF(active_dims=[0], lengthscale=jnp.array(0.3))
+    meanf = Zero()
+    prior = Prior(mean_function=meanf, kernel=kernel)
+    xtest = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
+
+    # Prior
+    diag = prior(xtest, return_covariance_type="diagonal")
+    dense = prior(xtest, return_covariance_type="dense")
+    assert isinstance(diag.scale, lx.DiagonalLinearOperator)
+    assert jnp.allclose(
+        diag.scale.as_matrix().diagonal(), dense.covariance().diagonal()
+    )
+
+    # Conjugate posterior (single-output)
+    x = jnp.linspace(0.0, 1.0, 15).reshape(-1, 1)
+    D = Dataset(X=x, y=jnp.sin(3.0 * x))
+    posterior = prior * Gaussian(num_datapoints=D.n)
+    pdiag = posterior(xtest, D, return_covariance_type="diagonal")
+    pdense = posterior(xtest, D, return_covariance_type="dense")
+    assert isinstance(pdiag.scale, lx.DiagonalLinearOperator)
+    assert jnp.allclose(
+        pdiag.scale.as_matrix().diagonal(), pdense.covariance().diagonal()
+    )
+
+
+def test_predict_diagonal_jit_smoke():
+    """Both branches must jit (the Literal is static, not traced)."""
+    import jax
+
+    kernel = RBF(active_dims=[0])
+    prior = Prior(mean_function=Zero(), kernel=kernel)
+    xtest = jnp.linspace(0.0, 1.0, 6).reshape(-1, 1)
+    for cov_type in ("dense", "diagonal"):
+        fn = jax.jit(lambda t, c=cov_type: prior(t, return_covariance_type=c).mean)
+        _ = fn(xtest)
 
 
 if __name__ == "__main__":
