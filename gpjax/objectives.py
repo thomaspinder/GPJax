@@ -7,7 +7,6 @@ import jax.scipy as jsp
 from jaxtyping import Float
 import lineax as lx
 import numpyro.distributions as npd
-from paramax import AbstractUnwrappable
 import typing_extensions as tpe
 
 from gpjax.dataset import Dataset
@@ -20,6 +19,7 @@ from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
 )
 from gpjax.linalg.utils import add_jitter
+from gpjax.parameters import _val
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -31,11 +31,6 @@ from gpjax.variational_families import (
 
 VF = TypeVar("VF", bound=AbstractVariationalFamily)
 HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
@@ -417,8 +412,8 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     Compute the evidence lower bound under this model. In short, this requires
     evaluating the expectation of the model's log-likelihood under the variational
     approximation. To this, we sum the KL divergence from the variational posterior
-    to the prior. When batching occurs, the result is scaled by the batch size
-    relative to the full dataset size.
+    to the prior. This collapsed bound is evaluated on the full dataset supplied in
+    ``data`` and does not apply minibatch scaling.
 
     Example:
         >>> import gpjax as gpx
