@@ -54,6 +54,11 @@ class _DtypePreservingSoftplusLowerCholeskyTransform(SoftplusLowerCholeskyTransf
 _dtype_preserving_lower_cholesky = _DtypePreservingSoftplusLowerCholeskyTransform()
 
 
+def _val(x):
+    """Unwrap a paramax parameter or return the value directly."""
+    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+
+
 class PositiveReal(AbstractUnwrappable):
     """Strictly positive parameter.
 

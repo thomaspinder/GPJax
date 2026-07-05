@@ -7,7 +7,6 @@ import jax.scipy as jsp
 from jaxtyping import Float
 import lineax as lx
 import numpyro.distributions as npd
-from paramax import AbstractUnwrappable
 import typing_extensions as tpe
 
 from gpjax.dataset import Dataset
@@ -20,6 +19,7 @@ from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
 )
 from gpjax.linalg.utils import add_jitter
+from gpjax.parameters import _val
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -31,11 +31,6 @@ from gpjax.variational_families import (
 
 VF = TypeVar("VF", bound=AbstractVariationalFamily)
 HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
