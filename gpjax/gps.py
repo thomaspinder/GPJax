@@ -18,7 +18,6 @@ from typing import Literal
 
 import beartype.typing as tp
 import equinox as eqx
-import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.scipy as jsp
@@ -279,23 +278,16 @@ class Prior(AbstractPrior[M, K]):
                 of the Gaussian process.
         """
 
-        def _return_full_covariance(t):
-            Kxx = self.kernel.gram(t)
-            Kxx_dense = add_jitter(Kxx.as_matrix(), self.jitter)
-            return lx.MatrixLinearOperator(Kxx_dense)
-
-        def _return_diagonal_covariance(t):
-            Kxx = lx.diagonal(self.kernel.diagonal(t))
-            Kxx += self.jitter
-            return lx.MatrixLinearOperator(jnp.diag(Kxx))
-
         mean_at_test = self.mean_function(test_inputs)
-        cov = jax.lax.cond(
-            return_covariance_type == "dense",
-            _return_full_covariance,
-            _return_diagonal_covariance,
-            test_inputs,
-        )
+        if return_covariance_type == "dense":
+            Kxx_dense = add_jitter(
+                self.kernel.gram(test_inputs).as_matrix(), self.jitter
+            )
+            cov = lx.MatrixLinearOperator(Kxx_dense)
+        else:
+            Ktt_diag = lx.diagonal(self.kernel.diagonal(test_inputs))
+            var = Ktt_diag + self.jitter
+            cov = lx.DiagonalLinearOperator(jnp.atleast_1d(var.squeeze()))
 
         return GaussianDistribution(
             loc=jnp.atleast_1d(mean_at_test.squeeze()), scale=cov
@@ -360,9 +352,10 @@ class Prior(AbstractPrior[M, K]):
         if (not isinstance(num_samples, int)) or num_samples <= 0:
             raise ValueError("num_samples must be a positive integer")
 
-        fourier_feature_fn = _build_fourier_features_fn(self, num_features, key)
+        freq_key, weight_key = jr.split(key)
+        fourier_feature_fn = _build_fourier_features_fn(self, num_features, freq_key)
 
-        feature_weights = jr.normal(key, [num_samples, 2 * num_features])
+        feature_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
 
         def sample_fn(test_inputs: Float[Array, "N D"]) -> Float[Array, "N B"]:
             feature_evals = fourier_feature_fn(test_inputs)
@@ -620,28 +613,19 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             )
             return_covariance_type = "dense"
 
-        def _return_full_covariance(L_inv_Kxt, t):
-            Ktt = kernel.gram(t).as_matrix()
+        if return_covariance_type == "dense":
+            Ktt = kernel.gram(test_inputs).as_matrix()
             covariance = Ktt - jnp.matmul(L_inv_Kxt.T, L_inv_Kxt)
             covariance = add_jitter(covariance, self.prior.jitter)
-            return lx.MatrixLinearOperator(covariance)
-
-        def _return_diagonal_covariance(L_inv_Kxt, t):
-            Ktt = lx.diagonal(kernel.diagonal(t))
-            covariance = Ktt - jnp.einsum("ij, ji->i", L_inv_Kxt.T, L_inv_Kxt)
-            covariance += self.prior.jitter
-            return lx.MatrixLinearOperator(
-                jnp.diag(jnp.atleast_1d(covariance.squeeze()))
+            cov = lx.MatrixLinearOperator(covariance)
+        else:
+            Ktt_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            var = (
+                Ktt_diag
+                - jnp.einsum("ij,ji->i", L_inv_Kxt.T, L_inv_Kxt)
+                + self.prior.jitter
             )
-
-        cov = jax.lax.cond(
-            return_covariance_type == "dense",
-            _return_full_covariance,
-            _return_diagonal_covariance,
-            L_inv_Kxt,
-            test_inputs,
-        )
-
+            cov = lx.DiagonalLinearOperator(jnp.atleast_1d(var.squeeze()))
         return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=cov)
 
     def sample_approx(
@@ -692,15 +676,18 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             raise ValueError("num_samples must be a positive integer")
 
         # sample fourier features
-        fourier_feature_fn = _build_fourier_features_fn(self.prior, num_features, key)
+        freq_key, weight_key, noise_key = jr.split(key, 3)
+        fourier_feature_fn = _build_fourier_features_fn(
+            self.prior, num_features, freq_key
+        )
 
-        fourier_weights = jr.normal(key, [num_samples, 2 * num_features])
+        fourier_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
 
         obs_var = _val(self.likelihood.obs_stddev) ** 2
         Kxx = self.prior.kernel.gram(train_data.X)
         Sigma_dense = add_jitter(Kxx.as_matrix(), obs_var + self.jitter)
         L_sigma = jnp.linalg.cholesky(Sigma_dense)
-        eps = jnp.sqrt(obs_var) * jr.normal(key, [train_data.n, num_samples])
+        eps = jnp.sqrt(obs_var) * jr.normal(noise_key, [train_data.n, num_samples])
         y = train_data.y - self.prior.mean_function(train_data.X)
         Phi = fourier_feature_fn(train_data.X)
         # Solve L_sigma @ canonical_weights = rhs
@@ -818,36 +805,19 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         # mut + Ktx Lx^{-1} wx
         mean = mean_t + jnp.matmul(Lx_inv_Kxt.T, wx)
 
-        def _return_full_covariance(
-            Lx_inv_Kxt: Num[Array, "N M"],
-            t: Num[Array, "M D"],
-        ):
-            Ktt = kernel.gram(t).as_matrix()
+        if return_covariance_type == "dense":
+            Ktt = kernel.gram(test_inputs).as_matrix()
             covariance = Ktt - jnp.matmul(Lx_inv_Kxt.T, Lx_inv_Kxt)
             covariance = add_jitter(covariance, self.prior.jitter)
-            return lx.MatrixLinearOperator(covariance)
-
-        def _return_diagonal_covariance(
-            Lx_inv_Kxt: Num[Array, "N M"],
-            t: Num[Array, "M D"],
-        ):
-            Ktt = lx.diagonal(kernel.diagonal(t))
-            covariance = Ktt - jnp.einsum("ij, ji->i", Lx_inv_Kxt.T, Lx_inv_Kxt)
-            covariance += self.prior.jitter
-            # It would be nice to return a Diagonal here, but the pytree needs
-            # to be the same for both cond branches and the other branch needs
-            # to return a Dense.
-            return lx.MatrixLinearOperator(
-                jnp.diag(jnp.atleast_1d(covariance.squeeze()))
+            cov = lx.MatrixLinearOperator(covariance)
+        else:
+            Ktt_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            var = (
+                Ktt_diag
+                - jnp.einsum("ij,ji->i", Lx_inv_Kxt.T, Lx_inv_Kxt)
+                + self.prior.jitter
             )
-
-        cov = jax.lax.cond(
-            return_covariance_type == "dense",
-            _return_full_covariance,
-            _return_diagonal_covariance,
-            Lx_inv_Kxt,
-            test_inputs,
-        )
+            cov = lx.DiagonalLinearOperator(jnp.atleast_1d(var.squeeze()))
 
         return GaussianDistribution(jnp.atleast_1d(mean.squeeze()), cov)
 
