@@ -130,6 +130,11 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
     calculates the average performance of all models that can be obtained by training on all but one
     data point, and then predicting the left out data point.
 
+    For multi-output likelihoods this performs **leave-one-scalar-out** on the
+    flattened NP system (per-element predictive), the natural generalisation of
+    the scalar R&W LOOCV to multiple outputs.  Per-datapoint LOOCV has no
+    closed form in the multi-output case.
+
     The returned metric can then be used for gradient based optimisation
     of the model's parameters or for model comparison. The implementation
     given here enables exact estimation of the Gaussian process' latent
@@ -173,27 +178,32 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
 
     x, y = data.X, data.y
 
-    # Observation noise o^2
-    obs_var = _val(posterior.likelihood.obs_stddev) ** 2
+    mx = posterior.prior.mean_function(x)
+    # Likelihood protocol: identity for single-output, output-major flatten +
+    # per-output noise for multi-output (mirrors conjugate_mll).
+    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
+    noise = posterior.likelihood.noise_vector(data.n)
 
-    mx = posterior.prior.mean_function(x)  # [N, M]
-
-    # Sigma = (Kxx + I o^2)
-    Kxx = posterior.prior.kernel.gram(x)
-    Kxx_dense = Kxx.as_matrix()
-    n_pts = Kxx_dense.shape[0]
-    Sigma_dense = Kxx_dense + jnp.eye(n_pts) * (obs_var + posterior.prior.jitter)
-    # Use dense solve for loocv
+    # Sigma = Kxx + diag(noise) (+ jitter)
+    Kxx_dense = add_jitter(
+        posterior.prior.kernel.gram(x).as_matrix(), posterior.prior.jitter
+    )
+    Sigma_dense = Kxx_dense + jnp.diag(noise)
     L = jnp.linalg.cholesky(Sigma_dense)
-    Sigma_inv_y = jsp.linalg.cho_solve((L, True), y - mx)  # [N, 1]
-    Sigma_inv = jnp.linalg.inv(Sigma_dense)
-    Sigma_inv_diag = jnp.diag(Sigma_inv)[:, None]  # [N, 1]
 
-    loocv_means = mx + (y - mx) - Sigma_inv_y / Sigma_inv_diag
+    # diag(Sigma^-1) straight from L (R&W eq. 5.12) — no separate jnp.linalg.inv
+    # (folds in audit #662).
+    Linv = jsp.linalg.solve_triangular(L, jnp.eye(Sigma_dense.shape[0]), lower=True)
+    Sigma_inv_diag = jnp.sum(Linv**2, axis=0).reshape(-1, 1)  # [NP, 1]
+
+    resid = (y_flat - mx_flat).reshape(-1, 1)
+    Sigma_inv_y = jsp.linalg.cho_solve((L, True), resid)  # [NP, 1]
+
+    loocv_means = mx_flat.reshape(-1, 1) + resid - Sigma_inv_y / Sigma_inv_diag
     loocv_stds = jnp.sqrt(1.0 / Sigma_inv_diag)
 
     loocv_posterior = npd.Normal(loc=loocv_means, scale=loocv_stds)
-    return jnp.sum(loocv_posterior.log_prob(y))
+    return jnp.sum(loocv_posterior.log_prob(y_flat.reshape(-1, 1)))
 
 
 def log_posterior_density(

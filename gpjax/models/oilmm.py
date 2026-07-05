@@ -394,16 +394,17 @@ class OILMMPosterior:
             P = self.mixing_matrix.num_outputs
             # Reorder to [N, P, N, P] so flattening matches f_mean.T.ravel().
             f_cov = f_cov_blocks.transpose(2, 0, 3, 1).reshape(N * P, N * P)  # [NP, NP]
+            scale = lx.MatrixLinearOperator(f_cov)
         else:
-            # Diagonal-only covariance for efficiency
+            # Diagonal-only covariance for efficiency — keep it diagonal.
             latent_vars = jnp.array([jnp.diag(cov) for cov in latent_covs])  # [M, N]
             f_vars = jnp.einsum("pm,mn->pn", H_squared, latent_vars)  # [P, N]
             f_vars_flat = f_vars.T.ravel()  # [N*P]
-            f_cov = jnp.diag(f_vars_flat)
+            scale = lx.DiagonalLinearOperator(f_vars_flat)
 
         return GaussianDistribution(
             loc=jnp.atleast_1d(f_mean_flat.squeeze()),
-            scale=lx.MatrixLinearOperator(f_cov),
+            scale=scale,
         )
 
 
@@ -618,9 +619,22 @@ def create_oilmm_from_data(
         mean_function=mean_function,
     )
 
-    # NOTE: With equinox modules, we cannot do in-place assignment.
-    # The model returned has default initialization; data-informed init
-    # would require creating new parameter instances.
-    # For now, return the model as-is -- data-informed init will be
-    # addressed in a follow-up task.
+    if dataset.n < 2:  # jnp.cov divides by N-1; N==1 -> all-NaN covariance
+        raise ValueError(
+            "create_oilmm_from_data needs >=2 data points to estimate the "
+            "output covariance for PCA initialisation; got "
+            f"N={dataset.n}. Use OILMMModel/create_oilmm for smaller data."
+        )
+
+    Y = dataset.y  # [N, P]
+    output_cov = jnp.cov(Y, rowvar=False)  # column-centred empirical cov [P, P]
+    eigvals, eigvecs = jnp.linalg.eigh(output_cov)  # ascending
+    top_eigvecs = eigvecs[:, ::-1][:, :num_latent_gps]  # [P, M]
+    top_eigvals = jnp.clip(eigvals[::-1][:num_latent_gps], min=1e-6)  # [M]
+
+    model = eqx.tree_at(
+        lambda m: (m.mixing_matrix.U_latent, m.mixing_matrix.S),
+        model,
+        (Real(top_eigvecs), PositiveReal(top_eigvals)),
+    )
     return model

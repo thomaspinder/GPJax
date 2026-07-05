@@ -82,13 +82,14 @@ class ArcCosine(AbstractKernel):
 
         self.order = order
 
-        self.weight_variance = weight_variance
+        def _as_nonneg(value):
+            if isinstance(value, AbstractUnwrappable):
+                return value
+            return NonNegativeReal(value)
 
-        if isinstance(variance, AbstractUnwrappable):
-            self.variance = variance
-        else:
-            self.variance = NonNegativeReal(variance)
-        self.bias_variance = bias_variance
+        self.weight_variance = _as_nonneg(weight_variance)
+        self.bias_variance = _as_nonneg(bias_variance)
+        self.variance = _as_nonneg(variance)
 
         super().__init__(active_dims, n_dims, compute_engine)
 
