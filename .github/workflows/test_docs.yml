@@ -47,7 +47,7 @@ jobs:
         run: |
           conda install pandoc
           uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute
+          uv run python docs/scripts/gen_examples.py --execute --parallel --max_workers 4
           uv run mkdocs build
 
       - name: Upload built docs artifact

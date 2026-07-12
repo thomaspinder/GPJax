@@ -162,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--outdir", type=Path, default=project_root / "docs" / "_examples"
     )
-    parser.add_argument("--parallel", type=bool, default=False)
+    parser.add_argument("--parallel", action="store_true")
     args = parser.parse_args()
 
     exit_code = main(args)
