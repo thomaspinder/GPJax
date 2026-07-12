@@ -160,9 +160,12 @@ print(type(posterior))
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) in this notebook, which we
 # recommend adopting for general applications.
 #
-# We begin by generating _sensible_ initial positions for our sampler before defining
-# an inference loop and sampling 200 values from our Markov chain. In practice,
-# drawing more samples will be necessary.
+# We begin with a **warm-up** phase, in which BlackJax's window adaptation tunes the
+# NUTS step size and mass matrix, before running the sampler for `num_samples` steps.
+# The warm-up matters here: with an untuned, fixed step size the sampler mixes poorly
+# and the latent rate occasionally collapses towards zero, producing a spuriously wide
+# and ragged lower credible band. In practice, drawing more samples across several
+# chains will be necessary.
 
 # %%
 # Adapted from BlackJax's introduction notebook.
@@ -179,13 +182,12 @@ def logprob_fn(params):
     return gpx.objectives.log_posterior_density(model, D)
 
 
-step_size = 1e-3
-n_params = sum(jnp.size(leaf) for leaf in jtu.tree_leaves(params))
-inverse_mass_matrix = jnp.ones(n_params)
-nuts = blackjax.nuts(logprob_fn, step_size, inverse_mass_matrix)
+# Warm-up: adapt the NUTS step size and inverse mass matrix.
+key, warmup_key, sampling_key = jr.split(key, 3)
+warmup = blackjax.window_adaptation(blackjax.nuts, logprob_fn)
+(state, tuned_parameters), _ = warmup.run(warmup_key, params, num_steps=num_adapt)
 
-state = nuts.init(params)
-
+nuts = blackjax.nuts(logprob_fn, **tuned_parameters)
 step = jax.jit(nuts.step)
 
 
@@ -194,7 +196,7 @@ def one_step(state, rng_key):
     return state, (state, info)
 
 
-keys = jax.random.split(key, num_samples)
+keys = jax.random.split(sampling_key, num_samples)
 _, (states, infos) = jax.lax.scan(one_step, state, keys, unroll=10)
 
 # %% [markdown]
@@ -220,9 +222,16 @@ ax2.set_title("Latent Function (index = 1)")
 # %% [markdown]
 # ## Prediction
 #
-# Having obtained samples from the posterior, we draw ten instances from our model's
-# predictive distribution per MCMC sample. Using these draws, we will be able to
-# compute credible values and expected values under our posterior distribution.
+# Having obtained samples from the posterior, we summarise the predictions at two
+# levels for each (thinned) MCMC sample:
+#
+# 1. The **posterior rate** $\lambda(\text{year}) = \exp(f(\text{year}))$ — the smooth,
+#    uncertainty-aware intensity of the process. Because the exponential link is
+#    bounded below by zero, the credible interval for $\lambda$ is naturally
+#    *asymmetric*: equal uncertainty in the latent $f$ maps to a multiplicative,
+#    right-skewed spread in $\lambda$.
+# 2. The **posterior predictive** over counts, which layers Poisson observation noise
+#    on top of the rate. This band is wider and integer-valued.
 #
 # An ideal Markov chain would have samples completely uncorrelated with their
 # neighbours after a single lag. However, in practice, correlations often exist
@@ -233,20 +242,29 @@ ax2.set_title("Latent Function (index = 1)")
 # factors, we employ a thin factor of 10 for demonstration purposes.
 
 # %%
-thin_factor = 20
-posterior_samples = []
+thin_factor = 10
+rate_samples = []
+count_samples = []
 
+key, predictive_key = jr.split(key)
 for i in range(0, num_samples, thin_factor):
     sample_params = jtu.tree_map(lambda samples, i=i: samples[i], states.position)
     model = eqx.combine(sample_params, static)
     model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
+    # Rate lambda = exp(f); the smooth intensity of the Poisson process.
+    rate_samples.append(jnp.exp(latent_dist.mean))
+    # Posterior predictive counts add Poisson observation noise on top of the rate.
+    predictive_key, draw_key = jr.split(predictive_key)
     predictive_dist = model.likelihood(latent_dist)
-    posterior_samples.append(predictive_dist.sample(key=key, sample_shape=(10,)))
+    count_samples.append(predictive_dist.sample(key=draw_key, sample_shape=(30,)))
 
-posterior_samples = jnp.vstack(posterior_samples)
-lower_ci, upper_ci = jnp.percentile(posterior_samples, jnp.array([2.5, 97.5]), axis=0)
-expected_val = jnp.mean(posterior_samples, axis=0)
+rate_samples = jnp.stack(rate_samples)
+count_samples = jnp.vstack(count_samples)
+
+rate_lower, rate_upper = jnp.percentile(rate_samples, jnp.array([2.5, 97.5]), axis=0)
+count_lower, count_upper = jnp.percentile(count_samples, jnp.array([2.5, 97.5]), axis=0)
+expected_rate = jnp.mean(rate_samples, axis=0)
 
 
 # %% [markdown]
@@ -263,24 +281,36 @@ ax.plot(
     markersize=5,
     color=cols[1],
     label="Observed counts",
-    zorder=2,
+    zorder=3,
     alpha=0.7,
 )
 ax.plot(
     year_test,
-    expected_val,
+    expected_rate,
     linewidth=2,
     color=cols[0],
     label=r"Posterior rate $\lambda$",
+    zorder=2,
+)
+ax.fill_between(
+    year_test,
+    rate_lower.flatten(),
+    rate_upper.flatten(),
+    alpha=0.35,
+    color=cols[0],
+    lw=0,
+    label=r"95% CI (rate $\lambda$)",
     zorder=1,
 )
 ax.fill_between(
     year_test,
-    lower_ci.flatten(),
-    upper_ci.flatten(),
-    alpha=0.2,
+    count_lower.flatten(),
+    count_upper.flatten(),
+    alpha=0.15,
     color=cols[0],
-    label="95% CI",
+    lw=0,
+    label="95% CI (predicted counts)",
+    zorder=0,
 )
 ax.set_xlabel("year")
 ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
@@ -289,7 +319,10 @@ ax.legend()
 # %% [markdown]
 # The inferred rate $\lambda(\text{year})$ increases steadily across the record, tracking the rising
 # number of hot days in Madrid and illustrating how a Poisson-likelihood GP recovers a smooth,
-# uncertainty-aware trend from noisy annual counts.
+# uncertainty-aware trend from noisy annual counts. The darker band is the credible interval for
+# the rate itself, while the lighter band adds Poisson observation noise to give the predictive
+# interval for the counts; both are gently asymmetric because the exponential link floors the rate
+# at zero.
 #
 # Data: ERA5 reanalysis via Open-Meteo (CC-BY).
 
