@@ -84,8 +84,18 @@ keys = jr.split(key, 8)
 # can be mapped back to physical units.
 
 # %%
-data_path = "examples/data/max_tempeature_switzerland.csv"
-stations = pd.read_csv(data_path, index_col=0).dropna(subset=["t_max"])
+# Resolve the data file from the repo root (``examples/data``) or from the docs
+# build, which executes notebooks with ``docs/_examples`` as the working directory
+# and copies the data alongside as ``data``.
+try:
+    stations = pd.read_csv(
+        "examples/data/max_tempeature_switzerland.csv", index_col=0
+    )
+except FileNotFoundError:
+    stations = pd.read_csv(
+        "data/max_tempeature_switzerland.csv", index_col=0
+    )
+stations = stations.dropna(subset=["t_max"])
 
 longitude = jnp.asarray(stations["longitude"].to_numpy())
 latitude = jnp.asarray(stations["latitude"].to_numpy())
