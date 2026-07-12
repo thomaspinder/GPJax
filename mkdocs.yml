@@ -36,6 +36,8 @@ nav:
     - Orthogonal Additive GPs: _examples/oak.md
     - Numpyro Integration: _examples/numpyro_integration.md
     - Spatial Linear Gaussian Process: _examples/spatial_linear_gp.md
+    - Temperature Forecasting: _examples/temperature_forecasting.md
+    - Climate Extrapolation: _examples/climate_extrapolation.md
   - 📖 Guides for customisation:
     - Kernels: _examples/constructing_new_kernels.md
     - Likelihoods: _examples/likelihoods_guide.md

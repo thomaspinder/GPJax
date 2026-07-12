@@ -32,6 +32,8 @@ CTA_NOTEBOOKS = {
     "oak",
     "numpyro_integration",
     "spatial_linear_gp",
+    "temperature_forecasting",
+    "climate_extrapolation",
 }
 
 CTA_HTML = """

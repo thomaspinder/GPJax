@@ -23,6 +23,8 @@
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) for sampling.
 
 # %%
+from pathlib import Path
+
 import blackjax
 import equinox as eqx
 from examples.utils import use_mpl_style
@@ -34,6 +36,7 @@ import jax.tree_util as jtu
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pandas as pd
 import paramax
 
 with install_import_hook("gpjax", "beartype.beartype"):
@@ -60,28 +63,51 @@ key = jr.key(42)
 # where $y$ is the count and the parameter $\lambda \in \mathbb{R}_{>0}$ is the rate of the Poisson
 # distribution.
 #
-# We than set $\lambda = \exp(f)$ where $f$ is the latent Gaussian process. The exponential function
+# We then set $\lambda = \exp(f)$ where $f$ is the latent Gaussian process. The exponential function
 # is the _link function_ for the Poisson distribution: it maps the output of a GP to the positive
 # real line, which is suitable for modeling count data.
 #
-# We simulate a dataset $\mathcal{D} = \{(\mathbf{X}, \mathbf{y})\}$ with inputs $\mathbf{X} \in
-# \mathbb{R}^d$ and corresponding count outputs $\mathbf{y}$.  We store our data $\mathcal{D}$ as a
-# GPJax `Dataset`.
+# Rather than a simulated series, we use a genuine count dataset: the number of **hot days**
+# recorded each year in Madrid, Spain, defined as days on which the maximum temperature reached at
+# least 30 °C. The record spans 1960–2023 (64 annual counts) and is derived from the ERA5
+# reanalysis. Over this period the annual hot-day count rises noticeably — roughly 49 days in 1960
+# to over 80 days by 2020 — a clear climate-warming signal that is a natural fit for a
+# Poisson-likelihood GP. The accompanying `frost_days` column (days with $T_\min \le 0$ °C) tells
+# the mirror-image story of a *declining* count over the same period; here we model the hot-day
+# series, but the identical workflow applies to that alternative target.
+#
+# We use the calendar `year` as our input $\mathbf{X}$ and the hot-day count as the output
+# $\mathbf{y}$. The input is **standardised** (centred and scaled to unit variance), which improves
+# the conditioning of the GP inference. We store the data $\mathcal{D}$ as a GPJax `Dataset` and
+# retain the standardisation constants so predictions can be mapped back to calendar years.
 
 # %%
-key, subkey = jr.split(key)
-n = 50
-x = jr.uniform(key, shape=(n, 1), minval=-2.0, maxval=2.0)
-f = lambda x: 2.0 * jnp.sin(3 * x) + 0.5 * x  # latent function
-y = jr.poisson(key, jnp.exp(f(x)))
+csv_candidates = [
+    Path("examples/data/madrid_annual_extreme_days.csv"),
+    Path("data/madrid_annual_extreme_days.csv"),
+]
+csv_path = next(path for path in csv_candidates if path.exists())
+madrid_data = pd.read_csv(csv_path)
 
-D = gpx.Dataset(X=x, y=y)
+year = madrid_data["year"].to_numpy()
+hot_days = madrid_data["hot_days_30"].to_numpy()
 
-xtest = jnp.linspace(-2.0, 2.0, 500).reshape(-1, 1)
+year_mean = year.mean()
+year_std = year.std()
+year_standardised = ((year - year_mean) / year_std).reshape(-1, 1)
+count = hot_days.reshape(-1, 1).astype(float)
+
+D = gpx.Dataset(X=jnp.asarray(year_standardised), y=jnp.asarray(count))
+
+xtest = jnp.linspace(year_standardised.min(), year_standardised.max(), 500).reshape(
+    -1, 1
+)
+year_test = xtest.flatten() * year_std + year_mean
 
 fig, ax = plt.subplots()
-ax.plot(x, y, "o", label="Observations", color=cols[1])
-ax.plot(xtest, jnp.exp(f(xtest)), label=r"Rate $\lambda$")
+ax.plot(year, hot_days, "o", label="Observed counts", color=cols[1])
+ax.set_xlabel("year")
+ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
 ax.legend()
 
 # %% [markdown]
@@ -231,19 +257,41 @@ expected_val = jnp.mean(posterior_samples, axis=0)
 # %%
 fig, ax = plt.subplots()
 ax.plot(
-    x, y, "o", markersize=5, color=cols[1], label="Observations", zorder=2, alpha=0.7
+    year,
+    hot_days,
+    "o",
+    markersize=5,
+    color=cols[1],
+    label="Observed counts",
+    zorder=2,
+    alpha=0.7,
 )
 ax.plot(
-    xtest, expected_val, linewidth=2, color=cols[0], label="Predicted mean", zorder=1
+    year_test,
+    expected_val,
+    linewidth=2,
+    color=cols[0],
+    label=r"Posterior rate $\lambda$",
+    zorder=1,
 )
 ax.fill_between(
-    xtest.flatten(),
+    year_test,
     lower_ci.flatten(),
     upper_ci.flatten(),
     alpha=0.2,
     color=cols[0],
     label="95% CI",
 )
+ax.set_xlabel("year")
+ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
+ax.legend()
+
+# %% [markdown]
+# The inferred rate $\lambda(\text{year})$ increases steadily across the record, tracking the rising
+# number of hot days in Madrid and illustrating how a Poisson-likelihood GP recovers a smooth,
+# uncertainty-aware trend from noisy annual counts.
+#
+# Data: ERA5 reanalysis via Open-Meteo (CC-BY).
 
 # %% [markdown]
 # ## System configuration

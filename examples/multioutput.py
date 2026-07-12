@@ -23,12 +23,14 @@
 # correlations so that observations of one output can inform predictions of another.
 #
 # This notebook introduces the Intrinsic Coregionalization Model (ICM) implemented
-# in GPJax. We construct a synthetic dataset with two correlated outputs, fit an ICM
-# model by optimising the marginal log-likelihood, and inspect the learned
-# coregionalization matrix to see what the model has discovered about the output
-# structure.
+# in GPJax. We fit an ICM to a real record of North Atlantic ocean waves — the total
+# sea state alongside its swell and wind-sea components — by optimising the marginal
+# log-likelihood, then inspect the learned coregionalization matrix to see what the
+# model has discovered about the physical structure of the sea.
 
 # %%
+from pathlib import Path
+
 from examples.utils import use_mpl_style
 from jax import config
 import jax.numpy as jnp
@@ -36,6 +38,7 @@ import jax.random as jr
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pandas as pd
 
 config.update("jax_enable_x64", True)
 
@@ -72,70 +75,111 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # where $\mathbf{W} \in \mathbb{R}^{P \times R}$ is a low-rank factor of rank $R$
 # and $\boldsymbol{\kappa} \in \mathbb{R}^P_{>0}$ is a positive diagonal. The rank
 # parameter controls how many latent sources of correlation the model can express.
-# When $R = 1$ and $P = 2$, the model captures a single shared direction of
-# variation between the two outputs.
+# With $R = 1$ the model captures a single shared direction of variation across the
+# outputs; choosing $R = 2$ lets $\mathbf{B}$ represent two independent latent
+# drivers, which is exactly what we need for the wave data below.
 
 # %% [markdown]
-# ## Synthetic dataset
+# ## Atlantic wave data
 #
-# We generate two correlated functions on the interval $[0, 1]$. The first output is
-# $f_1(x) = \sin(2\pi x)$ and the second is a mixture
-# $f_2(x) = 0.5\sin(2\pi x) + 0.5\cos(2\pi x)$, so the two outputs share a
-# sinusoidal component. Both are corrupted by Gaussian noise with different standard
-# deviations ($\sigma_1 = 0.1$, $\sigma_2 = 0.2$) to illustrate the per-output
-# noise capability of the multi-output likelihood.
+# Instead of a synthetic example, we model a real record of ocean waves: hourly
+# significant wave heights for December 2023 at a point in the North Atlantic west of
+# Ireland (53.5°N, 11°W), during the winter-storm season. Three quantities are
+# recorded, each in metres:
+#
+# - **total wave height** — the significant wave height of the full sea surface,
+# - **swell** — the component due to distant storms, arriving as long-period waves,
+# - **wind-sea** — the component raised by the local wind blowing overhead.
+#
+# The total sea state combines two largely independent physical drivers. Swell is set
+# by weather systems hundreds of kilometres away, while the wind-sea responds to the
+# wind directly overhead. Consequently the total wave height correlates strongly with
+# each component, yet the two components are only weakly correlated with each other. A
+# multi-output GP is a natural fit: a shared temporal kernel captures the common
+# evolution over the month, while the coregionalization matrix should recover this
+# two-driver structure.
+#
+# Data: ERA5 wave reanalysis via Open-Meteo (CC-BY).
 
 # %%
-N = 40
-P = 2
-noise_stds = jnp.array([0.1, 0.2])
+csv_candidates = [
+    Path("examples/data/atlantic_wave_components.csv"),
+    Path("data/atlantic_wave_components.csv"),
+]
+csv_path = next(path for path in csv_candidates if path.exists())
+wave_frame = pd.read_csv(csv_path, parse_dates=["time"])
 
-key, subkey1, subkey2 = jr.split(key, 3)
-x = jnp.sort(jr.uniform(subkey1, shape=(N,), minval=0.0, maxval=1.0)).reshape(-1, 1)
+output_columns = ["wave_height", "swell_wave_height", "wind_wave_height"]
+output_labels = ["Total wave height", "Swell", "Wind-sea"]
+num_outputs = len(output_columns)
 
-f1 = lambda x: jnp.sin(2 * jnp.pi * x)
-f2 = lambda x: 0.5 * f1(x) + 0.5 * jnp.cos(2 * jnp.pi * x)
+# Thin from hourly to every third hour to keep the exact multi-output GP fast.
+subsample_stride = 3
+wave_frame = wave_frame.iloc[::subsample_stride].reset_index(drop=True)
 
-y1 = f1(x) + jr.normal(subkey1, shape=x.shape) * noise_stds[0]
-y2 = f2(x) + jr.normal(subkey2, shape=x.shape) * noise_stds[1]
-y = jnp.hstack([y1, y2])  # [N, 2]
+# Shared input: hours elapsed since the start of the record.
+time_hours = (
+    wave_frame["time"] - wave_frame["time"].iloc[0]
+).dt.total_seconds().to_numpy() / 3600.0
+wave_components_m = wave_frame[output_columns].to_numpy()  # [N, P], metres
+num_datapoints = time_hours.shape[0]
 
-D = gpx.Dataset(X=x, y=y)
+# Standardise the shared input for stable optimisation.
+input_mean = time_hours.mean()
+input_std = time_hours.std()
+x = ((time_hours - input_mean) / input_std).reshape(-1, 1)
+
+# Standardise each output; keep the moments to map predictions back to metres.
+output_means = wave_components_m.mean(axis=0)
+output_stds = wave_components_m.std(axis=0)
+y = (wave_components_m - output_means) / output_stds
+
+D = gpx.Dataset(X=jnp.asarray(x), y=jnp.asarray(y))
+
+print(f"Modelling {num_outputs} outputs at {num_datapoints} time points.")
+empirical_corr = jnp.corrcoef(jnp.asarray(wave_components_m).T)
+print("Empirical output correlations (metres):")
+print(jnp.round(empirical_corr, 3))
 
 # %% [markdown]
-# We plot the two outputs alongside the latent functions that generated them.
+# We plot the three observed wave-height series across the month.
 
 # %%
-xtest = jnp.linspace(0.0, 1.0, 200).reshape(-1, 1)
-output_labels = [r"$f_1$", r"$f_2$"]
-latent_fns = [f1, f2]
+fig, axes = plt.subplots(1, num_outputs, figsize=(12, 2.5), sharex=True)
 
-fig, axes = plt.subplots(1, 2, figsize=(8, 2.5), sharey=True)
-
-for i, ax in enumerate(axes):
-    ax.plot(x, y[:, i], "o", color=cols[i], alpha=0.6, label="Observations", ms=4)
+for output_index, ax in enumerate(axes):
     ax.plot(
-        xtest, latent_fns[i](xtest), color=cols[i], ls="--", label="Latent function"
+        time_hours,
+        wave_components_m[:, output_index],
+        "o",
+        color=cols[output_index],
+        alpha=0.6,
+        ms=3,
+        label="Observations",
     )
-    ax.set_title(output_labels[i])
-    ax.set_xlabel(r"$x$")
+    ax.set_title(output_labels[output_index])
+    ax.set_xlabel("time (hours)")
     ax.legend(loc="best", fontsize=7)
 
-axes[0].set_ylabel(r"$y$")
+axes[0].set_ylabel("wave height (m)")
 
 # %% [markdown]
 # ## Model definition
 #
 # We construct the ICM model in three steps. First, we build a
-# `CoregionalizationMatrix` with $P = 2$ outputs and rank $R = 1$. Second, we wrap
-# an RBF base kernel together with the coregionalization matrix inside an
-# `ICMKernel`. Third, we pair a zero-mean GP prior with a `MultiOutputGaussian`
+# `CoregionalizationMatrix` with $P = 3$ outputs and rank $R = 2$: two latent
+# directions give the model enough freedom to represent the separate swell and
+# wind-sea drivers rather than forcing all three outputs onto a single shared factor.
+# Second, we wrap an RBF base kernel together with the coregionalization matrix inside
+# an `ICMKernel`. Third, we pair a zero-mean GP prior with a `MultiOutputGaussian`
 # likelihood, which allows a separate noise variance for each output.
 
 # %%
 key, subkey = jr.split(key)
 
-coreg = gpx.parameters.CoregionalizationMatrix(num_outputs=P, rank=1, key=subkey)
+coreg = gpx.parameters.CoregionalizationMatrix(
+    num_outputs=num_outputs, rank=2, key=subkey
+)
 kernel = gpx.kernels.ICMKernel(
     base_kernel=gpx.kernels.RBF(),
     coregionalization_matrix=coreg,
@@ -144,7 +188,7 @@ kernel = gpx.kernels.ICMKernel(
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 likelihood = gpx.likelihoods.MultiOutputGaussian(
-    num_datapoints=N, num_outputs=P, obs_stddev=1.0
+    num_datapoints=num_datapoints, num_outputs=num_outputs, obs_stddev=1.0
 )
 posterior = prior * likelihood
 
@@ -177,41 +221,62 @@ print(f"Optimised negative MLL: {-gpx.objectives.conjugate_mll(opt_posterior, D)
 # over a flattened vector of length $MP$, where $M$ is the number of test points and
 # $P$ is the number of outputs. The ordering is output-major: all $M$ values for
 # output 1 appear first, followed by all $M$ values for output 2, and so on. We
-# reshape the mean and extract per-output marginal variances from the diagonal of
-# the joint covariance.
+# reshape the mean, extract per-output marginal variances from the diagonal of the
+# joint covariance, then undo the output standardisation to return to metres.
 
 # %%
-M = xtest.shape[0]
+num_test = 400
+xtest_hours = jnp.linspace(time_hours.min(), time_hours.max(), num_test)
+xtest = ((xtest_hours - input_mean) / input_std).reshape(-1, 1)
+
 pred = opt_posterior.predict(xtest, train_data=D)
 
-pred_mean = pred.mean.reshape(P, M).T  # [M, P]
-pred_var = jnp.diag(pred.covariance()).reshape(P, M).T  # [M, P]
-pred_std = jnp.sqrt(pred_var)
+pred_mean_std = pred.mean.reshape(num_outputs, num_test).T  # [M, P], standardised
+pred_var_std = jnp.diag(pred.covariance()).reshape(num_outputs, num_test).T
+pred_std_std = jnp.sqrt(pred_var_std)
+
+# Map the standardised predictions back to metres for plotting.
+output_means_j = jnp.asarray(output_means)
+output_stds_j = jnp.asarray(output_stds)
+pred_mean = pred_mean_std * output_stds_j + output_means_j
+pred_std = pred_std_std * output_stds_j
 
 # %% [markdown]
-# We now plot the predictive distribution for each output. The shaded region shows the
-# predictive uncertainty of the model.
+# We now plot the predictive distribution for each output over the observed series.
+# The shaded region shows the model's two-sigma predictive uncertainty.
 
 # %%
-fig, axes = plt.subplots(1, 2, figsize=(8, 2.5), sharey=True)
+fig, axes = plt.subplots(1, num_outputs, figsize=(12, 2.5), sharex=True)
 
-for i, ax in enumerate(axes):
-    ax.plot(x, y[:, i], "o", color=cols[i], alpha=0.5, label="Observations", ms=4)
-    ax.plot(xtest, latent_fns[i](xtest), ls="--", color="grey", label="Latent function")
-    ax.plot(xtest, pred_mean[:, i], color=cols[i], label="Predictive mean")
+for output_index, ax in enumerate(axes):
+    ax.plot(
+        time_hours,
+        wave_components_m[:, output_index],
+        "o",
+        color=cols[output_index],
+        alpha=0.4,
+        ms=3,
+        label="Observations",
+    )
+    ax.plot(
+        xtest_hours,
+        pred_mean[:, output_index],
+        color=cols[output_index],
+        label="Predictive mean",
+    )
     ax.fill_between(
-        xtest.squeeze(),
-        pred_mean[:, i] - 2 * pred_std[:, i],
-        pred_mean[:, i] + 2 * pred_std[:, i],
-        color=cols[i],
+        xtest_hours,
+        pred_mean[:, output_index] - 2 * pred_std[:, output_index],
+        pred_mean[:, output_index] + 2 * pred_std[:, output_index],
+        color=cols[output_index],
         alpha=0.2,
         label="Two sigma",
     )
-    ax.set_title(output_labels[i])
-    ax.set_xlabel(r"$x$")
+    ax.set_title(output_labels[output_index])
+    ax.set_xlabel("time (hours)")
     ax.legend(loc="best", fontsize=7)
 
-axes[0].set_ylabel(r"$y$")
+axes[0].set_ylabel("wave height (m)")
 
 # %% [markdown]
 # ## Learned coregionalization matrix
@@ -222,42 +287,56 @@ axes[0].set_ylabel(r"$y$")
 # while a value near zero suggests they are largely independent given the shared
 # input kernel.
 #
-# We visualise $\mathbf{B}$ as a heatmap and print its entries.
+# Because the raw scale of $\mathbf{B}$ is confounded with the base-kernel variance,
+# we normalise it into implied output correlations,
+# $\rho_{pq} = B_{pq} / \sqrt{B_{pp} B_{qq}}$, which are directly comparable to the
+# empirical correlations computed above. We print both and visualise the correlations
+# as a heatmap.
 
 # %%
 B_learned = opt_posterior.prior.kernel.coregionalization_matrix.B
 
-fig, ax = plt.subplots(figsize=(3.5, 3))
-im = ax.imshow(
-    B_learned,
-    cmap="RdBu_r",
-    vmin=-jnp.max(jnp.abs(B_learned)),
-    vmax=jnp.max(jnp.abs(B_learned)),
-)
+b_diag = jnp.sqrt(jnp.diag(B_learned))
+implied_corr = B_learned / jnp.outer(b_diag, b_diag)
 
-for row in range(P):
-    for col in range(P):
+print("Learned coregionalization matrix B:")
+print(jnp.round(B_learned, 3))
+print("Implied output correlations from B:")
+print(jnp.round(implied_corr, 3))
+
+short_labels = ["Total", "Swell", "Wind-sea"]
+
+fig, ax = plt.subplots(figsize=(4, 3.5))
+im = ax.imshow(implied_corr, cmap="RdBu_r", vmin=-1.0, vmax=1.0)
+
+for row in range(num_outputs):
+    for col in range(num_outputs):
         ax.text(
             col,
             row,
-            f"{B_learned[row, col]:.3f}",
+            f"{implied_corr[row, col]:.2f}",
             ha="center",
             va="center",
             fontsize=10,
         )
 
-ax.set_xticks(range(P))
-ax.set_yticks(range(P))
-ax.set_xticklabels(output_labels)
-ax.set_yticklabels(output_labels)
-ax.set_title(r"Learned $\mathbf{B}$")
+ax.set_xticks(range(num_outputs))
+ax.set_yticks(range(num_outputs))
+ax.set_xticklabels(short_labels, rotation=30, ha="right")
+ax.set_yticklabels(short_labels)
+ax.set_title("Implied output correlations")
 fig.colorbar(im, ax=ax, shrink=0.8)
 
 # %% [markdown]
-# Because $f_2$ is defined as a mixture that includes a scaled copy of $f_1$, we
-# expect the model to recover a positive correlation between the two outputs. The
-# diagonal entries reflect each output's marginal variance contribution from the
-# shared latent process.
+# The learned structure recovers the physics of the sea state. The total wave height
+# loads strongly onto **both** the swell and the wind-sea, since it is their
+# combination. Yet swell and wind-sea are only weakly coupled to each other: they are
+# driven by distinct processes — distant storms versus the local wind — so knowing
+# one tells us little about the other. This is precisely the two-driver structure seen
+# in the empirical correlations, and the rank-2 coregionalization matrix was able to
+# represent it because two latent directions can load the total onto each component
+# independently. A rank-1 model would have been forced to tie all three outputs to a
+# single shared factor, over-stating the swell/wind-sea coupling.
 
 # %% [markdown]
 # ## From ICM to LCM
