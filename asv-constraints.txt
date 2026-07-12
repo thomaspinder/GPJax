@@ -1,4 +1,4 @@
-absl-py==2.4.0
+absl-py==2.5.0
 beartype==0.22.9
 chex==0.1.92
 colorama==0.4.6 ; sys_platform == 'win32'
@@ -19,5 +19,5 @@ scipy==1.17.1
 tensorstore==0.1.84 ; sys_platform == 'darwin'
 toolz==1.1.0
 tqdm==4.68.3
-typing-extensions==4.15.0
+typing-extensions==4.16.0
 wadler-lindig==0.1.7

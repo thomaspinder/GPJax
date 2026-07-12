@@ -29,7 +29,7 @@ from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
 )
-from gpjax.parameters import Real
+from gpjax.parameters import Real, _val
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
@@ -208,11 +208,6 @@ class AbstractKernel(_SummaryMixin, eqx.Module):
                         if parent_attr_value.__doc__:
                             attr_value.__doc__ = parent_attr_value.__doc__
                             break
-
-
-def _val(x):
-    """Get the value from a parameter (AbstractUnwrappable) or plain array."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 class Constant(AbstractKernel):

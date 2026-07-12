@@ -34,7 +34,7 @@ class Matern52(StationaryKernel):
     lengthscale parameter $\ell$ and variance $\sigma^2$.
 
     $$
-    k(x, y) = \sigma^2 \exp \Bigg(1+ \frac{\sqrt{5}\lvert x-y \rvert}{\ell} + \frac{5\lvert x - y \rvert^2}{3\ell^2} \Bigg)\exp\Bigg(-\frac{\sqrt{5}\lvert x-y\rvert}{\ell^2} \Bigg)
+    k(x, y) = \sigma^2 \Bigg(1 + \frac{\sqrt{5}\lvert x-y \rvert}{\ell} + \frac{5\lvert x - y \rvert^2}{3\ell^2}\Bigg)\exp\Bigg(-\frac{\sqrt{5}\lvert x-y\rvert}{\ell}\Bigg)
     $$
     """
 

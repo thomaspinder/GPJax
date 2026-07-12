@@ -3,16 +3,11 @@ import typing as tp
 import jax.numpy as jnp
 from jaxtyping import Float
 import lineax as lx
-from paramax import AbstractUnwrappable
 
 import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
+from gpjax.parameters import _val
 from gpjax.typing import Array
-
-
-def _val(x):
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
-
 
 K = tp.TypeVar("K", bound="gpjax.kernels.approximations.RFF")
 

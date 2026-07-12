@@ -26,16 +26,12 @@ from jaxtyping import (
 )
 from paramax import AbstractUnwrappable
 
+from gpjax.parameters import _val
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 class AbstractMeanFunction(_SummaryMixin, eqx.Module):

@@ -25,7 +25,6 @@ from jaxtyping import (
     Int,
 )
 import lineax as lx
-from paramax import AbstractUnwrappable
 
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
@@ -47,6 +46,7 @@ from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     LowerTriangular,
     Real,
+    _val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
@@ -63,11 +63,6 @@ HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
 P = tp.TypeVar("P", bound=AbstractPrior)
 PP = tp.TypeVar("PP", bound=AbstractPosterior)
 HP = tp.TypeVar("HP", HeteroscedasticPosterior, ChainedPosterior)
-
-
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
 
 
 def _psd(matrix):
