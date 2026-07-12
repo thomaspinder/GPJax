@@ -15,33 +15,24 @@
 # ---
 
 # %% [markdown]
-# # Forecasting a Seasonal Time Series with a Bespoke Kernel
+# # Forecasting a seasonal time series with a composite kernel
 #
-# The introductory [regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
-# fits a single stationary kernel to simulated data. That is the right starting point,
-# but it hides a hard truth about stationary kernels: **they cannot forecast a seasonal
-# signal**. An RBF or Matérn kernel only "remembers" the data within roughly one
-# lengthscale of a test point. Push a test input further into the future than that and
-# the posterior mean decays back to the prior mean, taking the credible interval with it.
-# Worse, if you hand a stationary kernel a noisy seasonal series and optimise the marginal
-# likelihood, the lengthscale collapses to a tiny value that merely interpolates the
-# training points — a good in-sample fit that forecasts nothing.
+# This notebook forecasts daily mean temperature in Reykjavík, Iceland. A stationary RBF
+# kernel with a short fitted lengthscale loses covariance with observations as the forecast
+# horizon increases, so its posterior mean approaches the prior mean. To represent the
+# observed annual structure, the model instead uses three covariance components:
 #
-# The fix is not a fancier optimiser; it is a kernel that *encodes what we already know
-# about the signal*. In this notebook we forecast daily mean temperature in Reykjavík,
-# Iceland, whose dominant feature is a strong annual cycle. We design a composite kernel
-# from three interpretable ingredients:
+# - a periodic kernel with its period fixed at one year for annual dependence;
+# - a long-lengthscale Matérn-5/2 kernel multiplied by the periodic kernel, which reduces
+#   covariance between corresponding seasons as their separation in years increases;
+# - a short-lengthscale Matérn-3/2 kernel added to represent non-periodic, temporally
+#   correlated deviations.
 #
-# - a **periodic kernel** with its period fixed to one year, to represent the annual cycle;
-# - a **Matérn-5/2 kernel of long lengthscale** *multiplied* into the periodic kernel, so
-#   the seasonal shape is allowed to drift slowly from year to year (a *locally periodic*
-#   kernel rather than an exactly repeating one);
-# - a **Matérn-3/2 kernel of short lengthscale** *added* on top, to soak up the
-#   autocorrelated weather wobble around the seasonal mean.
-#
-# We compose these with GPJax's `+` and `*` kernel operators, fit the hyperparameters by
-# maximising the conjugate marginal log-likelihood, and forecast a held-out window. The
-# payoff is a forecast that *tracks the seasonal cycle* rather than reverting to the mean.
+# The notebook prepares the data, fits the free kernel and likelihood parameters by
+# maximising the conjugate marginal log-likelihood, forecasts a held-out interval, and
+# compares the result with an RBF model fitted to the same training data. See the
+# introductory [regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# for a single-kernel example.
 #
 # Data: ERA5 reanalysis via [Open-Meteo](https://open-meteo.com/) (CC-BY).
 
@@ -71,16 +62,13 @@ use_mpl_style()
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 # %% [markdown]
-# ## The data
+# ## Prepare the data
 #
-# The file `data/reykjavik_daily_temperature.csv` holds four full years (2020–2023) of
-# daily mean 2-metre air temperature for Reykjavík. We read it with pandas and convert the
-# `date` column into a numeric input measured **in years** since the start of the record.
-#
-# The choice of units matters. If we standardised the input to zero mean and unit variance
-# — a common reflex — then the interpretable "period of one year" would become some opaque
-# number, and initialising it well would be guesswork. By keeping the input in years, a
-# period of exactly `1.0` *is* one calendar year, which we can fix by hand.
+# The file `data/reykjavik_daily_temperature.csv` contains daily mean 2-metre air
+# temperature for Reykjavík from 1 January 2020 through 31 December 2023. The next cell
+# parses the dates and expresses elapsed time in years from the first observation, using
+# 365.25 days per year. Keeping this unit makes a kernel period of `1.0` correspond to one
+# year.
 
 # %%
 data_path = Path("data") / "reykjavik_daily_temperature.csv"
@@ -103,10 +91,10 @@ print(
 )
 
 # %% [markdown]
-# A zero-mean GP prior is a natural fit once we **centre** the temperatures. We subtract
-# the training-period mean (never the test values — that would leak information from the
-# forecast window) and keep everything else in physical units. We hold out the final four
-# months as the forecast target and train on everything before it.
+# The final four months, 1 September through 31 December 2023, form the held-out forecast
+# interval. The next cell centres all temperatures with the mean computed from observations
+# through 31 August 2023. Excluding held-out values from this mean prevents leakage into
+# model fitting.
 
 # %%
 forecast_window_years = 4 / 12  # final four months held out for forecasting
@@ -120,11 +108,10 @@ training_mean_celsius = temperature_celsius[is_train].mean()
 centred_temperature = temperature_celsius - training_mean_celsius
 
 # %% [markdown]
-# Exact GP inference costs a Cholesky factorisation of the training Gram matrix. A little
-# over 1300 points is perfectly tractable, but the seasonal structure is already crystal
-# clear at coarser resolution, so we **thin the training set to every third day**. This
-# keeps the fit brisk without throwing away any of the signal we care about. The held-out
-# window is left at full daily resolution so that the RMSE and coverage numbers are honest.
+# Exact Gaussian process inference factorises the training Gram matrix. The next cell keeps
+# every third training observation to reduce this cost, while retaining all 122 daily
+# observations in the held-out interval for evaluation. It then constructs the GPJax
+# training dataset from the thinned inputs and centred temperatures.
 
 # %%
 train_time_full = time_in_years[is_train]
@@ -143,9 +130,9 @@ print(f"Training points (thinned): {dataset.n}")
 print(f"Held-out points (daily):   {holdout_time.shape[0]}")
 
 # %% [markdown]
-# Let's look at what we are asking the model to do. The blue points are the thinned
-# training data; the grey points are the four months we will forecast without ever showing
-# them to the model.
+# The plot shows the thinned training observations and the daily held-out observations on
+# the centred temperature scale. The dashed line separates observations available for
+# fitting from the held-out interval.
 
 # %%
 fig, ax = plt.subplots(figsize=(7.5, 3.0))
@@ -158,44 +145,36 @@ ax.legend(loc="best")
 clean_legend(ax)
 
 # %% [markdown]
-# ## Designing the kernel
+# ## Design the kernel
 #
-# We now build the composite kernel piece by piece. Each component carries a clear
-# physical meaning, which is the whole point of kernel engineering: the model structure is
-# a statement of prior belief about the signal.
-#
-# **The annual cycle.** GPJax's `Periodic` kernel has the form
+# The composite kernel specifies separate covariance patterns for annual and shorter-term
+# variation. GPJax's `Periodic` kernel has the form
 #
 # $$k(x, x') = \sigma^2 \exp\!\left(-\frac{1}{2}\left(\frac{\sin(\pi (x - x') / p)}{\ell}\right)^2\right),$$
 #
-# where $p$ is the period. Because our input is in years, we fix $p = 1$. Fixing rather
-# than learning it injects the one thing we are certain about — the Earth's orbit — and
-# spares the optimiser a hard, multimodal search. We freeze the period by wrapping it in
-# `paramax.NonTrainable`, which stops the gradient flowing to it so it stays at exactly one
-# year throughout fitting.
+# where $p$ is the period and $\ell$ controls smoothness within each period. The next cell
+# fixes $p=1$ year with `paramax.NonTrainable`, so optimisation cannot change the specified
+# annual period. The periodic variance and lengthscale remain trainable.
 
 # %%
 annual_period = paramax.NonTrainable(jnp.array(1.0))
 annual_cycle = gpx.kernels.Periodic(lengthscale=1.0, variance=1.0, period=annual_period)
 
 # %% [markdown]
-# **Letting the season drift.** A pure periodic kernel insists that every winter is
-# identical to every other. Real climate is not so tidy: the amplitude and shape of the
-# cycle wander a little between years. We capture that by **multiplying** the periodic
-# kernel with a Matérn-5/2 kernel of *long* lengthscale (a few years). The product is a
-# *locally periodic* kernel — periodic on the scale of a season, but slowly modulated on
-# the scale of years.
+# Multiplying the periodic kernel by a Matérn-5/2 kernel yields a locally periodic
+# covariance. The periodic factor relates observations at similar phases of the annual
+# cycle; the Matérn factor reduces that relation as the absolute time separation grows.
+# The next cell initialises the Matérn lengthscale at three years.
 
 # %%
 seasonal_envelope = gpx.kernels.Matern52(lengthscale=3.0, variance=1.0)
 locally_periodic = annual_cycle * seasonal_envelope
 
 # %% [markdown]
-# **Weather around the mean.** Day-to-day departures from the seasonal mean are
-# autocorrelated — a cold snap tends to last a week or two — but not periodic. A
-# Matérn-3/2 kernel with a *short* lengthscale (a few weeks, i.e. a small fraction of a
-# year) models this residual. We **add** it to the seasonal term, so the two effects are
-# independent contributions to the covariance.
+# The added Matérn-3/2 component represents non-periodic temporal correlation in deviations
+# from the locally periodic component. Its initial lengthscale is `0.05` years, about 18
+# days. Under the additive-kernel interpretation, the two terms are independent latent GP
+# contributions whose covariances sum.
 
 # %%
 weather_residual = gpx.kernels.Matern32(lengthscale=0.05, variance=1.0)
@@ -203,9 +182,9 @@ weather_residual = gpx.kernels.Matern32(lengthscale=0.05, variance=1.0)
 composite_kernel = locally_periodic + weather_residual
 
 # %% [markdown]
-# With the kernel assembled, we build a zero-mean prior, attach a Gaussian likelihood
-# (temperature is a continuous, roughly Gaussian-noise observation, giving us a
-# closed-form conjugate posterior), and form the posterior with the `*` operator.
+# The next cell combines the composite covariance with a zero-mean prior for the centred
+# temperatures. A Gaussian likelihood assumes independent Gaussian observation noise and
+# gives a conjugate posterior.
 
 # %%
 mean_function = gpx.mean_functions.Zero()
@@ -214,14 +193,14 @@ likelihood = gpx.likelihoods.Gaussian(num_datapoints=dataset.n)
 posterior = prior * likelihood
 
 # %% [markdown]
-# ## Fitting the hyperparameters
+# ## Fit the hyperparameters
 #
-# We optimise the remaining hyperparameters — the two variances of the seasonal term, the
-# seasonal lengthscale and drift lengthscale, the weather lengthscale and variance, and the
-# observation noise — by minimising the negative conjugate marginal log-likelihood. We use
-# `fit_scipy`, which wraps SciPy's L-BFGS-B and is well suited to the modest number of
-# hyperparameters in an exact GP. The constrained-to-unconstrained bijections (positivity
-# of lengthscales and variances) are handled internally.
+# The code minimises the negative conjugate marginal log-likelihood with SciPy's L-BFGS-B
+# implementation. The annual period remains fixed; the periodic, envelope, and residual
+# lengthscales, their variance parameters, and the likelihood noise scale are trainable.
+# GPJax applies parameter transformations that keep scales and variances positive. Within
+# the product kernel, only the product of the two variance parameters determines its
+# covariance amplitude, so those two values are not separately identifiable.
 
 # %%
 negative_mll = lambda model, data: -gpx.objectives.conjugate_mll(model, data)
@@ -237,10 +216,9 @@ opt_posterior, history = gpx.fit_scipy(
 print(f"Optimised negative MLL: {negative_mll(opt_posterior, dataset):.2f}")
 
 # %% [markdown]
-# The fitted kernel is fully interpretable. Let's read off what each component learned.
-# The seasonal lengthscale controls how "wiggly" the within-year cycle is, the drift
-# lengthscale says how many years it takes for the seasonal shape to change appreciably,
-# and the weather lengthscale is the memory of the short-term residual.
+# The next cell extracts and prints the fitted lengthscales, fixed period, and observation
+# noise scale. These estimates describe the marginal-likelihood optimum returned by this
+# fit; they do not by themselves establish the underlying physical time scales.
 
 # %%
 fitted_seasonal = opt_posterior.prior.kernel.kernels[0]  # Periodic * Matern52
@@ -261,21 +239,19 @@ print(
 )
 
 # %% [markdown]
-# The weather lengthscale settles at a few days, matching the persistence of a cold snap,
-# and the annual period stays pinned at exactly one year as intended. The drift lengthscale
-# comes out far longer than the four-year record — the optimiser found no evidence that the
-# seasonal shape changes over this span, so the locally periodic kernel behaves like an
-# almost exactly periodic one here. The flexibility was available; the data simply did not
-# demand it. With a longer record (decades rather than years) this component is where a
-# warming trend or a shifting seasonal amplitude would show up.
+# The printed period should remain exactly one year because it was excluded from
+# optimisation. The fitted lengthscales indicate how this model allocates covariance among
+# its components for this four-year record. In particular, an envelope lengthscale longer
+# than the record makes corresponding seasons strongly correlated over the observed span,
+# but it is weak evidence about longer-term changes.
 #
-# ## Forecasting the held-out window
+# ## Forecast the held-out interval
 #
-# Now for the payoff. We predict over a dense daily grid that spans the tail of the
-# training data, the full four-month held-out window, and a short extrapolation two months
-# beyond the end of the record — into a future with no data at all. If the kernel is doing
-# its job, the posterior mean should keep tracing the seasonal cycle throughout, and the
-# credible band should widen gently rather than snapping back to the prior mean.
+# The next cell evaluates the fitted posterior on a 400-point grid. The grid begins three
+# months before the training boundary, covers the held-out interval from 1 September
+# through 31 December 2023, and extends approximately two months beyond the final
+# observation. Applying the likelihood produces the posterior predictive mean and variance,
+# including observation noise.
 
 # %%
 extrapolation_years = 2 / 12
@@ -294,9 +270,10 @@ forecast_mean = predictive_forecast.mean
 forecast_std = jnp.sqrt(predictive_forecast.variance)
 
 # %% [markdown]
-# We plot the forecast in physical units by adding the training mean back on. The vertical
-# dashed line marks the boundary between training and forecast; everything to its right the
-# model has never seen.
+# The plot restores degrees Celsius by adding the training mean. The dashed line marks the
+# start of the held-out interval. Observations exist from that line through 31 December
+# 2023; the remaining grid through approximately the end of February 2024 is extrapolation
+# beyond the recorded data.
 
 
 # %%
@@ -319,7 +296,7 @@ ax.plot(
     ".",
     color="grey",
     alpha=0.7,
-    label="Held-out truth",
+    label="Held-out ERA5 values",
 )
 ax.fill_between(
     forecast_grid.squeeze(),
@@ -327,7 +304,7 @@ ax.fill_between(
     to_celsius(forecast_mean + 1.96 * forecast_std),
     alpha=0.2,
     color=cols[1],
-    label="95% credible interval",
+    label="95% predictive interval",
 )
 ax.plot(forecast_grid, to_celsius(forecast_mean), color=cols[1], label="Forecast mean")
 ax.axvline(split_time, linestyle="--", color="black", linewidth=1)
@@ -338,18 +315,17 @@ ax.legend(loc="lower left")
 clean_legend(ax)
 
 # %% [markdown]
-# The forecast mean follows the descent into winter and the credible band comfortably
-# covers the held-out observations. Crucially, in the two-month extrapolation beyond the
-# data the mean *keeps oscillating with the season* — it does not flatten to the prior
-# mean. That is the behaviour a plain stationary kernel cannot produce, and it is entirely
-# down to the periodic component.
+# The plot permits separate interpretation of the two forecast regions. Agreement with the
+# grey points concerns the held-out interval only. Beyond the last grey point, the periodic
+# component maintains annual covariance structure, but no observations are available here
+# to assess forecast accuracy.
 #
-# ## Quantifying the forecast
+# ## Quantify the held-out forecast
 #
-# Two numbers summarise how good the forecast is. The **root-mean-square error** measures
-# the accuracy of the mean over the held-out window, and the **empirical coverage** of the
-# nominal 95% interval checks that the uncertainty is honest — well-calibrated intervals
-# should contain close to 95% of the truth.
+# The next cell evaluates the predictive distribution at all 122 held-out dates. It reports
+# root-mean-square error (RMSE) for the predictive mean and empirical coverage of the
+# pointwise mean $\pm 1.96$ predictive standard deviations. Coverage from one four-month
+# interval is descriptive and need not equal the nominal 95% probability.
 
 # %%
 holdout_latent = opt_posterior.predict(
@@ -371,10 +347,11 @@ print(f"Held-out RMSE:            {rmse:.2f} °C")
 print(f"Empirical 95% coverage:   {100 * coverage:.1f}%")
 
 # %% [markdown]
-# ## Contrast: why a plain RBF cannot forecast this
+# ## Compare with an RBF kernel
 #
-# To make the argument concrete, we fit a single RBF kernel to the same data and forecast
-# the same window. Everything about the pipeline is identical; only the kernel changes.
+# The next cells fit a zero-mean GP with one RBF kernel to the same thinned training data,
+# using the same likelihood, objective, forecast grid, and optimiser. This isolates the
+# effect of changing the covariance structure in the plotted comparison.
 
 # %%
 plain_kernel = gpx.kernels.RBF(lengthscale=0.1, variance=1.0)
@@ -410,7 +387,7 @@ ax.plot(
     ".",
     color="grey",
     alpha=0.7,
-    label="Held-out truth",
+    label="Held-out ERA5 values",
 )
 ax.fill_between(
     forecast_grid.squeeze(),
@@ -418,7 +395,7 @@ ax.fill_between(
     to_celsius(plain_mean + 1.96 * plain_std),
     alpha=0.2,
     color=cols[3],
-    label="95% credible interval",
+    label="95% predictive interval",
 )
 ax.plot(forecast_grid, to_celsius(plain_mean), color=cols[3], label="RBF forecast mean")
 ax.axvline(split_time, linestyle="--", color="black", linewidth=1)
@@ -429,25 +406,23 @@ ax.legend(loc="lower left")
 clean_legend(ax)
 
 # %% [markdown]
-# Just past the last training point the RBF forecast collapses to the (centred) prior mean
-# and the band inflates to the marginal prior variance. The GP has learned a short
-# lengthscale that interpolates the training noise beautifully and forecasts nothing —
-# exactly the failure mode described in the introduction. The bespoke composite kernel
-# succeeds not because it is more flexible, but because it is more *opinionated*: it builds
-# in the annual cycle that the plain kernel has no way of expressing.
+# With a fitted short lengthscale, the RBF covariance between distant forecast points and
+# the training data approaches zero. Its predictive mean then approaches the centred prior
+# mean, and its predictive variance approaches the prior predictive variance. The plot
+# shows how quickly that occurs for this fitted RBF model. Unlike the composite kernel, the
+# RBF kernel contains no covariance term that repeats at one-year lags.
 #
-# ## Recap
+# ## Summary
 #
-# - The **periodic kernel** with a fixed one-year period supplies the annual cycle and lets
-#   the forecast extrapolate the season indefinitely.
-# - **Multiplying** it by a long-lengthscale Matérn-5/2 makes the cycle *locally* periodic,
-#   so the seasonal shape can drift slowly across years instead of repeating exactly.
-# - **Adding** a short-lengthscale Matérn-3/2 captures autocorrelated weather noise around
-#   the seasonal mean without polluting the long-range forecast.
+# - The fixed-period kernel represents annual covariance.
+# - Multiplication by a long-lengthscale Matérn-5/2 kernel allows correlation between
+#   corresponding seasonal phases to decrease with separation in years.
+# - Addition of a short-lengthscale Matérn-3/2 kernel represents non-periodic temporal
+#   correlation around the locally periodic component.
 #
-# Composing kernels with `+` and `*` turns qualitative domain knowledge into a quantitative
-# model whose parameters — period, lengthscales, variances — remain individually
-# interpretable after fitting. For more on combining kernels, see the
+# The held-out interval covers 1 September through 31 December 2023. The later extension
+# through approximately February 2024 is unobserved extrapolation and is not included in
+# the reported RMSE or coverage. For more on combining kernels, see the
 # [kernel guide](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/) and the
 # [advanced kernel notebook](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/).
 #

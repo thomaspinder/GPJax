@@ -16,36 +16,24 @@
 # ---
 
 # %% [markdown]
-# # Semi-Parametric Kriging
+# # Semiparametric kriging
 #
-# This notebook shows how to construct a semiparametric spatial model — a Bayesian take on
-# **kriging** — by composing a linear mean function in NumPyro with a GPJax Gaussian Process
-# (GP) residual. We build two
-# components: firstly, a linear component that encodes a physically meaningful global trend
-# with Bayesian linear regression. We then define a GP residual component responsible for
-# capturing the smooth spatial structure that the linear term leaves behind.
-#
-# The example highlights the interplay between **GPJax** and **NumPyro**: `GPJax` provides the
-# GP prior and likelihood definitions, while `NumPyro` performs Hamiltonian Monte Carlo (HMC)
-# inference across all parameters in a unified model and allows us to draw upon a broader set of
-# modelling components.
+# This notebook models centred daily maximum temperature as the sum of a linear elevation
+# component and a spatial Gaussian process (GP) residual. GPJax defines the GP prior and Gaussian
+# likelihood. NumPyro uses the No-U-Turn Sampler (NUTS) to sample the linear coefficients, kernel
+# hyperparameters, and observation-noise scale jointly.
 
 # %% [markdown]
-# ## The Swiss Temperature Data
+# ## Swiss temperature data
 #
-# We work with a real spatial climate snapshot: the daily maximum temperature `t_max` recorded
-# at 152 MeteoSwiss weather stations on 2023-04-13. Each station reports its `longitude`,
-# `latitude` and `elevation` (in metres). The physics of this dataset makes it a near-perfect
-# fit for a linear-mean plus spatial-GP decomposition.
+# The data contain daily maximum temperature, `t_max`, at 152 MeteoSwiss stations on
+# 2023-04-13. Each record also contains longitude and latitude in degrees and elevation in metres.
+# The preprocessing below removes the two records with missing `t_max` values.
 #
-# The dominant driver of near-surface temperature over complex terrain is **altitude**: the air
-# cools as you climb, following the *environmental lapse rate* of roughly −6.5 °C per
-# kilometre. That is a global, essentially linear, relationship between `elevation` and `t_max`,
-# and it is exactly the kind of trend a linear mean function is designed to absorb. What remains
-# after removing the elevation effect is a smoothly varying spatial field — the influence of
-# latitude, large-scale weather systems, lakes and the sheltering of Alpine valleys — which is
-# naturally modelled as a GP over the `(longitude, latitude)` plane. Composing the two lets each
-# mechanism explain the part of the signal it is suited to.
+# The model represents the association between elevation and temperature with a linear term. A
+# GP over longitude and latitude represents residual spatial dependence after accounting for that
+# term. This decomposition separates a global elevation gradient from spatial variation without
+# assigning the residual variation to specific physical causes.
 #
 # > Data: MeteoSwiss station observations via Open-Meteo (CC-BY).
 
@@ -81,12 +69,12 @@ keys = jr.split(key, 8)
 # %% [markdown]
 # ### Loading and standardising
 #
-# We drop the handful of stations with a missing reading, then standardise the spatial inputs
-# (`longitude`, `latitude`) and the linear covariate (`elevation`), and centre the target
-# `t_max`. Standardisation keeps the kernel and linear-model parameters on a comparable scale,
-# which greatly improves the conditioning of the GP and the geometry seen by the sampler. We
-# retain the raw means and standard deviations so that predictions and the learned coefficients
-# can be mapped back to physical units.
+# The next cell removes the two missing temperature records, leaving 150 stations. It standardises
+# longitude, latitude, and elevation by subtracting each variable's mean and dividing by its
+# standard deviation. The target is centred by subtracting its mean but remains in degrees Celsius.
+# The dimensionless coordinates put the spatial inputs on comparable numerical scales. The saved
+# elevation standard deviation and target mean convert the fitted slope and predictions back to
+# physical units.
 
 # %%
 # Resolve the data file from the repo root (``examples/data``) or from the docs
@@ -124,19 +112,20 @@ target_centered = max_temperature - target_mean_celsius
 print(f"Retained {num_stations} stations with a valid t_max reading.")
 
 # %% [markdown]
-# ## Linear Component
+# ## Linear component
 #
-# We begin by defining a Bayesian linear regression of the (centred) maximum temperature on
-# standardised elevation in NumPyro. This component will later be combined with a GP residual,
-# but for now it establishes a baseline that captures only the altitude effect.
+# The baseline model regresses centred maximum temperature, $\mathbf{y}$, on standardised
+# elevation, $\mathbf{z}_{\text{elev}}$. The slope $w$ has units of degrees Celsius per elevation
+# standard deviation. The intercept $b$ is the expected centred temperature at mean elevation,
+# and $\sigma$ is the observation standard deviation in degrees Celsius.
 #
 # $$\begin{aligned} w &\sim \mathcal{N}(0, 5) \\
 # b &\sim \mathcal{N}(0, 5) \\
 # \sigma &\sim \text{LogNormal}(0, 1) \\
 # \mathbf{y} &\sim \mathcal{N}(w\,\mathbf{z}_{\text{elev}} + b, \sigma^2 \mathbf{I}) \end{aligned} $$
 #
-# We use the No-U-Turn Sampler (NUTS) to draw samples from the posterior distributions of the
-# elevation slope $w$, intercept $b$, and noise $\sigma$.
+# NUTS draws posterior samples of $w$, $b$, and $\sigma$. This model provides the elevation-only
+# reference for the later in-sample comparison.
 
 
 # %%
@@ -156,24 +145,23 @@ mcmc_lin.run(keys[2], elevation_std, target_centered)
 mcmc_lin.print_summary()
 
 # %% [markdown]
-# ## Composing the Linear Component with a Spatial GP
+# ## Combining the linear component with a spatial GP
 #
-# We now augment the linear component with a GP tasked with modelling the residual over space.
-#
+# The semiparametric model adds a latent spatial residual to the linear elevation component:
 # $$ y(\mathbf{s}) = \underbrace{w\,z_{\text{elev}} + b}_{\text{Linear Mean (elevation)}} +
 # \underbrace{f(\mathbf{s})}_{\text{Spatial GP Residual}} + \epsilon $$
 #
-# where $\mathbf{s} = (\text{longitude}, \text{latitude})$ is the spatial location.
+# Here, $\mathbf{s} = (\text{longitude}, \text{latitude})$, $z_{\text{elev}}$ is standardised
+# elevation, $f(\mathbf{s})$ is a zero-mean GP, and $\epsilon$ is independent Gaussian observation
+# noise with standard deviation $\sigma$.
 #
-# ### GPJax and NumPyro Integration
+# ### GPJax and NumPyro integration
 #
-# We define the GP prior in `GPJax` using a second-order Matérn kernel over the two spatial
-# dimensions and a constant mean function (since the elevation trend is handled explicitly by
-# the linear term). Hyperparameters are sampled directly with ``numpyro.sample`` and passed to
-# the GPJax constructors as raw JAX arrays. We then compute the exact marginal log-likelihood
-# (MLL) of the elevation-adjusted residuals under the GP prior using
-# `gpx.objectives.conjugate_mll`. This closed-form conjugate term is added to the potential
-# function via `numpyro.factor`, guiding the sampler.
+# GPJax assigns $f$ a Matérn-3/2 covariance over the two standardised spatial coordinates. NumPyro
+# samples the shared length scale, marginal variance, and observation-noise scale. For each set of
+# sampled parameters, `gpx.objectives.conjugate_mll` evaluates the exact Gaussian marginal
+# log-likelihood of the elevation-adjusted residuals after integrating out their latent GP values.
+# `numpyro.factor` adds this log-likelihood to the NumPyro model.
 
 
 # %%
@@ -229,12 +217,14 @@ mcmc_joint.run(keys[3], spatial_coords, elevation_std, target_centered)
 mcmc_joint.print_summary()
 
 # %% [markdown]
-# ## The Elevation Coefficient as a Lapse Rate
+# ## Elevation coefficient as a lapse rate
 #
-# The `slope` parameter is the effect of standardised elevation on temperature. Dividing by the
-# elevation standard deviation converts it to °C per metre; multiplying by $1000$ and
-# flipping the sign gives the implied **environmental lapse rate** in °C per kilometre.
-# We expect a value close to the textbook 6.5 °C/km.
+# Because `t_max` is measured in degrees Celsius and elevation is standardised, `slope` has units
+# of degrees Celsius per elevation standard deviation. If $s_z$ is the elevation standard
+# deviation in metres, the physical slope is $w/s_z$ °C/m. The code multiplies this slope by
+# $-1000$ to report the temperature decrease per kilometre as a positive lapse rate when $w<0$.
+# It applies the same conversion to every posterior draw and reports the 2.5th and 97.5th
+# percentiles as a 95% posterior credible interval.
 
 # %%
 samples_joint = mcmc_joint.get_samples()
@@ -253,16 +243,16 @@ print(f"  slope (standardised elevation): {slope_mean_std_units:.3f} °C / std")
 print(f"  slope (physical):               {slope_per_metre * 1000:.3f} °C / km")
 print(
     f"  implied lapse rate:             {lapse_rate_per_km:.2f} °C/km "
-    f"(95% CI: {lapse_rate_low:.2f}–{lapse_rate_high:.2f})"
+    f"(95% credible interval: {lapse_rate_low:.2f}–{lapse_rate_high:.2f})"
 )
 
 # %% [markdown]
-# ## Comparison
+# ## Model comparison
 #
-# We evaluate the elevation-only linear model in isolation, then the joint model where a spatial
-# GP has been added to model the residual. Predicting back at the station locations, the joint
-# model should track the observations more closely because it captures spatial structure that a
-# single altitude gradient cannot.
+# The next cell computes posterior mean fitted values at the observed stations for both models.
+# It then reports root mean squared error (RMSE) in degrees Celsius against the centred
+# observations. These are in-sample errors: they compare fit at the training locations and do not
+# estimate performance at unobserved stations.
 
 # %%
 samples_lin = mcmc_lin.get_samples()
@@ -290,19 +280,20 @@ print(f"  Linear (elevation) model: {rmse_lin:.4f}")
 print(f"  Joint (linear + GP) model: {rmse_joint:.4f}")
 
 # %% [markdown]
-# ## Kriging Map
+# ## Kriging map
 #
-# Finally we produce the interpretable output the method is built for: a **kriging map** of
-# maximum temperature across Switzerland. We predict on a dense `(longitude, latitude)` grid
-# covering the country, holding elevation fixed at the dataset mean so that the map isolates the
-# *spatial* field — what the temperature would look like across Switzerland at a common
-# reference altitude. To ground the field geographically we overlay the national border (clipping
-# the field to it) together with the outlines of the neighbouring countries. The left panel shows
-# the posterior mean, the right panel the posterior standard deviation (uncertainty grows away
-# from the stations). On the mean map the station markers are coloured by their observed `t_max`
-# *adjusted to the same reference elevation* (removing the fitted altitude effect), so markers and
-# field share one colour scale and the field should be seen interpolating them; on the
-# uncertainty map the stations mark sampling locations only.
+# The map evaluates the joint model on a 35 by 35 longitude-latitude grid spanning Switzerland's
+# bounding box. Grid elevation is set to standardised zero, which is the mean station elevation,
+# so the mapped surface represents latent maximum temperature at that reference elevation. The
+# predictions are converted to degrees Celsius by restoring the target mean and clipped to the
+# national boundary.
+#
+# The left panel shows the posterior mean of the latent temperature surface. Station colours show
+# observed `t_max` adjusted to mean elevation with the posterior mean slope; observation noise
+# means the fitted surface need not interpolate these adjusted values exactly. The right panel
+# shows the posterior standard deviation of the latent surface in degrees Celsius. It measures
+# uncertainty across posterior GP and parameter draws but excludes independent observation noise.
+# Station markers in that panel indicate observation locations.
 #
 # > Country outlines: Natural Earth (1:50m admin-0), public domain.
 
@@ -406,10 +397,9 @@ def draw_borders(ax):
     )
 
 
-# Bring each station's observed t_max onto the common reference elevation by
-# removing the fitted elevation effect (slope x standardised elevation). The field
-# and the station markers can then share a single colour scale and be compared
-# directly: the field should interpolate the adjusted observations.
+# Adjust each station's observed t_max to the common reference elevation by
+# removing the fitted elevation effect (slope x standardised elevation). A shared
+# colour scale permits direct comparison with the fitted latent surface.
 stations_adjusted = max_temperature - slope_mean_std_units * elevation_std
 colour_min = float(jnp.minimum(grid_mean.min(), stations_adjusted.min()))
 colour_max = float(jnp.maximum(grid_mean.max(), stations_adjusted.max()))
@@ -438,7 +428,7 @@ std_map = axes[1].contourf(LON, LAT, grid_std, levels=20, cmap="viridis")
 std_map.set_clip_path(switzerland_path, transform=axes[1].transData)
 draw_borders(axes[1])
 axes[1].scatter(longitude, latitude, c=cols[0], s=10, alpha=0.7, zorder=5)
-axes[1].set_title("Posterior standard deviation (°C)")
+axes[1].set_title("Latent-surface posterior standard deviation (°C)")
 fig.colorbar(std_map, ax=axes[1])
 
 for ax in axes:
@@ -449,15 +439,16 @@ for ax in axes:
     ax.set_aspect(aspect)
 
 # %% [markdown]
-# Clipped to the national border and set against its neighbours, the mean map recovers the
-# familiar Swiss pattern — warm on the low-lying Plateau and in the southern Ticino, cool over
-# the high Alps — while the standard-deviation map shows uncertainty tightening around the dense
-# station network and widening towards the sparsely sampled margins. The elevation slope and the
-# spatial residual together tell a coherent physical story: altitude sets the baseline, and the
-# GP fills in the regional climate.
+# The posterior mean panel estimates temperature at a common elevation, so it displays the fitted
+# spatial component together with the intercept rather than the effect of local terrain height.
+# The posterior standard deviation panel quantifies uncertainty in that latent surface. Its values
+# depend on station locations and the fitted covariance parameters; they are distinct from the
+# posterior mean temperature and from the observation-noise standard deviation.
 
 # %% [markdown]
 # ## System configuration
+#
+# The final cell records the Python and package versions used to run the notebook.
 
 # %%
 # %load_ext watermark

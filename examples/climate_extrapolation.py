@@ -15,27 +15,20 @@
 # ---
 
 # %% [markdown]
-# # Climate Extrapolation: Trend Forecasting with Quantified Uncertainty
+# # Climate extrapolation with Gaussian processes
 #
-# This notebook is a flagship "why Gaussian processes" example. We take real climate
-# projection data for Paris, fit a Gaussian process (GP) to the *historical* period, and
-# extrapolate the warming trend forward to 2050 — crucially, with a calibrated credible
-# interval attached to every forecast. We then hold that GP forecast up against the spread
-# of an ensemble of climate models, and use the comparison to draw a distinction that is
-# easy to blur in practice: the uncertainty a GP reports when it extrapolates a trend is
-# *not* the same object as the structural uncertainty between competing physical models.
+# This notebook fits a Gaussian process (GP) to the ensemble-mean annual temperature
+# through 2014 and extrapolates that fitted trend to 2050. It then compares the GP's
+# posterior predictive interval with the spread among the supplied climate-model
+# projections. These quantities describe different sources of variation and should not be
+# interpreted as interchangeable measures of climate projection uncertainty.
 #
-# The data are annual mean 2 m air temperatures from seven CMIP6 HighResMIP models,
-# downscaled to Paris, France, spanning 1950–2050. A clear warming signal runs through the
-# record: the ensemble mean rises from roughly 11.1 °C in the 1950s to about 12.9 °C in
-# the 2040s, with the individual models disagreeing by around a degree at the 2040s
-# horizon. That combination — a strong trend plus a genuine spread of plausible futures —
-# is exactly the setting where a GP earns its keep.
+# The data contain annual mean 2 m air temperatures for Paris from seven CMIP6 HighResMIP
+# simulations over 1950–2050. Values through 2014 come from CMIP6 historical simulations,
+# not station observations. The notebook therefore treats their ensemble mean as a
+# simulated series for a methodological comparison, not as observed climate history.
 #
-# > Data: CMIP6 HighResMIP projections via Open-Meteo (CC-BY). Note that the CMIP6
-# > "historical" values up to 2014 are themselves *model simulations*, not station
-# > observations; we use them here as a self-consistent trend to extrapolate, not as
-# > ground truth.
+# > Data: CMIP6 HighResMIP projections via Open-Meteo (CC-BY).
 
 # %%
 # Enable Float64 for more stable matrix inversions.
@@ -67,13 +60,12 @@ use_mpl_style()
 cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 
 # %% [markdown]
-# ## The data: seven climate models, one city
+# ## Data from seven climate models
 #
-# We load the projections and inspect the raw trajectories. Each of the seven models
-# supplies one annual mean temperature per year, so the frame is a long table of
-# `(year, annual_mean_temp, model)` rows. Plotting each model as its own line makes two
-# features immediately visible: a shared upward drift (the forced warming response), and a
-# persistent vertical spread between models (their differing physics and resolution).
+# The data table records year, annual mean temperature, and model. The next plot draws one
+# trajectory per model to show the temporal pattern and the variation among the supplied
+# simulations. This variation is descriptive; the plot alone does not identify its physical
+# causes.
 
 # %%
 data_path = Path("data") / "paris_climate_projection.csv"
@@ -102,17 +94,16 @@ for model_index, model_name in enumerate(model_names):
     )
 ax.set_xlabel("Year")
 ax.set_ylabel("Annual mean temperature (°C)")
-ax.set_title("CMIP6 HighResMIP projections for Paris (1950-2050)")
+ax.set_title("CMIP6 HighResMIP simulations for Paris (1950-2050)")
 ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), fontsize="small")
 
 # %% [markdown]
-# ## Building the target: the ensemble mean
+# ## Ensemble-mean target
 #
-# We reduce the seven trajectories to a single series by averaging across models for each
-# year — the *ensemble mean*. This is the signal we will model. For each year we also
-# record the between-model spread (standard deviation across models, and the min/max
-# envelope); we set those aside for now and bring them back for the payoff comparison at
-# the end.
+# The GP target is the mean temperature across the available models in each year. The code
+# also computes the sample standard deviation and the minimum and maximum across models for
+# the later comparison. These summaries describe this ensemble and are not probability
+# intervals for future temperature.
 
 # %%
 by_year = climate.groupby("year")["annual_mean_temp"]
@@ -125,13 +116,11 @@ years = ensemble_mean.index.to_numpy()
 ensemble_mean_temp = ensemble_mean.to_numpy()
 
 # %% [markdown]
-# ## Train / forecast split at the historical boundary
+# ## Historical and forecast periods
 #
-# CMIP6 splits its runs at 2014: everything up to and including 2014 is the "historical"
-# experiment, and 2015 onwards is the future scenario. We honour that boundary. The GP is
-# fitted using *only* the ensemble mean up to 2014, and asked to extrapolate across
-# 2015–2050. The scenario-period values are held back entirely — they are the yardstick
-# the GP forecast will be measured against, never an input to it.
+# CMIP6 historical simulations end in 2014, so the training set contains only the
+# ensemble-mean values through that year. Values from 2015 onward do not enter the fit; they
+# remain available for comparison with the GP extrapolation.
 
 # %%
 historical_boundary = 2014
@@ -141,15 +130,13 @@ train_years = years[is_historical]
 train_temp = ensemble_mean_temp[is_historical]
 
 # %% [markdown]
-# ### Standardise the inputs, centre the outputs
+# ### Standardise years and centre temperatures
 #
-# Two preprocessing steps make the GP well behaved. First we standardise the year to zero
-# mean and unit variance; kernel lengthscales and the linear-kernel variance are then
-# expressed on a natural, order-one scale rather than in raw calendar years. Second we
-# centre the temperature by subtracting its training mean, so the GP's constant mean starts
-# from a sensible default and the linear kernel — whose functions pass through the origin —
-# is anchored at the middle of the training window. We keep the shift/scale constants so we
-# can map predictions back to °C.
+# The code standardises the training years to zero mean and unit variance, which expresses
+# kernel lengthscales relative to the training period. It centres temperatures at their
+# training mean because the GP uses a zero mean function. Under this transformation, the
+# linear kernel is centred on the middle of the training years. The stored constants map
+# predictions back to calendar years and degrees Celsius.
 
 # %%
 year_center = train_years.mean()
@@ -171,33 +158,27 @@ forecast_years = jnp.linspace(1950.0, 2050.0, 400)
 standardised_test_x = jnp.asarray(standardise_year(forecast_years))
 
 # %% [markdown]
-# ## A structured kernel: trend plus variability
+# ## Kernel for trend and residual variation
 #
-# The Mauna Loa CO₂ recipe teaches a useful decomposition: build a kernel by *summing*
-# components, each responsible for one feature of the data. We adapt it to annual means.
-# There is no within-year seasonality to capture at this resolution, so we drop the
-# periodic term and keep two pieces:
+# The kernel is the sum of a linear component and a Matérn-5/2 component:
 #
 # $$k(x, x') = \underbrace{\sigma_\text{lin}^2 \, x\,x'}_{\text{Linear: warming trend}}
 #   \; + \; \underbrace{k_\text{Matérn}(x, x')}_{\text{Matérn: residual variability}}.$$
 #
-# The **linear** kernel is non-stationary and encodes the long-run warming trend; on its
-# own it would produce straight-line forecasts. The **Matérn-5/2** kernel is stationary and
-# soaks up the smooth wiggles around that trend.
+# The linear kernel represents a straight-line trend in standardised year. The stationary
+# Matérn-5/2 kernel represents correlated deviations around that trend. Because annual means
+# contain no within-year observations, the model includes no seasonal component.
 #
-# There is a subtlety worth being explicit about. If we let *every* hyperparameter float,
-# the flexible stationary kernel is happy to explain the gentle historical rise on its own
-# with a multi-decade lengthscale — and a stationary kernel, extrapolated, simply reverts
-# to the prior mean, so the "trend" evaporates beyond the data. To keep a clean
-# division of labour we fix the Matérn lengthscale to a short, sub-decadal scale, so it can
-# only mop up short-range residual variability and the *linear* kernel is forced to own the
-# long-run trend. Everything else — the linear variance, the Matérn variance, the constant
-# mean, and the observation noise — is still learned from the data.
+# A flexible stationary kernel can attribute a gradual rise to a long correlation
+# lengthscale and then revert toward the zero prior mean outside the training range. To
+# assign longer-term variation to the linear component, the code fixes the Matérn
+# lengthscale at six calendar years. It estimates the two kernel variances and Gaussian
+# observation noise from the training data.
 #
-# This decomposition shapes the extrapolation in exactly the way we want. Away from the
-# training data the short Matérn term reverts to the prior, while the linear term keeps
-# carrying the trend forward and its variance *grows* with distance from the origin: the GP
-# commits to continued warming but widens its credible interval the further it reaches.
+# Far from the training inputs, the Matérn contribution to the posterior mean decays toward
+# zero. The linear component continues the fitted slope, and its prior variance increases
+# with squared distance from the standardised origin. These assumptions determine both the
+# extrapolated mean and its uncertainty; the data do not validate them beyond 2014.
 
 # %%
 residual_lengthscale_years = 6.0
@@ -222,13 +203,13 @@ posterior = eqx.tree_at(
 )
 
 # %% [markdown]
-# ## Fit by maximising the marginal likelihood
+# ## Fit by marginal likelihood
 #
-# Because the likelihood is Gaussian, inference over the latent function is closed form and
-# we learn the free hyperparameters — the linear variance, the Matérn variance, the
-# constant mean, and the observation noise — by maximising the conjugate marginal log
-# likelihood (equivalently, minimising its negative). We optimise with Adam; the frozen
-# lengthscale is simply held constant throughout.
+# With a Gaussian likelihood, the latent-function posterior is available in closed form for
+# fixed hyperparameters. The code uses AdamW to minimise the negative conjugate marginal log
+# likelihood over the trainable kernel and likelihood parameters while holding the Matérn
+# lengthscale fixed. The resulting point estimates do not account for hyperparameter
+# uncertainty.
 
 # %%
 negative_mll = lambda model, data: -gpx.objectives.conjugate_mll(model, data)
@@ -249,18 +230,20 @@ resolved_posterior = paramax.unwrap(opt_posterior)
 print(f"Optimised negative MLL: {negative_mll(resolved_posterior, D):.3f}")
 
 # %% [markdown]
-# A quick summary of the fitted model confirms the learned hyperparameters, with the Matérn
-# lengthscale marked non-trainable.
+# The following summary reports the fitted parameters and identifies the fixed Matérn
+# lengthscale.
 
 # %%
 gpx.summarise(opt_posterior)
 
 # %% [markdown]
-# ## Predict and map back to degrees Celsius
+# ## Posterior predictive distribution
 #
-# We query the posterior at every test year, take the predictive (noise-inflated)
-# distribution, and undo the centring so the mean and credible interval are in °C. A ±2σ
-# band is our 95% credible interval.
+# The code evaluates the latent posterior over 1950–2050, applies the Gaussian likelihood,
+# and restores the training temperature mean. The plotted band is the predictive mean plus
+# or minus two predictive standard deviations, an approximately 95% pointwise interval
+# under the fitted GP. It includes likelihood noise but conditions on the selected kernel,
+# the fixed lengthscale, and point-estimated hyperparameters.
 
 # %%
 latent_dist = resolved_posterior.predict(
@@ -274,10 +257,10 @@ lower_credible = predictive_mean_temp - 2.0 * predictive_std
 upper_credible = predictive_mean_temp + 2.0 * predictive_std
 
 # %% [markdown]
-# Plotting the fit across the whole record shows the GP tracking the historical ensemble
-# mean tightly, then extrapolating past the 2014 boundary (the dashed vertical line) along
-# the learned linear trend. The credible interval is narrow where data pin it down and
-# widens into the forecast — the hallmark of an honest extrapolation.
+# The next plot shows the fitted historical period and the extrapolation after the 2014
+# boundary. Changes in the band width follow from the fitted covariance model. The band
+# quantifies posterior predictive uncertainty under that model; this plot does not establish
+# empirical coverage or calibration beyond the training period.
 
 # %%
 fig, ax = plt.subplots(figsize=(10, 5))
@@ -296,7 +279,7 @@ ax.fill_between(
     upper_credible,
     alpha=0.2,
     color=cols[1],
-    label="GP 95% credible interval",
+    label="GP predictive interval (mean ± 2 SD)",
 )
 ax.plot(forecast_years, predictive_mean_temp, color=cols[1], label="GP predictive mean")
 ax.set_xlabel("Year")
@@ -306,20 +289,21 @@ ax.legend(loc="upper left", fontsize="small")
 clean_legend(ax)
 
 # %% [markdown]
-# ## The payoff: two very different uncertainties
+# ## Posterior predictive uncertainty and ensemble spread
 #
-# Here is the point of the notebook. On the 2015–2050 forecast window we overlay two bands
-# that both *look* like "uncertainty about future warming" but mean different things:
+# The forecast-period plot overlays two quantities:
 #
-# 1. **The GP credible interval** (from extrapolating the historical trend). This answers:
-#    *given the single historical trend and how noisily it was realised, how confident is
-#    the model in continuing that trend?* It is an epistemic statement about one model's
-#    extrapolation, and it grows steadily with the forecast horizon.
-# 2. **The between-model spread** of the seven CMIP6 projections (their min–max envelope,
-#    plus a ±1σ across-model band). This answers a different question: *how much do
-#    independent physical models, run under the scenario, disagree about the future?* It is
-#    structural — it reflects genuine scientific uncertainty about climate physics and
-#    forcing that no amount of curve-fitting to one historical trend can see.
+# 1. The GP band is an approximately 95% pointwise posterior predictive interval for a new
+#    value of the ensemble-mean target. It is conditional on the historical training series,
+#    the additive kernel, and point-estimated hyperparameters.
+# 2. The climate-model summaries are the yearly minimum-to-maximum envelope and one sample
+#    standard deviation on either side of the ensemble mean among the available simulations.
+#    They describe disagreement within this finite ensemble.
+#
+# The second quantity is not a posterior interval, and the supplied models are not treated
+# as independent draws from a probability distribution over possible climates. Conversely,
+# the GP band contains no representation of models or forcing assumptions absent from its
+# training series. Neither quantity alone represents total uncertainty about future climate.
 
 # %%
 is_forecast = years >= 2015
@@ -330,14 +314,14 @@ plot_years = forecast_years[in_forecast_window]
 
 fig, ax = plt.subplots(figsize=(10, 5))
 
-# GP extrapolation credible interval.
+# GP extrapolation predictive interval.
 ax.fill_between(
     plot_years,
     lower_credible[in_forecast_window],
     upper_credible[in_forecast_window],
     alpha=0.25,
     color=cols[1],
-    label="GP 95% credible interval",
+    label="GP predictive interval (mean ± 2 SD)",
 )
 ax.plot(
     plot_years,
@@ -346,7 +330,7 @@ ax.plot(
     label="GP predictive mean",
 )
 
-# Between-model structural spread.
+# Finite-ensemble spread.
 ax.fill_between(
     forecast_period_years,
     ensemble_min[is_forecast].to_numpy(),
@@ -377,26 +361,17 @@ ax.legend(loc="upper left", fontsize="small")
 clean_legend(ax)
 
 # %% [markdown]
-# The two bands tell genuinely different stories, and the gap between them is the lesson.
-# The GP continues the historical trend and forecasts modest further warming — but it
-# *undershoots* the scenario ensemble, whose central path climbs faster than anything in
-# the pre-2015 record. Even the top of the GP's 95% credible interval only just reaches the
-# bottom of the between-model envelope by 2050.
+# The comparison assesses how a continuation of the pre-2015 ensemble-mean trend relates to
+# the supplied post-2014 simulations. A difference between the GP mean and the later
+# ensemble reflects the GP's extrapolation assumptions and the information available before
+# 2015; it does not by itself establish model failure or forecast calibration.
 #
-# This is not a failure of the GP; it is the GP being honest about what it was shown. The
-# post-2014 projections are driven by a future emissions scenario whose forcing accelerates
-# beyond the historical rate, and that acceleration is simply not present in the data the
-# GP trained on. The GP's credible interval faithfully quantifies uncertainty *about the
-# trend it saw*; it cannot manufacture uncertainty about a change of regime it never
-# witnessed. The between-model spread, by contrast, is precisely a measure of that
-# structural, physics-and-scenario uncertainty.
-#
-# The practical takeaway: a GP gives beautifully calibrated uncertainty for interpolation
-# and short-range extrapolation of an observed process, but structural uncertainty about
-# the *future* forcing of a system lives outside the data and must come from elsewhere —
-# here, from the ensemble of physical models. A serious climate risk assessment needs both:
-# the GP's within-trend credible interval **and** the ensemble's between-model spread,
-# because they quantify complementary sources of ignorance.
+# The GP interval describes conditional predictive variation around one fitted trend. The
+# across-model standard deviation and range describe spread among the available simulations
+# under their simulation configurations. This spread does not isolate individual sources of
+# uncertainty, assign probabilities to the models, or cover outcomes outside the ensemble.
+# The printed 2050 values provide a numerical comparison of the GP interval and the
+# available-model range at one forecast horizon.
 
 # %%
 forecast_2050_index = int(jnp.argmin(jnp.abs(forecast_years - 2050.0)))
@@ -407,7 +382,7 @@ gp_2050_upper = float(upper_credible[forecast_2050_index])
 ensemble_2050 = climate[climate["year"] == 2050]["annual_mean_temp"]
 print(
     f"GP 2050 forecast:         {gp_2050_mean:.2f} °C "
-    f"[{gp_2050_lower:.2f}, {gp_2050_upper:.2f}] (95% CI)"
+    f"[{gp_2050_lower:.2f}, {gp_2050_upper:.2f}] (predictive mean ± 2 SD)"
 )
 print(
     f"Between-model 2050 range: "
