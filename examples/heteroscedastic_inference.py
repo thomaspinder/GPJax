@@ -132,9 +132,11 @@ y = ((irradiance - irradiance_mean) / irradiance_std)[:, None]
 train = gpx.Dataset(X=jnp.asarray(x), y=jnp.asarray(y))
 
 
-def hours_to_standardised(hours: np.ndarray) -> jnp.ndarray:
+def hours_to_standardised(
+    hours: np.ndarray, mean: float = hour_mean, std: float = hour_std
+) -> jnp.ndarray:
     """Map hours of day onto the standardised input scale used for training."""
-    return jnp.asarray(((hours - hour_mean) / hour_std)[:, None])
+    return jnp.asarray(((hours - mean) / std)[:, None])
 
 
 # Dense grid of hours for visualising posterior fits and predictive uncertainty.
@@ -142,12 +144,19 @@ hour_grid = np.linspace(0.0, 23.0, 200)
 xtest = hours_to_standardised(hour_grid)
 
 # Empirical mean and spread of irradiance within each hour of day (the target the
-# heteroscedastic model must recover).
+# heteroscedastic model must recover). We build these with an explicit loop rather
+# than a comprehension so the notebook also runs under the integration-test harness,
+# which ``exec``s it with separate globals/locals (comprehensions have their own
+# scope and would not see the module-level ``irradiance`` array).
 empirical_hours = np.arange(24)
-empirical_mean = np.array(
-    [irradiance[hour_of_day == h].mean() for h in empirical_hours]
-)
-empirical_std = np.array([irradiance[hour_of_day == h].std() for h in empirical_hours])
+empirical_mean_values = []
+empirical_std_values = []
+for hour in empirical_hours:
+    irradiance_at_hour = irradiance[hour_of_day == hour]
+    empirical_mean_values.append(irradiance_at_hour.mean())
+    empirical_std_values.append(irradiance_at_hour.std())
+empirical_mean = np.array(empirical_mean_values)
+empirical_std = np.array(empirical_std_values)
 
 fig, ax = plt.subplots()
 ax.plot(hour_of_day, irradiance, "o", label="Observations", alpha=0.3, color=cols[0])
@@ -266,14 +275,20 @@ signal_pred, noise_pred = q_trained.predict_latents(xtest)
 predictive = likelihood.predict(signal_pred, noise_pred)
 
 
-def unstandardise_mean(values: jnp.ndarray) -> np.ndarray:
+def unstandardise_mean(
+    values: jnp.ndarray,
+    mean: float = irradiance_mean,
+    std: float = irradiance_std,
+) -> jnp.ndarray:
     """Map a standardised irradiance mean back to W/m²."""
-    return np.asarray(values).squeeze() * irradiance_std + irradiance_mean
+    return jnp.asarray(values).squeeze() * std + mean
 
 
-def unstandardise_std(values: jnp.ndarray) -> np.ndarray:
+def unstandardise_std(
+    values: jnp.ndarray, std: float = irradiance_std
+) -> jnp.ndarray:
     """Map a standardised irradiance standard deviation back to W/m²."""
-    return np.asarray(values).squeeze() * irradiance_std
+    return jnp.asarray(values).squeeze() * std
 
 
 latent_mean = unstandardise_mean(mf)
@@ -310,8 +325,8 @@ midday_index = int(np.argmin(np.abs(hour_grid - 13.0)))
 night_index = int(np.argmin(np.abs(hour_grid - 3.0)))
 print(
     "Predicted observation std. dev. — "
-    f"night (03:00): {predictive_std[night_index]:.1f} W/m², "
-    f"midday (13:00): {predictive_std[midday_index]:.1f} W/m²"
+    f"night (03:00): {float(predictive_std[night_index]):.1f} W/m², "
+    f"midday (13:00): {float(predictive_std[midday_index]):.1f} W/m²"
 )
 
 # %% [markdown]
