@@ -299,7 +299,10 @@ print(f"  Joint (linear + GP) model: {rmse_joint:.4f}")
 # reference altitude. To ground the field geographically we overlay the national border (clipping
 # the field to it) together with the outlines of the neighbouring countries. The left panel shows
 # the posterior mean, the right panel the posterior standard deviation (uncertainty grows away
-# from the stations). Station locations are overlaid, coloured by their observed `t_max`.
+# from the stations). On the mean map the station markers are coloured by their observed `t_max`
+# *adjusted to the same reference elevation* (removing the fitted altitude effect), so markers and
+# field share one colour scale and the field should be seen interpolating them; on the
+# uncertainty map the stations mark sampling locations only.
 #
 # > Country outlines: Natural Earth (1:50m admin-0), public domain.
 
@@ -403,14 +406,25 @@ def draw_borders(ax):
     )
 
 
-mean_map = axes[0].contourf(LON, LAT, grid_mean, levels=20, cmap="magma")
+# Bring each station's observed t_max onto the common reference elevation by
+# removing the fitted elevation effect (slope x standardised elevation). The field
+# and the station markers can then share a single colour scale and be compared
+# directly: the field should interpolate the adjusted observations.
+stations_adjusted = max_temperature - slope_mean_std_units * elevation_std
+colour_min = float(jnp.minimum(grid_mean.min(), stations_adjusted.min()))
+colour_max = float(jnp.maximum(grid_mean.max(), stations_adjusted.max()))
+temp_levels = jnp.linspace(colour_min, colour_max, 21)
+
+mean_map = axes[0].contourf(LON, LAT, grid_mean, levels=temp_levels, cmap="magma")
 mean_map.set_clip_path(switzerland_path, transform=axes[0].transData)
 draw_borders(axes[0])
 axes[0].scatter(
     longitude,
     latitude,
-    c=max_temperature,
+    c=stations_adjusted,
     cmap="magma",
+    vmin=colour_min,
+    vmax=colour_max,
     marker="o",
     edgecolor="white",
     linewidth=0.4,
