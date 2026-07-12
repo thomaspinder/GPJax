@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-docs:
-    timeout-minutes: 30
+    timeout-minutes: 45
     concurrency: ci-${{ github.ref }}
     name: Build docs (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -59,7 +59,7 @@ jobs:
         run: |
           conda install pandoc
           uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute --parallel --max_workers 4
+          uv run python docs/scripts/gen_examples.py --execute
           uv run mkdocs build
 
       - name: Checkout benchmark results

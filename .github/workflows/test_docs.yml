@@ -13,7 +13,7 @@ jobs:
     # Functionality for testing documentation builds on multiple OSes and Python versions
     name: Build docs
     runs-on: "ubuntu-latest"
-    timeout-minutes: 30
+    timeout-minutes: 45
     concurrency:
       group: ${{ github.head_ref }}
       cancel-in-progress: true
@@ -47,7 +47,7 @@ jobs:
         run: |
           conda install pandoc
           uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute --parallel --max_workers 4
+          uv run python docs/scripts/gen_examples.py --execute
           uv run mkdocs build
 
       - name: Upload built docs artifact

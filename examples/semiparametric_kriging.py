@@ -147,7 +147,7 @@ def linear_model(elevation_covariate, target=None):
 
 
 nuts_kernel_lin = NUTS(linear_model)
-mcmc_lin = MCMC(nuts_kernel_lin, num_warmup=1000, num_samples=1500, num_chains=1)
+mcmc_lin = MCMC(nuts_kernel_lin, num_warmup=500, num_samples=1000, num_chains=1)
 mcmc_lin.run(keys[2], elevation_std, target_centered)
 mcmc_lin.print_summary()
 
@@ -220,7 +220,7 @@ def joint_model(
 
 nuts_kernel_joint = NUTS(joint_model)
 # In practice, one should run more samples from multiple chains.
-mcmc_joint = MCMC(nuts_kernel_joint, num_warmup=1000, num_samples=1500, num_chains=1)
+mcmc_joint = MCMC(nuts_kernel_joint, num_warmup=500, num_samples=1000, num_chains=1)
 mcmc_joint.run(keys[3], spatial_coords, elevation_std, target_centered)
 mcmc_joint.print_summary()
 
@@ -297,7 +297,7 @@ print(f"  Joint (linear + GP) model: {rmse_joint:.4f}")
 # observed `t_max`.
 
 # %%
-n_grid = 45
+n_grid = 35
 lon_grid = jnp.linspace(longitude.min(), longitude.max(), n_grid)
 lat_grid = jnp.linspace(latitude.min(), latitude.max(), n_grid)
 LON, LAT = jnp.meshgrid(lon_grid, lat_grid)
