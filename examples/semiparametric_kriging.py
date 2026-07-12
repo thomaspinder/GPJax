@@ -50,12 +50,16 @@
 # > Data: MeteoSwiss station observations via Open-Meteo (CC-BY).
 
 # %%
+import json
+
 from examples.utils import use_mpl_style
 import gpjax as gpx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib as mpl
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path as MplPath
 import matplotlib.pyplot as plt
 import numpyro
 import numpyro.distributions as dist
@@ -289,17 +293,59 @@ print(f"  Joint (linear + GP) model: {rmse_joint:.4f}")
 # ## Kriging Map
 #
 # Finally we produce the interpretable output the method is built for: a **kriging map** of
-# maximum temperature across Switzerland. We predict on a dense `(longitude, latitude)` grid,
-# holding elevation fixed at the dataset mean so that the map isolates the *spatial* field —
-# what the temperature would look like across the country at a common reference altitude. The
-# left panel shows the posterior mean, the right panel the posterior standard deviation
-# (uncertainty grows away from the stations). Station locations are overlaid, coloured by their
-# observed `t_max`.
+# maximum temperature across Switzerland. We predict on a dense `(longitude, latitude)` grid
+# covering the country, holding elevation fixed at the dataset mean so that the map isolates the
+# *spatial* field — what the temperature would look like across Switzerland at a common
+# reference altitude. To ground the field geographically we overlay the national border (clipping
+# the field to it) together with the outlines of the neighbouring countries. The left panel shows
+# the posterior mean, the right panel the posterior standard deviation (uncertainty grows away
+# from the stations). Station locations are overlaid, coloured by their observed `t_max`.
+#
+# > Country outlines: Natural Earth (1:50m admin-0), public domain.
 
 # %%
+# Load the bundled country outlines (Natural Earth 1:50m), resolving the path from
+# the repo root or the docs build directory exactly as for the station data above.
+try:
+    with open("examples/data/switzerland_neighbours.geojson") as boundary_file:
+        boundaries = json.load(boundary_file)
+except FileNotFoundError:
+    with open("data/switzerland_neighbours.geojson") as boundary_file:
+        boundaries = json.load(boundary_file)
+
+
+def _iter_polygons(geometry):
+    """Yield each polygon (a list of rings) from a Polygon/MultiPolygon geometry."""
+    if geometry["type"] == "Polygon":
+        yield geometry["coordinates"]
+    elif geometry["type"] == "MultiPolygon":
+        yield from geometry["coordinates"]
+
+
+def country_path(iso_a3):
+    """Build a matplotlib Path (compound, for multi-part borders) for one country."""
+    feature = next(
+        f for f in boundaries["features"] if f["properties"]["iso_a3"] == iso_a3
+    )
+    vertices, codes = [], []
+    for polygon in _iter_polygons(feature["geometry"]):
+        for ring in polygon:
+            vertices.extend(ring)
+            vertices.append(ring[0])  # close the ring
+            codes += [MplPath.MOVETO, *([MplPath.LINETO] * (len(ring) - 1)), MplPath.CLOSEPOLY]
+    return MplPath(vertices, codes)
+
+
+switzerland_path = country_path("CHE")
+neighbour_codes = ["FRA", "ITA", "DEU", "AUT", "LIE"]
+(lon_min, lat_min), (lon_max, lat_max) = switzerland_path.get_extents().get_points()
+
+# %%
+# Predict over a grid spanning Switzerland's bounding box (so the clipped field fills
+# the whole country), holding elevation at the dataset mean (standardised zero).
 n_grid = 35
-lon_grid = jnp.linspace(longitude.min(), longitude.max(), n_grid)
-lat_grid = jnp.linspace(latitude.min(), latitude.max(), n_grid)
+lon_grid = jnp.linspace(lon_min, lon_max, n_grid)
+lat_grid = jnp.linspace(lat_min, lat_max, n_grid)
 LON, LAT = jnp.meshgrid(lon_grid, lat_grid)
 
 spatial_grid = jnp.column_stack(
@@ -308,7 +354,6 @@ spatial_grid = jnp.column_stack(
         (LAT.ravel() - jnp.mean(latitude)) / jnp.std(latitude),
     ]
 )
-# Reference elevation = dataset mean, i.e. standardised elevation of zero.
 elevation_grid = jnp.zeros(spatial_grid.shape[0])
 
 # Thin the posterior for the (more expensive) grid prediction.
@@ -329,9 +374,38 @@ grid_mean = (jnp.mean(preds_grid, axis=0).flatten() + target_mean_celsius).resha
 )
 grid_std = jnp.std(preds_grid, axis=0).flatten().reshape(n_grid, n_grid)
 
+# %%
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.5), layout="constrained")
+# Latitude-corrected aspect so the map is not horizontally stretched.
+aspect = 1.0 / float(jnp.cos(jnp.deg2rad((lat_min + lat_max) / 2.0)))
+margin = 0.2
+
+
+def draw_borders(ax):
+    for iso in neighbour_codes:
+        ax.add_patch(
+            PathPatch(
+                country_path(iso),
+                facecolor="none",
+                edgecolor="0.6",
+                linewidth=0.6,
+                zorder=3,
+            )
+        )
+    ax.add_patch(
+        PathPatch(
+            switzerland_path,
+            facecolor="none",
+            edgecolor="black",
+            linewidth=1.2,
+            zorder=4,
+        )
+    )
+
 
 mean_map = axes[0].contourf(LON, LAT, grid_mean, levels=20, cmap="magma")
+mean_map.set_clip_path(switzerland_path, transform=axes[0].transData)
+draw_borders(axes[0])
 axes[0].scatter(
     longitude,
     latitude,
@@ -341,25 +415,32 @@ axes[0].scatter(
     edgecolor="white",
     linewidth=0.4,
     s=28,
+    zorder=5,
 )
 axes[0].set_title("Posterior mean t_max at mean elevation (°C)")
 fig.colorbar(mean_map, ax=axes[0])
 
 std_map = axes[1].contourf(LON, LAT, grid_std, levels=20, cmap="viridis")
-axes[1].scatter(longitude, latitude, c=cols[0], s=10, alpha=0.7)
+std_map.set_clip_path(switzerland_path, transform=axes[1].transData)
+draw_borders(axes[1])
+axes[1].scatter(longitude, latitude, c=cols[0], s=10, alpha=0.7, zorder=5)
 axes[1].set_title("Posterior standard deviation (°C)")
 fig.colorbar(std_map, ax=axes[1])
 
 for ax in axes:
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
+    ax.set_xlim(lon_min - margin, lon_max + margin)
+    ax.set_ylim(lat_min - margin, lat_max + margin)
+    ax.set_aspect(aspect)
 
 # %% [markdown]
-# The mean map recovers the familiar Swiss pattern — warm on the low-lying Plateau and in the
-# southern Ticino, cool over the high Alps — while the standard-deviation map shows uncertainty
-# tightening around the dense station network and widening towards the sparsely sampled
-# margins. The elevation slope and the spatial residual together tell a coherent physical story:
-# altitude sets the baseline, and the GP fills in the regional climate.
+# Clipped to the national border and set against its neighbours, the mean map recovers the
+# familiar Swiss pattern — warm on the low-lying Plateau and in the southern Ticino, cool over
+# the high Alps — while the standard-deviation map shows uncertainty tightening around the dense
+# station network and widening towards the sparsely sampled margins. The elevation slope and the
+# spatial residual together tell a coherent physical story: altitude sets the baseline, and the
+# GP fills in the regional climate.
 
 # %% [markdown]
 # ## System configuration
