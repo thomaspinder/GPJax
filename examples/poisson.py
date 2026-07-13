@@ -67,19 +67,18 @@ key = jr.key(42)
 # is the _link function_ for the Poisson distribution: it maps the output of a GP to the positive
 # real line, which is suitable for modeling count data.
 #
-# Rather than a simulated series, we use a genuine count dataset: the number of **hot days**
-# recorded each year in Madrid, Spain, defined as days on which the maximum temperature reached at
-# least 30 °C. The record spans 1960–2023 (64 annual counts) and is derived from the ERA5
-# reanalysis. Over this period the annual hot-day count rises noticeably — roughly 49 days in 1960
-# to over 80 days by 2020 — a clear climate-warming signal that is a natural fit for a
-# Poisson-likelihood GP. The accompanying `frost_days` column (days with $T_\min \le 0$ °C) tells
-# the mirror-image story of a *declining* count over the same period; here we model the hot-day
-# series, but the identical workflow applies to that alternative target.
+# For this notebook, we use a real-world count dataset: the number of hot days
+# recorded each year in Madrid, Spain, whereby we define a _hot_ day as one where the maximum temperature reached
+# 30°C or more. The record spans 1960–2023 and is derived from the [ERA5
+# reanalysis project](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=overview).
+# Over this period the annual hot-day count rises by circa 49 days in 1960
+# to over 80 days by 2020. Such count data may appropriately be modelled by a Poisson
+# likelihood function.
 #
 # We use the calendar `year` as our input $\mathbf{X}$ and the hot-day count as the output
-# $\mathbf{y}$. The input is **standardised** (centred and scaled to unit variance), which improves
-# the conditioning of the GP inference. We store the data $\mathcal{D}$ as a GPJax `Dataset` and
-# retain the standardisation constants so predictions can be mapped back to calendar years.
+# $\mathbf{y}$. The input is standardised to make inference more reliable, and we store the data
+# $\mathcal{D}$ as a GPJax `Dataset` and retain the standardisation constants so predictions can
+# be mapped back to calendar years.
 
 # %%
 csv_candidates = [
@@ -106,8 +105,8 @@ year_test = xtest.flatten() * year_std + year_mean
 
 fig, ax = plt.subplots()
 ax.plot(year, hot_days, "o", label="Observed counts", color=cols[1])
-ax.set_xlabel("year")
-ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
+ax.set_xlabel("Year")
+ax.set_ylabel("Num. hot days")
 ax.legend()
 
 # %% [markdown]
@@ -160,12 +159,12 @@ print(type(posterior))
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) in this notebook, which we
 # recommend adopting for general applications.
 #
-# We begin with a **warm-up** phase, in which BlackJax's window adaptation tunes the
+# We begin with a warm-up phase, in which BlackJax's window adaptation tunes the
 # NUTS step size and mass matrix, before running the sampler for `num_samples` steps.
-# The warm-up matters here: with an untuned, fixed step size the sampler mixes poorly
+# The warm-up matters here as, with an untuned fixed step size, the sampler mixes poorly
 # and the latent rate occasionally collapses towards zero, producing a spuriously wide
 # and ragged lower credible band. In practice, drawing more samples across several
-# chains will be necessary.
+# chains will be necessary, but we truncate here do to CI/CD time limits.
 
 # %%
 # Adapted from BlackJax's introduction notebook.
@@ -225,12 +224,12 @@ ax2.set_title("Latent Function (index = 1)")
 # Having obtained samples from the posterior, we summarise the predictions at two
 # levels for each (thinned) MCMC sample:
 #
-# 1. The **posterior rate** $\lambda(\text{year}) = \exp(f(\text{year}))$ — the smooth,
+# 1. The posterior distribution of the rate $\lambda(\text{year}) = \exp(f(\text{year}))$ which quantifies the smooth,
 #    uncertainty-aware intensity of the process. Because the exponential link is
 #    bounded below by zero, the credible interval for $\lambda$ is naturally
 #    *asymmetric*: equal uncertainty in the latent $f$ maps to a multiplicative,
 #    right-skewed spread in $\lambda$.
-# 2. The **posterior predictive** over counts, which layers Poisson observation noise
+# 2. The posterior predictive over counts, which layers Poisson observation noise
 #    on top of the rate. This band is wider and integer-valued.
 #
 # An ideal Markov chain would have samples completely uncorrelated with their
@@ -252,9 +251,7 @@ for i in range(0, num_samples, thin_factor):
     model = eqx.combine(sample_params, static)
     model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
-    # Rate lambda = exp(f); the smooth intensity of the Poisson process.
     rate_samples.append(jnp.exp(latent_dist.mean))
-    # Posterior predictive counts add Poisson observation noise on top of the rate.
     predictive_key, draw_key = jr.split(predictive_key)
     predictive_dist = model.likelihood(latent_dist)
     count_samples.append(predictive_dist.sample(key=draw_key, sample_shape=(30,)))
@@ -320,7 +317,7 @@ ax.legend()
 # The inferred rate $\lambda(\text{year})$ increases steadily across the record, tracking the rising
 # number of hot days in Madrid and illustrating how a Poisson-likelihood GP recovers a smooth,
 # uncertainty-aware trend from noisy annual counts. The darker band is the credible interval for
-# the rate itself, while the lighter band adds Poisson observation noise to give the predictive
+# the rate itself, whilst the lighter band adds Poisson observation noise to give the predictive
 # interval for the counts; both are gently asymmetric because the exponential link floors the rate
 # at zero.
 #

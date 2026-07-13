@@ -109,7 +109,7 @@ centred_temperature = temperature_celsius - training_mean_celsius
 
 # %% [markdown]
 # Exact Gaussian process inference factorises the training Gram matrix. The next cell keeps
-# every third training observation to reduce this cost, while retaining all 122 daily
+# every third training observation to reduce this cost, whilst retaining all 122 daily
 # observations in the held-out interval for evaluation. It then constructs the GPJax
 # training dataset from the thinned inputs and centred temperatures.
 
