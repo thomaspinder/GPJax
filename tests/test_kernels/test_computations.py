@@ -93,6 +93,30 @@ class TestBasisFunctionComputation:
         cc = rff_kernel.compute_engine.cross_covariance(rff_kernel, x, x)
         assert jnp.allclose(gram, cc, atol=1e-5)
 
+    def test_gram_uses_single_pass_override(self, rff_kernel):
+        """gram should call _gram so RFF computes features once, not twice.
+
+        Before this wiring, gram inlined cross_covariance(x, x), which made
+        BasisFunctionComputation._gram a dead override and forced two feature
+        passes on every Gram evaluation.
+        """
+        x = jr.normal(jr.key(1), (8, 2))
+        engine = rff_kernel.compute_engine
+        call_count = {"n": 0}
+        original = engine.compute_features
+
+        def counting_compute_features(kernel, inputs):
+            call_count["n"] += 1
+            return original(kernel, inputs)
+
+        engine.compute_features = counting_compute_features
+        try:
+            _ = rff_kernel.gram(x).as_matrix()
+        finally:
+            engine.compute_features = original
+
+        assert call_count["n"] == 1
+
     def test_diagonal(self, rff_kernel):
         """Diagonal should return a linear operator."""
         x = jr.normal(jr.key(1), (8, 2))
