@@ -27,6 +27,7 @@ CTA_NOTEBOOKS = {
     "uncollapsed_vi",
     "oceanmodelling",
     "heteroscedastic_inference",
+    "solar_irradiance_modelling",
     "multioutput",
     "oilmm",
     "oak",

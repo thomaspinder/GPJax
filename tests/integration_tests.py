@@ -129,7 +129,16 @@ stochastic.test()
 heteroscedastic = Result(
     path="examples/heteroscedastic_inference.py",
     comparisons={
-        "history": (251.918, get_last),
+        "history": (-141.590, get_last),
     },
 )
 heteroscedastic.test()
+
+# %%
+solar_irradiance = Result(
+    path="examples/solar_irradiance_modelling.py",
+    comparisons={
+        "history": (-890.295, get_last),
+    },
+)
+solar_irradiance.test()
