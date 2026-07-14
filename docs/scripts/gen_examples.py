@@ -27,15 +27,11 @@ CTA_NOTEBOOKS = {
     "uncollapsed_vi",
     "oceanmodelling",
     "heteroscedastic_inference",
-    "solar_irradiance_modelling",
     "multioutput",
     "oilmm",
     "oak",
     "numpyro_integration",
     "spatial_linear_gp",
-    "semiparametric_kriging",
-    "temperature_forecasting",
-    "climate_extrapolation",
 }
 
 CTA_HTML = """

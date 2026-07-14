@@ -68,10 +68,10 @@ key = jr.key(42)
 # real line, which is suitable for modeling count data.
 #
 # For this notebook, we use a real-world count dataset: the number of hot days
-# recorded each year in Madrid, Spain, whereby we define a _hot_ day as one where the maximum temperature reached
+# recorded each year in Madrid, Spain, where we define a _hot_ day as one where the maximum temperature reached
 # 30°C or more. The record spans 1960–2023 and is derived from the [ERA5
 # reanalysis project](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=overview).
-# Over this period the annual hot-day count rises by circa 49 days in 1960
+# Over this period the annual hot-day count rises from circa 49 days in 1960
 # to over 80 days by 2020. Such count data may appropriately be modelled by a Poisson
 # likelihood function.
 #
@@ -164,7 +164,7 @@ print(type(posterior))
 # The warm-up matters here as, with an untuned fixed step size, the sampler mixes poorly
 # and the latent rate occasionally collapses towards zero, producing a spuriously wide
 # and ragged lower credible band. In practice, drawing more samples across several
-# chains will be necessary, but we truncate here do to CI/CD time limits.
+# chains will be necessary, but we truncate here due to CI/CD time limits.
 
 # %%
 # Adapted from BlackJax's introduction notebook.
@@ -224,13 +224,16 @@ ax2.set_title("Latent Function (index = 1)")
 # Having obtained samples from the posterior, we summarise the predictions at two
 # levels for each (thinned) MCMC sample:
 #
-# 1. The posterior distribution of the rate $\lambda(\text{year}) = \exp(f(\text{year}))$ which quantifies the smooth,
-#    uncertainty-aware intensity of the process. Because the exponential link is
-#    bounded below by zero, the credible interval for $\lambda$ is naturally
-#    *asymmetric*: equal uncertainty in the latent $f$ maps to a multiplicative,
-#    right-skewed spread in $\lambda$.
+# 1. The posterior distribution of the rate $\lambda(\text{year}) = \exp(f(\text{year}))$, which quantifies the smooth,
+#    uncertainty-aware intensity of the process. For each (thinned) MCMC sample we
+#    draw latent functions $f^{\star}$ from the GP predictive at the test years and
+#    push them through the exponential link, so the band reflects both hyperparameter
+#    and latent-function uncertainty. Because the link is bounded below by zero, the
+#    credible interval for $\lambda$ is naturally *asymmetric*: symmetric uncertainty
+#    in the latent $f$ maps to a multiplicative, right-skewed spread in $\lambda$.
 # 2. The posterior predictive over counts, which layers Poisson observation noise
-#    on top of the rate. This band is wider and integer-valued.
+#    on top of each sampled rate. This band is wider, and is built from
+#    integer-valued count draws.
 #
 # An ideal Markov chain would have samples completely uncorrelated with their
 # neighbours after a single lag. However, in practice, correlations often exist
@@ -242,6 +245,7 @@ ax2.set_title("Latent Function (index = 1)")
 
 # %%
 thin_factor = 10
+num_latent_draws = 30
 rate_samples = []
 count_samples = []
 
@@ -251,13 +255,14 @@ for i in range(0, num_samples, thin_factor):
     model = eqx.combine(sample_params, static)
     model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
-    rate_samples.append(jnp.exp(latent_dist.mean))
-    predictive_key, draw_key = jr.split(predictive_key)
-    predictive_dist = model.likelihood(latent_dist)
-    count_samples.append(predictive_dist.sample(key=draw_key, sample_shape=(30,)))
+    predictive_key, f_key, y_key = jr.split(predictive_key, 3)
+    f_star = latent_dist.sample(key=f_key, sample_shape=(num_latent_draws,))
+    rate = jnp.exp(f_star)
+    rate_samples.append(rate)
+    count_samples.append(model.likelihood.link_function(f_star).sample(key=y_key))
 
-rate_samples = jnp.stack(rate_samples)
-count_samples = jnp.vstack(count_samples)
+rate_samples = jnp.concatenate(rate_samples)
+count_samples = jnp.concatenate(count_samples)
 
 rate_lower, rate_upper = jnp.percentile(rate_samples, jnp.array([2.5, 97.5]), axis=0)
 count_lower, count_upper = jnp.percentile(count_samples, jnp.array([2.5, 97.5]), axis=0)

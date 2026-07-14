@@ -133,12 +133,3 @@ heteroscedastic = Result(
     },
 )
 heteroscedastic.test()
-
-# %%
-solar_irradiance = Result(
-    path="examples/solar_irradiance_modelling.py",
-    comparisons={
-        "history": (-890.295, get_last),
-    },
-)
-solar_irradiance.test()
