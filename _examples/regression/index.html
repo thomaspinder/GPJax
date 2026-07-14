@@ -4146,7 +4146,7 @@ function and the observed data that is subject to Gaussian noise.</p>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xtest</span><span class="p">,</span> <span class="n">ytest</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Latent function&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;best&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7ff7e2f17050&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f5c8cebff10&gt;
 </code></pre></div>
 <p><img alt="png" src="../regression_files/regression_5_1.png" /></p>
 <p>Our aim in this tutorial will be to reconstruct the latent function from our noisy
@@ -4206,7 +4206,7 @@ Note this is what will be defaulted if left blank.</p>
 <h2 id="constructing-the-posterior">Constructing the posterior<a class="headerlink" href="#constructing-the-posterior" title="Permanent link"></a></h2>
 <p>Having defined our GP, we proceed to define a description of our data
 <span class="arithmatex">\(\mathcal{D}\)</span> conditional on our knowledge of <span class="arithmatex">\(f(\cdot)\)</span> - this is exactly the
-notion of a likelihood function <span class="arithmatex">\(p(\mathcal{D} | f(\cdot))\)</span>. While the choice of
+notion of a likelihood function <span class="arithmatex">\(p(\mathcal{D} | f(\cdot))\)</span>. Whilst the choice of
 likelihood is a critical in Bayesian modelling, for simplicity we consider a
 Gaussian with noise parameter <span class="arithmatex">\(\alpha\)</span></p>
 <div class="arithmatex">\[p(\mathcal{D} | f(\cdot)) = \mathcal{N}(\boldsymbol{y}; f(\boldsymbol{x}), \textbf{I} \alpha^2).\]</div>
@@ -4221,7 +4221,7 @@ Gaussian with noise parameter <span class="arithmatex">\(\alpha\)</span></p>
 <!-- ## Hyperparameter optimisation
 
 Our kernel is parameterised by a length-scale $\ell^2$ and variance parameter
-$\sigma^2$, while our likelihood controls the observation noise with $\alpha^2$.
+$\sigma^2$, whilst our likelihood controls the observation noise with $\alpha^2$.
 Using Jax's automatic differentiation module, we can take derivatives of  -->
 
 <h2 id="parameter-state">Parameter state<a class="headerlink" href="#parameter-state" title="Permanent link"></a></h2>
@@ -4321,7 +4321,7 @@ latent function of interest.</p>
 </span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xtest</span><span class="p">,</span> <span class="n">predictive_mean</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Predictive mean&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;center left&quot;</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">0.975</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7ff7d4512410&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f5c8ca11e10&gt;
 </code></pre></div>
 <p><img alt="png" src="../regression_files/regression_23_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>
@@ -4330,7 +4330,7 @@ latent function of interest.</p>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Author: Thomas Pinder &amp; Daniel Dodd
 
-Last updated: Mon, 13 Jul 2026
+Last updated: Tue, 14 Jul 2026
 
 Python implementation: CPython
 Python version       : 3.11.15
