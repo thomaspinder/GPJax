@@ -154,7 +154,7 @@ clean_legend(ax)
 #
 # Having defined our GP, we proceed to define a description of our data
 # $\mathcal{D}$ conditional on our knowledge of $f(\cdot)$ - this is exactly the
-# notion of a likelihood function $p(\mathcal{D} | f(\cdot))$. While the choice of
+# notion of a likelihood function $p(\mathcal{D} | f(\cdot))$. Whilst the choice of
 # likelihood is a critical in Bayesian modelling, for simplicity we consider a
 # Gaussian with noise parameter $\alpha$
 #
@@ -179,7 +179,7 @@ posterior = prior * likelihood
 # <!-- ## Hyperparameter optimisation
 #
 # Our kernel is parameterised by a length-scale $\ell^2$ and variance parameter
-# $\sigma^2$, while our likelihood controls the observation noise with $\alpha^2$.
+# $\sigma^2$, whilst our likelihood controls the observation noise with $\alpha^2$.
 # Using Jax's automatic differentiation module, we can take derivatives of  -->
 #
 # ## Parameter state
