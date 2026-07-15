@@ -989,9 +989,9 @@ dependencies = [
     { name = "numpy" },
     { name = "numpyro" },
     { name = "optax" },
-    { name = "optimistix" },
     { name = "paramax" },
     { name = "rich" },
+    { name = "scipy" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'" },
     { name = "tqdm" },
 ]
@@ -1072,12 +1072,12 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "numpyro", specifier = ">=0.19.0" },
     { name = "optax", specifier = ">0.2.1" },
-    { name = "optimistix", specifier = ">=0.0.9" },
     { name = "pandas", marker = "extra == 'docs'", specifier = ">=1.5.3" },
     { name = "paramax", specifier = ">=0.0.5" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.7.1" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "scikit-learn", marker = "extra == 'docs'", specifier = ">=1.5.1" },
+    { name = "scipy", specifier = ">=1.14" },
     { name = "seaborn", marker = "extra == 'docs'", specifier = ">=0.12.2" },
     { name = "tensorstore", marker = "sys_platform == 'darwin'", specifier = "!=0.1.76" },
     { name = "tqdm", specifier = ">4.66.2" },
@@ -2438,22 +2438,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6d/3b/90c11f740a3538200b61cd2b7d9346959cb9e31e0bdea3d2f886b7262203/optax-0.2.6.tar.gz", hash = "sha256:ba8d1e12678eba2657484d6feeca4fb281b8066bdfd5efbfc0f41b87663109c0", size = 269660, upload-time = "2025-09-15T22:41:24.76Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/ec/19c6cc6064c7fc8f0cd6d5b37c4747849e66040c6ca98f86565efc2c227c/optax-0.2.6-py3-none-any.whl", hash = "sha256:f875251a5ab20f179d4be57478354e8e21963373b10f9c3b762b94dcb8c36d91", size = 367782, upload-time = "2025-09-15T22:41:22.825Z" },
-]
-
-[[package]]
-name = "optimistix"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "equinox" },
-    { name = "jax" },
-    { name = "jaxtyping" },
-    { name = "lineax" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5c/0b/3bdc0e698cb0d264e5dca0b5bb171342a950a43fa6e046d8c57189298422/optimistix-0.1.0.tar.gz", hash = "sha256:f05c9104748e87e1dc10a0b4a2be94e427f98c3eab0b1d41ea24a593d76be03d", size = 70164, upload-time = "2026-02-16T13:35:43.991Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/53/6a81a6ebb1739f19c32002139719d4ee021a349d5bdbe066910feed327a1/optimistix-0.1.0-py3-none-any.whl", hash = "sha256:c8edda7bf7fe48839c93fcd72bce750c950ed9f7033158303150b7ab395add81", size = 101740, upload-time = "2026-02-16T13:35:42.971Z" },
 ]
 
 [[package]]
