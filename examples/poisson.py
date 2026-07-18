@@ -23,6 +23,8 @@
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) for sampling.
 
 # %%
+from pathlib import Path
+
 import blackjax
 import equinox as eqx
 from examples.utils import use_mpl_style
@@ -34,6 +36,7 @@ import jax.tree_util as jtu
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pandas as pd
 import paramax
 
 with install_import_hook("gpjax", "beartype.beartype"):
@@ -60,28 +63,50 @@ key = jr.key(42)
 # where $y$ is the count and the parameter $\lambda \in \mathbb{R}_{>0}$ is the rate of the Poisson
 # distribution.
 #
-# We than set $\lambda = \exp(f)$ where $f$ is the latent Gaussian process. The exponential function
+# We then set $\lambda = \exp(f)$ where $f$ is the latent Gaussian process. The exponential function
 # is the _link function_ for the Poisson distribution: it maps the output of a GP to the positive
 # real line, which is suitable for modeling count data.
 #
-# We simulate a dataset $\mathcal{D} = \{(\mathbf{X}, \mathbf{y})\}$ with inputs $\mathbf{X} \in
-# \mathbb{R}^d$ and corresponding count outputs $\mathbf{y}$.  We store our data $\mathcal{D}$ as a
-# GPJax `Dataset`.
+# For this notebook, we use a real-world count dataset: the number of hot days
+# recorded each year in Madrid, Spain, where we define a _hot_ day as one where the maximum temperature reached
+# 30°C or more. The record spans 1960–2023 and is derived from the [ERA5
+# reanalysis project](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=overview).
+# Over this period the annual hot-day count rises from circa 49 days in 1960
+# to over 80 days by 2020. Such count data may appropriately be modelled by a Poisson
+# likelihood function.
+#
+# We use the calendar `year` as our input $\mathbf{X}$ and the hot-day count as the output
+# $\mathbf{y}$. The input is standardised to make inference more reliable, and we store the data
+# $\mathcal{D}$ as a GPJax `Dataset` and retain the standardisation constants so predictions can
+# be mapped back to calendar years.
 
 # %%
-key, subkey = jr.split(key)
-n = 50
-x = jr.uniform(key, shape=(n, 1), minval=-2.0, maxval=2.0)
-f = lambda x: 2.0 * jnp.sin(3 * x) + 0.5 * x  # latent function
-y = jr.poisson(key, jnp.exp(f(x)))
+csv_candidates = [
+    Path("examples/data/madrid_annual_extreme_days.csv"),
+    Path("data/madrid_annual_extreme_days.csv"),
+]
+csv_path = next(path for path in csv_candidates if path.exists())
+madrid_data = pd.read_csv(csv_path)
 
-D = gpx.Dataset(X=x, y=y)
+year = madrid_data["year"].to_numpy()
+hot_days = madrid_data["hot_days_30"].to_numpy()
 
-xtest = jnp.linspace(-2.0, 2.0, 500).reshape(-1, 1)
+year_mean = year.mean()
+year_std = year.std()
+year_standardised = ((year - year_mean) / year_std).reshape(-1, 1)
+count = hot_days.reshape(-1, 1).astype(float)
+
+D = gpx.Dataset(X=jnp.asarray(year_standardised), y=jnp.asarray(count))
+
+xtest = jnp.linspace(year_standardised.min(), year_standardised.max(), 500).reshape(
+    -1, 1
+)
+year_test = xtest.flatten() * year_std + year_mean
 
 fig, ax = plt.subplots()
-ax.plot(x, y, "o", label="Observations", color=cols[1])
-ax.plot(xtest, jnp.exp(f(xtest)), label=r"Rate $\lambda$")
+ax.plot(year, hot_days, "o", label="Observed counts", color=cols[1])
+ax.set_xlabel("Year")
+ax.set_ylabel("Num. hot days")
 ax.legend()
 
 # %% [markdown]
@@ -134,9 +159,12 @@ print(type(posterior))
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) in this notebook, which we
 # recommend adopting for general applications.
 #
-# We begin by generating _sensible_ initial positions for our sampler before defining
-# an inference loop and sampling 200 values from our Markov chain. In practice,
-# drawing more samples will be necessary.
+# We begin with a warm-up phase, in which BlackJax's window adaptation tunes the
+# NUTS step size and mass matrix, before running the sampler for `num_samples` steps.
+# The warm-up matters here as, with an untuned fixed step size, the sampler mixes poorly
+# and the latent rate occasionally collapses towards zero, producing a spuriously wide
+# and ragged lower credible band. In practice, drawing more samples across several
+# chains will be necessary, but we truncate here due to CI/CD time limits.
 
 # %%
 # Adapted from BlackJax's introduction notebook.
@@ -153,13 +181,12 @@ def logprob_fn(params):
     return gpx.objectives.log_posterior_density(model, D)
 
 
-step_size = 1e-3
-n_params = sum(jnp.size(leaf) for leaf in jtu.tree_leaves(params))
-inverse_mass_matrix = jnp.ones(n_params)
-nuts = blackjax.nuts(logprob_fn, step_size, inverse_mass_matrix)
+# Warm-up: adapt the NUTS step size and inverse mass matrix.
+key, warmup_key, sampling_key = jr.split(key, 3)
+warmup = blackjax.window_adaptation(blackjax.nuts, logprob_fn)
+(state, tuned_parameters), _ = warmup.run(warmup_key, params, num_steps=num_adapt)
 
-state = nuts.init(params)
-
+nuts = blackjax.nuts(logprob_fn, **tuned_parameters)
 step = jax.jit(nuts.step)
 
 
@@ -168,7 +195,7 @@ def one_step(state, rng_key):
     return state, (state, info)
 
 
-keys = jax.random.split(key, num_samples)
+keys = jax.random.split(sampling_key, num_samples)
 _, (states, infos) = jax.lax.scan(one_step, state, keys, unroll=10)
 
 # %% [markdown]
@@ -194,9 +221,19 @@ ax2.set_title("Latent Function (index = 1)")
 # %% [markdown]
 # ## Prediction
 #
-# Having obtained samples from the posterior, we draw ten instances from our model's
-# predictive distribution per MCMC sample. Using these draws, we will be able to
-# compute credible values and expected values under our posterior distribution.
+# Having obtained samples from the posterior, we summarise the predictions at two
+# levels for each (thinned) MCMC sample:
+#
+# 1. The posterior distribution of the rate $\lambda(\text{year}) = \exp(f(\text{year}))$, which quantifies the smooth,
+#    uncertainty-aware intensity of the process. For each (thinned) MCMC sample we
+#    draw latent functions $f^{\star}$ from the GP predictive at the test years and
+#    push them through the exponential link, so the band reflects both hyperparameter
+#    and latent-function uncertainty. Because the link is bounded below by zero, the
+#    credible interval for $\lambda$ is naturally *asymmetric*: symmetric uncertainty
+#    in the latent $f$ maps to a multiplicative, right-skewed spread in $\lambda$.
+# 2. The posterior predictive over counts, which layers Poisson observation noise
+#    on top of each sampled rate. This band is wider, and is built from
+#    integer-valued count draws.
 #
 # An ideal Markov chain would have samples completely uncorrelated with their
 # neighbours after a single lag. However, in practice, correlations often exist
@@ -207,20 +244,29 @@ ax2.set_title("Latent Function (index = 1)")
 # factors, we employ a thin factor of 10 for demonstration purposes.
 
 # %%
-thin_factor = 20
-posterior_samples = []
+thin_factor = 10
+num_latent_draws = 30
+rate_samples = []
+count_samples = []
 
+key, predictive_key = jr.split(key)
 for i in range(0, num_samples, thin_factor):
     sample_params = jtu.tree_map(lambda samples, i=i: samples[i], states.position)
     model = eqx.combine(sample_params, static)
     model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
-    predictive_dist = model.likelihood(latent_dist)
-    posterior_samples.append(predictive_dist.sample(key=key, sample_shape=(10,)))
+    predictive_key, f_key, y_key = jr.split(predictive_key, 3)
+    f_star = latent_dist.sample(key=f_key, sample_shape=(num_latent_draws,))
+    rate = jnp.exp(f_star)
+    rate_samples.append(rate)
+    count_samples.append(model.likelihood.link_function(f_star).sample(key=y_key))
 
-posterior_samples = jnp.vstack(posterior_samples)
-lower_ci, upper_ci = jnp.percentile(posterior_samples, jnp.array([2.5, 97.5]), axis=0)
-expected_val = jnp.mean(posterior_samples, axis=0)
+rate_samples = jnp.concatenate(rate_samples)
+count_samples = jnp.concatenate(count_samples)
+
+rate_lower, rate_upper = jnp.percentile(rate_samples, jnp.array([2.5, 97.5]), axis=0)
+count_lower, count_upper = jnp.percentile(count_samples, jnp.array([2.5, 97.5]), axis=0)
+expected_rate = jnp.mean(rate_samples, axis=0)
 
 
 # %% [markdown]
@@ -231,19 +277,56 @@ expected_val = jnp.mean(posterior_samples, axis=0)
 # %%
 fig, ax = plt.subplots()
 ax.plot(
-    x, y, "o", markersize=5, color=cols[1], label="Observations", zorder=2, alpha=0.7
+    year,
+    hot_days,
+    "o",
+    markersize=5,
+    color=cols[1],
+    label="Observed counts",
+    zorder=3,
+    alpha=0.7,
 )
 ax.plot(
-    xtest, expected_val, linewidth=2, color=cols[0], label="Predicted mean", zorder=1
+    year_test,
+    expected_rate,
+    linewidth=2,
+    color=cols[0],
+    label=r"Posterior rate $\lambda$",
+    zorder=2,
 )
 ax.fill_between(
-    xtest.flatten(),
-    lower_ci.flatten(),
-    upper_ci.flatten(),
-    alpha=0.2,
+    year_test,
+    rate_lower.flatten(),
+    rate_upper.flatten(),
+    alpha=0.35,
     color=cols[0],
-    label="95% CI",
+    lw=0,
+    label=r"95% CI (rate $\lambda$)",
+    zorder=1,
 )
+ax.fill_between(
+    year_test,
+    count_lower.flatten(),
+    count_upper.flatten(),
+    alpha=0.15,
+    color=cols[0],
+    lw=0,
+    label="95% CI (predicted counts)",
+    zorder=0,
+)
+ax.set_xlabel("year")
+ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
+ax.legend()
+
+# %% [markdown]
+# The inferred rate $\lambda(\text{year})$ increases steadily across the record, tracking the rising
+# number of hot days in Madrid and illustrating how a Poisson-likelihood GP recovers a smooth,
+# uncertainty-aware trend from noisy annual counts. The darker band is the credible interval for
+# the rate itself, whilst the lighter band adds Poisson observation noise to give the predictive
+# interval for the counts; both are gently asymmetric because the exponential link floors the rate
+# at zero.
+#
+# Data: ERA5 reanalysis via Open-Meteo (CC-BY).
 
 # %% [markdown]
 # ## System configuration

@@ -212,7 +212,7 @@ nuts_kernel = NUTS(model)
 # In practice, one should run more samples from multiple chains.
 mcmc = MCMC(
     nuts_kernel,
-    num_warmup=500,
+    num_warmup=750,
     num_samples=500,
 )
 mcmc.run(keys[2], x, y)

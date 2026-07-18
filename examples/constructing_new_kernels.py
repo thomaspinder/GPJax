@@ -66,7 +66,7 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # * Polynomial.
 # * [Graph kernels](https://docs.jaxgaussianprocesses.com/_examples/graph_kernels/).
 #
-# While the syntax is consistent, each kernel's type influences the
+# Whilst the syntax is consistent, each kernel's type influences the
 # characteristics of the sample paths drawn. We visualise this below with 10
 # function draws per kernel.
 
@@ -203,7 +203,7 @@ fig.colorbar(im3, ax=ax[3], fraction=0.05)
 #
 # Here the hyperparameter $\tau$ is analogous to a lengthscale for Euclidean
 # stationary kernels, controlling the correlation between pairs of observations.
-# While $d$ is an angular distance metric
+# Whilst $d$ is an angular distance metric
 #
 # $$d(\theta, \theta') = \lvert (\theta-\theta'+c) \operatorname{mod} 2c - c
 # \rvert.$$

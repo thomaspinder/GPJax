@@ -164,3 +164,4 @@ reports/
 # ASV (continuous benchmarking)
 .asv/
 .asv-results/
+.scratch/
