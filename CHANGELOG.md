@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [0.18.0] — 2026-07-26
 
 ### Removed
 
@@ -82,6 +82,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frequencies. RFF Gram/cross-covariance values with *sampled* frequencies are
   bit-identical to `0.17.0` — the lengthscale simply moved from the feature map
   into the measure it is drawn from.
+
+#### Migration
+
+- **`StationaryKernel.spectral_density`**: the return type is now
+  `MultivariateNormal` / `MultivariateStudentT` with `event_shape == (D,)`.
+  Replace `kernel.spectral_density.sample(key, (M, D))` with
+  `kernel.spectral_density.sample(key, (M,))`. Values from `log_prob` now vary
+  with the lengthscale, as they always should have — there is no restore path,
+  the previous output was incorrect.
+- **`kernels.approximations.RFF(..., frequencies=...)`**: supplied frequencies
+  are now used as the spectral frequencies ω directly. If you were
+  pre-compensating for the old division by the lengthscale, remove that
+  compensation. RFF with *sampled* frequencies is bit-identical to `0.17.0`.
+- **`HeteroscedasticGaussian.link_function`**: now requires the noise latent,
+  `link_function(f, g)`. Calls passing only `f` raise `ValueError`; they
+  previously returned `N(y | f, σ²(0))`, which was wrong. Use
+  `expected_log_likelihood(..., mean_g=, variance_g=)` or
+  `predict(dist, noise_dist)` if you want the noise handled for you.
+- **`tensorstore`**: removed as a runtime dependency. If you imported it
+  transitively via GPJax on macOS, depend on it explicitly.
+- **KL divergences**: `distributions._kl_divergence` and the variational
+  `prior_kl` methods return the same values as `0.17.0` (bit-identical, or to
+  ~1e-16 where floating-point reassociation applies). No action needed.
 
 ## [0.17.0] — 2026-07-04
 
