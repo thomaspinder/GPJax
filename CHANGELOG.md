@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`NaturalVariationalGaussian` and `ExpectationVariationalGaussian`.** These were
+  parameterisation-only classes with no optimiser attached: they stored the natural or
+  expectation coordinates of `q(u)` but offered no way to take a natural-gradient step
+  in them. Natural-gradient geometry belongs to the optimiser — the Fisher matrix *is*
+  the Jacobian dη/dθ, so the natural gradient with respect to θ equals the ordinary
+  gradient with respect to η, in any parameterisation. `fit_natgrads` therefore operates
+  directly on `VariationalGaussian` and `WhitenedVariationalGaussian`, which store
+  constraint-respecting coordinates. Users of the removed classes should switch to
+  `VariationalGaussian` with `gpjax.fit_natgrads`.
+  The `VariationalParametrisationSuite` ASV benchmark loses its `natural` and
+  `expectation` axis values; previously recorded results for those two arms are orphaned.
+
 ### Fixed
 
 - **`Zero` mean function is trainable and drifts away from zero.** Fitting a

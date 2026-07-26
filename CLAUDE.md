@@ -88,7 +88,7 @@ Three optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (Sci
 
 ### Variational inference (`gpjax/variational_families.py`)
 
-`VariationalGaussian`, `WhitenedVariationalGaussian`, `NaturalVariationalGaussian`, `ExpectationVariationalGaussian`, `CollapsedVariationalGaussian`, `GraphVariationalGaussian`, `HeteroscedasticVariationalFamily`. All inherit from `AbstractVariationalFamily` and implement `predict()` + `prior_kl()`.
+`VariationalGaussian`, `WhitenedVariationalGaussian`, `CollapsedVariationalGaussian`, `GraphVariationalGaussian`, `HeteroscedasticVariationalFamily`. All inherit from `AbstractVariationalFamily` and implement `predict()` + `prior_kl()`.
 
 ### NumPyro integration (`gpjax/numpyro_extras.py`)
 

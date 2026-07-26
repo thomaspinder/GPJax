@@ -29,9 +29,7 @@ import gpjax.variational_families
 from gpjax.variational_families import (
     AbstractVariationalFamily,
     CollapsedVariationalGaussian,
-    ExpectationVariationalGaussian,
     GraphVariationalGaussian,
-    NaturalVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
 )
@@ -116,8 +114,6 @@ def diag_matrix_val(
     [
         VariationalGaussian,
         WhitenedVariationalGaussian,
-        NaturalVariationalGaussian,
-        ExpectationVariationalGaussian,
     ],
 )
 def test_variational_gaussians(
@@ -141,25 +137,12 @@ def test_variational_gaussians(
     assert q.num_inducing == n_inducing
     assert isinstance(q, AbstractVariationalFamily)
 
-    if isinstance(q, (VariationalGaussian, WhitenedVariationalGaussian)):
-        assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
-        assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
-        assert (q.variational_mean.unwrap() == vector_val(0.0)(n_inducing)).all()
-        assert (
-            q.variational_root_covariance.unwrap() == diag_matrix_val(1.0)(n_inducing)
-        ).all()
-
-    elif isinstance(q, NaturalVariationalGaussian):
-        assert q.natural_vector.unwrap().shape == vector_shape(n_inducing)
-        assert q.natural_matrix.unwrap().shape == matrix_shape(n_inducing)
-        assert (q.natural_vector.unwrap() == vector_val(0.0)(n_inducing)).all()
-        assert (q.natural_matrix.unwrap() == diag_matrix_val(-0.5)(n_inducing)).all()
-
-    elif isinstance(q, ExpectationVariationalGaussian):
-        assert q.expectation_vector.unwrap().shape == vector_shape(n_inducing)
-        assert q.expectation_matrix.unwrap().shape == matrix_shape(n_inducing)
-        assert (q.expectation_vector.unwrap() == vector_val(0.0)(n_inducing)).all()
-        assert (q.expectation_matrix.unwrap() == diag_matrix_val(1.0)(n_inducing)).all()
+    assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
+    assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
+    assert (q.variational_mean.unwrap() == vector_val(0.0)(n_inducing)).all()
+    assert (
+        q.variational_root_covariance.unwrap() == diag_matrix_val(1.0)(n_inducing)
+    ).all()
 
     # Test KL
     kl = q.prior_kl()
@@ -178,6 +161,22 @@ def test_variational_gaussians(
     assert isinstance(sigma, jnp.ndarray)
     assert mu.shape == (n_test,)
     assert sigma.shape == (n_test, n_test)
+
+
+@pytest.mark.parametrize(
+    "removed_name",
+    ["NaturalVariationalGaussian", "ExpectationVariationalGaussian", "_psd"],
+)
+def test_removed_families_are_gone(removed_name: str) -> None:
+    """The natural/expectation parameterisations were superseded by `fit_natgrads`.
+
+    They were parameterisation-only classes with no optimiser attached; natural-gradient
+    steps are now taken directly on `VariationalGaussian` and
+    `WhitenedVariationalGaussian`. This guards against them (or their private `_psd`
+    helper) creeping back in.
+    """
+    assert not hasattr(gpjax.variational_families, removed_name)
+    assert removed_name not in gpjax.variational_families.__all__
 
 
 @pytest.mark.parametrize("n_test", [10, 20])
@@ -531,11 +530,10 @@ def _count_cholesky_calls(monkeypatch, thunk) -> dict[str, int]:
         counts["dense_cholesky"] += 1
         return original_dense_cholesky(matrix)
 
-    for module in (
-        gpjax.linalg.utils,
-        gpjax.distributions,
-        gpjax.variational_families,
-    ):
+    # ``gpjax.variational_families`` is deliberately absent: its only
+    # ``cholesky_factor`` call site lived in the removed
+    # ``ExpectationVariationalGaussian``, so the module no longer imports the name.
+    for module in (gpjax.linalg.utils, gpjax.distributions):
         monkeypatch.setattr(module, "cholesky_factor", counting_cholesky_factor)
     monkeypatch.setattr(jnp.linalg, "cholesky", counting_dense_cholesky)
 
