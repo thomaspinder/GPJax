@@ -233,7 +233,7 @@ ax.indicate_inset_zoom(axins, edgecolor="grey")
 #
 # Real records have gaps. The state-space predictive accepts an
 # `observation_mask` boolean vector over the training points that excludes
-# masked observations from the filter updates while still propagating the state
+# masked observations from the filter updates whilst still propagating the state
 # through them. This yields a principled interpolation across the gap, with the
 # posterior uncertainty widening over the unobserved interval and tightening
 # again at the edges where data resumes.

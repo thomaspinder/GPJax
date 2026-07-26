@@ -25,7 +25,7 @@
 # capturing spatial structure that the linear term's residual.
 #
 # The example highlights the interplay between **GPJax** and **NumPyro**: `GPJax` provides the GP
-# prior and likelihood definitions, while `NumPyro` performs Hamiltonian Monte Carlo (HMC)
+# prior and likelihood definitions, whilst `NumPyro` performs Hamiltonian Monte Carlo (HMC)
 # inference across all parameters in a unified model and allows us to draw upon a broader set of
 # modelling components.
 

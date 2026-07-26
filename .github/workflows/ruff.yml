@@ -14,5 +14,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: chartboost/ruff-action@v1
+      - name: Check out the code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      # Resolve ruff from uv.lock rather than the network. A floating ruff
+      # means a new release can turn every open PR red without a commit having
+      # been made — which is exactly what the PLR0917 stabilisation did.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Check formatting and style
+        run: |
+          uv sync --frozen
+          uv run poe lint-ci
