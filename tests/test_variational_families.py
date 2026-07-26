@@ -15,8 +15,17 @@
 
 from collections.abc import Callable
 
+import equinox as eqx
 import gpjax as gpx
+import gpjax.distributions
 from gpjax.gps import AbstractPosterior
+import gpjax.linalg.utils
+from gpjax.parameters import (
+    LowerTriangular,
+    Real,
+    _val,
+)
+import gpjax.variational_families
 from gpjax.variational_families import (
     AbstractVariationalFamily,
     CollapsedVariationalGaussian,
@@ -26,6 +35,7 @@ from gpjax.variational_families import (
     VariationalGaussian,
     WhitenedVariationalGaussian,
 )
+import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
@@ -276,3 +286,347 @@ def test_collapsed_variational_gaussian(
     assert isinstance(sigma, jnp.ndarray)
     assert mu.shape == (n_test,)
     assert sigma.shape == (n_test, n_test)
+
+
+# ---------------------------------------------------------------------------
+# Closed-form prior KL (issue #665)
+#
+# `WhitenedVariationalGaussian.prior_kl` and `VariationalGaussian.prior_kl`
+# used to densify `S = sqrt sqrt^T` and hand it to the generic Gaussian KL,
+# which then re-factorised a matrix whose Cholesky factor is already stored in
+# `variational_root_covariance`. The tests below pin the numerical values and
+# gradients of the old implementation and assert the number of Cholesky
+# factorisations the new implementation is allowed to perform.
+# ---------------------------------------------------------------------------
+
+
+def _kl_variational_mean(num_inducing: int) -> Float[Array, "N 1"]:
+    """Deterministic, non-trivial variational mean."""
+    index = jnp.arange(num_inducing, dtype=jnp.float64)
+    return (0.3 * jnp.cos(1.7 * index) - 0.15 * index).reshape(-1, 1)
+
+
+def _kl_variational_root(num_inducing: int) -> Float[Array, "N N"]:
+    """Deterministic, non-trivial lower-triangular root with positive diagonal."""
+    row = jnp.arange(num_inducing, dtype=jnp.float64)[:, None]
+    col = jnp.arange(num_inducing, dtype=jnp.float64)[None, :]
+    off_diagonal = 0.2 * jnp.sin(0.9 * row + 1.3 * col)
+    diagonal = 0.5 + 0.4 * jnp.cos(0.6 * jnp.arange(num_inducing, dtype=jnp.float64))
+    return jnp.tril(off_diagonal, -1) + jnp.diag(diagonal)
+
+
+def _build_kl_family(
+    family: type[VariationalGaussian], num_inducing: int
+) -> VariationalGaussian:
+    """Build a fully deterministic variational family for KL regression tests."""
+    kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.3))
+    mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
+    prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
+    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
+    inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
+    return family(
+        posterior=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=_kl_variational_mean(num_inducing),
+        variational_root_covariance=_kl_variational_root(num_inducing),
+    )
+
+
+# KL values recorded from the pre-#665 implementation (densify + generic KL),
+# in float64. These are hard-coded literals so that the test is a genuine
+# regression guard rather than a comparison against the code under test.
+_RECORDED_PRIOR_KL = {
+    ("WhitenedVariationalGaussian", 1): 0.055360515657826292,
+    ("WhitenedVariationalGaussian", 3): 0.4558012885085363,
+    ("WhitenedVariationalGaussian", 5): 2.2228894799193393,
+    ("WhitenedVariationalGaussian", 12): 12.540706158684808,
+    ("VariationalGaussian", 1): 0.051927405288060224,
+    ("VariationalGaussian", 3): 0.89833938800292357,
+    ("VariationalGaussian", 5): 3.0465143546546192,
+    ("VariationalGaussian", 12): 35.666594348171607,
+}
+
+# Gradients recorded from the pre-#665 implementation at ``num_inducing=3``,
+# taken with respect to the *unconstrained* parameters that `fit` optimises.
+_RECORDED_PRIOR_KL_GRADS = {
+    "WhitenedVariationalGaussian": {
+        "variational_mean": np.array(
+            [[0.3], [-0.18865334828865737], [-0.5900394577738384]]
+        ),
+        "variational_root_covariance": np.array(
+            [
+                0.15666538192549667,
+                0.19476952617563908,
+                0.00831613248665811,
+                -0.12527973849920676,
+                -0.21121593177991954,
+                -0.430429665953372,
+            ]
+        ),
+        "inducing_inputs": np.zeros((3, 1)),
+    },
+    "VariationalGaussian": {
+        "variational_mean": np.array(
+            [[-0.07687652189052713], [-0.452723814014418], [-0.7615217319894719]]
+        ),
+        "variational_root_covariance": np.array(
+            [
+                0.12042525327023475,
+                0.14981022922180554,
+                0.00633143799283199,
+                -0.24853831088039383,
+                -0.31926350826875094,
+                -0.5011713127475177,
+            ]
+        ),
+        "inducing_inputs": np.array(
+            [
+                [-9.6628829749081168e-05],
+                [-2.0328302385444184e-04],
+                [2.9991185360352303e-04],
+            ]
+        ),
+    },
+}
+
+
+def _textbook_gaussian_kl(mean_q, cov_q, mean_p, cov_p):
+    """KL[q || p] for two multivariate Gaussians, written from the textbook.
+
+    Deliberately independent of any GPJax linear-algebra helper so that this
+    reference cannot drift with changes to ``gpjax.distributions``.
+    """
+    dim = mean_q.shape[0]
+    trace = jnp.trace(jnp.linalg.solve(cov_p, cov_q))
+    diff = mean_p - mean_q
+    mahalanobis = diff @ jnp.linalg.solve(cov_p, diff)
+    _, log_det_p = jnp.linalg.slogdet(cov_p)
+    _, log_det_q = jnp.linalg.slogdet(cov_q)
+    return 0.5 * (trace + mahalanobis - dim + log_det_p - log_det_q)
+
+
+def _reference_prior_kl(family):
+    """Reference prior KL built from the dense covariance matrices."""
+    variational_mean = _val(family.variational_mean).reshape(-1)
+    variational_sqrt = _val(family.variational_root_covariance)
+    cov_q = variational_sqrt @ variational_sqrt.T
+    num_inducing = variational_sqrt.shape[-1]
+
+    if isinstance(family, WhitenedVariationalGaussian):
+        mean_p = jnp.zeros_like(variational_mean)
+        cov_p = jnp.eye(num_inducing, dtype=variational_sqrt.dtype)
+    else:
+        inducing_inputs = _val(family.inducing_inputs)
+        mean_p = family.posterior.prior.mean_function(inducing_inputs).reshape(-1)
+        cov_p = family.posterior.prior.kernel.gram(inducing_inputs).as_matrix()
+        cov_p = cov_p + jnp.eye(num_inducing, dtype=cov_p.dtype) * family.jitter
+
+    return _textbook_gaussian_kl(variational_mean, cov_q, mean_p, cov_p)
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+@pytest.mark.parametrize("num_inducing", [1, 3, 5, 12])
+def test_prior_kl_matches_recorded_values(family, num_inducing):
+    """The closed form must reproduce the pre-#665 KL values."""
+    q = _build_kl_family(family, num_inducing)
+    expected = _RECORDED_PRIOR_KL[(family.__name__, num_inducing)]
+    np.testing.assert_allclose(np.float64(q.prior_kl()), expected, rtol=1e-10, atol=0.0)
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+@pytest.mark.parametrize("num_inducing", [1, 2, 3, 5, 12])
+def test_prior_kl_matches_textbook_reference(family, num_inducing):
+    """The closed form must agree with an independent dense-matrix reference."""
+    q = _build_kl_family(family, num_inducing)
+    np.testing.assert_allclose(
+        np.float64(q.prior_kl()),
+        np.float64(_reference_prior_kl(q)),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+def test_prior_kl_gradients_match_recorded_values(family):
+    """Gradients must match those of the pre-#665 implementation."""
+    q = _build_kl_family(family, 3)
+    grads = eqx.filter_grad(lambda model: model.prior_kl())(q)
+    recorded = _RECORDED_PRIOR_KL_GRADS[family.__name__]
+
+    np.testing.assert_allclose(
+        np.asarray(grads.variational_mean.value),
+        recorded["variational_mean"],
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(grads.variational_root_covariance._flat),
+        recorded["variational_root_covariance"],
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(grads.inducing_inputs.value),
+        recorded["inducing_inputs"],
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+@pytest.mark.parametrize("num_inducing", [2, 5, 12])
+def test_prior_kl_gradients_match_textbook_reference(family, num_inducing):
+    """Gradients must agree with an independent dense-matrix reference."""
+    q = _build_kl_family(family, num_inducing)
+    grads = eqx.filter_grad(lambda model: model.prior_kl())(q)
+    reference_grads = eqx.filter_grad(_reference_prior_kl)(q)
+
+    np.testing.assert_allclose(
+        np.asarray(grads.variational_mean.value),
+        np.asarray(reference_grads.variational_mean.value),
+        rtol=1e-9,
+        atol=1e-11,
+    )
+    np.testing.assert_allclose(
+        np.asarray(grads.variational_root_covariance._flat),
+        np.asarray(reference_grads.variational_root_covariance._flat),
+        rtol=1e-9,
+        atol=1e-11,
+    )
+    np.testing.assert_allclose(
+        np.asarray(grads.inducing_inputs.value),
+        np.asarray(reference_grads.inducing_inputs.value),
+        rtol=1e-9,
+        atol=1e-11,
+    )
+
+
+def _count_cholesky_calls(monkeypatch, thunk) -> dict[str, int]:
+    """Count Cholesky factorisations performed while evaluating ``thunk``."""
+    counts = {"cholesky_factor": 0, "dense_cholesky": 0}
+    original_cholesky_factor = gpjax.linalg.utils.cholesky_factor
+    original_dense_cholesky = jnp.linalg.cholesky
+
+    def counting_cholesky_factor(operator):
+        counts["cholesky_factor"] += 1
+        return original_cholesky_factor(operator)
+
+    def counting_dense_cholesky(matrix):
+        counts["dense_cholesky"] += 1
+        return original_dense_cholesky(matrix)
+
+    for module in (
+        gpjax.linalg.utils,
+        gpjax.distributions,
+        gpjax.variational_families,
+    ):
+        monkeypatch.setattr(module, "cholesky_factor", counting_cholesky_factor)
+    monkeypatch.setattr(jnp.linalg, "cholesky", counting_dense_cholesky)
+
+    thunk()
+    return counts
+
+
+@pytest.mark.parametrize(
+    ("family", "expected_dense_cholesky"),
+    [(WhitenedVariationalGaussian, 0), (VariationalGaussian, 1)],
+    ids=["WhitenedVariationalGaussian", "VariationalGaussian"],
+)
+def test_prior_kl_factorisation_count(monkeypatch, family, expected_dense_cholesky):
+    """The KL must not re-factorise a matrix whose root it already holds.
+
+    Before #665 the counts were two dense Choleskys for the whitened family and
+    four for ``VariationalGaussian``. The whitened KL needs none;
+    ``VariationalGaussian`` needs exactly one, of ``Kzz``.
+    """
+    q = _build_kl_family(family, 4)
+    counts = _count_cholesky_calls(monkeypatch, q.prior_kl)
+
+    assert counts["dense_cholesky"] == expected_dense_cholesky
+    assert counts["cholesky_factor"] == 0
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+def test_prior_kl_is_jit_grad_and_vmap_compatible(family):
+    q = _build_kl_family(family, 4)
+    eager = q.prior_kl()
+
+    jitted = eqx.filter_jit(lambda model: model.prior_kl())
+    np.testing.assert_allclose(np.float64(jitted(q)), np.float64(eager), rtol=1e-12)
+
+    grads = eqx.filter_grad(lambda model: model.prior_kl())(q)
+    assert jnp.all(jnp.isfinite(grads.variational_mean.value))
+    assert jnp.all(jnp.isfinite(grads.variational_root_covariance._flat))
+
+    def kl_from_mean(mean_value):
+        model = eqx.tree_at(lambda t: t.variational_mean.value, q, mean_value)
+        return model.prior_kl()
+
+    zero_mean = jnp.zeros_like(_val(q.variational_mean))
+    batch = jnp.stack(
+        [_val(q.variational_mean), _val(q.variational_mean) + 0.5, zero_mean]
+    )
+    batched = jax.vmap(kl_from_mean)(batch)
+
+    assert batched.shape == (3,)
+    np.testing.assert_allclose(
+        np.float64(batched[0]), np.float64(eager), rtol=1e-12, atol=1e-14
+    )
+    np.testing.assert_allclose(
+        np.float64(batched[2]),
+        np.float64(kl_from_mean(zero_mean)),
+        rtol=1e-12,
+        atol=1e-14,
+    )
+
+
+def test_whitened_prior_kl_is_zero_when_q_equals_the_prior():
+    """KL[N(0, I) || N(0, I)] must be zero."""
+    q = _build_kl_family(WhitenedVariationalGaussian, 6)
+    q = eqx.tree_at(
+        lambda t: (t.variational_mean, t.variational_root_covariance),
+        q,
+        (Real(jnp.zeros((6, 1))), LowerTriangular(jnp.eye(6))),
+    )
+    np.testing.assert_allclose(np.float64(q.prior_kl()), 0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "family",
+    [WhitenedVariationalGaussian, VariationalGaussian],
+    ids=lambda f: f.__name__,
+)
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_prior_kl_is_non_negative(family, seed):
+    num_inducing = 6
+    key_mean, key_root = jr.split(jr.key(seed))
+    root = jnp.tril(jr.normal(key_root, (num_inducing, num_inducing)) * 0.2, -1)
+    root = root + jnp.diag(0.3 + jnp.abs(jr.normal(key_root, (num_inducing,))))
+
+    q = _build_kl_family(family, num_inducing)
+    q = eqx.tree_at(
+        lambda t: (t.variational_mean, t.variational_root_covariance),
+        q,
+        (Real(jr.normal(key_mean, (num_inducing, 1))), LowerTriangular(root)),
+    )
+    assert q.prior_kl() >= 0.0

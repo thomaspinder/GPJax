@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`prior_kl` for `VariationalGaussian` and `WhitenedVariationalGaussian`**: both
+  now evaluate in closed form from the stored triangular root, instead of
+  densifying `S = sqrt sqrtᵀ` and handing it to the generic Gaussian KL, which
+  re-factorised a matrix whose Cholesky factor was already to hand
+  ([#665](https://github.com/JaxGaussianProcesses/GPJax/issues/665)). The
+  whitened KL against `N(0, I)` needs no factorisation at all and went from two
+  dense Choleskys per call to zero; `VariationalGaussian` went from four to one,
+  the unavoidable factorisation of `Kzz`. Values and gradients are unchanged.
+  Every variational training step pays this cost, so `grad(prior_kl)` is roughly
+  13× faster for the whitened family and 3× faster for `VariationalGaussian` at
+  1024 inducing points. `GraphVariationalGaussian` and
+  `HeteroscedasticVariationalFamily` inherit the improvement.
 - **`HeteroscedasticGaussian.link_function`**: now requires the noise latent `g`
   and returns the conditional `N(y | f, σ²(g))`. It previously evaluated the
   noise transform at `g = 0` and returned the *prior-noise* density
