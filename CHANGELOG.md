@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+- **`StationaryKernel.spectral_density`**: now returns the correctly
+  parameterised spectral measure. It previously returned a *standardised*
+  distribution (`Normal(0, 1)` for RBF, `StudentT(2ν, 0, 1)` for Matérn) that
+  ignored the lengthscale and was hard-coded to one dimension, so
+  `kernel.spectral_density.log_prob(ω)` gave the same curve for every ℓ
+  ([#612](https://github.com/JaxGaussianProcesses/GPJax/issues/612)). The
+  measure is now `D`-dimensional and carries `diag(ℓ)⁻¹` as its scale (ARD
+  lengthscales included), satisfying Bochner's theorem
+  `k(τ) = σ²·E_p(ω)[exp(i ωᵀτ)]`.
+
+### Changed
+
+- **`StationaryKernel.spectral_density`** return type is now
+  `MultivariateNormal` / `MultivariateStudentT` with `event_shape == (D,)`,
+  where it was previously the univariate `Normal` / `StudentT`. Code calling
+  `.sample(key, (M, D))` should now call `.sample(key, (M,))`.
+- **`kernels.approximations.RFF`** with an explicitly supplied `frequencies=`
+  argument now treats those values as the spectral frequencies ω directly.
+  They were previously divided by the lengthscale inside
+  `BasisFunctionComputation.compute_features`, silently rescaling user-supplied
+  frequencies. RFF Gram/cross-covariance values with *sampled* frequencies are
+  bit-identical to `0.17.0` — the lengthscale simply moved from the feature map
+  into the measure it is drawn from.
+
 ## [0.17.0] — 2026-07-04
 
 ### Fixed
