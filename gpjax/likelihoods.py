@@ -474,9 +474,40 @@ class HeteroscedasticGaussian(AbstractHeteroscedasticLikelihood):
 
         return GaussianDistribution(dist.mean, lx.MatrixLinearOperator(noisy_cov))
 
-    def link_function(self, f: Float[Array, ...]) -> npd.Normal:
-        sigma2 = self.noise_transform(jnp.zeros_like(f))
-        return npd.Normal(loc=f, scale=jnp.sqrt(sigma2))
+    def link_function(
+        self,
+        f: Float[Array, ...],
+        g: tp.Optional[Float[Array, ...]] = None,
+    ) -> npd.Normal:
+        r"""The conditional observation density $p(y \mid f, g)$.
+
+        For a heteroscedastic likelihood the observation noise is itself a
+        function of a second latent process $g$, so the conditional is
+        $\mathcal{N}(y \mid f, \sigma^2(g))$ (Lázaro-Gredilla & Titsias, 2011).
+        Unlike the homoscedastic likelihoods, $f$ alone does not determine the
+        density, so `g` is required.
+
+        Args:
+            f (Float[Array, "..."]): the latent signal process values.
+            g (Float[Array, "..."] | None): the latent noise process values. Required —
+                there is no conditional density without it.
+
+        Returns:
+            npd.Normal: The observation density given both latent processes.
+
+        Raises:
+            ValueError: If `g` is not supplied.
+        """
+        if g is None:
+            raise ValueError(
+                f"{type(self).__name__}.link_function requires the noise latent `g` "
+                "as well as the signal latent `f`: the observation noise is "
+                "sigma^2(g), so p(y | f) alone is not defined. Pass "
+                "`link_function(f, g)`, or use `expected_log_likelihood(..., "
+                "mean_g=..., variance_g=...)` / `predict(dist, noise_dist)` which "
+                "handle the noise process for you."
+            )
+        return npd.Normal(loc=f, scale=jnp.sqrt(self.noise_transform(g)))
 
     def expected_log_likelihood(
         self,

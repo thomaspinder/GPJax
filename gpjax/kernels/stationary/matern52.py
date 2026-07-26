@@ -54,5 +54,9 @@ class Matern52(StationaryKernel):
         return K.squeeze()
 
     @property
-    def spectral_density(self) -> npd.StudentT:
-        return build_student_t_distribution(nu=5)
+    def spectral_density(self) -> npd.MultivariateStudentT:
+        r"""The spectral measure of the Matérn-5/2 kernel: a multivariate
+        Student's t with 5 degrees of freedom and scale $\mathrm{diag}(\ell)^{-1}$."""
+        return build_student_t_distribution(
+            nu=5, scale_tril=self._spectral_scale_tril()
+        )

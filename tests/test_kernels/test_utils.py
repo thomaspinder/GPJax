@@ -98,18 +98,22 @@ def test_euclidean_distance_same_point() -> None:
 
 
 @pytest.mark.parametrize("nu", [1, 3, 5, 10])
-def test_build_student_t_distribution(nu: int) -> None:
-    dist = build_student_t_distribution(nu)
-    assert isinstance(dist, npd.StudentT)
+@pytest.mark.parametrize("n_dims", [1, 3])
+def test_build_student_t_distribution(nu: int, n_dims: int) -> None:
+    scale_tril = jnp.eye(n_dims)
+    dist = build_student_t_distribution(nu, scale_tril=scale_tril)
+    assert isinstance(dist, npd.MultivariateStudentT)
     assert dist.df == nu
-    assert dist.loc == 0.0
-    assert dist.scale == 1.0
+    assert dist.event_shape == (n_dims,)
+    assert jnp.allclose(dist.loc, jnp.zeros(n_dims))
+    assert jnp.allclose(dist.scale_tril, scale_tril)
 
 
-def test_student_t_is_sampleable() -> None:
+@pytest.mark.parametrize("n_dims", [1, 3])
+def test_student_t_is_sampleable(n_dims: int) -> None:
     import jax.random as jr
 
-    dist = build_student_t_distribution(5)
+    dist = build_student_t_distribution(5, scale_tril=jnp.eye(n_dims))
     samples = dist.sample(jr.key(0), (100,))
-    assert samples.shape == (100,)
+    assert samples.shape == (100, n_dims)
     assert jnp.all(jnp.isfinite(samples))

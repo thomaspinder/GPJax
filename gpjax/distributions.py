@@ -27,7 +27,7 @@ from numpyro.distributions import constraints
 from numpyro.distributions.distribution import Distribution
 from numpyro.distributions.util import is_prng_key
 
-from gpjax.linalg import cholesky_factor, logdet
+from gpjax.linalg import cholesky_factor, logdet, logdet_from_factor
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -306,8 +306,14 @@ def _kl_divergence(q: GaussianDistribution, p: GaussianDistribution) -> ScalarFl
         jnp.square(lx.linear_solve(sqrt_p, diff, solver=lx.Triangular()).value)
     )
 
+    # Log-determinants, log|Σ| = 2 Σᵢ log Lᵢᵢ, reusing the factors computed above.
+    # Calling `logdet(Σ)` here would re-factorise both covariances, doubling the
+    # O(N³) work on the hot path of every ELBO step (issue #664).
+    logdet_q = logdet_from_factor(sqrt_q)
+    logdet_p = logdet_from_factor(sqrt_p)
+
     # KL[q(x)||p(x)] = [ [(μp - μq)ᵀ Σp⁻¹ (μp - μq)] - n - log|Σq| + log|Σp| + tr[Σp⁻¹ Σq] ] / 2
-    return (mahalanobis - n_dim - logdet(sigma_q) + logdet(sigma_p) + trace) / 2.0
+    return (mahalanobis - n_dim - logdet_q + logdet_p + trace) / 2.0
 
 
 __all__ = [

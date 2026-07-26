@@ -20,7 +20,7 @@ from jaxtyping import Float
 import numpyro.distributions as npd
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _compute_base_init
+from gpjax.kernels.base import AbstractKernel, _compute_base_init, _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -95,12 +95,48 @@ class StationaryKernel(AbstractKernel):
         self.n_dims = n_dims
         self.compute_engine = compute_engine
 
+    def _spectral_scale_tril(self) -> Float[Array, "D D"]:
+        r"""The scale matrix $\mathrm{diag}(1/\ell)$ of the spectral measure.
+
+        The spectral measure of a stationary kernel scales inversely with the
+        lengthscale: short lengthscales give wide spectra. Broadcasts a scalar
+        (isotropic) lengthscale across all $D$ dimensions and uses an ARD
+        lengthscale vector elementwise.
+        """
+        if self.n_dims is None:
+            raise ValueError(
+                f"Expected the number of dimensions to be specified for {self.name} "
+                "in order to construct its spectral measure. Please specify the "
+                "n_dims argument for the kernel."
+            )
+        return jnp.diag(jnp.ones(self.n_dims) / _val(self.lengthscale))
+
     @property
-    def spectral_density(self) -> npd.Normal | npd.StudentT:
-        r"""The spectral density of the kernel.
+    def spectral_density(self) -> npd.MultivariateNormal | npd.MultivariateStudentT:
+        r"""The normalised spectral measure $p(\boldsymbol{\omega})$ of the kernel.
+
+        By Bochner's theorem, a stationary kernel is the Fourier transform of a
+        finite measure. This property returns that measure *normalised to a
+        probability distribution over* $\mathbb{R}^D$, so that
+
+        $$
+        k(\boldsymbol{\tau}) = \sigma^2 \,
+            \mathbb{E}_{p(\boldsymbol{\omega})}
+            \big[e^{i \boldsymbol{\omega}^\top \boldsymbol{\tau}}\big].
+        $$
+
+        The measure depends on the lengthscale $\ell$ (as an inverse scale) but
+        **not** on the variance $\sigma^2$: the variance is the measure's total
+        mass, which normalisation divides out, and it re-enters as the explicit
+        prefactor above. The unnormalised spectral density of Rasmussen &
+        Williams (2006, §4.2.1) is recovered as
+        $S(\boldsymbol{\omega}) = \sigma^2 (2\pi)^D p(\boldsymbol{\omega})$
+        under the convention
+        $k(\boldsymbol{\tau}) = (2\pi)^{-D}\int S(\boldsymbol{\omega})
+        e^{i\boldsymbol{\omega}^\top\boldsymbol{\tau}}\,d\boldsymbol{\omega}$.
 
         Returns:
-            Callable[[Float[Array, "D"]], Float[Array, "D"]]: The spectral density function.
+            The spectral measure as a $D$-dimensional numpyro distribution.
         """
         raise NotImplementedError(
             f"Kernel {self.name} does not have a spectral density."

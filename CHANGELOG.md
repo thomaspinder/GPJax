@@ -6,6 +6,106 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.18.0] — 2026-07-26
+
+### Removed
+
+- **`tensorstore` runtime dependency** (macOS only). It was declared in
+  `pyproject.toml` but imported nowhere in the package, forcing a ~14 MB wheel
+  onto every macOS install
+  ([#675](https://github.com/JaxGaussianProcesses/GPJax/issues/675)). Nothing
+  else in the dependency graph requires it, so it was not a resolver workaround.
+  A regression test now asserts every declared runtime dependency is actually
+  imported.
+
+### Fixed
+
+- **`distributions._kl_divergence`**: now computes both log-determinants from the
+  Cholesky factors it has already built, halving the O(N³) work on the hot path
+  of every ELBO step. It previously factorised `Σq` and `Σp` for the trace and
+  Mahalanobis terms, then called `logdet(Σq)` and `logdet(Σp)`, whose generic
+  implementation factorised both covariances a *second* time — four
+  factorisations where two suffice
+  ([#664](https://github.com/JaxGaussianProcesses/GPJax/issues/664)). A new
+  `linalg.logdet_from_factor(L)` helper computes `log|L Lᵀ| = 2 Σᵢ log Lᵢᵢ` and
+  is itself `singledispatch`ed, so diagonal, block-diagonal, Kronecker and
+  identity operators keep their structure-exploiting fast paths instead of being
+  densified. Returned values are unchanged.
+- **`prior_kl` for `VariationalGaussian` and `WhitenedVariationalGaussian`**: both
+  now evaluate in closed form from the stored triangular root, instead of
+  densifying `S = sqrt sqrtᵀ` and handing it to the generic Gaussian KL, which
+  re-factorised a matrix whose Cholesky factor was already to hand
+  ([#665](https://github.com/JaxGaussianProcesses/GPJax/issues/665)). The
+  whitened KL against `N(0, I)` needs no factorisation at all and went from two
+  dense Choleskys per call to zero; `VariationalGaussian` went from four to one,
+  the unavoidable factorisation of `Kzz`. Values and gradients are unchanged.
+  Every variational training step pays this cost, so `grad(prior_kl)` is roughly
+  13× faster for the whitened family and 3× faster for `VariationalGaussian` at
+  1024 inducing points. `GraphVariationalGaussian` and
+  `HeteroscedasticVariationalFamily` inherit the improvement.
+- **`HeteroscedasticGaussian.link_function`**: now requires the noise latent `g`
+  and returns the conditional `N(y | f, σ²(g))`. It previously evaluated the
+  noise transform at `g = 0` and returned the *prior-noise* density
+  `N(y | f, σ²(0))` — silently, and independently of the noise process the
+  likelihood exists to model
+  ([#670](https://github.com/JaxGaussianProcesses/GPJax/issues/670)). Callers
+  passing only `f` now get a `ValueError` pointing at the correct API instead of
+  a wrong number.
+- **`StationaryKernel.spectral_density`**: now returns the correctly
+  parameterised spectral measure. It previously returned a *standardised*
+  distribution (`Normal(0, 1)` for RBF, `StudentT(2ν, 0, 1)` for Matérn) that
+  ignored the lengthscale and was hard-coded to one dimension, so
+  `kernel.spectral_density.log_prob(ω)` gave the same curve for every ℓ
+  ([#612](https://github.com/JaxGaussianProcesses/GPJax/issues/612)). The
+  measure is now `D`-dimensional and carries `diag(ℓ)⁻¹` as its scale (ARD
+  lengthscales included), satisfying Bochner's theorem
+  `k(τ) = σ²·E_p(ω)[exp(i ωᵀτ)]`.
+
+### Changed
+
+- **`HeteroscedasticGaussian.link_function`** signature is now `(f, g=None)`. The
+  `g` argument is mandatory in practice; omitting it raises rather than silently
+  substituting `g = 0`. A heteroscedastic subclass that inherits
+  `AbstractLikelihood.expected_log_likelihood` (which calls `link_function(f)`)
+  now fails loudly instead of integrating against the prior-noise density.
+  `HeteroscedasticGaussian` itself overrides that method, so the sanctioned
+  variational path is unchanged.
+
+- **`StationaryKernel.spectral_density`** return type is now
+  `MultivariateNormal` / `MultivariateStudentT` with `event_shape == (D,)`,
+  where it was previously the univariate `Normal` / `StudentT`. Code calling
+  `.sample(key, (M, D))` should now call `.sample(key, (M,))`.
+- **`kernels.approximations.RFF`** with an explicitly supplied `frequencies=`
+  argument now treats those values as the spectral frequencies ω directly.
+  They were previously divided by the lengthscale inside
+  `BasisFunctionComputation.compute_features`, silently rescaling user-supplied
+  frequencies. RFF Gram/cross-covariance values with *sampled* frequencies are
+  bit-identical to `0.17.0` — the lengthscale simply moved from the feature map
+  into the measure it is drawn from.
+
+#### Migration
+
+- **`StationaryKernel.spectral_density`**: the return type is now
+  `MultivariateNormal` / `MultivariateStudentT` with `event_shape == (D,)`.
+  Replace `kernel.spectral_density.sample(key, (M, D))` with
+  `kernel.spectral_density.sample(key, (M,))`. Values from `log_prob` now vary
+  with the lengthscale, as they always should have — there is no restore path,
+  the previous output was incorrect.
+- **`kernels.approximations.RFF(..., frequencies=...)`**: supplied frequencies
+  are now used as the spectral frequencies ω directly. If you were
+  pre-compensating for the old division by the lengthscale, remove that
+  compensation. RFF with *sampled* frequencies is bit-identical to `0.17.0`.
+- **`HeteroscedasticGaussian.link_function`**: now requires the noise latent,
+  `link_function(f, g)`. Calls passing only `f` raise `ValueError`; they
+  previously returned `N(y | f, σ²(0))`, which was wrong. Use
+  `expected_log_likelihood(..., mean_g=, variance_g=)` or
+  `predict(dist, noise_dist)` if you want the noise handled for you.
+- **`tensorstore`**: removed as a runtime dependency. If you imported it
+  transitively via GPJax on macOS, depend on it explicitly.
+- **KL divergences**: `distributions._kl_divergence` and the variational
+  `prior_kl` methods return the same values as `0.17.0` (bit-identical, or to
+  ~1e-16 where floating-point reassociation applies). No action needed.
+
 ## [0.17.0] — 2026-07-04
 
 ### Fixed
