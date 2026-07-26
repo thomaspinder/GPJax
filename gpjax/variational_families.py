@@ -201,6 +201,20 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         ```
         where $u = f(z)$ and $z$ are the inducing inputs.
 
+        With $S = LL^{\top}$ for the stored triangular root $L$ and
+        $\mathbf{K}_{zz} = L_z L_z^{\top}$, this evaluates in closed form as
+        ```math
+        \tfrac{1}{2}\left(
+            \lVert L_z^{-1}(\mu_z - \mu)\rVert^2
+            + \lVert L_z^{-1} L\rVert_F^2
+            - m
+            + 2\sum_i \log [L_z]_{ii}
+            - 2\sum_i \log \lvert L_{ii}\rvert
+        \right),
+        ```
+        so the Cholesky factor of $\mathbf{K}_{zz}$ is the only factorisation
+        required; $S$ is never formed and never re-factorised.
+
         Returns:
             ScalarFloat: The KL-divergence between our variational
                 approximation and the GP prior.
@@ -209,6 +223,7 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         variational_mean = _val(self.variational_mean)
         variational_sqrt = _val(self.variational_root_covariance)
         inducing_inputs = self._fmt_inducing_inputs()
+        num_inducing = self.num_inducing
 
         # Unpack mean function and kernel
         mean_function = self.posterior.prior.mean_function
@@ -217,21 +232,29 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         inducing_mean = mean_function(inducing_inputs)
         Kzz = kernel.gram(inducing_inputs)
         Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
-        Kzz_op = _psd(Kzz_dense)
 
-        # variational_covariance = sqrt @ sqrt^T
-        variational_covariance = lx.MatrixLinearOperator(
-            variational_sqrt @ variational_sqrt.T
+        # Lz Lz^T = Kzz. The single unavoidable factorisation.
+        Lz = jnp.linalg.cholesky(Kzz_dense)
+
+        # (muz - mu)^T Kzz^{-1} (muz - mu) = ||Lz^{-1} (muz - mu)||^2
+        mahalanobis = jnp.sum(
+            jnp.square(_tri_solve(Lz, inducing_mean - variational_mean))
         )
 
-        q_inducing = GaussianDistribution(
-            loc=jnp.atleast_1d(variational_mean.squeeze()), scale=variational_covariance
-        )
-        p_inducing = GaussianDistribution(
-            loc=jnp.atleast_1d(inducing_mean.squeeze()), scale=Kzz_op
+        # tr[Kzz^{-1} S] = ||Lz^{-1} sqrt||_F^2  [recall S = sqrt sqrt^T]
+        trace = jnp.sum(jnp.square(_tri_solve(Lz, variational_sqrt)))
+
+        # log|Kzz| and log|S|. The absolute value keeps log|S| = 2 sum log|sqrt_ii|
+        # valid for any square root, though `LowerTriangular` already guarantees a
+        # positive diagonal.
+        log_det_prior = 2.0 * jnp.sum(jnp.log(jnp.diag(Lz)))
+        log_det_variational = 2.0 * jnp.sum(
+            jnp.log(jnp.abs(jnp.diag(variational_sqrt)))
         )
 
-        return q_inducing.kl_divergence(p_inducing)
+        return 0.5 * (
+            mahalanobis - num_inducing + log_det_prior - log_det_variational + trace
+        )
 
     def predict(
         self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
@@ -371,6 +394,20 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
         \end{align}
         ```
 
+        Against a standard normal prior the divergence has a closed form that
+        needs no matrix factorisation at all. Writing $S = LL^{\top}$ for the
+        stored triangular root $L$, and using
+        $\operatorname{tr}[S] = \lVert L\rVert_F^2$ and
+        $\log\lvert S\rvert = 2\sum_i \log\lvert L_{ii}\rvert$,
+        ```math
+        \operatorname{KL}[\mathcal{N}(\mu, S)\mid\mid\mathcal{N}(0, I)] =
+        \tfrac{1}{2}\left(
+            \lVert\mu\rVert^2 + \lVert L\rVert_F^2 - m
+            - 2\sum_i \log\lvert L_{ii}\rvert
+        \right),
+        ```
+        where $m$ is the number of inducing points.
+
         Returns:
             ScalarFloat: The KL-divergence between our variational
                 approximation and the GP prior.
@@ -379,16 +416,14 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
         mu = _val(self.variational_mean)
         sqrt = _val(self.variational_root_covariance)
 
-        # S = LL^T
-        S = lx.MatrixLinearOperator(sqrt @ sqrt.T)
+        # mu^T I^{-1} mu, tr[S] = ||sqrt||_F^2 and log|S| = 2 sum log|sqrt_ii|.
+        # The absolute value keeps the log-determinant valid for any square root,
+        # though `LowerTriangular` already guarantees a positive diagonal.
+        mahalanobis = jnp.sum(jnp.square(mu))
+        trace = jnp.sum(jnp.square(sqrt))
+        log_det_variational = 2.0 * jnp.sum(jnp.log(jnp.abs(jnp.diag(sqrt))))
 
-        # Compute whitened KL divergence
-        qu = GaussianDistribution(loc=jnp.atleast_1d(mu.squeeze()), scale=S)
-        pu_S = lx.IdentityLinearOperator(jnp.ones(self.num_inducing, dtype=mu.dtype))
-        pu = GaussianDistribution(
-            loc=jnp.zeros_like(jnp.atleast_1d(mu.squeeze())), scale=pu_S
-        )
-        return qu.kl_divergence(pu)
+        return 0.5 * (mahalanobis + trace - self.num_inducing - log_det_variational)
 
     def predict(self, test_inputs: Float[Array, "N D"]) -> GaussianDistribution:
         r"""Compute the predictive distribution of the GP at the test inputs t.
