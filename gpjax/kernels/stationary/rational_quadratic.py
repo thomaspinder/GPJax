@@ -38,10 +38,14 @@ class RationalQuadratic(StationaryKernel):
     r"""The Rational Quadratic kernel.
 
     Computes the covariance for pairs of inputs $(x, y)$ with lengthscale parameter
-    $\ell$ and variance $\sigma^2$.
+    $\ell$, variance $\sigma^2$ and shape parameter $\alpha$.
     $$
-    k(x,y)=\sigma^2\exp\Bigg(1+\frac{\lVert x-y\rVert^2_2}{2\alpha\ell^2}\Bigg)
+    k(x,y)=\sigma^2\Bigg(1+\frac{\lVert x-y\rVert^2_2}{2\alpha\ell^2}\Bigg)^{-\alpha}
     $$
+
+    As $\alpha \to \infty$ this recovers the [`RBF`][gpjax.kernels.RBF] kernel; it is
+    equivalently a scale mixture of RBF kernels with a Gamma-distributed inverse
+    squared lengthscale.
     """
 
     name: str = "Rational Quadratic"
