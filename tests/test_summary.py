@@ -19,7 +19,10 @@ from gpjax import summary
 from gpjax.gps import Prior
 from gpjax.kernels import RBF, Linear
 from gpjax.likelihoods import Gaussian
-from gpjax.mean_functions import Zero
+from gpjax.mean_functions import (
+    Constant,
+    Zero,
+)
 from gpjax.parameters import (
     LowerTriangular,
     NonNegativeReal,
@@ -137,11 +140,19 @@ def test_collect_isotropic_rbf_prior():
 
 
 def test_collect_renders_bare_array_leaf():
-    prior = Prior(mean_function=Zero(), kernel=RBF())
+    # `Constant` holds a bare array; `Zero` wraps its constant to freeze it.
+    prior = Prior(mean_function=Constant(), kernel=RBF())
     rec = _record_by_name(summary._collect(prior), "mean_function.constant")
     assert rec.cls == "Array"
     assert rec.bijector == "Identity"
     assert rec.trainable is True
+
+
+def test_collect_renders_frozen_zero_mean_leaf():
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    rec = _record_by_name(summary._collect(prior), "mean_function.constant")
+    assert rec.cls == "Array"
+    assert rec.trainable is False
 
 
 def test_collect_composite_kernel_paths():
@@ -205,8 +216,8 @@ def test_render_returns_table_with_row_per_record():
 
 def test_render_footer_counts_trainable():
     table = summary._render(summary._collect(_frozen_prior()))
-    # frozen prior: lengthscale frozen, variance + mean constant trainable.
-    assert table.caption == "3 parameters, 2 trainable"
+    # frozen prior: lengthscale frozen, zero-mean constant frozen, variance trainable.
+    assert table.caption == "3 parameters, 1 trainable"
 
 
 def test_render_respects_column_subset():

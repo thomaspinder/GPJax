@@ -24,6 +24,7 @@ from jaxtyping import (
     Float,
     Num,
 )
+import paramax
 from paramax import AbstractUnwrappable
 
 from gpjax.parameters import _val
@@ -154,10 +155,13 @@ class Zero(Constant):
     The zero mean function. This function returns a zero scalar value for all
     inputs. Unlike the Constant mean function, the constant scalar zero is fixed, and
     cannot be treated as a model hyperparameter and learned during training.
+
+    The constant is wrapped in `paramax.non_trainable` to enforce this: `fit` treats
+    every array leaf as trainable, so a bare array would be optimised away from zero.
     """
 
     def __init__(self):
-        super().__init__(constant=0.0)
+        super().__init__(constant=paramax.non_trainable(jnp.array(0.0)))
 
 
 class CombinationMeanFunction(AbstractMeanFunction):
