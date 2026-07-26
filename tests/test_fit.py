@@ -20,12 +20,14 @@ from gpjax.fit import (
     _check_batch_size,
     _check_log_rate,
     _check_model,
+    _check_natgrad_lr,
     _check_num_iters,
     _check_optim,
     _check_train_data,
     _check_verbose,
     fit,
     fit_lbfgs,
+    fit_natgrads,
     fit_scipy,
     get_batch,
 )
@@ -35,6 +37,7 @@ from gpjax.gps import (
 )
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
+from gpjax.linalg import add_jitter
 from gpjax.mean_functions import (
     AbstractMeanFunction,
     Constant,
@@ -48,13 +51,17 @@ from gpjax.parameters import (
     _val,
 )
 from gpjax.typing import Array
-from gpjax.variational_families import VariationalGaussian
+from gpjax.variational_families import (
+    CollapsedVariationalGaussian,
+    VariationalGaussian,
+)
 import jax.numpy as jnp
 import jax.random as jr
 from jaxtyping import (
     Float,
     Num,
 )
+import numpy as np
 import optax as ox
 import paramax
 import pytest
@@ -323,6 +330,216 @@ def test_fit_batch(num_iters: int, batch_size: int, n_data: int, verbose: bool) 
     assert elbo(trained_model, D) < elbo(q, D)
 
 
+def _svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
+    """Build a conjugate SVGP and its training data for the fit_natgrads tests."""
+    key = jr.key(123)
+    x = jnp.sort(
+        jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(n_data, 1)), axis=0
+    )
+    y = jnp.sin(x) + jr.normal(key=key, shape=x.shape) * 0.1
+    D = Dataset(X=x, y=y)
+
+    prior = Prior(kernel=RBF(), mean_function=Constant())
+    likelihood = Gaussian(num_datapoints=n_data)
+    posterior = prior * likelihood
+
+    z = jnp.linspace(-2.0, 2.0, n_inducing).reshape(-1, 1)
+    q = VariationalGaussian(posterior=posterior, inducing_inputs=z, jitter=jitter)
+    return q, D
+
+
+def _negative_elbo(model, data):
+    return -elbo(model, data)
+
+
+def _conjugate_optimal_q(q, data):
+    r"""Closed-form optimal $(m^\star, S^\star)$ for an unwhitened conjugate SVGP."""
+    unwrapped = paramax.unwrap(q)
+    z = _val(unwrapped.inducing_inputs)
+    kernel = unwrapped.posterior.prior.kernel
+    mean_function = unwrapped.posterior.prior.mean_function
+    noise_variance = _val(unwrapped.posterior.likelihood.obs_stddev) ** 2
+
+    gram = add_jitter(kernel.gram(z).as_matrix(), q.jitter)
+    gram_inverse = jnp.linalg.inv(gram)
+    design = kernel.cross_covariance(data.X, z) @ gram_inverse
+    residual = data.y - mean_function(data.X) + design @ mean_function(z)
+
+    precision = gram_inverse + design.T @ design / noise_variance
+    shift = design.T @ residual / noise_variance + gram_inverse @ mean_function(z)
+    covariance = jnp.linalg.inv(precision)
+    return covariance @ shift, covariance
+
+
+def test_fit_natgrads_simple() -> None:
+    q, D = _svgp_setup(n_data=20)
+
+    trained_model, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.05),
+        natgrad_lr=0.5,
+        num_iters=20,
+        verbose=False,
+        key=jr.key(123),
+    )
+
+    assert isinstance(trained_model, VariationalGaussian)
+    assert history.shape == (20,)
+    assert history[-1] < history[0]
+
+
+@pytest.mark.parametrize("n_data", [10, 20])
+@pytest.mark.parametrize("verbose", [True, False])
+def test_fit_natgrads_gp_regression(n_data: int, verbose: bool) -> None:
+    q, D = _svgp_setup(n_data=n_data)
+
+    initial_lengthscale = _val(paramax.unwrap(q).posterior.prior.kernel.lengthscale)
+    initial_obs_stddev = _val(paramax.unwrap(q).posterior.likelihood.obs_stddev)
+
+    trained_model, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.1),
+        natgrad_lr=0.5,
+        num_iters=15,
+        verbose=verbose,
+        key=jr.key(123),
+    )
+
+    assert isinstance(trained_model, VariationalGaussian)
+    assert len(history) == 15
+    assert bool(jnp.all(jnp.isfinite(history)))
+    assert history[-1] < history[0]
+
+    unwrapped = paramax.unwrap(trained_model)
+    assert not jnp.allclose(
+        _val(unwrapped.posterior.prior.kernel.lengthscale), initial_lengthscale
+    )
+    assert not jnp.allclose(
+        _val(unwrapped.posterior.likelihood.obs_stddev), initial_obs_stddev
+    )
+
+
+@pytest.mark.parametrize("num_iters", [1, 5])
+@pytest.mark.parametrize("batch_size", [1, 10])
+@pytest.mark.parametrize("n_data", [20])
+@pytest.mark.parametrize("verbose", [True, False])
+def test_fit_natgrads_batch(
+    num_iters: int, batch_size: int, n_data: int, verbose: bool
+) -> None:
+    q, D = _svgp_setup(n_data=n_data)
+
+    trained_model, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.1),
+        natgrad_lr=0.1,
+        num_iters=num_iters,
+        batch_size=batch_size,
+        verbose=verbose,
+        key=jr.key(123),
+    )
+
+    assert isinstance(trained_model, VariationalGaussian)
+    assert history.shape == (num_iters,)
+    assert bool(jnp.all(jnp.isfinite(history)))
+    unwrapped = paramax.unwrap(trained_model)
+    assert bool(jnp.all(jnp.isfinite(_val(unwrapped.variational_mean))))
+    assert bool(jnp.all(jnp.isfinite(_val(unwrapped.variational_root_covariance))))
+
+
+def test_fit_natgrads_conjugate_single_step_is_exact() -> None:
+    """One full-batch iteration at ``natgrad_lr=1`` lands on the exact optimum."""
+    q, D = _svgp_setup(n_data=20)
+
+    trained_model, _ = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.sgd(0.0),
+        natgrad_lr=1.0,
+        num_iters=1,
+        batch_size=-1,
+        verbose=False,
+    )
+
+    unwrapped = paramax.unwrap(trained_model)
+    trained_mean = _val(unwrapped.variational_mean)
+    trained_root = _val(unwrapped.variational_root_covariance)
+    optimal_mean, optimal_covariance = _conjugate_optimal_q(q, D)
+
+    np.testing.assert_allclose(
+        np.float64(trained_mean), np.float64(optimal_mean), atol=1e-10
+    )
+    np.testing.assert_allclose(
+        np.float64(trained_root @ trained_root.T),
+        np.float64(optimal_covariance),
+        atol=1e-10,
+    )
+
+
+def test_fit_natgrads_history_matches_fit_convention() -> None:
+    """``history[0]`` is the loss at the *initial* parameters, as in ``fit``."""
+    q, D = _svgp_setup(n_data=20)
+
+    _, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.sgd(0.0),
+        natgrad_lr=1e-12,
+        num_iters=3,
+        verbose=False,
+    )
+
+    np.testing.assert_allclose(
+        np.float64(history[0]),
+        np.float64(_negative_elbo(paramax.unwrap(q), D)),
+        rtol=1e-12,
+    )
+
+
+def test_fit_natgrads_accepts_optax_schedule() -> None:
+    q, D = _svgp_setup(n_data=20)
+    schedule = ox.exponential_decay(
+        1e-4, transition_steps=5, decay_rate=10.0, end_value=1e-1
+    )
+
+    _, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.05),
+        natgrad_lr=schedule,
+        num_iters=10,
+        verbose=False,
+    )
+
+    assert history.shape == (10,)
+    assert bool(jnp.all(jnp.isfinite(history)))
+
+
+def test_fit_natgrads_rejects_unsupported_family() -> None:
+    q, D = _svgp_setup(n_data=20)
+    collapsed = CollapsedVariationalGaussian(
+        posterior=q.posterior, inducing_inputs=_val(q.inducing_inputs)
+    )
+
+    with pytest.raises(NotImplementedError, match="CollapsedVariationalGaussian"):
+        fit_natgrads(
+            model=collapsed,
+            objective=gpx.objectives.collapsed_elbo,
+            train_data=D,
+            optim=ox.adam(0.1),
+            num_iters=2,
+            verbose=False,
+        )
+
+
 @pytest.mark.parametrize("n_data", [50])
 @pytest.mark.parametrize("n_dim", [1, 2, 3])
 @pytest.mark.parametrize("batch_size", [1, 2, 50])
@@ -482,6 +699,30 @@ def test_check_batch_size_invalid_value(batch_size: int) -> None:
     """Test that invalid batch_size values raise a ValueError."""
     with pytest.raises(ValueError, match="Expected batch_size to be positive or -1"):
         _check_batch_size(batch_size)
+
+
+@pytest.mark.parametrize("natgrad_lr", [0.1, 1.0, 1])
+def test_check_natgrad_lr_valid(natgrad_lr) -> None:
+    """Test that valid natural-gradient step sizes pass validation."""
+    _check_natgrad_lr(natgrad_lr)
+
+
+def test_check_natgrad_lr_valid_schedule() -> None:
+    """Test that an optax schedule passes validation."""
+    _check_natgrad_lr(ox.exponential_decay(1e-3, transition_steps=5, decay_rate=2.0))
+
+
+def test_check_natgrad_lr_invalid_type() -> None:
+    """Test that an invalid natgrad_lr type raises a TypeError."""
+    with pytest.raises(TypeError, match="Expected natgrad_lr to be of type float"):
+        _check_natgrad_lr("0.1")
+
+
+@pytest.mark.parametrize("natgrad_lr", [0.0, -0.1])
+def test_check_natgrad_lr_invalid_value(natgrad_lr: float) -> None:
+    """Test that non-positive natgrad_lr values raise a ValueError."""
+    with pytest.raises(ValueError, match="Expected natgrad_lr to be positive"):
+        _check_natgrad_lr(natgrad_lr)
 
 
 def test_fit_freeze_kernel_variance() -> None:

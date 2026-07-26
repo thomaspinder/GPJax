@@ -25,6 +25,7 @@ from gpjax import (
     likelihoods,
     mean_functions,
     models,
+    natural_gradients,
     objectives,
     parameters,
     state_space,
@@ -38,6 +39,7 @@ from gpjax.distributions import GaussianDistribution
 from gpjax.fit import (
     fit,
     fit_lbfgs,
+    fit_natgrads,
     fit_scipy,
 )
 from gpjax.gps import (
@@ -69,6 +71,7 @@ __all__ = [
     "construct_model",
     "fit",
     "fit_lbfgs",
+    "fit_natgrads",
     "fit_scipy",
     "gps",
     "integrators",
@@ -76,6 +79,7 @@ __all__ = [
     "likelihoods",
     "mean_functions",
     "models",
+    "natural_gradients",
     "objectives",
     "parameters",
     "state_space",
