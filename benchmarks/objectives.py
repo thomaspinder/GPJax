@@ -119,9 +119,9 @@ _VARIATIONAL_FAMILIES = {
 
 
 class VariationalParametrisationSuite:
-    """Per-step ELBO cost across the surviving variational Gaussian families.
+    """Per-step ELBO cost across the variational Gaussian parameterisations.
 
-    Both parameterise the same q(u); the differences are in how the
+    They all parameterise the same q(u); the differences are in how the
     KL term and predictive moments are computed. Holding (n, M) fixed
     isolates the parameterisation cost.
     """

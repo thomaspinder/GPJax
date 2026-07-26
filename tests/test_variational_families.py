@@ -165,18 +165,28 @@ def test_variational_gaussians(
 
 @pytest.mark.parametrize(
     "removed_name",
-    ["NaturalVariationalGaussian", "ExpectationVariationalGaussian", "_psd"],
+    ["NaturalVariationalGaussian", "ExpectationVariationalGaussian"],
 )
 def test_removed_families_are_gone(removed_name: str) -> None:
     """The natural/expectation parameterisations were superseded by `fit_natgrads`.
 
     They were parameterisation-only classes with no optimiser attached; natural-gradient
     steps are now taken directly on `VariationalGaussian` and
-    `WhitenedVariationalGaussian`. This guards against them (or their private `_psd`
-    helper) creeping back in.
+    `WhitenedVariationalGaussian`. This guards against them creeping back in.
     """
     assert not hasattr(gpjax.variational_families, removed_name)
     assert removed_name not in gpjax.variational_families.__all__
+
+
+def test_psd_helper_is_gone() -> None:
+    """`_psd`'s only callers lived inside the two deleted classes.
+
+    Checked separately from the class names because `_psd` was private and never
+    exported, so the `__all__` assertion above would be vacuous for it. The guard is
+    against the dead helper returning alongside the classes, not a reservation of the
+    name for all time.
+    """
+    assert not hasattr(gpjax.variational_families, "_psd")
 
 
 @pytest.mark.parametrize("n_test", [10, 20])
