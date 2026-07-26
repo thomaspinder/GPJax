@@ -119,6 +119,13 @@ sequence = [
 ]
 help = "Check code formatting and style"
 
+[tool.poe.tasks.lint-ci]
+sequence = [
+  { cmd = "ruff format --check --diff ./gpjax ./tests ./benchmarks" },
+  { cmd = "ruff check --no-fix ./gpjax ./tests ./benchmarks" }
+]
+help = "Check code formatting and style without mutating files (used by CI)"
+
 # Testing tasks
 [tool.poe.tasks.test]
 cmd = "pytest tests -v -n 8 -m 'not slow' --beartype-packages='gpjax'"
@@ -279,6 +286,12 @@ ignore = [
   "F722",
   'PLR2004',
   "PLR0913",
+  # too-many-positional-arguments. Kernels, likelihoods and variational
+  # families are constructed positionally with defaults (e.g.
+  # `RBF(active_dims, lengthscale, variance, n_dims, compute_engine)`);
+  # forcing keyword-only arguments would break those public signatures.
+  # Paired with PLR0913 above, which ignores the same shape of constructor.
+  "PLR0917",
   # intentional math Unicode (σ, ℓ) in docstrings and comments
   "RUF002",
   "RUF003",
