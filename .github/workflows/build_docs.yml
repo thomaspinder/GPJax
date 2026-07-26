@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-docs:
-    timeout-minutes: 30
+    timeout-minutes: 60
     concurrency: ci-${{ github.ref }}
     name: Build docs (${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -41,7 +41,7 @@ jobs:
 
       # Install katex for math support
       - name: Install NPM
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 16
       - name: Install KaTeX

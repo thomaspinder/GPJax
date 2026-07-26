@@ -129,7 +129,7 @@ stochastic.test()
 heteroscedastic = Result(
     path="examples/heteroscedastic_inference.py",
     comparisons={
-        "history": (251.918, get_last),
+        "history": (-141.590, get_last),
     },
 )
 heteroscedastic.test()

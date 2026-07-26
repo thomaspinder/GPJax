@@ -19,7 +19,7 @@
 #
 # GPJax is built upon [Equinox](https://docs.kidger.site/equinox/) and
 # [Paramax](https://github.com/danielward27/paramax). Equinox provides a lightweight
-# module system for JAX, while Paramax adds support for constrained parameters via
+# module system for JAX, whilst Paramax adds support for constrained parameters via
 # unwrappable types. This notebook provides a high-level overview of the backend module
 # design in GPJax. For an introduction to Equinox, please refer to the
 # [official documentation](https://docs.kidger.site/equinox/).
@@ -167,7 +167,7 @@ gpx.summarise(posterior)
 # `summarise` traverses the model as a PyTree, so composite objects (e.g. sum kernels)
 # and frozen parameters are handled automatically — frozen rows are dimmed and reported
 # as non-trainable. The same table backs `rich.print(posterior)` and Jupyter's automatic
-# display, while `repr(posterior)` is left untouched.
+# display, whilst `repr(posterior)` is left untouched.
 
 # %% [markdown]
 # Now contained within the posterior there are four parameters: the kernel's lengthscale
