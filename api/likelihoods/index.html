@@ -3524,6 +3524,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;HeteroscedasticGaussian
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" HeteroscedasticGaussian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian.link_function" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;link_function
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian.noise_statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;noise_statistics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gpjax.likelihoods.Bernoulli" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4768,6 +4807,45 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;expected_log_likelihood
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;HeteroscedasticGaussian
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" HeteroscedasticGaussian">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian.link_function" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;link_function
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpjax.likelihoods.HeteroscedasticGaussian.noise_statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;noise_statistics
       
     </span>
   </a>
@@ -6545,6 +6623,192 @@ likelihoods.</p>
 )          –
           <div class="doc-md-description">
             <p>The expected log likelihood.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="gpjax.likelihoods.HeteroscedasticGaussian" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">HeteroscedasticGaussian</span>
+
+
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HeteroscedasticGaussian</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">num_datapoints</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">noise_prior</span><span class="p">:</span> <span class="n">Prior</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">noise_transform</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n">AbstractNoiseTransform</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">Callable</span><span class="p">[[</span><span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">]],</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">]</span> <span class="o">=</span> <span class="n">SoftplusTransform</span><span class="p">(),</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">integrator</span><span class="p">:</span> <span class="n">AbstractIntegrator</span> <span class="o">=</span> <span class="n">GHQuadratureIntegrator</span><span class="p">(),</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="AbstractHeteroscedasticLikelihood (gpjax.likelihoods.AbstractHeteroscedasticLikelihood)" href="#gpjax.likelihoods.AbstractHeteroscedasticLikelihood">AbstractHeteroscedasticLikelihood</a></code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gpjax.likelihoods.HeteroscedasticGaussian.link_function" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">link_function</span>
+
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">link_function</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">g</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npd</span><span class="o">.</span><span class="n">Normal</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The conditional observation density <span class="arithmatex">\(p(y \mid f, g)\)</span>.</p>
+<p>For a heteroscedastic likelihood the observation noise is itself a
+function of a second latent process <span class="arithmatex">\(g\)</span>, so the conditional is
+<span class="arithmatex">\(\mathcal{N}(y \mid f, \sigma^2(g))\)</span> (Lázaro-Gredilla &amp; Titsias, 2011).
+Unlike the homoscedastic likelihoods, <span class="arithmatex">\(f\)</span> alone does not determine the
+density, so <code>g</code> is required.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>f</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;...&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>the latent signal process values.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>g</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;...&#39;] | None</code>, default:
+                  <code>None</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>the latent noise process values. Required —
+there is no conditional density without it.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="numpyro.distributions.Normal">Normal</span></code>
+          –
+          <div class="doc-md-description">
+            <p>npd.Normal: The observation density given both latent processes.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="ValueError">ValueError</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If <code>g</code> is not supplied.</p>
+          </div>
+        </li>
+    </ul>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="gpjax.likelihoods.HeteroscedasticGaussian.noise_statistics" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">noise_statistics</span>
+
+
+</h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">noise_statistics</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">mean</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">],</span> <span class="n">variance</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;N D&quot;</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NoiseMoments</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Moment matching of the transformed noise process.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>mean</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N D&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Mean of the latent noise GP.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>variance</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;N D&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>Variance of the latent noise GP.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>NoiseMoments</code></b> (              <code><span title="gpjax.likelihoods.NoiseMoments">NoiseMoments</span></code>
+)          –
+          <div class="doc-md-description">
+            <p>Expected log variance, inverse variance, and variance.</p>
           </div>
         </li>
     </ul>
