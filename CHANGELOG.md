@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`tensorstore` runtime dependency** (macOS only). It was declared in
+  `pyproject.toml` but imported nowhere in the package, forcing a ~14 MB wheel
+  onto every macOS install
+  ([#675](https://github.com/JaxGaussianProcesses/GPJax/issues/675)). Nothing
+  else in the dependency graph requires it, so it was not a resolver workaround.
+  A regression test now asserts every declared runtime dependency is actually
+  imported.
+
 ### Fixed
 
 - **`StationaryKernel.spectral_density`**: now returns the correctly
