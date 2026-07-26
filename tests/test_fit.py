@@ -527,47 +527,32 @@ def test_fit_freeze_kernel_variance() -> None:
     assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, 1.0)
 
 
-def test_fit_zero_mean_function_frozen_with_non_trainable() -> None:
-    """Test that Zero mean function constant can be frozen using paramax.non_trainable.
+def test_fit_zero_mean_function_is_frozen_by_default() -> None:
+    """Zero needs no manual freezing: it must stay at zero through `fit`.
 
-    In the equinox backend, plain JAX arrays are trainable by default.
-    To freeze the Zero mean function's constant, use paramax.non_trainable.
+    Regression test for #330/#712.
     """
     key = jr.key(42)
     X = jr.uniform(key, (20, 1), minval=-3.0, maxval=3.0)
-    y = jnp.ones_like(X) + 0.1 * jr.normal(jr.key(43), X.shape)  # Non-zero mean data
+    y = jnp.full_like(X, 25.0)  # data with a large non-zero mean
     D = Dataset(X, y)
 
-    # Create GP with Zero mean function
-    meanf = gpx.mean_functions.Zero()
-    kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0)
-    prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
-    posterior = prior * likelihood
+    posterior = gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
+    ) * gpx.likelihoods.Gaussian(num_datapoints=D.n)
 
-    # Record initial mean function constant (should be 0.0)
-    initial_constant = meanf.constant
-
-    # Freeze the Zero mean function constant using paramax.non_trainable
-    frozen_posterior = eqx.tree_at(
-        lambda m: m.prior.mean_function.constant,
-        posterior,
-        replace_fn=paramax.non_trainable,
-    )
-
-    # Train with frozen constant
     trained_posterior, _ = fit(
-        model=frozen_posterior,
-        objective=gpx.objectives.conjugate_mll,
+        model=posterior,
+        objective=lambda model, data: -gpx.objectives.conjugate_mll(model, data),
         train_data=D,
-        optim=ox.sgd(0.01),
-        num_iters=10,
+        optim=ox.adam(0.1),
+        num_iters=50,
         verbose=False,
     )
 
-    # Assert Zero mean function constant has not changed (remains 0.0)
     unwrapped = paramax.unwrap(trained_posterior)
-    assert jnp.allclose(unwrapped.prior.mean_function.constant, initial_constant)
+    assert jnp.allclose(unwrapped.prior.mean_function.constant, 0.0)
 
 
 def test_fit_constant_mean_function_with_parameter() -> None:
