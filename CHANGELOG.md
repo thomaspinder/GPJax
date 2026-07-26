@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`HeteroscedasticGaussian.link_function`**: now requires the noise latent `g`
+  and returns the conditional `N(y | f, σ²(g))`. It previously evaluated the
+  noise transform at `g = 0` and returned the *prior-noise* density
+  `N(y | f, σ²(0))` — silently, and independently of the noise process the
+  likelihood exists to model
+  ([#670](https://github.com/JaxGaussianProcesses/GPJax/issues/670)). Callers
+  passing only `f` now get a `ValueError` pointing at the correct API instead of
+  a wrong number.
 - **`StationaryKernel.spectral_density`**: now returns the correctly
   parameterised spectral measure. It previously returned a *standardised*
   distribution (`Normal(0, 1)` for RBF, `StudentT(2ν, 0, 1)` for Matérn) that
@@ -31,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `k(τ) = σ²·E_p(ω)[exp(i ωᵀτ)]`.
 
 ### Changed
+
+- **`HeteroscedasticGaussian.link_function`** signature is now `(f, g=None)`. The
+  `g` argument is mandatory in practice; omitting it raises rather than silently
+  substituting `g = 0`. A heteroscedastic subclass that inherits
+  `AbstractLikelihood.expected_log_likelihood` (which calls `link_function(f)`)
+  now fails loudly instead of integrating against the prior-noise density.
+  `HeteroscedasticGaussian` itself overrides that method, so the sanctioned
+  variational path is unchanged.
 
 - **`StationaryKernel.spectral_density`** return type is now
   `MultivariateNormal` / `MultivariateStudentT` with `event_shape == (D,)`,

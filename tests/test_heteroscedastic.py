@@ -23,6 +23,7 @@ from gpjax.gps import (
 )
 from gpjax.kernels import RBF
 from gpjax.likelihoods import (
+    AbstractLikelihood,
     HeteroscedasticGaussian,
     LogNormalTransform,
     NoiseMoments,
@@ -398,3 +399,86 @@ def test_noise_moments_pytree_registration():
     assert jnp.allclose(nm_restored.log_variance, nm.log_variance)
     assert jnp.allclose(nm_restored.inv_variance, nm.inv_variance)
     assert jnp.allclose(nm_restored.variance, nm.variance)
+
+
+# ---------------------------------------------------------------------------
+# link_function must not silently evaluate the noise at g = 0 (issue #670)
+# ---------------------------------------------------------------------------
+
+
+def test_link_function_requires_the_noise_latent(noise_prior):
+    """Without `g` there is no conditional to return, so it must refuse.
+
+    Previously this silently returned N(y | f, σ²(0)) — the prior-noise density
+    rather than the Lázaro-Gredilla & Titsias (2011) conditional N(y | f, σ²(g)).
+    """
+    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    f = jnp.array([0.5, -0.2, 1.0])
+
+    with pytest.raises(ValueError, match="noise latent"):
+        likelihood.link_function(f)
+
+
+def test_link_function_uses_the_supplied_noise_latent(noise_prior):
+    """Given `g`, the scale must be σ(g) — the whole point of the likelihood."""
+    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    f = jnp.array([0.5, -0.2, 1.0])
+
+    for g_value in (-2.0, 0.0, 2.0):
+        g = jnp.full_like(f, g_value)
+        dist = likelihood.link_function(f, g)
+
+        assert jnp.allclose(dist.loc, f)
+        assert jnp.allclose(dist.scale, jnp.sqrt(likelihood.noise_transform(g)))
+
+
+def test_link_function_scale_varies_with_the_noise_latent(noise_prior):
+    """A heteroscedastic scale that ignores g is the bug in #670."""
+    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    f = jnp.zeros(3)
+
+    low = likelihood.link_function(f, jnp.full_like(f, -2.0)).scale
+    high = likelihood.link_function(f, jnp.full_like(f, 2.0)).scale
+
+    assert jnp.all(low < high)
+    # And neither may coincide with the old σ(0) answer.
+    at_zero = jnp.sqrt(likelihood.noise_transform(jnp.zeros_like(f)))
+    assert not jnp.allclose(low, at_zero)
+    assert not jnp.allclose(high, at_zero)
+
+
+def test_heteroscedastic_subclass_cannot_silently_use_prior_noise(noise_prior):
+    """The inherited `expected_log_likelihood` must not quietly use σ²(0).
+
+    `AbstractLikelihood.expected_log_likelihood` calls `link_function(f)` with a
+    single argument. A heteroscedastic subclass that does not override it would
+    otherwise integrate against the prior-noise density without any warning.
+    """
+
+    class BareHeteroscedastic(HeteroscedasticGaussian):
+        expected_log_likelihood = AbstractLikelihood.expected_log_likelihood
+
+    likelihood = BareHeteroscedastic(num_datapoints=3, noise_prior=noise_prior)
+    y = jnp.zeros((3, 1))
+    mean = jnp.zeros((3, 1))
+    variance = jnp.ones((3, 1))
+
+    with pytest.raises(ValueError, match="noise latent"):
+        likelihood.expected_log_likelihood(y, mean, variance)
+
+
+def test_sanctioned_heteroscedastic_path_is_unaffected(noise_prior):
+    """`HeteroscedasticGaussian.expected_log_likelihood` still works via g moments."""
+    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    y = jnp.zeros((3, 1))
+    mean = jnp.zeros((3, 1))
+    variance = jnp.ones((3, 1))
+    mean_g = jnp.full((3, 1), 0.3)
+    variance_g = jnp.full((3, 1), 0.1)
+
+    result = likelihood.expected_log_likelihood(
+        y, mean, variance, mean_g=mean_g, variance_g=variance_g
+    )
+
+    assert result.shape == (3,)
+    assert jnp.all(jnp.isfinite(result))
