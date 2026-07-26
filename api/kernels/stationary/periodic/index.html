@@ -4304,21 +4304,38 @@ covariance matrix.</p>
   </span>
 
 </h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spectral_density</span><span class="p">:</span> <span class="n">Normal</span> <span class="o">|</span> <span class="n">StudentT</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">spectral_density</span><span class="p">:</span> <span class="n">MultivariateNormal</span> <span class="o">|</span> <span class="n">MultivariateStudentT</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The spectral density of the kernel.</p>
+        <p>The normalised spectral measure <span class="arithmatex">\(p(\boldsymbol{\omega})\)</span> of the kernel.</p>
+<p>By Bochner's theorem, a stationary kernel is the Fourier transform of a
+finite measure. This property returns that measure <em>normalised to a
+probability distribution over</em> <span class="arithmatex">\(\mathbb{R}^D\)</span>, so that</p>
+<div class="arithmatex">\[
+k(\boldsymbol{\tau}) = \sigma^2 \,
+    \mathbb{E}_{p(\boldsymbol{\omega})}
+    \big[e^{i \boldsymbol{\omega}^\top \boldsymbol{\tau}}\big].
+\]</div>
+<p>The measure depends on the lengthscale <span class="arithmatex">\(\ell\)</span> (as an inverse scale) but
+<strong>not</strong> on the variance <span class="arithmatex">\(\sigma^2\)</span>: the variance is the measure's total
+mass, which normalisation divides out, and it re-enters as the explicit
+prefactor above. The unnormalised spectral density of Rasmussen &amp;
+Williams (2006, §4.2.1) is recovered as
+<span class="arithmatex">\(S(\boldsymbol{\omega}) = \sigma^2 (2\pi)^D p(\boldsymbol{\omega})\)</span>
+under the convention
+<span class="arithmatex">\(k(\boldsymbol{\tau}) = (2\pi)^{-D}\int S(\boldsymbol{\omega})
+e^{i\boldsymbol{\omega}^\top\boldsymbol{\tau}}\,d\boldsymbol{\omega}\)</span>.</p>
 
 
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="numpyro.distributions.Normal">Normal</span> | <span title="numpyro.distributions.StudentT">StudentT</span></code>
+              <code><span title="numpyro.distributions.MultivariateNormal">MultivariateNormal</span> | <span title="numpyro.distributions.MultivariateStudentT">MultivariateStudentT</span></code>
           –
           <div class="doc-md-description">
-            <p>Callable[[Float[Array, "D"]], Float[Array, "D"]]: The spectral density function.</p>
+            <p>The spectral measure as a <span class="arithmatex">\(D\)</span>-dimensional numpyro distribution.</p>
           </div>
         </li>
     </ul>

@@ -4156,14 +4156,18 @@
 
 
 </h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_student_t_distribution</span><span class="p">(</span><span class="n">nu</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npd</span><span class="o">.</span><span class="n">StudentT</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_student_t_distribution</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">nu</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">scale_tril</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s2">&quot;D D&quot;</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">npd</span><span class="o">.</span><span class="n">MultivariateStudentT</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Build a Student's t distribution with a fixed smoothness parameter.</p>
-<p>For a fixed half-integer smoothness parameter, compute the spectral density of a
-Matérn kernel; a Student's t distribution.</p>
+        <p>Build the spectral measure of a Matérn kernel.</p>
+<p>The Matérn kernel with smoothness <span class="arithmatex">\(\nu\)</span> has spectral density proportional to
+<span class="arithmatex">\((2\nu/\ell^2 + \lVert\omega\rVert^2)^{-(\nu + D/2)}\)</span>, which normalises to a
+multivariate Student's t measure with <span class="arithmatex">\(2\nu\)</span> degrees of freedom and scale
+matrix <span class="arithmatex">\(\mathrm{diag}(\ell)^{-1}\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4173,12 +4177,22 @@ Matérn kernel; a Student's t distribution.</p>
               (<code><span title="int">int</span></code>)
           –
           <div class="doc-md-description">
-            <p>The smoothness parameter of the Matérn kernel.</p>
+            <p>Twice the smoothness parameter of the Matérn kernel, i.e. 1, 3
+or 5 for the Matérn-1/2, -3/2 and -5/2 kernels respectively.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>scale_tril</code></b>
+              (<code><span title="jaxtyping.Float">Float</span>[<span title="gpjax.typing.Array">Array</span>, &#39;D D&#39;]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The scale matrix <span class="arithmatex">\(\mathrm{diag}(\ell)^{-1}\)</span>
+of the measure, as returned by <code>StationaryKernel._spectral_scale_tril</code>.</p>
           </div>
         </li>
     </ul>
         <h4 id="gpjax.kernels.stationary.utils.build_student_t_distribution--returns">Returns<a class="headerlink" href="#gpjax.kernels.stationary.utils.build_student_t_distribution--returns" title="Permanent link"></a></h4>
-<div class="language-text highlight"><pre><span></span><code>tfp.Distribution: A Student&#39;s t distribution with the same smoothness parameter.
+<div class="language-text highlight"><pre><span></span><code>npd.MultivariateStudentT: The spectral measure over $\mathbb{R}^D$.
 </code></pre></div>
 
 
