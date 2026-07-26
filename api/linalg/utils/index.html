@@ -3304,6 +3304,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.logdet_from_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet_from_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gpjax.linalg.utils.logdet" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3987,6 +3998,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#gpjax.linalg.utils.logdet_from_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;logdet_from_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gpjax.linalg.utils.logdet" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4086,6 +4108,33 @@
     <div class="doc doc-contents ">
 
         <p>Cholesky factor of a PSD operator. Returns lower-triangular L s.t. A = L L^T.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="gpjax.linalg.utils.logdet_from_factor" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">logdet_from_factor</span>
+
+
+</h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">logdet_from_factor</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">factor</span><span class="p">:</span> <span class="n">AbstractLinearOperator</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Log-determinant of <code>A = L Lᵀ</code> given its lower Cholesky factor <code>L</code>.</p>
+<p>Use this whenever the factor is already in hand, to avoid the redundant
+re-factorisation that :func:<code>logdet</code> would perform.</p>
+<p>The generic implementation materialises the factor, mirroring
+:func:<code>cholesky_factor</code>'s own fallback. Structured operators are handled by
+the registered implementations below, which never densify.</p>
 
 
     </div>
