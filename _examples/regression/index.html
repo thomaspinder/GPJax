@@ -4146,7 +4146,7 @@ function and the observed data that is subject to Gaussian noise.</p>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xtest</span><span class="p">,</span> <span class="n">ytest</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Latent function&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;best&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f470ac630d0&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f20dff99350&gt;
 </code></pre></div>
 <p><img alt="png" src="../regression_files/regression_5_1.png" /></p>
 <p>Our aim in this tutorial will be to reconstruct the latent function from our noisy
@@ -4246,13 +4246,13 @@ optimiser.</p>
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="nb">print</span><span class="p">(</span><span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">opt_posterior</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Optimization terminated successfully.
-         Current function value: 55.435922
-         Iterations: 14
-         Function evaluations: 21
-         Gradient evaluations: 21
+         Current function value: 55.469226
+         Iterations: 12
+         Function evaluations: 19
+         Gradient evaluations: 19
 
 
-55.435921664319295
+55.46922647118366
 </code></pre></div>
 <p>To inspect the learned hyperparameters, we can render a summary table of the optimised
 posterior with <code>gpx.summarise</code>. This shows each parameter's constrained value, its
@@ -4263,12 +4263,12 @@ bijector, and whether it is trainable — a quick sanity check after optimisatio
 ╭──────────────────────────────┬─────────────────┬───────┬──────────┬───────┬───────────┬───────┬───────╮
 │<span style="font-weight: bold"> Parameter                    </span>│<span style="font-weight: bold"> Class           </span>│<span style="font-weight: bold"> Value </span>│<span style="font-weight: bold"> Bijector </span>│<span style="font-weight: bold"> Prior </span>│<span style="font-weight: bold"> Trainable </span>│<span style="font-weight: bold"> Shape </span>│<span style="font-weight: bold"> Dtype </span>│
 ├──────────────────────────────┼─────────────────┼───────┼──────────┼───────┼───────────┼───────┼───────┤
-│ prior.kernel.lengthscale     │ PositiveReal    │ 0.471 │ Softplus │ -     │ <span style="color: #008000; text-decoration-color: #008000">yes</span>       │ ()    │ f64   │
+│ prior.kernel.lengthscale     │ PositiveReal    │ 0.47  │ Softplus │ -     │ <span style="color: #008000; text-decoration-color: #008000">yes</span>       │ ()    │ f64   │
 │ prior.kernel.variance        │ NonNegativeReal │ 1.69  │ Softplus │ -     │ <span style="color: #008000; text-decoration-color: #008000">yes</span>       │ ()    │ f64   │
-│ prior.mean_function.constant │ Array           │ 0.139 │ Identity │ -     │ <span style="color: #008000; text-decoration-color: #008000">yes</span>       │ ()    │ f64   │
+│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> prior.mean_function.constant </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> Array           </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> 0     </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> Identity </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> -     </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> </span><span style="color: #bf7f7f; text-decoration-color: #bf7f7f">no</span><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">        </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> ()    </span>│<span style="color: #7f7f7f; text-decoration-color: #7f7f7f"> f64   </span>│
 │ likelihood.obs_stddev        │ NonNegativeReal │ 0.318 │ Softplus │ -     │ <span style="color: #008000; text-decoration-color: #008000">yes</span>       │ ()    │ f64   │
 ╰──────────────────────────────┴─────────────────┴───────┴──────────┴───────┴───────────┴───────┴───────╯
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f; font-style: italic">4 parameters, 4 trainable                                                                                </span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f; font-style: italic">4 parameters, 3 trainable                                                                                </span>
 </pre>
 
 <h2 id="prediction">Prediction<a class="headerlink" href="#prediction" title="Permanent link"></a></h2>
@@ -4321,7 +4321,7 @@ latent function of interest.</p>
 </span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xtest</span><span class="p">,</span> <span class="n">predictive_mean</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Predictive mean&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;center left&quot;</span><span class="p">,</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">0.975</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f47088f2c10&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f20b8821f10&gt;
 </code></pre></div>
 <p><img alt="png" src="../regression_files/regression_23_1.png" /></p>
 <h2 id="system-configuration">System configuration<a class="headerlink" href="#system-configuration" title="Permanent link"></a></h2>

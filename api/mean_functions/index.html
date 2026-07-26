@@ -4987,6 +4987,8 @@ learned during training but defaults to 1.0.</p>
 <p>The zero mean function. This function returns a zero scalar value for all
 inputs. Unlike the Constant mean function, the constant scalar zero is fixed, and
 cannot be treated as a model hyperparameter and learned during training.</p>
+<p>The constant is wrapped in <code>paramax.non_trainable</code> to enforce this: <code>fit</code> treats
+every array leaf as trainable, so a bare array would be optimised away from zero.</p>
 
 
 

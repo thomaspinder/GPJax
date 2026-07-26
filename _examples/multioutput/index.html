@@ -4456,13 +4456,13 @@ log-likelihood using L-BFGS via <code>fit_scipy</code>.</p>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimised negative MLL: </span><span class="si">{</span><span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">opt_posterior</span><span class="p">,</span><span class="w"> </span><span class="n">D</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>Optimization terminated successfully.
-         Current function value: -14.390752
-         Iterations: 24
-         Function evaluations: 30
-         Gradient evaluations: 30
+         Current function value: -14.234924
+         Iterations: 21
+         Function evaluations: 24
+         Gradient evaluations: 24
 
 
-Optimised negative MLL: -14.391
+Optimised negative MLL: -14.235
 </code></pre></div>
 <h2 id="prediction">Prediction<a class="headerlink" href="#prediction" title="Permanent link"></a></h2>
 <p>The multi-output posterior returns predictions as a single Gaussian distribution
@@ -4538,7 +4538,7 @@ input kernel.</p>
 </span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Learned $\mathbf</span><span class="si">{B}</span><span class="s2">$&quot;</span><span class="p">)</span>
 </span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">shrink</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f903c601b10&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.colorbar.Colorbar at 0x7f8450de1d50&gt;
 </code></pre></div>
 <p><img alt="png" src="../multioutput_files/multioutput_18_1.png" /></p>
 <p>Because <span class="arithmatex">\(f_2\)</span> is defined as a mixture that includes a scaled copy of <span class="arithmatex">\(f_1\)</span>, we
@@ -4708,17 +4708,14 @@ hyperparameters and two coregionalization matrices.</p>
 </span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">opt_posterior_lcm</span><span class="p">,</span><span class="w"> </span><span class="n">D_lcm</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span>
 </span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Maximum number of iterations has been exceeded.
-  res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
+<div class="language-text highlight"><pre><span></span><code>Optimization terminated successfully.
+         Current function value: -20.719374
+         Iterations: 152
+         Function evaluations: 181
+         Gradient evaluations: 181
 
 
-         Current function value: -34.358148
-         Iterations: 500
-         Function evaluations: 573
-         Gradient evaluations: 573
-
-
-Optimised negative MLL: -34.358
+Optimised negative MLL: -20.719
 </code></pre></div>
 <h2 id="prediction_1">Prediction<a class="headerlink" href="#prediction_1" title="Permanent link"></a></h2>
 <p>The multi-output posterior returns predictions as a single Gaussian distribution
