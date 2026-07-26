@@ -4196,9 +4196,9 @@
 
         <p>The powered exponential family of kernels.</p>
 <p>Computes the covariance for pairs of inputs <span class="arithmatex">\((x, y)\)</span> with length-scale parameter
-<span class="arithmatex">\(\ell\)</span>, <span class="arithmatex">\(\sigma\)</span> and power <span class="arithmatex">\(\kappa\)</span>.
+<span class="arithmatex">\(\ell\)</span>, variance <span class="arithmatex">\(\sigma^2\)</span> and power <span class="arithmatex">\(\kappa\)</span>.
 $$
-k(x, y)=\sigma^2\exp\Bigg(-\Big(\frac{\lVert x-y\rVert^2}{\ell^2}\Big)^\kappa\Bigg)
+k(x, y)=\sigma^2\exp\Bigg(-\Big(\frac{\lVert x-y\rVert_2}{\ell}\Big)^\kappa\Bigg)
 $$</p>
 <p>This also equivalent to the symmetric generalized normal distribution.
 See Diggle and Ribeiro (2007) - "Model-based Geostatistics".

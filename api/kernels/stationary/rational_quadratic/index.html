@@ -4196,10 +4196,13 @@
 
         <p>The Rational Quadratic kernel.</p>
 <p>Computes the covariance for pairs of inputs <span class="arithmatex">\((x, y)\)</span> with lengthscale parameter
-<span class="arithmatex">\(\ell\)</span> and variance <span class="arithmatex">\(\sigma^2\)</span>.
+<span class="arithmatex">\(\ell\)</span>, variance <span class="arithmatex">\(\sigma^2\)</span> and shape parameter <span class="arithmatex">\(\alpha\)</span>.
 $$
-k(x,y)=\sigma^2\exp\Bigg(1+\frac{\lVert x-y\rVert^2_2}{2\alpha\ell^2}\Bigg)
+k(x,y)=\sigma^2\Bigg(1+\frac{\lVert x-y\rVert^2_2}{2\alpha\ell^2}\Bigg)^{-\alpha}
 $$</p>
+<p>As <span class="arithmatex">\(\alpha \to \infty\)</span> this recovers the <a class="autorefs autorefs-internal" title="RBF" href="../rbf/#gpjax.kernels.stationary.rbf.RBF"><code>RBF</code></a> kernel; it is
+equivalently a scale mixture of RBF kernels with a Gamma-distributed inverse
+squared lengthscale.</p>
 
 
 
