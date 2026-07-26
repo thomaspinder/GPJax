@@ -47,10 +47,47 @@ def _cholesky_kronecker(op):
 
 
 @functools.singledispatch
+def logdet_from_factor(factor: lx.AbstractLinearOperator) -> jax.Array:
+    """Log-determinant of ``A = L Lᵀ`` given its lower Cholesky factor ``L``.
+
+    Use this whenever the factor is already in hand, to avoid the redundant
+    re-factorisation that :func:`logdet` would perform.
+
+    The generic implementation materialises the factor, mirroring
+    :func:`cholesky_factor`'s own fallback. Structured operators are handled by
+    the registered implementations below, which never densify.
+    """
+    return 2.0 * jnp.sum(jnp.log(jnp.diag(factor.as_matrix())))
+
+
+@logdet_from_factor.register(lx.DiagonalLinearOperator)
+def _logdet_from_factor_diagonal(factor):
+    return 2.0 * jnp.sum(jnp.log(lx.diagonal(factor)))
+
+
+@logdet_from_factor.register(lx.IdentityLinearOperator)
+def _logdet_from_factor_identity(factor):
+    return jnp.array(0.0)
+
+
+@logdet_from_factor.register(BlockDiag)
+def _logdet_from_factor_blockdiag(factor):
+    return sum(logdet_from_factor(block) for block in factor.blocks)
+
+
+@logdet_from_factor.register(Kronecker)
+def _logdet_from_factor_kronecker(factor):
+    # |A ⊗ B| = |A|^m |B|^n for A of size n and B of size m, and the Cholesky
+    # factor of a Kronecker product is the Kronecker product of the factors.
+    n = factor.A.out_structure().shape[0]
+    m = factor.B.out_structure().shape[0]
+    return m * logdet_from_factor(factor.A) + n * logdet_from_factor(factor.B)
+
+
+@functools.singledispatch
 def logdet(op: lx.AbstractLinearOperator) -> jax.Array:
     """Log-determinant of a PSD operator via its Cholesky factor."""
-    L = cholesky_factor(op)
-    return 2.0 * jnp.sum(jnp.log(jnp.diag(L.as_matrix())))
+    return logdet_from_factor(cholesky_factor(op))
 
 
 @logdet.register(lx.DiagonalLinearOperator)

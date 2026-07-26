@@ -1,6 +1,6 @@
 """Tests for the Lineax-based linear algebra module."""
 
-from gpjax.linalg import add_jitter, cholesky_factor, logdet
+from gpjax.linalg import add_jitter, cholesky_factor, logdet, logdet_from_factor
 from gpjax.linalg.custom_operators import BlockDiag, Kronecker
 import jax
 import jax.numpy as jnp
@@ -52,6 +52,128 @@ def test_logdet_diagonal():
 def test_logdet_identity():
     op = lx.IdentityLinearOperator(jax.ShapeDtypeStruct((4,), jnp.float64))
     assert jnp.allclose(logdet(op), 0.0)
+
+
+# --- logdet_from_factor tests ---
+#
+# `logdet_from_factor(L)` computes log|A| for A = L Lᵀ, reusing a Cholesky
+# factor the caller already holds (issue #664). It must agree with `logdet`
+# and must not densify structured operators.
+
+
+def _blockdiag_case():
+    b1 = jnp.array(
+        [
+            [5.88278148942421, 1.8045229252228703],
+            [1.8045229252228703, 4.877985143235627],
+        ]
+    )
+    b2 = jnp.array(
+        [
+            [6.8994720881809375, -1.2155970227187396, -0.7818214380109865],
+            [-1.2155970227187396, 3.727962808803854, 0.4565422704125992],
+            [-0.7818214380109865, 0.4565422704125992, 3.355979468413311],
+        ]
+    )
+    return b1, b2
+
+
+def test_logdet_from_factor_dense():
+    A = jnp.array([[4.0, 2.0], [2.0, 3.0]])
+    op = lx.MatrixLinearOperator(A)
+    result = logdet_from_factor(cholesky_factor(op))
+    assert jnp.allclose(result, jnp.log(jnp.linalg.det(A)), atol=1e-10)
+    assert jnp.allclose(result, logdet(op), atol=1e-10)
+
+
+def test_logdet_from_factor_diagonal():
+    d = jnp.array([2.0, 3.0, 5.0])
+    op = lx.DiagonalLinearOperator(d)
+    result = logdet_from_factor(cholesky_factor(op))
+    assert jnp.allclose(result, jnp.sum(jnp.log(d)), atol=1e-10)
+    assert jnp.allclose(result, logdet(op), atol=1e-10)
+
+
+def test_logdet_from_factor_identity():
+    op = lx.IdentityLinearOperator(jax.ShapeDtypeStruct((4,), jnp.float64))
+    assert jnp.allclose(logdet_from_factor(cholesky_factor(op)), 0.0)
+
+
+def test_logdet_from_factor_blockdiag():
+    b1, b2 = _blockdiag_case()
+    op = BlockDiag([lx.MatrixLinearOperator(b1), lx.MatrixLinearOperator(b2)])
+    result = logdet_from_factor(cholesky_factor(op))
+    assert jnp.allclose(result, 7.599554710816069, atol=1e-10)
+    assert jnp.allclose(result, logdet(op), atol=1e-10)
+
+
+def test_logdet_from_factor_kronecker():
+    b1, b2 = _blockdiag_case()
+    op = Kronecker(lx.MatrixLinearOperator(b1), lx.MatrixLinearOperator(b2))
+    result = logdet_from_factor(cholesky_factor(op))
+    assert jnp.allclose(result, 18.435424994931296, atol=1e-10)
+    assert jnp.allclose(result, logdet(op), atol=1e-10)
+
+
+def test_logdet_from_factor_diagonal_does_not_densify(monkeypatch):
+    """The diagonal fast path must never materialise an N×N matrix."""
+
+    def forbidden(self):
+        raise AssertionError("as_matrix() called: diagonal fast path densified")
+
+    monkeypatch.setattr(lx.DiagonalLinearOperator, "as_matrix", forbidden)
+    factor = lx.DiagonalLinearOperator(jnp.array([2.0, 3.0, 5.0]))
+    result = logdet_from_factor(factor)
+    assert jnp.allclose(result, 2.0 * jnp.sum(jnp.log(jnp.array([2.0, 3.0, 5.0]))))
+
+
+def test_logdet_from_factor_blockdiag_does_not_densify(monkeypatch):
+    """Block-diagonal structure must be exploited, not flattened."""
+
+    def forbidden(self):
+        raise AssertionError("as_matrix() called: block-diagonal structure lost")
+
+    monkeypatch.setattr(BlockDiag, "as_matrix", forbidden)
+    b1, b2 = _blockdiag_case()
+    factor = cholesky_factor(
+        BlockDiag([lx.MatrixLinearOperator(b1), lx.MatrixLinearOperator(b2)])
+    )
+    assert jnp.allclose(logdet_from_factor(factor), 7.599554710816069, atol=1e-10)
+
+
+def test_logdet_from_factor_kronecker_does_not_densify(monkeypatch):
+    """Kronecker structure must be exploited, not expanded to the full product."""
+
+    def forbidden(self):
+        raise AssertionError("as_matrix() called: Kronecker structure lost")
+
+    monkeypatch.setattr(Kronecker, "as_matrix", forbidden)
+    b1, b2 = _blockdiag_case()
+    factor = cholesky_factor(
+        Kronecker(lx.MatrixLinearOperator(b1), lx.MatrixLinearOperator(b2))
+    )
+    assert jnp.allclose(logdet_from_factor(factor), 18.435424994931296, atol=1e-10)
+
+
+def test_logdet_diagonal_does_not_densify(monkeypatch):
+    """`logdet`'s own diagonal fast path is unchanged by the #664 refactor."""
+
+    def forbidden(self):
+        raise AssertionError("as_matrix() called: logdet diagonal fast path densified")
+
+    monkeypatch.setattr(lx.DiagonalLinearOperator, "as_matrix", forbidden)
+    d = jnp.array([2.0, 3.0, 5.0])
+    assert jnp.allclose(logdet(lx.DiagonalLinearOperator(d)), jnp.sum(jnp.log(d)))
+
+
+def test_logdet_from_factor_is_jittable():
+    A = jnp.array([[4.0, 2.0], [2.0, 3.0]])
+
+    def fn(matrix):
+        return logdet_from_factor(cholesky_factor(lx.MatrixLinearOperator(matrix)))
+
+    assert jnp.allclose(jax.jit(fn)(A), jnp.log(jnp.linalg.det(A)), atol=1e-10)
+    assert jnp.all(jnp.isfinite(jax.grad(fn)(A)))
 
 
 # --- add_jitter tests ---

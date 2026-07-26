@@ -1,7 +1,12 @@
 """Linear algebra module for GPJax."""
 
 from gpjax.linalg.custom_operators import BlockDiag, Kronecker
-from gpjax.linalg.utils import add_jitter, cholesky_factor, logdet
+from gpjax.linalg.utils import (
+    add_jitter,
+    cholesky_factor,
+    logdet,
+    logdet_from_factor,
+)
 
 __all__ = [
     "BlockDiag",
@@ -9,4 +14,5 @@ __all__ = [
     "add_jitter",
     "cholesky_factor",
     "logdet",
+    "logdet_from_factor",
 ]

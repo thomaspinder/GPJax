@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`distributions._kl_divergence`**: now computes both log-determinants from the
+  Cholesky factors it has already built, halving the O(N³) work on the hot path
+  of every ELBO step. It previously factorised `Σq` and `Σp` for the trace and
+  Mahalanobis terms, then called `logdet(Σq)` and `logdet(Σp)`, whose generic
+  implementation factorised both covariances a *second* time — four
+  factorisations where two suffice
+  ([#664](https://github.com/JaxGaussianProcesses/GPJax/issues/664)). A new
+  `linalg.logdet_from_factor(L)` helper computes `log|L Lᵀ| = 2 Σᵢ log Lᵢᵢ` and
+  is itself `singledispatch`ed, so diagonal, block-diagonal, Kronecker and
+  identity operators keep their structure-exploiting fast paths instead of being
+  densified. Returned values are unchanged.
+
 - **`HeteroscedasticGaussian.link_function`**: now requires the noise latent `g`
   and returns the conditional `N(y | f, σ²(g))`. It previously evaluated the
   noise transform at `g = 0` and returned the *prior-noise* density
