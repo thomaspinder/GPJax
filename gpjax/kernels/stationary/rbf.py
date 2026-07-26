@@ -45,5 +45,9 @@ class RBF(StationaryKernel):
         return K.squeeze()
 
     @property
-    def spectral_density(self) -> npd.Normal:
-        return npd.Normal(0.0, 1.0)
+    def spectral_density(self) -> npd.MultivariateNormal:
+        r"""The spectral measure $\mathcal{N}(\boldsymbol{0}, \mathrm{diag}(\ell)^{-2})$."""
+        scale_tril = self._spectral_scale_tril()
+        return npd.MultivariateNormal(
+            jnp.zeros(scale_tril.shape[0]), scale_tril=scale_tril
+        )

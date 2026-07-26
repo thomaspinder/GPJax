@@ -18,6 +18,7 @@ from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
+import numpyro.distributions as npd
 import pytest
 
 config.update("jax_enable_x64", True)
@@ -185,11 +186,22 @@ def test_matern_rff_gram_matches_isotropic(n_dims):
     assert rel_frobenius < 0.02
 
 
-def test_matern_rff_frequencies_1d_unchanged():
-    """1-D behaviour is preserved bit-identically: numpyro's 1-D MVT consumes
-    the PRNG stream exactly as the univariate StudentT it replaces."""
-    base_kernel = Matern32(active_dims=[0])
+@pytest.mark.parametrize("n_dims", [1, 3])
+@pytest.mark.parametrize("lengthscale", [0.5, 1.0, 2.0])
+def test_rff_effective_frequencies_unchanged(n_dims: int, lengthscale: float):
+    """Folding the lengthscale into the spectral measure is bit-identical.
+
+    Previously the measure was standardised and `compute_features` divided the
+    draws by ℓ. Now the measure carries diag(ℓ)⁻¹ directly and no rescaling
+    happens downstream. Both routes must give the same effective frequencies.
+    """
+    base_kernel = Matern32(n_dims=n_dims, lengthscale=lengthscale)
     approx = RFF(base_kernel=base_kernel, num_basis_fns=64, key=jr.key(5))
-    # Reference: the pre-fix univariate draw for the same key/shape.
-    reference = base_kernel.spectral_density.sample(key=jr.key(5), sample_shape=(64, 1))
-    assert jnp.allclose(approx.frequencies, reference)
+
+    # Reference: the pre-fix route — standardised draw, then divide by ℓ.
+    standardised = npd.MultivariateStudentT(
+        df=3, loc=jnp.zeros(n_dims), scale_tril=jnp.eye(n_dims)
+    )
+    reference = standardised.sample(jr.key(5), (64,)) / lengthscale
+
+    assert jnp.array_equal(approx.frequencies, reference)

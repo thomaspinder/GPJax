@@ -22,21 +22,29 @@ from gpjax.typing import (
 )
 
 
-def build_student_t_distribution(nu: int) -> npd.StudentT:
-    r"""Build a Student's t distribution with a fixed smoothness parameter.
+def build_student_t_distribution(
+    nu: int, scale_tril: Float[Array, "D D"]
+) -> npd.MultivariateStudentT:
+    r"""Build the spectral measure of a Matérn kernel.
 
-    For a fixed half-integer smoothness parameter, compute the spectral density of a
-    Matérn kernel; a Student's t distribution.
+    The Matérn kernel with smoothness $\nu$ has spectral density proportional to
+    $(2\nu/\ell^2 + \lVert\omega\rVert^2)^{-(\nu + D/2)}$, which normalises to a
+    multivariate Student's t measure with $2\nu$ degrees of freedom and scale
+    matrix $\mathrm{diag}(\ell)^{-1}$.
 
     Args:
-        nu (int): The smoothness parameter of the Matérn kernel.
+        nu (int): Twice the smoothness parameter of the Matérn kernel, i.e. 1, 3
+            or 5 for the Matérn-1/2, -3/2 and -5/2 kernels respectively.
+        scale_tril (Float[Array, "D D"]): The scale matrix $\mathrm{diag}(\ell)^{-1}$
+            of the measure, as returned by `StationaryKernel._spectral_scale_tril`.
 
     Returns
     -------
-        tfp.Distribution: A Student's t distribution with the same smoothness parameter.
+        npd.MultivariateStudentT: The spectral measure over $\mathbb{R}^D$.
     """
-    dist = npd.StudentT(df=nu, loc=0.0, scale=1.0)
-    return dist
+    return npd.MultivariateStudentT(
+        df=nu, loc=jnp.zeros(scale_tril.shape[0]), scale_tril=scale_tril
+    )
 
 
 def squared_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
