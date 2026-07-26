@@ -33,7 +33,6 @@ dependencies = [
   "lineax>=0.0.6",
   "scipy>=1.14",
   "numpy>=2.0.0",
-  "tensorstore!=0.1.76; sys_platform == 'darwin'",
   "rich>=13.0.0",
 ]
 
