@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+- **`Zero` mean function is trainable and drifts away from zero.** Fitting a
+  model with the default `Zero()` mean function moved its constant towards the
+  data mean (0.0 → 5.09 on a dataset with mean 5), silently changing the
+  posterior mean of every such model
+  ([#712](https://github.com/JaxGaussianProcesses/GPJax/issues/712)). This is a
+  regression of [#330](https://github.com/JaxGaussianProcesses/GPJax/issues/330),
+  fixed once in #500 and reintroduced by the Equinox migration. The cause is a
+  changed trainability contract rather than a lost line: under `nnx`, `fit`
+  optimised only `Parameter` instances, so `Zero`'s bare array was inert by
+  construction; under Equinox, `fit` partitions on `eqx.is_array`, which makes
+  every array leaf trainable. `Zero` now wraps its constant in
+  `paramax.non_trainable`, so it stays at zero by construction. `Constant` is
+  unchanged and remains trainable.
+
+  `Zero().constant` is now a `NonTrainable` wrapper rather than a bare array.
+  Read it with `paramax.unwrap(mean_function).constant` (or `_val`) if you were
+  accessing it directly; evaluating the mean function is unaffected.
+
 ## [0.18.0] — 2026-07-26
 
 ### Removed

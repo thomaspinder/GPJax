@@ -19,20 +19,36 @@ from jax import config
 config.update("jax_enable_x64", True)
 
 
+from gpjax.dataset import Dataset
+from gpjax.fit import fit
+from gpjax.gps import Prior
+from gpjax.kernels import RBF
+from gpjax.likelihoods import Gaussian
 from gpjax.mean_functions import (
     AbstractMeanFunction,
     CombinationMeanFunction,
     Constant,
     Zero,
 )
-from gpjax.parameters import Real
+from gpjax.objectives import conjugate_mll
+from gpjax.parameters import (
+    Real,
+    _val,
+)
+import jax
 import jax.numpy as jnp
+import jax.random as jr
 from jaxtyping import (
     Array,
     Float,
     Num,
 )
-from paramax import AbstractUnwrappable
+import optax as ox
+from paramax import (
+    AbstractUnwrappable,
+    NonTrainable,
+    unwrap,
+)
 import pytest
 
 
@@ -68,14 +84,38 @@ def test_constant(constant: Float[Array, " Q"]) -> None:
 
 
 def test_zero_mean_initialises_at_zero() -> None:
-    """Zero mean function should initialise its constant at 0.0.
-
-    Note: with equinox, the constant is a plain array leaf and *is* trainable.
-    The invariant we test is that the initial value is zero, not that it stays
-    zero after optimisation.
-    """
+    """Zero mean function should initialise its constant at 0.0."""
     meanf = Zero()
-    assert jnp.allclose(meanf.constant, 0.0)
+    assert jnp.allclose(_val(meanf.constant), 0.0)
+
+
+def test_zero_mean_remains_zero() -> None:
+    """The zero mean must stay at zero after fitting data with a non-zero mean.
+
+    Regression test for #330/#712. The constant is frozen, so gradient descent
+    must not be able to move it towards the data mean.
+    """
+    x = jnp.linspace(0.0, 1.0, 20, dtype=jnp.float64).reshape(-1, 1)
+    y = jnp.full((20, 1), 50.0, dtype=jnp.float64)  # dataset with a non-zero mean
+    train_data = Dataset(X=x, y=y)
+
+    posterior = Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(
+        num_datapoints=train_data.n
+    )
+
+    optimised, _ = fit(
+        model=posterior,
+        objective=lambda model, data: -conjugate_mll(model, data),
+        train_data=train_data,
+        optim=ox.adam(0.1),
+        num_iters=100,
+        key=jr.PRNGKey(42),
+        verbose=False,
+    )
+
+    mean_function = unwrap(optimised.prior.mean_function)
+    assert jnp.allclose(mean_function.constant, 0.0)
+    assert jnp.allclose(mean_function(x), 0.0)
 
 
 def test_initialising_zero_mean_with_constant_raises_error():
@@ -287,14 +327,22 @@ def test_constant_mean_function_with_array():
     assert jnp.allclose(result, expected)
 
 
-def test_zero_mean_function_uses_raw_value():
-    """Test that Zero mean function uses raw value, not Static Parameter."""
+def test_zero_mean_function_constant_is_frozen():
+    """The zero constant is wrapped so that optimisers cannot update it.
+
+    ``fit`` treats every array leaf as trainable, so a bare array would be
+    optimised. The ``NonTrainable`` wrapper is what keeps the zero at zero.
+    """
     meanf = Zero()
 
-    # Check that the constant is a raw value (0.0), not a Parameter
-    assert not isinstance(meanf.constant, AbstractUnwrappable)
-    assert isinstance(meanf.constant, jnp.ndarray)
-    assert jnp.allclose(meanf.constant, 0.0)
+    assert isinstance(meanf.constant, NonTrainable)
+    assert jnp.allclose(_val(meanf.constant), 0.0)
+
+    # The wrapper must stop gradients reaching the constant. `eqx.filter` alone
+    # does not hide it -- `unwrap` is what applies `stop_gradient`.
+    x = jnp.array([[1.0], [2.0], [3.0]])
+    grads = jax.grad(lambda mf: jnp.sum((unwrap(mf)(x) - 50.0) ** 2))(meanf)
+    assert jnp.allclose(grads.constant.tree, 0.0)
 
     # Test evaluation
     x = jnp.array([[1.0], [2.0], [3.0]])
