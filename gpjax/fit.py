@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import functools
 import typing as tp
 
 import equinox as eqx
@@ -26,6 +27,7 @@ from scipy.optimize import minimize
 
 from gpjax.dataset import Dataset
 from gpjax.natural_gradients import (
+    _reject_frozen_coordinates,
     natural_gradient_step,
     partition_variational,
 )
@@ -376,14 +378,14 @@ def fit_natgrads(
     objective: Objective,
     train_data: Dataset,
     optim: ox.GradientTransformation,
-    natgrad_lr: float | ox.Schedule = 1e-1,
+    natgrad_lr: ScalarFloat | int | ox.Schedule = 1e-1,
     key: KeyArray = jr.key(42),
     num_iters: int = 100,
     batch_size: int = -1,
-    map_jitter: float = 0.0,
-    backoff: float = 0.5,
+    map_jitter: ScalarFloat | int = 0.0,
+    backoff: ScalarFloat | int = 0.5,
     max_backoff: int = 5,
-    beta_floor: float = 1e-8,
+    beta_floor: ScalarFloat | int = 1e-8,
     log_rate: int = 10,
     verbose: bool = True,
     unroll: int = 1,
@@ -446,7 +448,7 @@ def fit_natgrads(
         The training data used to evaluate the objective.
     optim : GradientTransformation
         The Optax optimiser applied to the hyperparameter partition.
-    natgrad_lr : float | optax.Schedule
+    natgrad_lr : float | int | jax.Array | optax.Schedule
         The natural-gradient step size $\gamma\in(0,1]$, or an Optax schedule mapping
         the iteration number to a step size. Defaults to ``1e-1``, the value
         Salimbeni et al. recommend in the stochastic, non-conjugate regime;
@@ -467,7 +469,10 @@ def fit_natgrads(
         ``jitter``: a non-zero value biases the recovered covariance by
         $\approx\varepsilon\lVert\mathbf S\rVert^2$ regardless of conditioning, which
         destroys the exactness of the conjugate one-step solution. Raise it to
-        $10^{-12}$--$10^{-10}$ only when fighting an ill-conditioned $\mathbf S$.
+        $10^{-12}$--$10^{-10}$ only when fighting an ill-conditioned $\mathbf S$, and
+        note that a non-zero value also shifts every entry of ``history`` by
+        $\mathcal O(\varepsilon)$, because the logged loss is read off the
+        differentiated $\boldsymbol\eta$ closure.
     backoff : float
         Multiplicative shrink factor applied to $\gamma$ when a step would leave the
         negative-definite cone. Defaults to 0.5.
@@ -501,6 +506,14 @@ def fit_natgrads(
     ``history[t]`` convention, and because it decouples a bad hyperparameter step from
     the Cholesky factorisations of the natural-gradient step by one iteration. The
     ordering changes traces bit-for-bit, so do not reverse it casually.
+
+    **Choice of family.** The step differentiates the loss through
+    $\boldsymbol\xi(\boldsymbol\eta)$, which subtracts
+    $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ from $\mathbf H_2$. When
+    $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$ that cancellation loses digits
+    quietly -- finite, unguarded and increasingly wrong -- so prefer
+    ``WhitenedVariationalGaussian``, whose $q(\mathbf v)$ stays close to
+    $\mathcal N(\mathbf 0,\mathbf I)$, in that regime.
     """
     if safe:
         # Check inputs.
@@ -512,6 +525,10 @@ def fit_natgrads(
         _check_log_rate(log_rate)
         _check_verbose(verbose)
         _check_natgrad_lr(natgrad_lr, model)
+        # Surface a frozen coordinate as an ordinary argument error, before `vscan`
+        # opens a progress bar and buries the traceback in the scan trace. The step
+        # itself repeats the check unconditionally as a backstop.
+        _reject_frozen_coordinates(model)
 
     # Split once, before the scan: the exponential-family coordinates are driven by
     # the natural-gradient rule and everything else by `optim`.
@@ -547,7 +564,9 @@ def fit_natgrads(
             hyper,
             batch,
             objective,
-            jnp.asarray(schedule(iteration)),
+            # Coerced to the default float type so that an integer step size, or a
+            # schedule returning one, still reaches the step as a `ScalarFloat`.
+            jnp.asarray(schedule(iteration), dtype=jnp.result_type(float)),
             map_jitter=map_jitter,
             backoff=backoff,
             max_backoff=max_backoff,
@@ -564,8 +583,9 @@ def fit_natgrads(
         carry = variational, hyper, opt_state
         return carry, loss_val
 
-    # Optimisation scan.
-    scan = vscan if verbose else jax.lax.scan
+    # Optimisation scan. `jax.lax.scan` has no `log_rate`, so it is bound only on the
+    # verbose branch, where it actually drives the progress bar.
+    scan = functools.partial(vscan, log_rate=log_rate) if verbose else jax.lax.scan
 
     # Optimisation loop.
     (variational, hyper, _), history = scan(
@@ -684,7 +704,7 @@ def _check_verbose(verbose: tp.Any) -> None:
 
 
 def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
-    """Check the natural-gradient step size is a positive float or an optax schedule.
+    r"""Check the natural-gradient step size is a positive float or an optax schedule.
 
     Parameters
     ----------
@@ -693,17 +713,31 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
     model : Any
         The model being fitted. Unused for the Salimbeni families; later
         parameterisations register tighter bounds against it.
+
+    Notes
+    -----
+    A 0-d JAX array is accepted, because the driver immediately does
+    ``jnp.asarray(schedule(iteration))`` and the dispatched step is annotated
+    ``ScalarFloat``. ``bool`` is rejected despite being an ``int`` subclass: silently
+    reading ``True`` as $\gamma=1$ is never what the caller meant. The positivity check
+    is skipped for traced values, which have no concrete sign at trace time.
     """
     del model
 
     if callable(natgrad_lr):
         return
 
-    if not isinstance(natgrad_lr, (float, int)):
+    is_scalar_array = isinstance(natgrad_lr, jax.Array) and jnp.ndim(natgrad_lr) == 0
+    if isinstance(natgrad_lr, bool) or not (
+        is_scalar_array or isinstance(natgrad_lr, (float, int))
+    ):
         raise TypeError(
-            "Expected natgrad_lr to be of type float or an optax schedule. "
-            f"Got {natgrad_lr} of type {type(natgrad_lr)}."
+            "Expected natgrad_lr to be of type float, a 0-d JAX array, or an optax "
+            f"schedule. Got {natgrad_lr} of type {type(natgrad_lr)}."
         )
+
+    if isinstance(natgrad_lr, jax.core.Tracer):
+        return
 
     if natgrad_lr <= 0:
         raise ValueError(f"Expected natgrad_lr to be positive. Got {natgrad_lr}.")

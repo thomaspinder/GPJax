@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import sys
+
 import equinox as eqx
 import gpjax as gpx
 from gpjax.dataset import Dataset
@@ -37,7 +39,6 @@ from gpjax.gps import (
 )
 from gpjax.kernels import RBF
 from gpjax.likelihoods import Gaussian
-from gpjax.linalg import add_jitter
 from gpjax.mean_functions import (
     AbstractMeanFunction,
     Constant,
@@ -57,6 +58,7 @@ from gpjax.variational_families import (
 )
 import jax.numpy as jnp
 import jax.random as jr
+import jax.tree_util as jtu
 from jaxtyping import (
     Float,
     Num,
@@ -66,6 +68,8 @@ import optax as ox
 import paramax
 import pytest
 import scipy
+
+from tests._reference.conjugate_svgp import conjugate_optimum
 
 
 class LinearModel(eqx.Module):
@@ -353,22 +357,13 @@ def _negative_elbo(model, data):
 
 
 def _conjugate_optimal_q(q, data):
-    r"""Closed-form optimal $(m^\star, S^\star)$ for an unwhitened conjugate SVGP."""
-    unwrapped = paramax.unwrap(q)
-    z = _val(unwrapped.inducing_inputs)
-    kernel = unwrapped.posterior.prior.kernel
-    mean_function = unwrapped.posterior.prior.mean_function
-    noise_variance = _val(unwrapped.posterior.likelihood.obs_stddev) ** 2
+    r"""Closed-form optimal $(m^\star, S^\star)$ for an unwhitened conjugate SVGP.
 
-    gram = add_jitter(kernel.gram(z).as_matrix(), q.jitter)
-    gram_inverse = jnp.linalg.inv(gram)
-    design = kernel.cross_covariance(data.X, z) @ gram_inverse
-    residual = data.y - mean_function(data.X) + design @ mean_function(z)
-
-    precision = gram_inverse + design.T @ design / noise_variance
-    shift = design.T @ residual / noise_variance + gram_inverse @ mean_function(z)
-    covariance = jnp.linalg.inv(precision)
-    return covariance @ shift, covariance
+    Delegates to the single shared transcription in ``tests/_reference`` so that this
+    file and ``tests/test_natural_gradients.py`` cannot drift apart.
+    """
+    optimal_mean, optimal_covariance, _ = conjugate_optimum(q, data)
+    return optimal_mean, optimal_covariance
 
 
 def test_fit_natgrads_simple() -> None:
@@ -540,6 +535,107 @@ def test_fit_natgrads_rejects_unsupported_family() -> None:
         )
 
 
+def test_fit_natgrads_rejects_frozen_coordinates(monkeypatch) -> None:
+    """A frozen coordinate is rejected by the validator, not from inside the scan.
+
+    ``vscan`` is replaced by a sentinel: if the guard fired only from the traced step
+    body, the sentinel would be raised first and a dangling progress bar left behind.
+    """
+    q, D = _svgp_setup(n_data=20)
+    frozen = eqx.tree_at(
+        lambda tree: tree.variational_mean,
+        q,
+        paramax.non_trainable(q.variational_mean),
+    )
+
+    def unreachable(*args, **kwargs):
+        raise AssertionError("the scan was reached before the frozen-coordinate guard")
+
+    monkeypatch.setattr(sys.modules["gpjax.fit"], "vscan", unreachable)
+
+    with pytest.raises(ValueError, match="variational_mean"):
+        fit_natgrads(
+            model=frozen,
+            objective=_negative_elbo,
+            train_data=D,
+            optim=ox.adam(0.1),
+            num_iters=5,
+            verbose=True,
+        )
+
+
+@pytest.mark.parametrize("natgrad_lr", [1, jnp.asarray(0.5)])
+def test_fit_natgrads_accepts_non_float_step_sizes(natgrad_lr) -> None:
+    """The entry point honours everything ``_check_natgrad_lr`` blesses.
+
+    ``_check_natgrad_lr`` accepts an ``int`` and a 0-d array, so the beartype-checked
+    signature must too; testing the validator alone would not catch a mismatch.
+    """
+    q, D = _svgp_setup(n_data=20)
+
+    _, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.sgd(0.0),
+        natgrad_lr=natgrad_lr,
+        num_iters=3,
+        verbose=False,
+    )
+
+    assert history.shape == (3,)
+    assert bool(jnp.all(jnp.isfinite(history)))
+
+
+def test_fit_natgrads_forwards_log_rate(capsys) -> None:
+    """``log_rate`` reaches ``vscan`` rather than being silently ignored.
+
+    Asserting on the *number* of tqdm postfix updates rather than on an exact cadence
+    keeps the test independent of ``vscan``'s remainder handling; all that matters is
+    that a smaller ``log_rate`` logs strictly more often.
+    """
+    q, D = _svgp_setup(n_data=20)
+
+    def count_updates(log_rate: int) -> int:
+        fit_natgrads(
+            model=q,
+            objective=_negative_elbo,
+            train_data=D,
+            optim=ox.adam(0.1),
+            natgrad_lr=0.1,
+            num_iters=30,
+            log_rate=log_rate,
+            verbose=True,
+        )
+        captured = capsys.readouterr()
+        return (captured.err + captured.out).count("Value")
+
+    assert count_updates(1) > count_updates(10)
+
+
+@pytest.mark.filterwarnings("ignore:X is not of type float64")
+@pytest.mark.filterwarnings("ignore:y is not of type float64")
+def test_fit_natgrads_preserves_float32() -> None:
+    """A float32 model trains without a ``lax.scan`` carry-dtype mismatch."""
+    q, D = _svgp_setup(n_data=20)
+    cast = lambda leaf: jnp.asarray(leaf, dtype=jnp.float32)
+    q = jtu.tree_map(cast, q)
+    D = Dataset(X=cast(D.X), y=cast(D.y))
+
+    trained_model, history = fit_natgrads(
+        model=q,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.05),
+        natgrad_lr=0.1,
+        num_iters=5,
+        verbose=False,
+    )
+
+    assert bool(jnp.all(jnp.isfinite(history)))
+    assert all(leaf.dtype == jnp.float32 for leaf in jtu.tree_leaves(trained_model))
+
+
 @pytest.mark.parametrize("n_data", [50])
 @pytest.mark.parametrize("n_dim", [1, 2, 3])
 @pytest.mark.parametrize("batch_size", [1, 2, 50])
@@ -701,9 +797,13 @@ def test_check_batch_size_invalid_value(batch_size: int) -> None:
         _check_batch_size(batch_size)
 
 
-@pytest.mark.parametrize("natgrad_lr", [0.1, 1.0, 1])
+@pytest.mark.parametrize("natgrad_lr", [0.1, 1.0, 1, jnp.asarray(0.5)])
 def test_check_natgrad_lr_valid(natgrad_lr) -> None:
-    """Test that valid natural-gradient step sizes pass validation."""
+    """Test that valid natural-gradient step sizes pass validation.
+
+    Everything blessed here must also satisfy ``fit_natgrads``' beartype-checked
+    signature -- see ``test_fit_natgrads_accepts_non_float_step_sizes``.
+    """
     _check_natgrad_lr(natgrad_lr)
 
 
@@ -712,10 +812,15 @@ def test_check_natgrad_lr_valid_schedule() -> None:
     _check_natgrad_lr(ox.exponential_decay(1e-3, transition_steps=5, decay_rate=2.0))
 
 
-def test_check_natgrad_lr_invalid_type() -> None:
-    """Test that an invalid natgrad_lr type raises a TypeError."""
+@pytest.mark.parametrize("natgrad_lr", ["0.1", True, False, jnp.ones(3)])
+def test_check_natgrad_lr_invalid_type(natgrad_lr) -> None:
+    """Test that an invalid natgrad_lr type raises a TypeError.
+
+    ``bool`` is an ``int`` subclass, so it would otherwise slip through and be read
+    silently as $\\gamma=1$; a non-scalar array would break the step's shape contract.
+    """
     with pytest.raises(TypeError, match="Expected natgrad_lr to be of type float"):
-        _check_natgrad_lr("0.1")
+        _check_natgrad_lr(natgrad_lr)
 
 
 @pytest.mark.parametrize("natgrad_lr", [0.0, -0.1])
