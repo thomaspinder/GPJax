@@ -26,7 +26,7 @@ uv run pytest tests/test_kernels/test_stationary.py -v
 uv run pytest tests/test_gps.py::test_conjugate_posterior -v
 ```
 
-Install dev environment: `uv venv && uv sync --extra dev`
+Install dev environment: `uv venv && uv sync`
 
 ## Architecture
 

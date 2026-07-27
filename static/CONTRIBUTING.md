@@ -75,7 +75,7 @@ you through every detail!
 4.  We use [uv](https://docs.astral.sh/uv/) for packaging and dependency management. Project requirements are in ``pyproject.toml``. To install GPJax into a uv virtual environment, run:
 
   ```bash
-  $ uv sync --extra dev
+  $ uv sync
   ```
 
   At this point we recommend you check your installation passes the supplied unit tests:

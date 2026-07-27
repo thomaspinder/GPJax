@@ -147,7 +147,7 @@ configuration in development mode.
 git clone https://github.com/thomaspinder/GPJax.git
 cd GPJax
 uv venv
-uv sync --extra dev
+uv sync
 ```
 
 > We recommend you check your installation passes the supplied unit tests:
