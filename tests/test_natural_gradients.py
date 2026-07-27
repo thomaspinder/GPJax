@@ -44,7 +44,6 @@ from gpjax.parameters import (
 )
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
-    DualVariationalGaussian,
     GraphVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
@@ -63,6 +62,10 @@ import numpy as np
 import paramax
 import pytest
 
+from tests._dual_helpers import (
+    build_dual as _build_dual,
+    matched_variational_gaussian as _matched_variational_gaussian,
+)
 from tests._reference.conjugate_svgp import (
     conjugate_optimum as _conjugate_optimum,
 )
@@ -1082,36 +1085,6 @@ class _NegativeCurvatureLikelihood(gpjax.likelihoods.AbstractLikelihood):
 
 def _negative_dual_elbo(family, data):
     return -dual_elbo(family, data)
-
-
-def _build_dual(posterior, inducing_inputs, jitter, seed=None):
-    """A dual family, optionally started at random positive semi-definite sites."""
-    dual_vector = dual_matrix = None
-    if seed is not None:
-        num_inducing = inducing_inputs.shape[0]
-        key_vector, key_matrix = jr.split(jr.key(seed))
-        raw = jr.normal(key_matrix, (num_inducing, num_inducing))
-        dual_vector = jr.normal(key_vector, (num_inducing, 1))
-        dual_matrix = raw @ raw.T / num_inducing
-    return DualVariationalGaussian(
-        posterior=posterior,
-        inducing_inputs=inducing_inputs,
-        dual_vector=dual_vector,
-        dual_matrix=dual_matrix,
-        jitter=jitter,
-    )
-
-
-def _matched_variational_gaussian(family):
-    """A ``VariationalGaussian`` carrying the dual family's implied moments."""
-    mean, covariance = family.moments()
-    return VariationalGaussian(
-        posterior=family.posterior,
-        inducing_inputs=_val(family.inducing_inputs),
-        variational_mean=mean,
-        variational_root_covariance=jnp.linalg.cholesky(covariance),
-        jitter=family.jitter,
-    )
 
 
 def _titsias_optimum(family, data):

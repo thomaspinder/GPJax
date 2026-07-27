@@ -49,6 +49,12 @@ import numpyro.distributions as npd
 from numpyro.distributions import Distribution as NumpyroDistribution
 import pytest
 
+from tests._dual_helpers import (
+    DUAL_JITTER,
+    build_dual,
+    matched_variational_gaussian as _matched_variational_gaussian,
+)
+
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
 
@@ -656,47 +662,25 @@ def test_prior_kl_is_non_negative(family, seed):
 # ---------------------------------------------------------------------------
 # DualVariationalGaussian -- the t-SVGP site parameterisation (arXiv:2111.03412)
 # ---------------------------------------------------------------------------
-_DUAL_JITTER = 1e-8
+_DUAL_JITTER = DUAL_JITTER
 
 
 def _build_dual_family(
-    num_inducing: int, seed: int | None = None, jitter: float = _DUAL_JITTER
+    num_inducing: int,
+    seed: int | None = None,
+    jitter: float = _DUAL_JITTER,
+    variance: float = 1.3,
 ) -> DualVariationalGaussian:
     """Build a dual family, optionally at random positive semi-definite sites."""
-    kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.3))
+    kernel = gpx.kernels.RBF(
+        lengthscale=jnp.array(0.7), variance=jnp.array(float(variance))
+    )
     mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
     posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 
-    dual_vector = dual_matrix = None
-    if seed is not None:
-        key_vector, key_matrix = jr.split(jr.key(seed))
-        raw = jr.normal(key_matrix, (num_inducing, num_inducing))
-        dual_vector = jr.normal(key_vector, (num_inducing, 1))
-        dual_matrix = raw @ raw.T / num_inducing
-
-    return DualVariationalGaussian(
-        posterior=posterior,
-        inducing_inputs=inducing_inputs,
-        dual_vector=dual_vector,
-        dual_matrix=dual_matrix,
-        jitter=jitter,
-    )
-
-
-def _matched_variational_gaussian(
-    q_dual: DualVariationalGaussian,
-) -> VariationalGaussian:
-    """A ``VariationalGaussian`` carrying the dual family's implied moments."""
-    mean, covariance = q_dual.moments()
-    return VariationalGaussian(
-        posterior=q_dual.posterior,
-        inducing_inputs=_val(q_dual.inducing_inputs),
-        variational_mean=mean,
-        variational_root_covariance=jnp.linalg.cholesky(covariance),
-        jitter=q_dual.jitter,
-    )
+    return build_dual(posterior, inducing_inputs, jitter=jitter, seed=seed)
 
 
 @pytest.mark.parametrize("num_inducing", [1, 4, 9])
@@ -768,6 +752,43 @@ def test_dual_prior_kl_is_jit_grad_and_vmap_compatible() -> None:
         rtol=1e-12,
         atol=1e-14,
     )
+
+
+def test_dual_working_matrices_reconstruct_r() -> None:
+    """``Lr`` is lower triangular and satisfies ``Lr Lr^T = Kzz + Kzz L2 Kzz``."""
+    q = _build_dual_family(6, seed=5)
+    gram, _, root_working = q._working_matrices()
+    dual_matrix = _val(q.dual_matrix)
+
+    working = gram + gram @ dual_matrix @ gram
+    np.testing.assert_allclose(
+        np.asarray(root_working @ root_working.T), np.asarray(working), rtol=1e-10
+    )
+    np.testing.assert_array_equal(
+        np.asarray(jnp.triu(root_working, 1)), np.zeros((6, 6))
+    )
+
+
+@pytest.mark.parametrize(("variance", "num_inducing"), [(1e4, 80), (1e3, 50)])
+def test_dual_working_matrices_survive_a_large_variance_kernel(
+    variance: float, num_inducing: int
+) -> None:
+    """A badly scaled Kzz must not make chol(R) return NaN.
+
+    Forming ``R = Kzz + Kzz L2 Kzz`` explicitly carries a rounding error of order
+    ``||Kzz||^2 ||L2|| eps``, which for these settings dwarfs
+    ``lambda_min(R) ~ jitter`` and made ``jnp.linalg.cholesky`` return NaN silently --
+    poisoning every later ``fit_natgrads`` iterate. Factorising in the Kzz basis
+    instead is unconditionally safe. The default 1e-6 jitter is used deliberately;
+    the failure is invisible at the 1e-8 the other dual tests run at.
+    """
+    q = _build_dual_family(num_inducing, seed=6, jitter=1e-6, variance=float(variance))
+    inputs = jnp.linspace(-3.0, 3.0, 9).reshape(-1, 1)
+
+    _, _, root_working = q._working_matrices()
+    assert jnp.all(jnp.isfinite(root_working))
+    assert jnp.isfinite(q.prior_kl())
+    assert jnp.all(jnp.isfinite(jnp.stack(q.marginals(inputs))))
 
 
 def test_dual_family_cholesky_budget(monkeypatch) -> None:

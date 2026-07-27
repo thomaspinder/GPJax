@@ -1097,6 +1097,35 @@ def test_fit_natgrads_dual_rejects_rate_above_one() -> None:
     _check_natgrad_lr(1.5, moment)
 
 
+def test_fit_natgrads_dual_rejects_schedule_above_one() -> None:
+    """A schedule is fully determined up front, so it is checked up front.
+
+    Before this guard an out-of-range schedule sailed past ``_check_natgrad_lr`` and
+    the run returned an all-NaN history instead of raising -- the one failure mode the
+    scalar check exists to prevent.
+    """
+    dual, D = _dual_svgp_setup(n_data=10)
+    moment, _ = _svgp_setup(n_data=10)
+
+    with pytest.raises(ValueError, match=r"natgrad_lr to lie in \(0, 1\]"):
+        fit_natgrads(
+            model=dual,
+            objective=_negative_dual_elbo,
+            train_data=D,
+            optim=ox.adam(0.05),
+            natgrad_lr=ox.constant_schedule(5.0),
+            num_iters=3,
+            verbose=False,
+        )
+
+    # A schedule that only exceeds 1 outside the horizon is fine, and the Salimbeni
+    # families are unrestricted either way.
+    _check_natgrad_lr(ox.linear_schedule(0.5, 5.0, 100), dual, 3)
+    _check_natgrad_lr(ox.constant_schedule(5.0), moment, 3)
+    # Without ``num_iters`` a schedule stays unexamined, as documented.
+    _check_natgrad_lr(ox.constant_schedule(5.0), dual)
+
+
 def test_fit_on_dual_family_still_works() -> None:
     """Plain gradient descent in the dual coordinates remains a valid optimiser."""
     q, D = _dual_svgp_setup(n_data=20)

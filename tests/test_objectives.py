@@ -20,10 +20,7 @@ from gpjax.parameters import (
     PositiveReal,
     _val,
 )
-from gpjax.variational_families import (
-    DualVariationalGaussian,
-    VariationalGaussian,
-)
+from gpjax.variational_families import DualVariationalGaussian
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -33,6 +30,12 @@ import jax.tree_util as jtu
 import numpy as np
 import paramax
 import pytest
+
+from tests._dual_helpers import (
+    DUAL_JITTER,
+    matched_variational_gaussian as _matched_variational_gaussian,
+    random_dual_sites as _random_dual_sites,
+)
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
@@ -371,7 +374,7 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
 # ---------------------------------------------------------------------------
 # dual_elbo -- the t-SVGP bound (Adam et al. 2021, arXiv:2111.03412)
 # ---------------------------------------------------------------------------
-_DUAL_JITTER = 1e-8
+_DUAL_JITTER = DUAL_JITTER
 
 
 def _dual_setup(
@@ -406,23 +409,6 @@ def _dual_setup(
         else jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
     )
     return posterior, data, inducing_inputs, jitter
-
-
-def _random_dual_sites(seed: int, num_inducing: int):
-    key_vector, key_matrix = jr.split(jr.key(seed))
-    raw = jr.normal(key_matrix, (num_inducing, num_inducing))
-    return jr.normal(key_vector, (num_inducing, 1)), raw @ raw.T / num_inducing
-
-
-def _matched_variational_gaussian(q_dual: DualVariationalGaussian):
-    mean, covariance = q_dual.moments()
-    return VariationalGaussian(
-        posterior=q_dual.posterior,
-        inducing_inputs=_val(q_dual.inducing_inputs),
-        variational_mean=mean,
-        variational_root_covariance=jnp.linalg.cholesky(covariance),
-        jitter=q_dual.jitter,
-    )
 
 
 def _dual_natgrad_step(q_dual: DualVariationalGaussian, data: Dataset, rate: float):
@@ -479,8 +465,15 @@ def test_dual_elbo(binary: bool):
 
 
 @pytest.mark.parametrize("sites", ["optimal", "random"])
-def test_dual_elbo_equals_elbo_at_matched_moments(sites: str):
-    """The two bounds are the same functional, so their values must coincide."""
+@pytest.mark.parametrize("batch", ["full", "half"])
+def test_dual_elbo_equals_elbo_at_matched_moments(sites: str, batch: str):
+    """The two bounds are the same functional, so their values must coincide.
+
+    The ``half`` arm evaluates both bounds on half the rows while the likelihood still
+    declares the full ``num_datapoints``, so the mini-batch factor ``N / B`` is 2 on
+    both sides. Without it the arm would only ever exercise ``N / B == 1`` and a
+    mutation dropping the factor from ``dual_elbo`` would survive.
+    """
     posterior, data, inducing_inputs, jitter = _dual_setup()
     q = DualVariationalGaussian(
         posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
@@ -496,10 +489,49 @@ def test_dual_elbo_equals_elbo_at_matched_moments(sites: str):
             (gpx.parameters.Real(dual_vector), gpx.parameters.Real(dual_matrix)),
         )
 
+    if batch == "half":
+        half = data.n // 2
+        data = Dataset(X=data.X[:half], y=data.y[:half])
+        assert posterior.likelihood.num_datapoints / data.n == 2.0
+
     np.testing.assert_allclose(
         np.float64(dual_elbo(q, data)),
         np.float64(elbo(_matched_variational_gaussian(q), data)),
         rtol=1e-10,
+    )
+
+
+def test_dual_elbo_applies_the_minibatch_scale():
+    """``dual_elbo`` must scale the expectation term, and only it, by ``N / B``.
+
+    Pinned directly rather than through the ``elbo`` comparison above, which would
+    stay green if *both* bounds dropped the factor.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup()
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+    dual_vector, dual_matrix = _random_dual_sites(7, q.num_inducing)
+    q = eqx.tree_at(
+        lambda t: (t.dual_vector, t.dual_matrix),
+        q,
+        (gpx.parameters.Real(dual_vector), gpx.parameters.Real(dual_matrix)),
+    )
+
+    half = data.n // 2
+    batch = Dataset(X=data.X[:half], y=data.y[:half])
+    scale = posterior.likelihood.num_datapoints / batch.n
+
+    mean, variance = q.marginals(batch.X)
+    expectation = jnp.sum(
+        posterior.likelihood.expected_log_likelihood(
+            batch.y, mean[:, None], variance[:, None]
+        )
+    )
+    expected = scale * expectation - q.prior_kl()
+
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, batch)), np.float64(expected), rtol=1e-12
     )
 
 

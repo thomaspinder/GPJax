@@ -83,6 +83,7 @@ from gpjax.variational_families import (
     AbstractVariationalFamily,
     DualVariationalGaussian,
     VariationalGaussian,
+    _symmetrise,
 )
 
 VF = tp.TypeVar("VF", bound=AbstractVariationalFamily)
@@ -126,22 +127,6 @@ def _upper_solve(
         The solution ``x``.
     """
     return jsp.linalg.solve_triangular(factor, rhs, lower=False)
-
-
-def _symmetrise(matrix: Float[Array, "M M"]) -> Float[Array, "M M"]:
-    """Return ``(matrix + matrix.T) / 2``.
-
-    Parameters
-    ----------
-    matrix
-        A square matrix.
-
-    Returns
-    -------
-    Float[Array, "M M"]
-        The symmetric part of ``matrix``.
-    """
-    return 0.5 * (matrix + matrix.T)
 
 
 def expectation_from_moments(
@@ -937,8 +922,14 @@ def _dual_variational_gaussian_step(
 
     ``map_jitter``, ``backoff`` and ``max_backoff`` are accepted for a uniform dispatch
     contract and ignored. The update is affine and, for $\rho\in[0,1]$ and
-    $\boldsymbol\beta\ge0$, never leaves the positive semi-definite cone, so there is
-    no Cholesky here that a backoff could rescue.
+    $\boldsymbol\beta\ge0$, never leaves the positive semi-definite cone, so the
+    Salimbeni branch's backoff -- which exists to rescue
+    $\operatorname{chol}(\mathbf S)$ after an overshoot in $\boldsymbol\theta$ -- has
+    nothing to guard here. The step does still factorise $\mathbf K_{zz}$ and, inside
+    the objective and ``marginals``, $\mathbf R$; those are properties of the *current*
+    sites rather than of the step, and
+    :meth:`~gpjax.variational_families.DualVariationalGaussian._working_matrices`
+    factorises $\mathbf R$ in a basis where it cannot fail.
 
     Parameters
     ----------
@@ -980,9 +971,12 @@ def _dual_variational_gaussian_step(
     # commonly common-subexpression-eliminates it against the `marginals` call below.
     loss_value = objective(family, data)
 
-    # Only the Cholesky of K_zz is needed here; the target is built from
-    # A = K_zz^{-1} K_zb, and the dual sites never route through R.
-    _, root_gram, _ = family._working_matrices()
+    # Only the Cholesky of K_zz is needed for the target, which is built from
+    # A = K_zz^{-1} K_zb; `_gram_and_root` therefore stops short of factorising R.
+    # `marginals` below does factorise it, and so does `objective` above; under `jit`
+    # -- which is how `fit_natgrads` always runs -- XLA folds the repeats down to one
+    # chol(K_zz) and one chol(R) for the whole step.
+    _, root_gram = family._gram_and_root()
     mean, variance = family.marginals(data.X)
 
     alpha, beta = _expected_log_likelihood_derivatives(

@@ -33,10 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dual branch restricts the step size to the interval from zero to one, since the
   update is a convex combination.
   `dual_elbo` has the same *value* as `elbo` at the implied moments, for any sites and
-  any hyperparameters, but a different *hyperparameter gradient*: the prior part of `q`
-  tracks the kernel while the data-dependent sites stay frozen. That is what gives the
-  M-step its reported behaviour, so `Kzz` must not be detached and the implied moments
-  must not be cached on the family.
+  any hyperparameters, but a different *hyperparameter gradient from `elbo` evaluated on
+  the matched `VariationalGaussian`*: the prior part of `q` tracks the kernel while the
+  data-dependent sites stay frozen. The difference is between the two
+  parameterisations, not between the two functions — calling `elbo` directly on a
+  `DualVariationalGaussian` returns the same value and the same gradients as
+  `dual_elbo`, which is simply the batched-marginals fast path for that family. That
+  frozen-site gradient is what gives the M-step its reported behaviour, so `Kzz` must
+  not be detached and the implied moments must not be cached on the family.
   `DualVariationalGaussian` also works with plain `gpjax.fit`, where it is ordinary
   gradient descent in the dual coordinates. The `VariationalParametrisationSuite` ASV
   benchmark gains a `dual` axis value.

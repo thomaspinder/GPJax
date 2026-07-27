@@ -376,8 +376,12 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
 
     The marginals are computed in one batched
     :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call rather
-    than by ``vmap``-ing ``predict`` over single points as :func:`elbo` does, which for
-    this family would rebuild $\mathbf{R}$ and its Cholesky $N$ times.
+    than by ``vmap``-ing ``predict`` over single points as :func:`elbo` does. Both are
+    $\mathcal{O}(M^3 + NM^2)$ -- ``vmap`` leaves the factorisations unbatched, so they
+    are not repeated per datum -- but the batched form replaces $N$ rank-one triangular
+    solves with two BLAS-3 ones. :func:`elbo` called directly on a
+    ``DualVariationalGaussian`` is still correct and returns the same value and the
+    same gradients; ``dual_elbo`` is the fast path, not a different bound.
 
     Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this objective
     remains valid -- it is ordinary gradient descent in the dual coordinates. It gives
