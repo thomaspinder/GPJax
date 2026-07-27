@@ -550,8 +550,9 @@ print(
 # which site convention $\mathcal{Z}$ is taken against, and the two have to be paired
 # consistently. Against the *normalised projected* site
 # $t_i(\mathbf{u}) = \mathcal{N}(y_i \mid \mathbf{a}_i^\top\mathbf{u}, \sigma^2)$,
-# $c(\boldsymbol{\theta})$ is minus the Titsias trace term, that is $-$`sparsity_gap`
-# above, and it vanishes only when $\mathbf{Z} = \mathbf{X}$ — the non-sparse case the
+# $c(\boldsymbol{\theta})$ is minus the Titsias trace term, that is the negated
+# `sparsity_gap` computed above, and it vanishes only when
+# $\mathbf{Z} = \mathbf{X}$ — the non-sparse case the
 # paper's remark actually covers. Against the unnormalised site of the previous
 # section, the one this notebook stores, it picks up the site normaliser as well and is
 # a different and much larger constant. Either way it is non-zero and
