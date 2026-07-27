@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../static/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -4210,7 +4210,7 @@ common.</p>
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;True Signal&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">cols</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7faa11ef8550&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f4a30d4ef90&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_3_1.png" /></p>
 <h2 id="model-definition">Model Definition<a class="headerlink" href="#model-definition" title="Permanent link"></a></h2>
@@ -4345,12 +4345,12 @@ multiple chains using the <code>num_chains</code> argument in the <code>MCMC</co
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code>                   mean       std    median      5.0%     95.0%     n_eff     r_hat
-    intercept      0.64      1.41      0.70     -1.54      2.88    431.90      1.00
-  lengthscale      2.51      0.75      2.39      1.40      3.65    293.78      1.00
-    obs_noise      0.79      0.04      0.79      0.73      0.86    439.94      1.00
-       period      0.80      0.02      0.80      0.77      0.83    370.27      1.00
-        slope      0.49      0.27      0.50      0.05      0.93    386.18      1.00
-     variance      7.63      4.94      6.45      1.46     14.47    348.37      1.00
+    intercept      0.72      1.42      0.80     -1.65      2.77    291.65      1.00
+  lengthscale      2.50      0.78      2.34      1.30      3.63    180.84      1.01
+    obs_noise      0.79      0.04      0.79      0.72      0.86    458.42      1.00
+       period      0.80      0.02      0.80      0.78      0.83    378.85      1.01
+        slope      0.48      0.27      0.49      0.09      0.97    218.48      1.00
+     variance      7.84      5.46      6.45      1.86     15.70    163.10      1.01
 
 Number of divergences: 0
 </code></pre></div>
@@ -4391,7 +4391,7 @@ credible interval and compare our model's predictions to the underlying data.</p
 </span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="p">)</span>
 </span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7faa08d3e810&gt;
+<div class="language-text highlight"><pre><span></span><code>&lt;matplotlib.legend.Legend at 0x7f49e2c67e50&gt;
 </code></pre></div>
 <p><img alt="png" src="../numpyro_integration_files/numpyro_integration_12_1.png" /></p>
 <h2 id="conclusions">Conclusions<a class="headerlink" href="#conclusions" title="Permanent link"></a></h2>
@@ -4411,12 +4411,12 @@ Last updated: Mon, 27 Jul 2026
 
 Python implementation: CPython
 Python version       : 3.11.15
-IPython version      : 9.9.0
+IPython version      : 9.15.0
 
 gpjax     : 0.18.0
-jax       : 0.9.0
-matplotlib: 3.10.8
-numpyro   : 0.19.0
+jax       : 0.10.2
+matplotlib: 3.11.1
+numpyro   : 0.21.0
 
 Watermark: 2.6.0
 </code></pre></div>
@@ -4483,7 +4483,7 @@ Watermark: 2.6.0
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       

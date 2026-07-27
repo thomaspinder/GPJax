@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../static/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -4269,7 +4269,7 @@ explanation of this model.).</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=PositiveReal(_unconstrained=weak_f64[]),
       variance=NonNegativeReal(_unconstrained=weak_f64[])
     ),
@@ -4277,7 +4277,7 @@ explanation of this model.).</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=NonNegativeReal(_unconstrained=weak_f64[])
   )
 )
@@ -4319,7 +4319,7 @@ PyTree.</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=PositiveReal(_unconstrained=weak_f64[]),
       variance=NonNegativeReal(_unconstrained=weak_f64[])
     ),
@@ -4327,7 +4327,7 @@ PyTree.</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=NonNegativeReal(_unconstrained=weak_f64[])
   )
 )
@@ -4343,7 +4343,7 @@ parameter's value by 1.</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=PositiveReal(_unconstrained=weak_f64[]),
       variance=NonNegativeReal(_unconstrained=weak_f64[])
     ),
@@ -4351,7 +4351,7 @@ parameter's value by 1.</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=NonNegativeReal(_unconstrained=weak_f64[])
   )
 )
@@ -4365,7 +4365,7 @@ using the updated parameters.</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=PositiveReal(_unconstrained=weak_f64[]),
       variance=NonNegativeReal(_unconstrained=weak_f64[])
     ),
@@ -4373,7 +4373,7 @@ using the updated parameters.</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=NonNegativeReal(_unconstrained=weak_f64[])
   )
 )
@@ -4387,7 +4387,7 @@ bijection), we can use <code>paramax.unwrap</code> on the entire model.</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=weak_f64[],
       variance=weak_f64[]
     ),
@@ -4395,7 +4395,7 @@ bijection), we can use <code>paramax.unwrap</code> on the entire model.</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=weak_f64[]
   )
 )
@@ -4414,7 +4414,7 @@ providing a custom filter function to <code>eqx.partition</code>.</p>
   prior=Prior(
     kernel=Matern32(
       active_dims=slice(None, None, None),
-      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7fa8e44df2d0&gt;,
+      compute_engine=&lt;gpjax.kernels.computations.dense.DenseKernelComputation object at 0x7f9634129dd0&gt;,
       lengthscale=PositiveReal(_unconstrained=None),
       variance=NonNegativeReal(_unconstrained=None)
     ),
@@ -4422,7 +4422,7 @@ providing a custom filter function to <code>eqx.partition</code>.</p>
   ),
   likelihood=Gaussian(
     num_datapoints=100,
-    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7fa8d4313150&gt;,
+    integrator=&lt;gpjax.integrators.AnalyticalGaussianIntegrator object at 0x7f961c3834d0&gt;,
     obs_stddev=NonNegativeReal(_unconstrained=None)
   )
 )
@@ -4488,7 +4488,7 @@ a linearly spaced set of inputs.</p>
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">meanf</span> <span class="o">=</span> <span class="n">LinearMeanFunction</span><span class="p">(</span><span class="n">intercept</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">slope</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
 </span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">meanf</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>[&lt;matplotlib.lines.Line2D at 0x7fa92c722890&gt;]
+<div class="language-text highlight"><pre><span></span><code>[&lt;matplotlib.lines.Line2D at 0x7f95eee9aa50&gt;]
 </code></pre></div>
 <p><img alt="png" src="../backend_files/backend_31_1.png" /></p>
 <p>Looks good! To conclude this section, let's now parameterise a GP with our new mean
@@ -4547,13 +4547,13 @@ Last updated: Mon, 27 Jul 2026
 
 Python implementation: CPython
 Python version       : 3.11.15
-IPython version      : 9.9.0
+IPython version      : 9.15.0
 
-equinox   : 0.13.5
+equinox   : 0.13.8
 gpjax     : 0.18.0
-jax       : 0.9.0
-jaxtyping : 0.3.6
-matplotlib: 3.10.8
+jax       : 0.10.2
+jaxtyping : 0.3.11
+matplotlib: 3.11.1
 paramax   : 0.0.5
 
 Watermark: 2.6.0
@@ -4618,7 +4618,7 @@ Watermark: 2.6.0
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "search.suggest", "search.highlight", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       
