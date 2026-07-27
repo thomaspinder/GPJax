@@ -43,7 +43,9 @@
 #    $\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta}$, and check it numerically;
 # 3. read the step as mirror descent, which explains why $\gamma \le 1$ is special;
 # 4. **demo (i)** — a conjugate 1D regression where a single $\gamma=1$ step lands on
-#    the exact posterior, while Adam is still crawling after two thousand;
+#    the exact variational optimum (which, at the $M=20$ inducing points used there, is
+#    indistinguishable from the full GP posterior), while Adam is still crawling after
+#    two thousand;
 # 5. **demo (ii)** — a mini-batched Bernoulli classification benchmark, comparing
 #    natural gradients + Adam against Adam alone, per iteration *and* per second;
 # 6. the failure mode: what a large $\gamma$ does, and how the built-in step-size
@@ -95,6 +97,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 def negative_elbo(model, data):
     """The loss every fit below minimises: GPJax optimisers descend, so negate."""
     return -gpx.objectives.elbo(model, data)
+
 
 # %% [markdown]
 # ## The exponential-family view
@@ -207,7 +210,7 @@ check_family = gpx.variational_families.VariationalGaussian(
 
 
 def symmetric_to_vector(matrix):
-    """Flatten a symmetric matrix isometrically (lower triangle, sqrt(2) off-diagonal)."""
+    """Flatten a symmetric matrix isometrically: lower triangle, sqrt(2) off-diag."""
     size = matrix.shape[0]
     scale = jnp.where(jnp.eye(size, dtype=bool), 1.0, jnp.sqrt(2.0))
     rows, columns = jnp.tril_indices(size)
@@ -240,7 +243,6 @@ def loss_at_moments(variational_mean, variational_root_covariance):
     return negative_elbo(paramax.unwrap(trial), check_data)
 
 
-
 def loss_of_natural(flat):
     """The loss as a function of the flattened natural parameters."""
     return loss_at_moments(*moments_from_natural(*unpack(flat, num_check_inducing)))
@@ -255,6 +257,7 @@ def expectation_of_natural(flat):
     """The map whose Jacobian is the Fisher information."""
     moments = moments_from_natural(*unpack(flat, num_check_inducing))
     return pack(*expectation_from_moments(*moments))
+
 
 flat_natural = pack(*natural_from_moments(check_mean, check_root))
 flat_expectation = pack(*expectation_from_moments(check_mean, check_root))
@@ -273,8 +276,11 @@ print(
 # %% [markdown]
 # $\mathbf{F}$ is symmetric and positive definite, and the natural gradient obtained by
 # solving with it agrees with the plain gradient in expectation coordinates to machine
-# precision. Everything from here on uses the right-hand side of that identity, so the
-# $\mathcal{O}((M + M^2)^3)$ Fisher solve above never happens again.
+# precision. Note that the solve just performed lives in the $\operatorname{vec}_s$
+# coordinates introduced above, of dimension $P = M + \tfrac{1}{2}M(M+1)$ — nine at
+# $M=3$ — and not in the $M + M^2$ coordinates, where $\mathbf{F}$ is singular.
+# Everything from here on uses the right-hand side of the identity, so that
+# $\mathcal{O}(P^3) = \mathcal{O}(M^6)$ Fisher solve never happens again.
 
 # %% [markdown]
 # ## Mirror descent
@@ -457,7 +463,8 @@ print(
 
 # %% [markdown]
 # One step, from a random initialisation, reproduces the closed-form optimum to
-# fourteen decimal places, and a second step moves nothing. Note the
+# $\sim10^{-13}$ — the float64 noise floor for a problem of this size — and a second
+# step moves nothing. Note the
 # `map_jitter=0.0`: the jitter used inside the
 # $\boldsymbol{\theta}\leftrightarrow\boldsymbol{\xi}$ maps is a *bias*, not a
 # rounding effect, since
@@ -485,22 +492,30 @@ for ax, family, title in [
     predictive_mean = predictive.mean
     predictive_stddev = jnp.sqrt(predictive.variance)
     ax.scatter(
-        regression_inputs, regression_outputs, alpha=0.2, s=8, color=cols[0],
+        regression_inputs,
+        regression_outputs,
+        alpha=0.2,
+        s=8,
+        color=cols[0],
         label="Observations",
     )
-    ax.plot(test_inputs, exact_mean, color="black", linestyle="--", label="Exact posterior")
+    ax.plot(
+        test_inputs, exact_mean, color="black", linestyle="--", label="Exact posterior"
+    )
     ax.fill_between(
         test_inputs.flatten(),
         exact_mean - 2 * exact_stddev,
         exact_mean + 2 * exact_stddev,
-        alpha=0.15, color="black",
+        alpha=0.15,
+        color="black",
     )
     ax.plot(test_inputs, predictive_mean, color=cols[1], label="Variational $q$")
     ax.fill_between(
         test_inputs.flatten(),
         predictive_mean - 2 * predictive_stddev,
         predictive_mean + 2 * predictive_stddev,
-        alpha=0.3, color=cols[1],
+        alpha=0.3,
+        color=cols[1],
     )
     ax.set(xlabel=r"$x$", title=title, ylim=(-3.0, 3.0))
     clean_legend(ax)
@@ -514,10 +529,12 @@ print(
 # %% [markdown]
 # The right-hand panel is the point of the whole method: a single natural-gradient step
 # has taken a deliberately absurd $q$ onto the sparse variational optimum, which for
-# $M=20$ inducing points on this problem tracks the exact posterior to within the
-# printed few-thousandths of a unit across the range of the data. (The two curves part
-# company just outside $[-3, 3]$, where there are no inducing inputs left to summarise
-# the data — a property of the sparse approximation, not of the optimiser.)
+# $M=20$ inducing points on this problem is not distinguishable by eye from the exact
+# posterior. The printed maximum is taken over the whole test grid $[-3.2, 3.2]$ and is
+# attained at its edge, past the last inducing input; restricted to the data range
+# $[-3, 3]$ the two means agree roughly ten times more closely again. Both gaps are a
+# fraction of a percent of the panel height, and both are a property of the sparse
+# approximation, not of the optimiser.
 #
 # Now the comparison. We freeze every hyperparameter with `paramax.non_trainable` — so
 # that both methods are solving the *same* problem, namely finding the best
@@ -546,8 +563,13 @@ iteration_index = jnp.arange(adam_gap.size)
 for tolerance in [10.0, 1.0, 0.1]:
     first_hit = jnp.min(jnp.where(adam_gap < tolerance, iteration_index, adam_gap.size))
     reached = "never" if int(first_hit) == adam_gap.size else f"{int(first_hit)}"
-    print(f"Adam iterations to come within {tolerance:5.1f} nats of the optimum: {reached}")
-print(f"Adam ELBO gap after {adam_iterations} iterations : {float(adam_gap[-1]):.3e} nats")
+    print(
+        f"Adam iterations to come within {tolerance:5.1f} nats of the optimum: "
+        f"{reached}"
+    )
+print(
+    f"Adam ELBO gap after {adam_iterations} iterations : {float(adam_gap[-1]):.3e} nats"
+)
 print(f"Natural-gradient ELBO gap after 1 iteration: {natgrad_gap:.3e} nats")
 
 # %%
@@ -578,14 +600,18 @@ axes[1].set(
 clean_legend(axes[1])
 
 # %% [markdown]
-# Adam's trajectory is the familiar picture: fast progress while the gradient is large,
-# then a long crawl along a badly-conditioned valley. Read the printed numbers above:
-# it took more than a thousand iterations merely to come within ten nats of the
-# optimum, and after two thousand it is still several nats short, while the single
-# natural-gradient step closed the gap to around $10^{-14}$ nats. Adam is not stuck —
-# it is converging — but the geometry of the Cholesky parameterisation makes the last
-# nat extraordinarily expensive. The natural gradient does not see that valley at all,
-# because the Fisher metric rescales it away.
+# Read the right-hand panel rather than the left. On log-log axes Adam's gap barely
+# bends over the first few tens of iterations and then falls faster and faster, its
+# slope steepest of all over the final few hundred — the opposite of the usual "fast
+# start, long crawl" picture. That shape is the optimiser's, not the problem's: Adam
+# normalises its step, so each coordinate moves by at most the learning rate however
+# large the gradient is, and from an initialisation this bad it is the *distance* to be
+# travelled that binds, not the gradient. The printed numbers say the same thing: more
+# than a thousand iterations merely to come within ten nats of the optimum, and after
+# two thousand it is still several nats short and still descending, while the single
+# natural-gradient step closed the gap to around $10^{-14}$ nats. Adam is converging;
+# it is simply converging in coordinates that put the optimum a long way away. The
+# natural gradient never travels that distance, because the Fisher metric rescales it.
 #
 # Two caveats before this is oversold. The hyperparameters were frozen, so this is the
 # problem natural gradients are best at: a pure variational optimisation. And the
@@ -612,17 +638,33 @@ clean_legend(axes[1])
 # that "the success of the method relies on $\gamma$ increasing to a reasonably large
 # value ($\approx 0.1$) sufficiently quickly ($<1000$ iterations)".
 #
+# We use $K = 100$ below. Their $K$ is dataset-dependent — 5 for the smaller UCI sets,
+# 40 for NAVAL, 2000 for MNIST — and $100$ buys a little extra cone headroom (see the
+# last section) at this $M$ from the default $\mathbf{m}=\mathbf{0}$,
+# $\mathbf{S}=\mathbf{I}$ start, while still satisfying their own $<1000$-iteration
+# criterion.
+#
 # Why does $\gamma < 1$ help when mini-batching? The $N/B$ rescaling inside the ELBO
 # makes the stochastic gradient unbiased, and because
 # $\boldsymbol{\theta}_{\text{new}} = \boldsymbol{\theta} - \gamma\hat{\mathbf{g}}$ is
 # affine in $\hat{\mathbf{g}}$, $\boldsymbol{\theta}_{\text{new}}$ is unbiased for the
 # full-batch update at every $\gamma$, including $\gamma=1$. What degrades is
-# *variance*: at $\gamma=1$ the step retains no history and lands exactly on the
-# mini-batch-conditional optimum. Taking $\gamma<1$ turns the update into an
-# exponential moving average in $\boldsymbol{\theta}$, and that is where the variance
-# reduction comes from.
+# *variance*. The step is always a combination
+# $\boldsymbol{\theta}_{\text{new}} = (1-\gamma)\,\boldsymbol{\theta} + \gamma\,\boldsymbol{\theta}^{\text{tgt}}$
+# — the failure-modes section below writes its second block out explicitly — but
+# outside conjugacy $\boldsymbol{\theta}^{\text{tgt}}$ is not a fixed optimum. It
+# depends on the current $q$ as well as on the current mini-batch: it is where one
+# fixed-point iteration from *here* would land, and it moves as $q$ moves. At
+# $\gamma=1$ the step discards $\boldsymbol{\theta}_t$ entirely and jumps onto that
+# noisy, moving target, so nothing averages the mini-batch noise out of it. Taking
+# $\gamma<1$ makes the update an exponential moving average in $\boldsymbol{\theta}$
+# towards the target, and that is where the variance reduction comes from. A second,
+# smaller effect compounds it: $\boldsymbol{\theta}\mapsto(\mathbf{m},\mathbf{S})$ is
+# nonlinear, so unbiasedness in $\boldsymbol{\theta}$ does not survive the conversion
+# back to moments.
 #
 # Time for a harder problem.
+
 
 # %%
 def make_banana(key, num_points):
@@ -644,8 +686,8 @@ train_inputs, test_inputs_2d = banana_inputs[:num_train], banana_inputs[num_trai
 train_labels, test_labels = banana_labels[:num_train], banana_labels[num_train:]
 banana_train = gpx.Dataset(X=train_inputs, y=train_labels)
 
-print(f"train / test  : {banana_train.n} / {test_labels.shape[0]}")
-print(f"class balance : {float(banana_labels.mean()):.3f}")
+print(f"train / test  : {banana_train.n} / {banana_data.n - banana_train.n}")
+print(f"class balance : {float(banana_data.y.mean()):.3f}")
 
 # %%
 boundary_inputs = jnp.linspace(-3.0, 3.0, 200)
@@ -655,11 +697,18 @@ fig, ax = plt.subplots(figsize=(5.5, 3.4))
 for label, colour, name in [(0.0, cols[0], "$y = 0$"), (1.0, cols[1], "$y = 1$")]:
     mask = banana_labels.ravel() == label
     ax.scatter(
-        banana_inputs[mask, 0], banana_inputs[mask, 1], s=6, alpha=0.4,
-        color=colour, label=name,
+        banana_inputs[mask, 0],
+        banana_inputs[mask, 1],
+        s=6,
+        alpha=0.4,
+        color=colour,
+        label=name,
     )
 ax.plot(
-    boundary_inputs, boundary_outputs, color="black", linestyle="--",
+    boundary_inputs,
+    boundary_outputs,
+    color="black",
+    linestyle="--",
     label="Bayes-optimal boundary",
 )
 ax.set(xlabel=r"$x_1$", ylabel=r"$x_2$", ylim=(-3.1, 3.1), title="The banana problem")
@@ -668,9 +717,7 @@ clean_legend(ax)
 # %%
 # Two identical models, built from the same arrays, so the comparison is fair.
 num_banana_inducing = 50
-inducing_grid = jnp.meshgrid(
-    jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8, 5)
-)
+inducing_grid = jnp.meshgrid(jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8, 5))
 banana_inducing = jnp.stack([axis.ravel() for axis in inducing_grid], axis=1)
 
 banana_posterior = gpx.gps.Prior(
@@ -712,6 +759,7 @@ def timed_fit(run):
     history.block_until_ready()
     return model, history, time.perf_counter() - start
 
+
 # %%
 natgrad_model, natgrad_history, natgrad_seconds = timed_fit(
     lambda: gpx.fit_natgrads(
@@ -726,8 +774,10 @@ natgrad_model, natgrad_history, natgrad_seconds = timed_fit(
         verbose=False,
     )
 )
-print(f"natural gradients + Adam : {natgrad_seconds:.2f} s "
-      f"({1e3 * natgrad_seconds / num_iterations:.2f} ms / iteration)")
+print(
+    f"natural gradients + Adam : {natgrad_seconds:.2f} s "
+    f"({1e3 * natgrad_seconds / num_iterations:.2f} ms / iteration)"
+)
 
 # %%
 adam_model, adam_banana_history, adam_seconds = timed_fit(
@@ -742,8 +792,10 @@ adam_model, adam_banana_history, adam_seconds = timed_fit(
         verbose=False,
     )
 )
-print(f"Adam only                : {adam_seconds:.2f} s "
-      f"({1e3 * adam_seconds / num_iterations:.2f} ms / iteration)")
+print(
+    f"Adam only                : {adam_seconds:.2f} s "
+    f"({1e3 * adam_seconds / num_iterations:.2f} ms / iteration)"
+)
 
 # %% [markdown]
 # Both runs use `ox.adam(1e-2)` on the kernel hyperparameters and the inducing inputs,
@@ -767,6 +819,11 @@ smoothed_iterations = jnp.arange(smoothing_window - 1, num_iterations)
 smoothed_natgrad = smooth(natgrad_history)
 smoothed_adam = smooth(adam_banana_history)
 
+# Derive the axis limits from the curves, so nothing is silently clipped on a machine
+# whose run lands somewhere else.
+elbo_floor = 0.95 * float(jnp.minimum(smoothed_natgrad.min(), smoothed_adam.min()))
+elbo_ceiling = 1.10 * float(jnp.maximum(smoothed_natgrad.max(), smoothed_adam.max()))
+
 fig, axes = plt.subplots(ncols=2, figsize=(10, 3.0), sharey=True)
 for ax, horizontal, xlabel in [
     (axes[0], smoothed_iterations, "Iteration"),
@@ -776,31 +833,40 @@ for ax, horizontal, xlabel in [
         "Wall-clock seconds",
     ),
 ]:
-    ax.plot(horizontal, smoothed_natgrad, color=cols[1], label="Natural gradients + Adam")
-    ax.set(xlabel=xlabel, yscale="log", ylim=(300.0, 2500.0))
+    ax.plot(
+        horizontal, smoothed_natgrad, color=cols[1], label="Natural gradients + Adam"
+    )
+    ax.set(xlabel=xlabel, yscale="log", ylim=(elbo_floor, elbo_ceiling))
 axes[0].plot(smoothed_iterations, smoothed_adam, color=cols[0], label="Adam only")
 axes[1].plot(
     jnp.linspace(0.0, adam_seconds, num_iterations)[smoothing_window - 1 :],
-    smoothed_adam, color=cols[0], label="Adam only",
+    smoothed_adam,
+    color=cols[0],
+    label="Adam only",
 )
 axes[0].set_ylabel("Negative ELBO (mini-batch)")
 clean_legend(axes[0])
 clean_legend(axes[1])
 
 target_value = float(smoothed_adam[-1])
-crossing = jnp.min(
-    jnp.where(
-        smoothed_natgrad < target_value,
-        smoothed_iterations,
-        num_iterations,
-    )
+# Sentinel above every attainable iteration index, so "never crossed" is distinguishable
+# from "crossed on the last iteration".
+never = num_iterations + 1
+crossing = int(
+    jnp.min(jnp.where(smoothed_natgrad < target_value, smoothed_iterations, never))
 )
-print(f"Adam only, negative ELBO after {num_iterations} iterations   : {target_value:8.2f}")
-print(f"Natural gradients, same value reached at iteration : {int(crossing)}")
 print(
-    f"  i.e. {int(crossing) * natgrad_seconds / num_iterations:.2f} s "
-    f"versus {adam_seconds:.2f} s"
+    f"Adam only, negative ELBO after {num_iterations} iterations   : "
+    f"{target_value:8.2f}"
 )
+if crossing == never:
+    print("Natural gradients, same value reached at iteration : never")
+else:
+    print(f"Natural gradients, same value reached at iteration : {crossing}")
+    print(
+        f"  i.e. {crossing * natgrad_seconds / num_iterations:.2f} s "
+        f"versus {adam_seconds:.2f} s"
+    )
 print(
     "Natural gradients, negative ELBO after "
     f"{num_iterations} iterations: {float(smoothed_natgrad[-1]):8.2f}"
@@ -840,17 +906,37 @@ for ax, model, name, seconds in [
     (axes[0], natgrad_model, "Natural gradients + Adam", natgrad_seconds),
     (axes[1], adam_model, "Adam only", adam_seconds),
 ]:
-    probability = predictive_probability(model, grid_points).reshape(grid_side, grid_side)
+    probability = predictive_probability(model, grid_points).reshape(
+        grid_side, grid_side
+    )
     contours = ax.contourf(
-        grid_x, grid_y, probability, levels=jnp.linspace(0.0, 1.0, 11),
-        cmap="RdBu_r", alpha=0.7,
+        grid_x,
+        grid_y,
+        probability,
+        levels=jnp.linspace(0.0, 1.0, 11),
+        cmap="RdBu_r",
+        alpha=0.7,
     )
-    ax.contour(grid_x, grid_y, probability, levels=[0.5], colors="black", linewidths=1.5)
-    ax.plot(boundary_inputs, boundary_outputs, color="black", linestyle="--", linewidth=1)
-    ax.scatter(
-        test_inputs_2d[:, 0], test_inputs_2d[:, 1], marker="o", s=5, alpha=0.35,
-        c=test_labels.ravel(), cmap="RdBu_r", edgecolors="none",
+    ax.contour(
+        grid_x, grid_y, probability, levels=[0.5], colors="black", linewidths=1.5
     )
+    ax.plot(
+        boundary_inputs, boundary_outputs, color="black", linestyle="--", linewidth=1
+    )
+    # Held-out points, encoded by class in the notebook's categorical colours rather
+    # than in the contour colourmap, so they stay legible on top of the fill.
+    for label, colour, marker in [(0.0, cols[0], "o"), (1.0, cols[1], "^")]:
+        mask = test_labels.ravel() == label
+        ax.scatter(
+            test_inputs_2d[mask, 0],
+            test_inputs_2d[mask, 1],
+            marker=marker,
+            s=12,
+            alpha=0.9,
+            color=colour,
+            edgecolors="white",
+            linewidths=0.3,
+        )
     inducing = paramax.unwrap(model).inducing_inputs
     ax.scatter(inducing[:, 0], inducing[:, 1], marker="+", s=25, color="black")
 
@@ -866,18 +952,31 @@ for ax, model, name, seconds in [
         ylim=(-3.1, 3.1),
         title=f"{name}\naccuracy {accuracy:.3f}, NLPD {-log_density:.3f}",
     )
-    print(f"{name:26s} test accuracy {accuracy:.4f}, test NLPD {-log_density:.4f}, "
-          f"{seconds:.2f} s")
+    print(
+        f"{name:26s} test accuracy {accuracy:.4f}, test NLPD {-log_density:.4f}, "
+        f"{seconds:.2f} s"
+    )
 axes[0].set_ylabel(r"$x_2$")
 colourbar = fig.colorbar(contours, ax=axes, label=r"$q(y=1 \mid x)$")
 
 # %% [markdown]
 # The solid black line is each model's $0.5$ contour and the dashed line is the
 # Bayes-optimal boundary $x_2 = 0.7x_1^2 - 1.5$; crosses mark the inducing inputs after
-# training. Both methods classify well — this is not a hard problem — but the
-# natural-gradient run reaches a better bound in far fewer iterations, and its
-# uncertainty away from the data is better calibrated because $\mathbf{S}$ has actually
-# converged rather than being dragged there one Adam step at a time.
+# training.
+#
+# The two panels are very nearly the same picture, and the two sets of printed test
+# metrics are very nearly the same numbers. That is the honest reading of this
+# experiment, and it is worth stating plainly: on a densely-sampled, easily-separated
+# problem the natural gradient buys *optimiser speed*, not final predictive quality. It
+# reached Adam's thousand-iteration bound at the crossing iteration printed under the
+# ELBO comparison above, and both models then classify the held-out points about
+# equally well. Note also
+# that both runs train the kernel and the inducing inputs with Adam and finish at
+# different hyperparameters, so whatever small difference remains between these
+# contours cannot be attributed to $\mathbf{S}$ alone. `make_banana` draws inputs
+# uniformly on $[-3,3]^2$ and the plotted grid is $[-3.1,3.1]^2$, so there is no
+# region here that is far from the data; a demonstration that natural gradients give
+# better-calibrated *extrapolative* uncertainty would need a problem built for it.
 
 # %% [markdown]
 # ## When natural gradients fail
@@ -952,8 +1051,19 @@ for gamma in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
     print(f"{gamma:6.2f}   {largest:+18.5f}   {status}")
 
 # %% [markdown]
-# The theorem's boundary is visible to the digit: $\gamma\le 1$ is safe, $\gamma=2$ is
-# not. When it does go wrong, `jnp.linalg.cholesky` returns `NaN` rather than raising,
+# Read that table as a statement about *this initialisation*, not about $\gamma=2$.
+# Here $\mathbf{S}_0 = 10^{-2}\mathbf{I}$ makes $\boldsymbol{\Theta}_2 = -50\,\mathbf{I}$,
+# an order of magnitude sharper than the target, so the convex combination has very
+# little room to extrapolate into. Because $\boldsymbol{\Theta}_2$ is a multiple of the
+# identity, $\lambda_{\max}(\boldsymbol{\Theta}_2^{\text{new}})$ is exactly linear in
+# $\gamma$, and interpolating the printed $\gamma=1$ and $\gamma=2$ rows puts the
+# crossing at $\gamma\approx1.1$. Where it lands is entirely a function of how far
+# $\boldsymbol{\Theta}_2$ starts from $\boldsymbol{\Theta}_2^{\text{tgt}}$: in the limit
+# where the two coincide, every $\gamma$ is safe. What the theorem actually guarantees
+# is $\gamma\in[0,1]$, for any log-concave likelihood and any starting point, and it
+# says nothing whatsoever beyond that — which is the line worth remembering.
+#
+# When it does go wrong, `jnp.linalg.cholesky` returns `NaN` rather than raising,
 # which means validity is a *value* and the fix stays `jit`-compatible.
 # `natural_gradient_step` exploits that with a backoff: it evaluates the trial steps
 # $\{\gamma\beta^k\}_{k=0}^{K}$ under `vmap` and selects the first one whose Cholesky
@@ -975,10 +1085,14 @@ for max_backoff in [0, 3, 5, 7, 10]:
         max_backoff=max_backoff,
     )
     smallest_trial = 100.0 * 0.5**max_backoff
-    root = eqx.combine(stepped, overconfident_hyper).variational_root_covariance.unwrap()
+    root = eqx.combine(
+        stepped, overconfident_hyper
+    ).variational_root_covariance.unwrap()
     outcome = "finite" if bool(jnp.all(jnp.isfinite(root))) else "NaN"
-    print(f"  max_backoff = {max_backoff:2d}  smallest trial gamma = "
-          f"{smallest_trial:7.3f}   result: {outcome}")
+    print(
+        f"  max_backoff = {max_backoff:2d}  smallest trial gamma = "
+        f"{smallest_trial:7.3f}   result: {outcome}"
+    )
 
 # %% [markdown]
 # The backoff is a safety net with a finite budget, not a licence to pick $\gamma$
