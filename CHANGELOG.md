@@ -18,6 +18,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `VariationalGaussian` and `WhitenedVariationalGaussian` are supported. For a conjugate
   model on the full batch, `natgrad_lr=1.0` reaches the optimal `q` in one iteration.
 
+- **`DualVariationalGaussian` and `gpjax.objectives.dual_elbo`.** The dual (t-SVGP)
+  parameterisation of Adam, Chang, Khan and Solin (2021),
+  [arXiv:2111.03412](https://arxiv.org/abs/2111.03412). Instead of the moments of
+  `q(u)`, the family stores an unnormalised Gaussian *site* on the centred inducing
+  outputs — `dual_vector` is the site's first natural parameter and `dual_matrix` its
+  precision — from which `q(u)` is recovered through the working matrix
+  `R = Kzz + Kzz Lambda_2 Kzz`. Because the stored coordinates are an affine image of
+  the natural parameters, a natural-gradient step is a convex combination of the
+  current sites with a closed-form target, so no expectation-to-natural round trip is
+  needed and the KL is never differentiated. `fit_natgrads` dispatches on the family
+  and takes that step; the step size means the same thing in both branches, and from
+  the same starting `q` the dual and Salimbeni E-steps produce identical iterates. The
+  dual branch restricts the step size to the interval from zero to one, since the
+  update is a convex combination.
+  `dual_elbo` has the same *value* as `elbo` at the implied moments, for any sites and
+  any hyperparameters, but a different *hyperparameter gradient*: the prior part of `q`
+  tracks the kernel while the data-dependent sites stay frozen. That is what gives the
+  M-step its reported behaviour, so `Kzz` must not be detached and the implied moments
+  must not be cached on the family.
+  `DualVariationalGaussian` also works with plain `gpjax.fit`, where it is ordinary
+  gradient descent in the dual coordinates. The `VariationalParametrisationSuite` ASV
+  benchmark gains a `dual` axis value.
+
 ### Removed
 
 - **`NaturalVariationalGaussian` and `ExpectationVariationalGaussian`.** These were

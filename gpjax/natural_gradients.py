@@ -41,6 +41,19 @@ $$\boldsymbol\theta\leftarrow\boldsymbol\theta
 with $\gamma$ the natural-gradient step size. For $\gamma\in[0,1]$ this is a convex
 combination in $\boldsymbol\theta$-space; for a conjugate model at $\gamma=1$ it lands
 on the exact optimum in a single step.
+
+The module also carries the dual (t-SVGP) update of Adam, Chang, Khan and Solin (2021),
+*Dual Parameterization of Sparse Variational Gaussian Processes* (arXiv:2111.03412).
+There the stored coordinates are the sites
+$(\boldsymbol\lambda_1,\boldsymbol\Lambda_2)$ of
+$\boldsymbol\eta=\boldsymbol\eta_0(\boldsymbol\theta)+\boldsymbol\lambda$, so the step
+is affine in the stored parameters and needs no
+$\boldsymbol\theta\leftrightarrow\boldsymbol\eta$ round trip. Since
+$\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, the KL is never
+differentiated and the update reduces to the convex combination
+$\boldsymbol\lambda\leftarrow(1-\rho)\boldsymbol\lambda
++\rho\,\nabla_{\boldsymbol\mu}\mathcal L_{\text{ell}}$ --
+which is the Salimbeni step at $\gamma=\rho$, producing identical iterates.
 """
 
 import functools
@@ -55,6 +68,7 @@ from jaxtyping import Float
 import paramax
 
 from gpjax.dataset import Dataset
+from gpjax.likelihoods import AbstractLikelihood
 from gpjax.objectives import Objective
 from gpjax.parameters import (
     LowerTriangular,
@@ -67,6 +81,7 @@ from gpjax.typing import (
 )
 from gpjax.variational_families import (
     AbstractVariationalFamily,
+    DualVariationalGaussian,
     VariationalGaussian,
 )
 
@@ -416,6 +431,31 @@ def _variational_gaussian_coordinates(
     """
     del variational_family
     return lambda tree: (tree.variational_mean, tree.variational_root_covariance)
+
+
+@variational_coordinates.register(DualVariationalGaussian)
+def _dual_variational_coordinates(
+    variational_family: DualVariationalGaussian,
+) -> tp.Callable[[DualVariationalGaussian], tuple[tp.Any, ...]]:
+    r"""Select the dual sites $(\boldsymbol\lambda_1,\boldsymbol\Lambda_2)$.
+
+    The stored sites are an affine image of the natural parameters,
+    $\boldsymbol\eta=\boldsymbol\eta_0(\boldsymbol\theta)
+    +(\boldsymbol\lambda_1,-\tfrac12\boldsymbol\Lambda_2)$, so they *are* the
+    exponential-family coordinates of this family.
+
+    Parameters
+    ----------
+    variational_family
+        The family being partitioned. Unused; dispatch is on its type.
+
+    Returns
+    -------
+    tp.Callable[[DualVariationalGaussian], tuple[tp.Any, ...]]
+        A selector returning ``(dual_vector, dual_matrix)``.
+    """
+    del variational_family
+    return lambda tree: (tree.dual_vector, tree.dual_matrix)
 
 
 def partition_variational(variational_family: VF) -> tuple[VF, VF]:
@@ -813,6 +853,182 @@ def _variational_gaussian_step(
         lambda tree: (tree.variational_mean, tree.variational_root_covariance),
         variational,
         (Real(updated_mean), LowerTriangular(updated_root_covariance)),
+    )
+    return variational, loss_value
+
+
+def _expected_log_likelihood_derivatives(
+    likelihood: AbstractLikelihood,
+    response: Float[Array, "B 1"],
+    mean: Float[Array, " B"],
+    variance: Float[Array, " B"],
+) -> tuple[Float[Array, " B"], Float[Array, " B"]]:
+    r"""Return Bonnet's $\alpha$ and Price's $\beta$ for a batch.
+
+    Parameters
+    ----------
+    likelihood
+        The observation model.
+    response
+        The observed responses $\mathbf y_{\mathcal B}$, shaped $(B, 1)$.
+    mean
+        The marginal means $m_i$ of $q(f_i)$.
+    variance
+        The marginal variances $v_i$ of $q(f_i)$.
+
+    Returns
+    -------
+    tuple[Float[Array, " B"], Float[Array, " B"]]
+        The vectors $\boldsymbol\alpha$ and $\boldsymbol\beta$.
+
+    Notes
+    -----
+    Bonnet's and Price's theorems give
+    $\alpha_i=\partial_{m_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$ and
+    $\beta_i=-2\,\partial_{v_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$,
+    so one ``jax.grad`` of the likelihood's existing ``expected_log_likelihood``
+    suffices -- **no second derivatives of the likelihood are needed**, and the routine
+    works for closed-form and quadrature likelihoods alike. Note that GPJax's argument
+    order is ``(y, mean, variance)``, with the response first.
+    """
+
+    def total_expectation(mean_, variance_):
+        return jnp.sum(
+            likelihood.expected_log_likelihood(
+                response, mean_[:, None], variance_[:, None]
+            )
+        )
+
+    alpha, variance_gradient = jax.grad(total_expectation, argnums=(0, 1))(
+        mean, variance
+    )
+    return alpha, -2.0 * variance_gradient
+
+
+@natural_gradient_step.register(DualVariationalGaussian)
+def _dual_variational_gaussian_step(
+    variational: DualVariationalGaussian,
+    hyper: DualVariationalGaussian,
+    data: Dataset,
+    objective: Objective,
+    natgrad_lr: ScalarFloat | int,
+    *,
+    map_jitter: ScalarFloat | int = 0.0,
+    backoff: ScalarFloat | int = 0.5,
+    max_backoff: int = 5,
+    beta_floor: ScalarFloat | int = 1e-8,
+) -> tuple[DualVariationalGaussian, ScalarFloat]:
+    r"""t-SVGP tied-site update for the dual parameterisation.
+
+    Performs the convex combination
+    $$\boldsymbol\lambda_1\leftarrow(1-\rho)\boldsymbol\lambda_1
+    +\rho\tfrac NB\mathbf A_{\mathcal B}\mathbf g_1,\qquad
+    \boldsymbol\Lambda_2\leftarrow(1-\rho)\boldsymbol\Lambda_2
+    +\rho\tfrac NB\mathbf A_{\mathcal B}
+    \operatorname{diag}(\mathbf g_2)\mathbf A_{\mathcal B}^\top,$$
+    with $\mathbf A_{\mathcal B}=\mathbf K_{zz}^{-1}\mathbf K_{zb}$,
+    $\mathbf g_1=\boldsymbol\alpha+\boldsymbol\beta\odot
+    (\mathbf m_{\mathcal B}-\mu(\mathbf X_{\mathcal B}))$ and
+    $\mathbf g_2=\boldsymbol\beta$.
+
+    Because $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, this
+    *is* the Salimbeni step at $\gamma=\rho$: started from the same $q$ the two
+    branches produce identical iterates, and the KL is never differentiated.
+
+    ``map_jitter``, ``backoff`` and ``max_backoff`` are accepted for a uniform dispatch
+    contract and ignored. The update is affine and, for $\rho\in[0,1]$ and
+    $\boldsymbol\beta\ge0$, never leaves the positive semi-definite cone, so there is
+    no Cholesky here that a backoff could rescue.
+
+    Parameters
+    ----------
+    variational
+        The variational partition, holding the two dual sites.
+    hyper
+        The hyperparameter partition.
+    data
+        The batch at which the sites' target is evaluated.
+    objective
+        The loss being minimised. Evaluated once at the pre-update sites so that
+        ``history[t]`` means the same thing in both dispatch branches.
+    natgrad_lr
+        The step size $\rho\in(0,1]$.
+    map_jitter
+        Unused.
+    backoff
+        Unused.
+    max_backoff
+        Unused.
+    beta_floor
+        Lower clip applied to $\boldsymbol\beta$ before it enters $\boldsymbol\Lambda_2$.
+        A no-op for log-concave likelihoods; it keeps the update inside the PSD cone
+        for likelihoods (Student-t, some heteroscedastic models) whose expected
+        negative curvature can go negative.
+
+    Returns
+    -------
+    tuple[DualVariationalGaussian, ScalarFloat]
+        The updated variational partition and the pre-update loss.
+    """
+    del map_jitter, backoff, max_backoff
+    _reject_frozen_coordinates(variational)
+
+    family = paramax.unwrap(eqx.combine(variational, hyper))
+
+    # One extra forward pass, taken deliberately: it makes `history[t]` the loss at the
+    # pre-update parameters, exactly as in `fit` and in the Salimbeni branch. XLA
+    # commonly common-subexpression-eliminates it against the `marginals` call below.
+    loss_value = objective(family, data)
+
+    # Only the Cholesky of K_zz is needed here; the target is built from
+    # A = K_zz^{-1} K_zb, and the dual sites never route through R.
+    _, root_gram, _ = family._working_matrices()
+    mean, variance = family.marginals(data.X)
+
+    alpha, beta = _expected_log_likelihood_derivatives(
+        family.posterior.likelihood, data.y, mean, variance
+    )
+    # Clip beta, never Lambda_2: `jnp.maximum` is trace-safe, whereas jittering or
+    # projecting Lambda_2 would need a factorisation it never otherwise requires.
+    beta = jnp.maximum(beta, beta_floor)
+
+    # Centred sites (Adam et al. section on non-zero mean functions). The reference
+    # implementation shifts by `predict_f(Z)`, which already includes the mean
+    # function, and is therefore wrong for any non-zero mean function.
+    prior_mean = family.posterior.prior.mean_function(data.X).squeeze(-1)
+    natural_gradient_vector = alpha + beta * (mean - prior_mean)
+
+    cross_covariance = family.posterior.prior.kernel.cross_covariance(
+        family._fmt_inducing_inputs(), data.X
+    )
+    design = jsp.linalg.cho_solve((root_gram, True), cross_covariance)
+
+    # N / B. The paper prints the mini-batch update with no such factor; taken
+    # literally the sites converge to B/N of their correct value.
+    scale = family.posterior.likelihood.num_datapoints / data.n
+    target_vector = (design @ natural_gradient_vector)[:, None]
+    target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
+
+    rate = natgrad_lr
+    stored_vector = _val(family.dual_vector)
+    stored_matrix = _val(family.dual_matrix)
+
+    # `add_jitter` builds its identity at the default float type, so under
+    # `jax_enable_x64` everything downstream of K_zz is float64 even for a float32
+    # model. Cast back, or the `lax.scan` carry changes dtype between iterations.
+    updated_vector = (
+        (1.0 - rate) * stored_vector + rate * (scale * target_vector)
+    ).astype(stored_vector.dtype)
+    # Symmetrise after the update: it costs nothing and removes the O(eps) asymmetry
+    # that would otherwise make `cholesky(R)` backend-nondeterministic.
+    updated_matrix = _symmetrise(
+        (1.0 - rate) * stored_matrix + rate * (scale * target_matrix)
+    ).astype(stored_matrix.dtype)
+
+    variational = eqx.tree_at(
+        lambda tree: (tree.dual_vector, tree.dual_matrix),
+        variational,
+        (Real(updated_vector), Real(updated_matrix)),
     )
     return variational, loss_value
 

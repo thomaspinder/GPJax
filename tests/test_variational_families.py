@@ -29,6 +29,7 @@ import gpjax.variational_families
 from gpjax.variational_families import (
     AbstractVariationalFamily,
     CollapsedVariationalGaussian,
+    DualVariationalGaussian,
     GraphVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
@@ -37,6 +38,7 @@ import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 from jaxtyping import (
     Array,
     Float,
@@ -114,6 +116,7 @@ def diag_matrix_val(
     [
         VariationalGaussian,
         WhitenedVariationalGaussian,
+        DualVariationalGaussian,
     ],
 )
 def test_variational_gaussians(
@@ -137,18 +140,28 @@ def test_variational_gaussians(
     assert q.num_inducing == n_inducing
     assert isinstance(q, AbstractVariationalFamily)
 
-    assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
-    assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
-    assert (q.variational_mean.unwrap() == vector_val(0.0)(n_inducing)).all()
-    assert (
-        q.variational_root_covariance.unwrap() == diag_matrix_val(1.0)(n_inducing)
-    ).all()
+    if isinstance(q, DualVariationalGaussian):
+        # The dual family stores sites, not moments, and both default to zero so that
+        # q(u) = p(u) at initialisation.
+        assert _val(q.dual_vector).shape == vector_shape(n_inducing)
+        assert _val(q.dual_matrix).shape == matrix_shape(n_inducing)
+        assert (_val(q.dual_vector) == 0.0).all()
+        assert (_val(q.dual_matrix) == 0.0).all()
+    else:
+        assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
+        assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
+        assert (q.variational_mean.unwrap() == vector_val(0.0)(n_inducing)).all()
+        assert (
+            q.variational_root_covariance.unwrap() == diag_matrix_val(1.0)(n_inducing)
+        ).all()
 
     # Test KL
     kl = q.prior_kl()
     assert isinstance(kl, jnp.ndarray)
     assert kl.shape == ()
-    assert kl >= 0.0
+    # The dual family initialises exactly at q(u) = p(u), where the KL is zero up to
+    # the round-off of tr(R^{-1} Kzz) - M; the moment families start strictly inside.
+    assert kl >= (-1e-10 if isinstance(q, DualVariationalGaussian) else 0.0)
 
     # Test predictions
     predictive_dist = q(test_inputs)
@@ -638,3 +651,162 @@ def test_prior_kl_is_non_negative(family, seed):
         (Real(jr.normal(key_mean, (num_inducing, 1))), LowerTriangular(root)),
     )
     assert q.prior_kl() >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# DualVariationalGaussian -- the t-SVGP site parameterisation (arXiv:2111.03412)
+# ---------------------------------------------------------------------------
+_DUAL_JITTER = 1e-8
+
+
+def _build_dual_family(
+    num_inducing: int, seed: int | None = None, jitter: float = _DUAL_JITTER
+) -> DualVariationalGaussian:
+    """Build a dual family, optionally at random positive semi-definite sites."""
+    kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.3))
+    mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
+    prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
+    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
+    inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
+
+    dual_vector = dual_matrix = None
+    if seed is not None:
+        key_vector, key_matrix = jr.split(jr.key(seed))
+        raw = jr.normal(key_matrix, (num_inducing, num_inducing))
+        dual_vector = jr.normal(key_vector, (num_inducing, 1))
+        dual_matrix = raw @ raw.T / num_inducing
+
+    return DualVariationalGaussian(
+        posterior=posterior,
+        inducing_inputs=inducing_inputs,
+        dual_vector=dual_vector,
+        dual_matrix=dual_matrix,
+        jitter=jitter,
+    )
+
+
+def _matched_variational_gaussian(
+    q_dual: DualVariationalGaussian,
+) -> VariationalGaussian:
+    """A ``VariationalGaussian`` carrying the dual family's implied moments."""
+    mean, covariance = q_dual.moments()
+    return VariationalGaussian(
+        posterior=q_dual.posterior,
+        inducing_inputs=_val(q_dual.inducing_inputs),
+        variational_mean=mean,
+        variational_root_covariance=jnp.linalg.cholesky(covariance),
+        jitter=q_dual.jitter,
+    )
+
+
+@pytest.mark.parametrize("num_inducing", [1, 4, 9])
+def test_dual_prior_kl_zero_at_initialisation(num_inducing: int) -> None:
+    """Zero sites mean q(u) = p(u), so R = Kzz and the KL vanishes."""
+    q = _build_dual_family(num_inducing)
+    np.testing.assert_allclose(np.float64(q.prior_kl()), 0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("seed", list(range(10)))
+def test_dual_prior_kl_non_negative(seed: int) -> None:
+    q = _build_dual_family(6, seed=seed)
+    assert q.prior_kl() >= -1e-12
+
+
+@pytest.mark.parametrize("n_test", [1, 7])
+@pytest.mark.parametrize("seed", [0, 3])
+def test_dual_predict_matches_variational_gaussian_at_matched_moments(
+    n_test: int, seed: int
+) -> None:
+    """The dual predictive must agree with the moment family it is equivalent to."""
+    q_dual = _build_dual_family(5, seed=seed)
+    q_moment = _matched_variational_gaussian(q_dual)
+    test_inputs = jnp.linspace(-3.0, 3.0, n_test).reshape(-1, 1)
+
+    dual_dist = q_dual.predict(test_inputs)
+    moment_dist = q_moment.predict(test_inputs)
+
+    np.testing.assert_allclose(
+        np.asarray(dual_dist.mean),
+        np.asarray(moment_dist.mean),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(dual_dist.covariance()),
+        np.asarray(moment_dist.covariance()),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+
+
+def test_dual_prior_kl_is_jit_grad_and_vmap_compatible() -> None:
+    q = _build_dual_family(4, seed=1)
+    eager = q.prior_kl()
+
+    jitted = eqx.filter_jit(lambda model: model.prior_kl())
+    np.testing.assert_allclose(np.float64(jitted(q)), np.float64(eager), rtol=1e-12)
+
+    grads = eqx.filter_grad(lambda model: model.prior_kl())(q)
+    assert jnp.all(jnp.isfinite(grads.dual_vector.value))
+    assert jnp.all(jnp.isfinite(grads.dual_matrix.value))
+
+    def kl_from_vector(vector_value):
+        model = eqx.tree_at(lambda t: t.dual_vector.value, q, vector_value)
+        return model.prior_kl()
+
+    zero_vector = jnp.zeros_like(_val(q.dual_vector))
+    batch = jnp.stack([_val(q.dual_vector), _val(q.dual_vector) + 0.5, zero_vector])
+    batched = jax.vmap(kl_from_vector)(batch)
+
+    assert batched.shape == (3,)
+    np.testing.assert_allclose(
+        np.float64(batched[0]), np.float64(eager), rtol=1e-12, atol=1e-14
+    )
+    np.testing.assert_allclose(
+        np.float64(batched[2]),
+        np.float64(kl_from_vector(zero_vector)),
+        rtol=1e-12,
+        atol=1e-14,
+    )
+
+
+def test_dual_family_cholesky_budget(monkeypatch) -> None:
+    """Both routines factorise Kzz and R once each, and nothing else."""
+    q = _build_dual_family(4, seed=2)
+    inputs = jnp.linspace(-3.0, 3.0, 11).reshape(-1, 1)
+
+    kl_counts = _count_cholesky_calls(monkeypatch, q.prior_kl)
+    assert kl_counts["dense_cholesky"] == 2
+    assert kl_counts["cholesky_factor"] == 0
+
+    marginal_counts = _count_cholesky_calls(monkeypatch, lambda: q.marginals(inputs))
+    assert marginal_counts["dense_cholesky"] == 2
+    assert marginal_counts["cholesky_factor"] == 0
+
+
+def test_dual_marginals_include_jitter() -> None:
+    """``marginals`` must inflate every variance by exactly ``jitter``.
+
+    ``VariationalGaussian.predict`` runs ``add_jitter`` on its output covariance, so
+    the per-point variances ``elbo`` sees carry the same offset. Without it,
+    ``dual_elbo`` misses ``elbo`` at matched moments by ``N * jitter / (2 sigma^2)``.
+    """
+    q = _build_dual_family(5, seed=4)
+    inputs = jnp.linspace(-3.0, 3.0, 13).reshape(-1, 1)
+
+    gram, root_gram, root_working = q._working_matrices()
+    cross = q.posterior.prior.kernel.cross_covariance(_val(q.inducing_inputs), inputs)
+    diagonal = jnp.diag(q.posterior.prior.kernel.gram(inputs).as_matrix())
+    prior_projection = jsp.linalg.solve_triangular(root_gram, cross, lower=True)
+    site_projection = jsp.linalg.solve_triangular(root_working, cross, lower=True)
+    analytic = (
+        diagonal
+        - jnp.sum(jnp.square(prior_projection), axis=0)
+        + jnp.sum(jnp.square(site_projection), axis=0)
+    )
+    del gram
+
+    _, variance = q.marginals(inputs)
+    np.testing.assert_allclose(
+        np.asarray(variance - analytic), q.jitter, rtol=0.0, atol=1e-15
+    )

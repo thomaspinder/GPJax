@@ -45,6 +45,7 @@ from gpjax.mean_functions import (
 )
 from gpjax.objectives import (
     conjugate_mll,
+    dual_elbo,
     elbo,
 )
 from gpjax.parameters import (
@@ -54,6 +55,7 @@ from gpjax.parameters import (
 from gpjax.typing import Array
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
+    DualVariationalGaussian,
     VariationalGaussian,
 )
 import jax.numpy as jnp
@@ -1032,3 +1034,84 @@ def test_fit_freeze_by_non_trainable() -> None:
 
     # Assert lengthscale has changed
     assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, initial_lengthscale)
+
+
+# ---------------------------------------------------------------------------
+# The dual (t-SVGP) branch of fit_natgrads
+# ---------------------------------------------------------------------------
+def _dual_svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
+    """The ``_svgp_setup`` model, re-expressed in the dual parameterisation."""
+    q, D = _svgp_setup(n_data=n_data, n_inducing=n_inducing, jitter=jitter)
+    dual = DualVariationalGaussian(
+        posterior=q.posterior,
+        inducing_inputs=_val(q.inducing_inputs),
+        jitter=jitter,
+    )
+    return dual, D
+
+
+def _negative_dual_elbo(model, data):
+    return -dual_elbo(model, data)
+
+
+def test_fit_natgrads_dual_end_to_end() -> None:
+    q, D = _dual_svgp_setup(n_data=20)
+
+    trained_model, history = fit_natgrads(
+        model=q,
+        objective=_negative_dual_elbo,
+        train_data=D,
+        optim=ox.adam(0.05),
+        natgrad_lr=0.5,
+        num_iters=20,
+        verbose=False,
+        key=jr.key(123),
+    )
+
+    assert isinstance(trained_model, DualVariationalGaussian)
+    assert history.shape == (20,)
+    assert bool(jnp.all(jnp.isfinite(history)))
+    assert history[-1] < history[0]
+
+
+def test_fit_natgrads_dual_rejects_rate_above_one() -> None:
+    """rho > 1 overshoots the site target and can break Lambda_2 >= 0.
+
+    The Salimbeni families have no such restriction, so the same value must be
+    accepted there -- otherwise the check is testing the wrong thing.
+    """
+    dual, D = _dual_svgp_setup(n_data=10)
+    moment, _ = _svgp_setup(n_data=10)
+
+    with pytest.raises(ValueError, match=r"natgrad_lr to lie in \(0, 1\]"):
+        fit_natgrads(
+            model=dual,
+            objective=_negative_dual_elbo,
+            train_data=D,
+            optim=ox.adam(0.05),
+            natgrad_lr=1.5,
+            num_iters=1,
+            verbose=False,
+        )
+
+    _check_natgrad_lr(1.5, moment)
+
+
+def test_fit_on_dual_family_still_works() -> None:
+    """Plain gradient descent in the dual coordinates remains a valid optimiser."""
+    q, D = _dual_svgp_setup(n_data=20)
+
+    trained_model, history = fit(
+        model=q,
+        objective=_negative_dual_elbo,
+        train_data=D,
+        optim=ox.adam(1e-2),
+        num_iters=20,
+        verbose=False,
+        key=jr.key(123),
+    )
+
+    assert isinstance(trained_model, DualVariationalGaussian)
+    assert history.shape == (20,)
+    assert bool(jnp.all(jnp.isfinite(history)))
+    assert history[-1] < history[0]

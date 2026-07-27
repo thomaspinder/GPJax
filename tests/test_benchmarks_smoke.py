@@ -93,7 +93,7 @@ def test_objectives_vfe_elbo_runs():
     suite.time_collapsed_elbo(200, 32)
 
 
-@pytest.mark.parametrize("family", ["standard", "whitened"])
+@pytest.mark.parametrize("family", ["standard", "whitened", "dual"])
 def test_objectives_variational_parametrisation_runs(family):
     from benchmarks.objectives import VariationalParametrisationSuite
 

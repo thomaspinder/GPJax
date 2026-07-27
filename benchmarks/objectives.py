@@ -9,9 +9,9 @@ SvgpElboSuite (uncollapsed VariationalGaussian + stochastic ELBO) varies
 both M (inducing count) and batch_size; VfeElboSuite (collapsed analytic
 ELBO) varies M only — the collapsed objective requires the full dataset.
 
-VariationalParametrisationSuite compares the two variational Gaussian
-parameterisations (standard, whitened) at one fixed (n, M) so users can
-see the per-step cost of the choice.
+VariationalParametrisationSuite compares the three variational Gaussian
+parameterisations (standard, whitened, dual) at one fixed (n, M) so users
+can see the per-step cost of the choice.
 
 HeteroscedasticElboSuite and OilmmPredictSuite are independent — they
 do not participate in the alignment because their model structure
@@ -26,6 +26,7 @@ from gpjax.dataset import Dataset
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
+    DualVariationalGaussian,
     HeteroscedasticVariationalFamily,
     VariationalGaussian,
     WhitenedVariationalGaussian,
@@ -115,14 +116,18 @@ class VfeElboSuite:
 _VARIATIONAL_FAMILIES = {
     "standard": VariationalGaussian,
     "whitened": WhitenedVariationalGaussian,
+    "dual": DualVariationalGaussian,
 }
 
 
 class VariationalParametrisationSuite:
     """Per-step ELBO cost across the variational Gaussian parameterisations.
 
-    They all parameterise the same q(u); the differences are in how the
-    KL term and predictive moments are computed. Holding (n, M) fixed
+    All three parameterise the same q(u); the differences are in how the
+    KL term and predictive moments are computed. The dual (t-SVGP) family
+    stores sites rather than moments and recovers q(u) through
+    R = Kzz + Kzz Lambda_2 Kzz, so it pays for two Cholesky factorisations
+    where the moment families pay for one or none. Holding (n, M) fixed
     isolates the parameterisation cost.
     """
 

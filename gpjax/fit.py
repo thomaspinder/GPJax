@@ -38,6 +38,7 @@ from gpjax.typing import (
     KeyArray,
     ScalarFloat,
 )
+from gpjax.variational_families import DualVariationalGaussian
 
 Model = tp.TypeVar("Model", bound=eqx.Module)
 
@@ -453,7 +454,9 @@ def fit_natgrads(
         ``natgrad_lr=1.0`` is optimal only when the model is conjugate *and* the batch
         is full. Adam, Chang, Khan and Solin (2021) write this step size $\rho$ for the
         dual parameterisation; it is the same quantity, and started from the same $q$
-        the two branches produce identical iterates.
+        the two branches produce identical iterates. On a ``DualVariationalGaussian``
+        a numeric value above $1$ is rejected, because the site update is a convex
+        combination towards its target; a schedule cannot be checked statically.
     key : KeyArray
         The random key used for mini-batch selection. Defaults to ``jr.key(42)``.
     num_iters : int
@@ -478,8 +481,10 @@ def fit_natgrads(
         The number of shrink attempts after the first, so $\gamma$ can fall by
         $\beta^{K}$. Defaults to 5.
     beta_floor : float
-        Forwarded to the dispatched step for a uniform contract; the Salimbeni-family
-        step ignores it. Defaults to ``1e-8``.
+        Lower clip on the expected negative curvature $\beta$ in the dual step, which
+        keeps $\boldsymbol\Lambda_2$ inside the positive semi-definite cone for
+        likelihoods that are not log-concave. The Salimbeni-family step ignores it.
+        Defaults to ``1e-8``.
     log_rate : int
         How frequently the objective value should be printed. Defaults to 10.
     verbose : bool
@@ -711,8 +716,9 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
     natgrad_lr : Any
         The candidate step size.
     model : Any
-        The model being fitted. Unused for the Salimbeni families; later
-        parameterisations register tighter bounds against it.
+        The model being fitted. Unconstrained above for the Salimbeni families, which
+        tolerate $\gamma>1$ in principle; capped at $1$ for
+        ``DualVariationalGaussian``.
 
     Notes
     -----
@@ -721,9 +727,14 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
     ``ScalarFloat``. ``bool`` is rejected despite being an ``int`` subclass: silently
     reading ``True`` as $\gamma=1$ is never what the caller meant. The positivity check
     is skipped for traced values, which have no concrete sign at trace time.
-    """
-    del model
 
+    The dual branch requires $\rho\in(0,1]$: the site update is a convex combination
+    towards the target, so $\rho>1$ overshoots it and can push $\boldsymbol\Lambda_2$
+    out of the positive semi-definite cone. The check runs at construction time, on a
+    Python value, never on a traced one -- which also means an Optax **schedule** that
+    exceeds $1$ cannot be caught here, and it is the caller's responsibility to bound
+    it.
+    """
     if callable(natgrad_lr):
         return
 
@@ -741,6 +752,12 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
 
     if natgrad_lr <= 0:
         raise ValueError(f"Expected natgrad_lr to be positive. Got {natgrad_lr}.")
+
+    if isinstance(model, DualVariationalGaussian) and natgrad_lr > 1.0:
+        raise ValueError(
+            "Expected natgrad_lr to lie in (0, 1] for a DualVariationalGaussian, "
+            f"whose site update is a convex combination. Got {natgrad_lr}."
+        )
 
 
 def _check_batch_size(batch_size: tp.Any) -> None:
