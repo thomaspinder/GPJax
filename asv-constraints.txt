@@ -6,7 +6,7 @@ equinox==0.13.5
 jax==0.9.0
 jaxlib==0.9.0
 jaxtyping==0.3.6
-lineax==0.1.0
+lineax==0.1.1
 markdown-it-py==4.0.0
 mdurl==0.1.2
 ml-dtypes==0.5.4
