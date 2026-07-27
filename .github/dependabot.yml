@@ -1,7 +1,9 @@
 version: 2
 updates:
-  # Enable version updates for Python dependencies
-  - package-ecosystem: "pip"
+  # Python dependencies. Uses the `uv` ecosystem, not `pip`, so that Dependabot
+  # reads `[tool.uv].dev-dependencies` and keeps `uv.lock` in step with
+  # `pyproject.toml`. The `pip` ecosystem does neither.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -18,35 +20,16 @@ updates:
     labels:
       - "dependencies"
       - "automated"
-    # Group related updates together
+    # Catch-all groups: one PR per run for version updates, one for security
+    # updates. Without a `*` pattern, unmatched dependencies get their own PR.
     groups:
-      jax-ecosystem:
+      python-dependencies:
         patterns:
-          - "jax"
-          - "jaxlib"
-          - "flax"
-          - "optax"
-          - "jaxtyping"
-          - "equinox"
-      ml-tools:
+          - "*"
+      python-security:
+        applies-to: security-updates
         patterns:
-          - "numpy"
-          - "scipy"
-          - "scikit-learn"
-          - "matplotlib"
-          - "pandas"
-      testing:
-        patterns:
-          - "pytest*"
-          - "coverage"
-          - "beartype"
-      dev-tools:
-        patterns:
-          - "black"
-          - "ruff"
-          - "isort"
-          - "pre-commit"
-          - "mypy"
+          - "*"
     # Ignore major version updates for stable dependencies
     ignore:
       - dependency-name: "numpy"
@@ -54,7 +37,8 @@ updates:
       - dependency-name: "scipy"
         update-types: ["version-update:semver-major"]
 
-  # Enable version updates for GitHub Actions
+  # GitHub Actions. Groups cannot span `updates` entries, so this is always a
+  # separate PR from the Python one.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -66,6 +50,16 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    # `github_actions` (underscore) is the label that exists in the repo;
+    # `github-actions` from labels.yml has never been synced and is ignored.
     labels:
-      - "github-actions"
+      - "github_actions"
       - "automated"
+    groups:
+      actions:
+        patterns:
+          - "*"
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
