@@ -1,8 +1,8 @@
 version: 2
 updates:
   # Python dependencies. Uses the `uv` ecosystem, not `pip`, so that Dependabot
-  # reads `[tool.uv].dev-dependencies` and keeps `uv.lock` in step with
-  # `pyproject.toml`. The `pip` ecosystem does neither.
+  # reads the PEP 735 `[dependency-groups]` dev group and keeps `uv.lock` in
+  # step with `pyproject.toml`. The `pip` ecosystem does neither.
   - package-ecosystem: "uv"
     directory: "/"
     schedule:

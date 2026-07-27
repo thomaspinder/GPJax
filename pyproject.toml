@@ -65,7 +65,13 @@ docs = [
 [tool.uv]
 exclude-newer = "7 days"
 managed = true
-dev-dependencies = [
+
+# PEP 735 dependency group. Must stay here rather than under `[tool.uv]`:
+# Dependabot's uv parser only reads `dependency-groups`, `project.dependencies`
+# and `project.optional-dependencies`, so `[tool.uv].dev-dependencies` was
+# invisible to it and never got updated.
+[dependency-groups]
+dev = [
   "asv>=0.6",
   "ruff>=0.6",
   "pre-commit>=3.2.2",

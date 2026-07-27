@@ -43,7 +43,7 @@ hardware acceleration support as detailed in the
     ```bash
     git clone https://github.com/thomaspinder/GPJax.git
     cd GPJax
-    uv sync --extra dev
+    uv sync
     ```
 
 !!! tip
