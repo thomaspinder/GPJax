@@ -53,7 +53,10 @@ $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, the KL is
 differentiated and the update reduces to the convex combination
 $\boldsymbol\lambda\leftarrow(1-\rho)\boldsymbol\lambda
 +\rho\,\nabla_{\boldsymbol\mu}\mathcal L_{\text{ell}}$ --
-which is the Salimbeni step at $\gamma=\rho$, producing identical iterates.
+which is the Salimbeni step at $\gamma=\rho$, producing identical iterates -- provided
+the computed $\boldsymbol\beta$ stays non-negative, so that ``beta_floor`` is inert.
+That holds for a truly log-concave likelihood; GPJax's clipped probit link violates it
+in the far tails, where the two branches then diverge.
 """
 
 import functools
@@ -402,7 +405,14 @@ def _variational_gaussian_coordinates(
     This registration also covers ``WhitenedVariationalGaussian`` and
     ``GraphVariationalGaussian``, which subclass ``VariationalGaussian`` and store the
     same two fields. That is deliberate: the whitened $q(\mathbf v)$ belongs to the
-    same exponential family, so the coordinate maps are identical.
+    same exponential family, so the coordinate maps are identical. Dispatch reaching
+    ``GraphVariationalGaussian`` is not the same as that family being usable end to
+    end: ``elbo`` on a graph family raises ``ValueError:
+    `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` from
+    ``KernelComputation.gram``, reached through the per-point ``vmap`` in
+    ``variational_expectation``. That break is upstream of this module and reproduces
+    unchanged on ``main``. The smoke test in ``tests/test_natural_gradients.py``
+    therefore drives the graph family with ``prior_kl`` instead.
 
     Parameters
     ----------
@@ -757,7 +767,13 @@ def _variational_gaussian_step(
     parameters back into the variational partition. Also covers
     ``WhitenedVariationalGaussian`` and ``GraphVariationalGaussian``: the whitened
     $q(\mathbf v)$ is a member of the same exponential family, and the whitening enters
-    only through ``prior_kl``/``predict``, which the loss calls polymorphically.
+    only through ``prior_kl``/``predict``, which the loss calls polymorphically. For
+    the graph family that is a statement about dispatch only: the standard ``elbo``
+    path is broken upstream of this module -- ``KernelComputation.gram`` raises
+    ``ValueError: `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` under
+    ``variational_expectation``'s per-point ``vmap``, on ``main`` as well as here -- so
+    a graph model cannot currently be driven through ``fit_natgrads`` with the usual
+    loss.
 
     ``beta_floor`` is accepted for a uniform dispatch contract and ignored here.
 
@@ -918,7 +934,10 @@ def _dual_variational_gaussian_step(
 
     Because $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, this
     *is* the Salimbeni step at $\gamma=\rho$: started from the same $q$ the two
-    branches produce identical iterates, and the KL is never differentiated.
+    branches produce identical iterates, and the KL is never differentiated. The
+    identity holds provided the computed $\boldsymbol\beta$ stays non-negative, so that
+    ``beta_floor`` never engages -- true for a genuinely log-concave likelihood, and
+    violated by GPJax's clipped probit link in the far tails.
 
     ``map_jitter``, ``backoff`` and ``max_backoff`` are accepted for a uniform dispatch
     contract and ignored. The update is affine and, for $\rho\in[0,1]$ and
@@ -952,9 +971,12 @@ def _dual_variational_gaussian_step(
         Unused.
     beta_floor
         Lower clip applied to $\boldsymbol\beta$ before it enters $\boldsymbol\Lambda_2$.
-        A no-op for log-concave likelihoods; it keeps the update inside the PSD cone
-        for likelihoods (Student-t, some heteroscedastic models) whose expected
-        negative curvature can go negative.
+        A no-op for likelihoods that are log-concave *as computed*; it keeps the update
+        inside the PSD cone for those (Student-t, some heteroscedastic models) whose
+        expected negative curvature can go negative. GPJax's Bernoulli is in the latter
+        group in the far tails: ``inv_probit`` clips its output away from $0$ and $1$,
+        which flattens $\log p$ and makes $\beta_i<0$ for a confidently mislabelled
+        point, so the clip does engage there.
 
     Returns
     -------

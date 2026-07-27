@@ -454,7 +454,10 @@ def fit_natgrads(
         ``natgrad_lr=1.0`` is optimal only when the model is conjugate *and* the batch
         is full. Adam, Chang, Khan and Solin (2021) write this step size $\rho$ for the
         dual parameterisation; it is the same quantity, and started from the same $q$
-        the two branches produce identical iterates. On a ``DualVariationalGaussian``
+        the two branches produce identical iterates -- provided the dual branch's
+        computed $\boldsymbol\beta$ stays non-negative, so that its ``beta_floor``
+        never engages. GPJax's clipped probit link breaks that in the far tails.
+        On a ``DualVariationalGaussian``
         a value above $1$ is rejected, because the site update is a convex combination
         towards its target -- for a schedule this is checked over the whole
         ``num_iters``-long trajectory, not just at construction.
@@ -730,8 +733,8 @@ def _check_natgrad_lr(
         ``DualVariationalGaussian``.
     num_iters : Any
         The number of iterations the schedule will be evaluated at. Supply it to have
-        a schedule bound-checked for a ``DualVariationalGaussian``; without it a
-        callable ``natgrad_lr`` is accepted unexamined.
+        a schedule bound-checked over its whole trajectory; without it a callable
+        ``natgrad_lr`` is accepted unexamined.
 
     Notes
     -----
@@ -748,6 +751,11 @@ def _check_natgrad_lr(
     at construction time, so when ``num_iters`` is known the whole trajectory
     ``natgrad_lr(jnp.arange(num_iters))`` is checked up front, exactly as a scalar is.
     Schedules that cannot be evaluated on an integer array are left alone.
+
+    Positivity is checked for *every* family, scalar or schedule. A rate of zero is a
+    wasted iteration and a negative rate extrapolates away from the target, which can
+    leave the cone in either parameterisation; a decaying schedule that reaches or
+    crosses zero inside the horizon is the realistic way to hit this by accident.
     """
     if callable(natgrad_lr):
         _check_natgrad_schedule(natgrad_lr, model, num_iters)
@@ -778,20 +786,33 @@ def _check_natgrad_lr(
 def _check_natgrad_schedule(
     natgrad_lr: tp.Callable, model: tp.Any, num_iters: tp.Any
 ) -> None:
-    """Bound-check an optax schedule on a ``DualVariationalGaussian``.
+    """Bound-check an optax schedule over the trajectory ``fit_natgrads`` will take.
 
     The schedule is evaluated at the same iteration indices ``fit_natgrads`` scans
     over, so the check sees exactly the step sizes the run will take.
-    """
-    if not isinstance(model, DualVariationalGaussian):
-        return
 
+    The lower bound applies to *every* family: a non-positive rate is an extrapolation
+    away from the target rather than towards it, which can leave the positive
+    semi-definite cone in either parameterisation, and the scalar path already rejects
+    it. Only the upper bound is dual-specific, because only the site update is a convex
+    combination.
+    """
     if not isinstance(num_iters, int) or isinstance(num_iters, bool) or num_iters <= 0:
         return
 
     try:
         rates = jnp.asarray(natgrad_lr(jnp.arange(num_iters)))
     except Exception:
+        return
+
+    smallest = float(jnp.min(rates))
+    if smallest <= 0.0:
+        raise ValueError(
+            "Expected natgrad_lr to be positive. The supplied schedule reaches "
+            f"{smallest} within the first {num_iters} iterations."
+        )
+
+    if not isinstance(model, DualVariationalGaussian):
         return
 
     largest = float(jnp.max(rates))

@@ -32,8 +32,12 @@
 #    parameters.** No conversion to natural parameters, no conversion back, and the
 #    KL term is never differentiated. The step is the same *iteration* as the one in
 #    the [natural gradients notebook](https://docs.jaxgaussianprocesses.com/_examples/natgrads/) —
-#    we check that below to $10^{-15}$ — so the difference is wall-clock only, never
-#    accuracy.
+#    we check that below to $10^{-15}$ — **provided the computed per-point curvature
+#    $\beta_i$ stays non-negative**. That holds for a genuinely log-concave
+#    likelihood. GPJax's probit link clips its probabilities, which breaks
+#    log-concavity in the far tails; where that bites, the dual branch's `beta_floor`
+#    engages and the two branches really do differ. We locate that below and measure
+#    it. Away from it, the difference is wall-clock only, never accuracy.
 # 2. **The hyperparameter objective changes.** Because the sites are, in this
 #    convention, free of the kernel hyperparameters, letting $\mathbf{K}_{zz}$ move
 #    while the sites stay put gives a *different* function of $\boldsymbol{\theta}$
@@ -566,7 +570,11 @@ print(
 # natural-gradient E-step of the previous notebook are the *same iteration*, not two
 # algorithms that happen to converge to the same place. Started from the same $q$,
 # with the same rate and the same batches, they should produce the same
-# $(\mathbf{m},\mathbf{S})$ at every step, to floating-point noise.
+# $(\mathbf{m},\mathbf{S})$ at every step, to floating-point noise. There is one
+# condition on that, which the derivation left implicit and which the second demo below
+# violates: the dual branch clips the per-point curvature $\beta_i$ at `beta_floor`, so
+# the identity needs the computed $\beta_i$ to be non-negative. We check the clean case
+# first and then go looking for the exception.
 #
 # Testing that needs a non-conjugate problem — in the conjugate case both branches
 # jump to the same optimum at $\rho=1$, which proves nothing about the path — and
@@ -679,9 +687,11 @@ print(
 # The two traces are the same trace. Whatever else is true of the dual
 # parameterisation, it is not a different approximation: at $\rho=\gamma$ the E-steps
 # coincide, so any difference in a fitted model has to come from somewhere else — the
-# M-step, or arithmetic. This problem is small and well conditioned, so arithmetic
-# contributes nothing here; the harder model in the next section makes it contribute
-# something, and we measure that too.
+# M-step, or the one modelling assumption the identity rests on. On this problem every
+# $\beta_i$ stays positive, which is that assumption; the banana model in the next
+# section drives a point far enough into the tail that GPJax's *computed* $\beta_i$
+# turns negative, the `beta_floor` guard engages, and the two branches then genuinely
+# part company. We locate that point and measure the consequence.
 
 # %% [markdown]
 # ## The banana, again
@@ -763,52 +773,126 @@ print(f"cond(K_zz)      : {jnp.linalg.cond(banana_gram):.3e}")
 # place than the ones there; matched initialisations matter more within a comparison
 # than across notebooks.
 
+
 # %%
-# The rho = gamma check again, on a model whose K_zz is three orders of magnitude
-# worse conditioned than the one-dimensional problem above; both condition numbers
-# are printed above.
-site_partition, site_hyper = partition_variational(banana_dual_family)
-moment_partition, moment_hyper = partition_variational(natgrad_family)
-banana_gap = 0.0
-for _ in range(6):
-    site_partition, _ = natural_gradient_step(
-        site_partition, site_hyper, banana_train, negative_dual_elbo, 0.8
+# The rho = gamma check again, on a harder model, this time step by step and carrying
+# the diagnostic that explains what happens: Price's curvature beta_i, which the site
+# update needs to be non-negative.
+def price_curvature(family, data):
+    """Return the marginal means and $\\beta_i=-2\\,\\partial_{v_i}E_q[\\log p]$."""
+    marginal_mean, marginal_variance = family.marginals(data.X)
+
+    def total_expectation(variance):
+        return jnp.sum(
+            family.posterior.likelihood.expected_log_likelihood(
+                data.y, marginal_mean[:, None], variance[:, None]
+            )
+        )
+
+    return marginal_mean, -2.0 * jax.grad(total_expectation)(marginal_variance)
+
+
+def six_matched_steps(beta_floor):
+    """Six rho = 0.8 steps in both branches, from the shared q = p start."""
+    site_partition, site_hyper = partition_variational(
+        DualVariationalGaussian(
+            posterior=banana_posterior,
+            inducing_inputs=banana_inducing,
+            jitter=banana_jitter,
+        )
     )
-    moment_partition, _ = natural_gradient_step(
-        moment_partition, moment_hyper, banana_train, negative_elbo, 0.8
+    moment_partition, moment_hyper = partition_variational(make_banana_moment_family())
+    rows = []
+    for _ in range(6):
+        # Measured before the step, at the q both branches currently share.
+        marginal_mean, curvature = price_curvature(
+            paramax.unwrap(eqx.combine(site_partition, site_hyper)), banana_train
+        )
+        site_partition, _ = natural_gradient_step(
+            site_partition,
+            site_hyper,
+            banana_train,
+            negative_dual_elbo,
+            0.8,
+            beta_floor=beta_floor,
+        )
+        moment_partition, _ = natural_gradient_step(
+            moment_partition, moment_hyper, banana_train, negative_elbo, 0.8
+        )
+        site_mean, site_covariance = implied_moments(
+            eqx.combine(site_partition, site_hyper)
+        )
+        moment_mean, moment_covariance = implied_moments(
+            eqx.combine(moment_partition, moment_hyper)
+        )
+        rows.append(
+            (
+                max(
+                    float(jnp.max(jnp.abs(site_mean - moment_mean))),
+                    float(jnp.max(jnp.abs(site_covariance - moment_covariance))),
+                ),
+                int(jnp.sum(curvature < 0)),
+                float(jnp.min(curvature)),
+                float(marginal_mean[jnp.argmin(curvature)]),
+            )
+        )
+    return rows
+
+
+print("step   |(m, S) gap|   beta < 0   min beta   its marginal mean")
+for step, (gap, negative_count, smallest, mean_there) in enumerate(
+    six_matched_steps(1e-8), start=1
+):
+    print(
+        f"{step:4d}   {gap:12.3e}   {negative_count:4d}/{banana_train.n}"
+        f"   {smallest:+8.4f}   {mean_there:+8.3f}"
     )
-    site_mean, site_covariance = implied_moments(
-        eqx.combine(site_partition, site_hyper)
-    )
-    moment_mean, moment_covariance = implied_moments(
-        eqx.combine(moment_partition, moment_hyper)
-    )
-    banana_gap = max(
-        banana_gap,
-        float(jnp.max(jnp.abs(site_mean - moment_mean))),
-        float(jnp.max(jnp.abs(site_covariance - moment_covariance))),
-    )
-largest_mean_entry = float(jnp.max(jnp.abs(site_mean)))
-largest_covariance_entry = float(jnp.max(jnp.abs(site_covariance)))
-print(f"max |(m, S) gap| over six rho = 0.8 steps : {banana_gap:.3e}")
-print(f"largest |m| reached                       : {largest_mean_entry:.3f}")
-print(f"largest |S| reached                       : {largest_covariance_entry:.3f}")
+
+banana_gap = max(gap for gap, _, _, _ in six_matched_steps(1e-8))
+unfloored_gap = max(gap for gap, _, _, _ in six_matched_steps(-jnp.inf))
+print(f"\nworst gap, default beta_floor = 1e-8 : {banana_gap:.3e}")
+print(f"worst gap, clip disabled (-inf)      : {unfloored_gap:.3e}")
 
 # %% [markdown]
-# Here the two branches part company well above the noise floor, and it is worth
-# knowing where that comes from before reading anything into the curves below. Both
-# have somewhere to lose precision. The moment branch forms the second block of the
-# expectation parameter $\boldsymbol{\mu}$ — the natural-gradients notebook's
-# $\mathbf{H}_2 = \mathbf{S} + \mathbf{m}\mathbf{m}^\top$ — subtracts
-# $\mathbf{m}\mathbf{m}^\top$ back off and re-factorises, and that subtraction loses
-# relative accuracy as $\lVert\mathbf{m}\rVert^2/\lVert\mathbf{S}\rVert$ grows — the
-# printed magnitudes put that ratio above thirty after six steps, where at
-# initialisation $\mathbf{m}=\mathbf{0}$ and there was nothing to cancel. The dual
-# branch never forms $\mathbf{H}_2$, but it stores flanked
-# sites, which squares $\operatorname{cond}(\mathbf{K}_{zz})$. Nothing here separates
-# the two contributions, and neither route is uniformly better. What matters is the
-# size of the residual: it is several orders of magnitude below anything visible in
-# the ELBO, which is the number either optimiser is actually steering by.
+# The two branches part company, and the table says exactly when and why. It is not
+# conditioning, and it is not the cancellation in
+# $\mathbf{H}_2 = \mathbf{S} + \mathbf{m}\mathbf{m}^\top$ that the moment branch has
+# to undo. Disabling the clip — the last line above — brings the same six steps back
+# to the noise floor, which rules both of those out: they are unchanged by the value
+# of `beta_floor`.
+#
+# What the $\rho=\gamma$ identity actually needs is a condition the derivation left
+# implicit. The site target is built from Price's curvature
+# $\beta_i = -2\,\partial_{v_i}\mathbb{E}_{q}\!\left[\log p(y_i\mid f_i)\right]$, and
+# the dual branch clips it at `beta_floor` before it enters
+# $\boldsymbol{\Lambda}_2$ while the Salimbeni branch never sees it at all. So long as
+# $\beta_i \ge 0$ the clip is inert and the two are the same iteration. $\beta_i \ge 0$
+# is guaranteed by log-concavity of $\log p(y\mid f)$ — and GPJax's Bernoulli
+# likelihood is not quite log-concave, *as computed*. `inv_probit` squashes its output
+# into $[10^{-3},\,1-10^{-3}]$ so that the log stays finite, and that floor flattens
+# the tail: $\log p$ as computed has *positive* second derivative for
+# $f \lesssim -2.44$, where the exact probit log-likelihood would still be concave.
+# A point the model has become confident is mislabelled sits in that region and
+# contributes $\beta_i < 0$. Mind the sign: for a $y_i = 0$ point the log-likelihood is
+# $\log\Phi(-f_i)$, so the quantity that has to fall below $-2.44$ is $-m_i$, and the
+# table's offending point — marginal mean $+2.43$, label $0$ — is exactly on that
+# threshold at step five and past it at step six.
+#
+# That is what the table shows. For the first four steps every $\beta_i$ is positive,
+# the clip does nothing, and the branches agree to $10^{-13}$ — the true noise floor of
+# this problem. At step five a single training point out of 1600 crosses over, and from
+# that step the two are stepping differently by
+# $\rho\,\tfrac{N}{B}\,(\beta_{\text{floor}} - \beta_i)\,
+# \mathbf{a}_i\mathbf{a}_i^\top$, with
+# $\mathbf{a}_i = \mathbf{K}_{zz}^{-1}\mathbf{k}_{zi}$. One rank-one term at
+# $\beta_i \approx -0.26$ is enough to move $(\mathbf{m},\mathbf{S})$ by
+# $\sim\!10^{-3}$, and the gap compounds over the following step.
+#
+# Two things follow. The residual is still far below anything visible in the ELBO,
+# which is the number either optimiser is steering by, so it does not undermine the
+# comparisons below. But the "same iteration" claim is conditional, not absolute, and
+# the condition is a property of the *computed* likelihood rather than of the
+# mathematical one.
 
 # %%
 # The log-linear ramp of the natural-gradients notebook: 1e-4 -> 1e-1 over K = 100.
@@ -948,9 +1032,9 @@ for name, curve, seconds, _ in curves[:2]:
 # confirmation of theirs.
 #
 # The two natural-gradient curves do *not* lie on top of each other, and the gap is
-# far too large to be the $10^{-3}$ of arithmetic measured a few cells ago. Their
-# E-steps are still the same iteration; what differs is that `fit_natgrads`
-# interleaves an Adam step on the
+# far too large to be the $10^{-3}$ that the `beta_floor` clip contributed a few cells
+# ago. Up to that clip their E-steps are still the same iteration; what differs is
+# that `fit_natgrads` interleaves an Adam step on the
 # kernel hyperparameters and the inducing inputs, and the objective it differentiates
 # for that step is `dual_elbo` in one run and `elbo` in the other. Those two have the
 # same value and different hyperparameter gradients away from a converged E-step — and
@@ -1259,10 +1343,10 @@ print(f"largest gap over the slice         : {float(dense_gap.max()):+.3e} nats"
 #
 # Bound slices are static. The claim that actually matters is that a real VEM loop
 # gets further with `dual_elbo` as its M-step objective, and that one is empirical:
-# the paper says as much. So we run it. Both branches share the same E-step — the
-# previous sections established that these are the same iteration — and differ only in
-# what the M-step differentiates. The inducing inputs are frozen so that only the
-# kernel moves, and the lengthscale starts five times too short.
+# the paper says as much. So we run it. Both branches share the same E-step — the same
+# iteration, up to the `beta_floor` clip located earlier — and differ only in what the
+# M-step differentiates. The inducing inputs are frozen so that only the kernel moves,
+# and the lengthscale starts five times too short.
 
 # %%
 expectation_steps = 20
@@ -1455,13 +1539,18 @@ else:
 #   multiple latent GPs is block diagonal only when the variational family is itself
 #   latent diagonal, and the tied projection has to be re-derived rather than reused
 #   for a multi-output model. `DualVariationalGaussian` targets the scalar case.
-# * **$\beta_i \ge 0$ needs a log-concave likelihood.** Gaussian, Bernoulli, Poisson,
-#   Binomial and Laplace qualify; Student-$t$ and some heteroscedastic likelihoods do
-#   not, and for those the target can push $\boldsymbol{\Lambda}_2$ out of the PSD
-#   cone. The `beta_floor` keyword (default $10^{-8}$) clips $\boldsymbol{\beta}$ from
-#   below, which is a no-op in the log-concave case and a guardrail otherwise. Note
-#   that it clips $\boldsymbol{\beta}$, never $\boldsymbol{\Lambda}_2$: the update
-#   stays affine, so it stays `jit`- and `scan`-safe.
+# * **$\beta_i \ge 0$ needs a log-concave likelihood — as *computed*, not as written.**
+#   Student-$t$ and some heteroscedastic likelihoods are not log-concave at all, and
+#   for those the target can push $\boldsymbol{\Lambda}_2$ out of the PSD cone. Less
+#   obviously, GPJax's Bernoulli joins them in the far tails: `inv_probit` clips its
+#   output into $[10^{-3},\,1-10^{-3}]$, which flattens $\log p$ and makes its second
+#   derivative positive for $f \lesssim -2.44$, so a confidently mislabelled point
+#   yields $\beta_i < 0$. The `beta_floor` keyword (default $10^{-8}$) clips
+#   $\boldsymbol{\beta}$ from below and keeps the step inside the cone. It is *not* a
+#   no-op for Bernoulli — it is what breaks the $\rho=\gamma$ identity on the banana
+#   demo above, by $\sim\!10^{-3}$ in $(\mathbf{m},\mathbf{S})$. Note that it clips
+#   $\boldsymbol{\beta}$, never $\boldsymbol{\Lambda}_2$: the update stays affine, so
+#   it stays `jit`- and `scan`-safe.
 # * **$\rho \in (0,1]$.** The convex-combination guarantee stops at $1$, and beyond it
 #   the step extrapolates past a target that is only locally valid. `fit_natgrads`
 #   rejects a larger constant rate for this family at call time.
@@ -1469,10 +1558,12 @@ else:
 #   everything measured here at the level of $\mathbf{R}$, the moments and the bound,
 #   and visibly not benign entrywise in $\boldsymbol{\Lambda}_2$. Never write a test
 #   against $\boldsymbol{\Lambda}_2$ directly.
-# * **The E-step is not a free lunch.** It is the *same iteration* as the natural
-#   gradient step on $(\mathbf{m},\mathbf{L})$. Whatever the dual parameterisation
-#   buys is either wall-clock per iteration or M-step behaviour; none of it is a
-#   better $q$ at the same $\boldsymbol{\theta}$.
+# * **The E-step is not a free lunch.** Wherever the computed $\beta_i$ stay
+#   non-negative it is the *same iteration* as the natural gradient step on
+#   $(\mathbf{m},\mathbf{L})$, and where they do not the difference is the clip above,
+#   not a better search direction. Whatever the dual parameterisation buys is either
+#   wall-clock per iteration or M-step behaviour; none of it is a better $q$ at the
+#   same $\boldsymbol{\theta}$.
 #
 # For the geometry the E-step is built on — the Fisher identity, mirror descent, the
 # negative-definite cone and the step-size backoff — see the
