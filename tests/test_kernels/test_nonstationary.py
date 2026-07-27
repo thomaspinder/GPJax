@@ -71,10 +71,9 @@ def kernel_request(
     return kernel, params, variance
 
 
-@pytest.mark.parametrize(
-    "kernel, params", [(cls, p) for cls, params in TESTED_KERNELS for p in params]
-)
-@pytest.mark.parametrize("variance", VARIANCES)
+# NOTE: no marks here. `kernel`, `params` and `variance` are supplied by the
+# parametrize marks on each consuming test. Marking a fixture is a no-op and is
+# a hard error from pytest 9.1.
 @pytest.fixture
 def test_init(kernel_request):
     kernel, params, variance = kernel_request
