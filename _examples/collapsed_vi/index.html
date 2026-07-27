@@ -4218,12 +4218,12 @@ full model.</p>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">nmll</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">full_rank_model</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nmll</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>121 ms ± 5.71 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>112 ms ± 4.11 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">nelbo</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">collapsed_elbo</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">D</span><span class="p">))</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="o">%</span><span class="n">timeit</span> <span class="n">nelbo</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>1.27 ms ± 297 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
+<div class="language-text highlight"><pre><span></span><code>1.66 ms ± 735 μs per loop (mean ± std. dev. of 7 runs, 1 loop each)
 </code></pre></div>
 <p>As we can see, the sparse approximation given here is much faster when
 compared against a full-rank model.</p>
