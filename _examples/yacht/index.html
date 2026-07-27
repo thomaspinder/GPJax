@@ -4428,14 +4428,17 @@ model using Scipy.</p>
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="nb">print</span><span class="p">(</span><span class="o">-</span><span class="n">gpx</span><span class="o">.</span><span class="n">objectives</span><span class="o">.</span><span class="n">conjugate_mll</span><span class="p">(</span><span class="n">opt_posterior</span><span class="p">,</span> <span class="n">training_data</span><span class="p">))</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code>Optimization terminated successfully.
+<div class="language-text highlight"><pre><span></span><code>/home/runner/work/GPJax/GPJax/.venv/lib/python3.11/site-packages/scipy/optimize/_minimize.py:779: OptimizeWarning: Desired error not necessarily achieved due to precision loss.
+  res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
+
+
          Current function value: -6.805748
          Iterations: 22
-         Function evaluations: 33
-         Gradient evaluations: 33
+         Function evaluations: 75
+         Gradient evaluations: 63
 
 
--6.805747503876887
+-6.805747503891695
 </code></pre></div>
 <h2 id="prediction">Prediction<a class="headerlink" href="#prediction" title="Permanent link"></a></h2>
 <p>With an optimal set of parameters learned, we can make predictions on the set of
