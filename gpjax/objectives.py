@@ -50,16 +50,16 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
     by $\mathbf{f}=f(\mathbf{x})$ and $\mathbf{f}^{\star}f(\mathbf{x}^{\star})$,
     the marginal log-likelihood is given by:
 
-    ```math
-    \begin{align}
-        \log p(\mathbf{y}) & = \int p(\mathbf{y}\mid\mathbf{f})
-        p(\mathbf{f}, \mathbf{f}^{\star})\mathrm{d}\mathbf{f}^{\star}\\
-        & = 0.5\left(-\mathbf{y}^{\top}\left(k(\mathbf{x}, \mathbf{x}')
-        + \sigma^2\mathbf{I}_N\right)^{-1}\mathbf{y} \right.\\
-        & \quad\left. -\log\lvert k(\mathbf{x}, \mathbf{x}')
-        + \sigma^2\mathbf{I}_N\rvert - n\log 2\pi \right).
-    \end{align}
-    ```
+    .. math::
+
+        \begin{align}
+            \log p(\mathbf{y}) & = \int p(\mathbf{y}\mid\mathbf{f})
+            p(\mathbf{f}, \mathbf{f}^{\star})\mathrm{d}\mathbf{f}^{\star}\\
+            & = 0.5\left(-\mathbf{y}^{\top}\left(k(\mathbf{x}, \mathbf{x}')
+            + \sigma^2\mathbf{I}_N\right)^{-1}\mathbf{y} \right.\\
+            & \quad\left. -\log\lvert k(\mathbf{x}, \mathbf{x}')
+            + \sigma^2\mathbf{I}_N\rvert - n\log 2\pi \right).
+        \end{align}
 
     Example:
         >>> import gpjax as gpx
@@ -85,13 +85,11 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
     Args:
         posterior (ConjugatePosterior): The posterior distribution for which
             we want to compute the marginal log-likelihood.
-        data:: The training dataset used to compute the
+        data: The training dataset used to compute the
             marginal log-likelihood.
 
-    Returns
-    -------
-    ScalarFloat
-        The marginal log-likelihood of the Gaussian process.
+    Returns:
+        ScalarFloat: The marginal log-likelihood of the Gaussian process.
     """
 
     from gpjax.kernels.multioutput.base import MultiOutputKernel
@@ -167,13 +165,11 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
     Args:
         posterior (ConjugatePosterior): The posterior distribution for which
             we want to compute the marginal log-likelihood.
-        data:: The training dataset used to compute the
+        data: The training dataset used to compute the
             marginal log-likelihood.
 
-    Returns
-    -------
-    ScalarFloat
-        The marginal log-likelihood of the Gaussian process.
+    Returns:
+        ScalarFloat: The marginal log-likelihood of the Gaussian process.
     """
 
     x, y = data.X, data.y
@@ -249,10 +245,8 @@ def log_posterior_density(
         data: The training dataset used to compute the
             marginal log-likelihood.
 
-    Returns
-    -------
-    ScalarFloat
-        The log-posterior density of the Gaussian process.
+    Returns:
+        ScalarFloat: The log-posterior density of the Gaussian process.
     """
 
     x, y = data.X, data.y
@@ -319,10 +313,8 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
         data: The training data for which we should maximise the
             ELBO with respect to.
 
-    Returns
-    -------
-    ScalarFloat
-        The evidence lower bound of the variational approximation.
+    Returns:
+        ScalarFloat: The evidence lower bound of the variational approximation.
     """
     # KL[q(f(.)) || p(f(.))]
     kl = variational_family.prior_kl()
@@ -374,11 +366,9 @@ def variational_expectation(
             are using to approximate the posterior.
         data: The batch for which the expectation should be computed for.
 
-    Returns
-    -------
-    Array
-        The expectation of the model's log-likelihood under our variational
-        distribution.
+    Returns:
+        Array: The expectation of the model's log-likelihood under our
+            variational distribution.
     """
     # Unpack training batch
     x, y = data.X, data.y
@@ -443,10 +433,8 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
         data: The training data for which we should maximise the
             ELBO with respect to.
 
-    Returns
-    -------
-    ScalarFloat
-        The evidence lower bound of the variational approximation.
+    Returns:
+        ScalarFloat: The evidence lower bound of the variational approximation.
     """
     # Unpack training data
     x, y, n = data.X, data.y, data.n
@@ -571,3 +559,18 @@ def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
     if likelihood.supports_tight_bound():
         return heteroscedastic_elbo_conjugate(variational_family, data)
     return heteroscedastic_elbo_chained(variational_family, data)
+
+
+__all__ = [
+    "Objective",
+    "collapsed_elbo",
+    "conjugate_loocv",
+    "conjugate_mll",
+    "elbo",
+    "heteroscedastic_elbo",
+    "heteroscedastic_elbo_chained",
+    "heteroscedastic_elbo_conjugate",
+    "log_posterior_density",
+    "non_conjugate_mll",
+    "variational_expectation",
+]

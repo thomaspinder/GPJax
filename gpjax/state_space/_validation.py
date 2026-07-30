@@ -45,12 +45,10 @@ def _validate_temporal_kernel(kernel) -> None:
 def validate_state_space_data(X, y, observation_mask=None) -> None:
     """Validate ``(X, y, observation_mask)`` for state-space inference.
 
-    Raises
-    ------
-    ValueError
-        If ``X`` is not 2-D, has more than one column, has a different length
-        from ``y``, contains non-finite entries, or if ``observation_mask`` has
-        a length mismatch with ``X``.
+    Raises:
+        ValueError: If ``X`` is not 2-D, has more than one column, has a
+            different length from ``y``, contains non-finite entries, or if
+            ``observation_mask`` has a length mismatch with ``X``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4 (Task 7.1).
     """
@@ -100,17 +98,14 @@ def sort_state_space_data(X, y, observation_mask=None):
     by the argsort of ``X``. If the inputs are already sorted, they are
     returned unchanged.
 
-    Parameters
-    ----------
-    X : Float[Array, "num_train 1"]
-    y : Float[Array, "num_train ..."]
-    observation_mask : Bool[Array, "num_train"] | None
+    Args:
+        X (Float[Array, "num_train 1"]):
+        y (Float[Array, "num_train ..."]):
+        observation_mask (Bool[Array, "num_train"] | None):
 
-    Returns
-    -------
-    tuple
-        ``(X_sorted, y_sorted, mask_sorted)`` — the (possibly reordered) triple.
-        ``mask_sorted`` is ``None`` iff the input mask was ``None``.
+    Returns:
+        tuple: ``(X_sorted, y_sorted, mask_sorted)`` — the (possibly reordered)
+            triple. ``mask_sorted`` is ``None`` iff the input mask was ``None``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4 (Task 7.2).
     """

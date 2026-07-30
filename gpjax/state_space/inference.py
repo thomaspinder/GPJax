@@ -133,28 +133,25 @@ def kalman_filter(
     every SDE returns ``(A, L_Q) = (I, 0)`` at ``dt = 0`` and the masked update
     contributes zero log-likelihood.
 
-    Parameters
-    ----------
-    sde : LinearSDE
-        State-space SDE; ``sde.discretise(dt)`` is called per scan step.
-    centred_targets : Float[Array, "num_train"]
-        Targets with the mean function subtracted.
-    time_steps : Float[Array, "num_train"]
-        ``time_steps[0] = 0`` and ``time_steps[i] = t_i - t_{i-1}`` for ``i > 0``.
-    is_observed : Bool[Array, "num_train"]
-        At indices where this is ``False`` the update step is a no-op (predict
-        only). Useful for masked observations.
-    sigma_eff : Float[Array, ""]
-        Effective observation standard deviation.
-    chunk_size : int | None, keyword-only
-        Static chunk length for the inner scan. ``None`` resolves to
-        ``round(sqrt(num_steps))`` (clamped to ``>= 1``). Values larger than
-        ``num_steps`` are clamped to ``num_steps`` (single chunk, no padding).
+    Args:
+        sde (LinearSDE): State-space SDE; ``sde.discretise(dt)`` is called per
+            scan step.
+        centred_targets (Float[Array, "num_train"]): Targets with the mean
+            function subtracted.
+        time_steps (Float[Array, "num_train"]): ``time_steps[0] = 0`` and
+            ``time_steps[i] = t_i - t_{i-1}`` for ``i > 0``.
+        is_observed (Bool[Array, "num_train"]): At indices where this is
+            ``False`` the update step is a no-op (predict only). Useful for
+            masked observations.
+        sigma_eff (Float[Array, ""]): Effective observation standard deviation.
+        chunk_size (int | None, keyword-only): Static chunk length for the inner
+            scan. ``None`` resolves to ``round(sqrt(num_steps))`` (clamped to
+            ``>= 1``). Values larger than ``num_steps`` are clamped to
+            ``num_steps`` (single chunk, no padding).
 
-    Returns
-    -------
-    Float[Array, ""]
-        Scalar marginal log-likelihood ``Σ_i log p(y_i | y_{<i})``.
+    Returns:
+        Float[Array, ""]: Scalar marginal log-likelihood
+            ``Σ_i log p(y_i | y_{<i})``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 2.
     """
@@ -313,7 +310,7 @@ def _sqrt_filter_forward(
 
 
 def rts_smoother(sde, forward_outputs, time_steps):
-    """Square-root RTS smoother.
+    r"""Square-root RTS smoother.
 
     Runs the standard Särkkä & Solin (2019) §10.7 backward recursion on the
     forward filter trajectory. Internally materialises ``P = L @ L.T`` for the
@@ -324,30 +321,27 @@ def rts_smoother(sde, forward_outputs, time_steps):
 
     .. math::
 
-        G_i &= P^{\\text{filt}}_i A_{i+1}^\\top (P^{\\text{pred}}_{i+1})^{-1} \\\\
-        m^{\\text{smooth}}_i &= m^{\\text{filt}}_i + G_i (m^{\\text{smooth}}_{i+1} - m^{\\text{pred}}_{i+1}) \\\\
-        P^{\\text{smooth}}_i &= P^{\\text{filt}}_i + G_i (P^{\\text{smooth}}_{i+1} - P^{\\text{pred}}_{i+1}) G_i^\\top
+        G_i &= P^{\text{filt}}_i A_{i+1}^\top (P^{\text{pred}}_{i+1})^{-1} \\
+        m^{\text{smooth}}_i &= m^{\text{filt}}_i + G_i (m^{\text{smooth}}_{i+1} - m^{\text{pred}}_{i+1}) \\
+        P^{\text{smooth}}_i &= P^{\text{filt}}_i + G_i (P^{\text{smooth}}_{i+1} - P^{\text{pred}}_{i+1}) G_i^\top
 
     The last step has no future, so its smoothed state equals its filtered
     state.
 
-    Parameters
-    ----------
-    sde : LinearSDE
-        State-space SDE used in the forward pass; ``sde.discretise(dt)`` is
-        called once per backward step.
-    forward_outputs : tuple
-        Quadruple ``(means_updated, Ls_updated, means_predicted, Ls_predicted)``
-        as returned by :func:`_sqrt_filter_forward`.
-    time_steps : Float[Array, "num_train"]
-        Same ``time_steps`` that drove the forward pass; ``time_steps[i+1]`` is
-        the inter-step ``dt`` between filtered index ``i`` and predicted index
-        ``i + 1``.
+    Args:
+        sde (LinearSDE): State-space SDE used in the forward pass;
+            ``sde.discretise(dt)`` is called once per backward step.
+        forward_outputs (tuple): Quadruple
+            ``(means_updated, Ls_updated, means_predicted, Ls_predicted)``
+            as returned by :func:`_sqrt_filter_forward`.
+        time_steps (Float[Array, "num_train"]): Same ``time_steps`` that drove
+            the forward pass; ``time_steps[i+1]`` is the inter-step ``dt``
+            between filtered index ``i`` and predicted index ``i + 1``.
 
-    Returns
-    -------
-    smoothed_means : Float[Array, "num_train state_dim"]
-    smoothed_Ls : Float[Array, "num_train state_dim state_dim"]
+    Returns:
+        tuple: ``smoothed_means`` of shape ``Float[Array, "num_train state_dim"]``
+            and ``smoothed_Ls`` of shape
+            ``Float[Array, "num_train state_dim state_dim"]``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 3.
     """

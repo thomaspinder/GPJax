@@ -54,7 +54,6 @@ def fit(
     Optimisers used here should originate from Optax.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -76,7 +75,6 @@ def fit(
         ...     model=posterior, objective=nmll, train_data=D,
         ...     optim=ox.adam(0.01), num_iters=100, verbose=False,
         ... )
-    ```
 
     Args:
         model (Model): The model Module to be optimised.
@@ -168,27 +166,19 @@ def fit_scipy(
     single vector, and passed to ``scipy.optimize.minimize``. Gradients
     are computed via JAX's ``value_and_grad``.
 
-    Parameters
-    ----------
-    model : Module
-        The model to be optimised.
-    objective : Objective
-        The objective function to minimise with respect to the model
-        parameters.
-    train_data : Dataset
-        The training data used to evaluate the objective.
-    max_iters : int
-        Maximum number of L-BFGS-B iterations. Defaults to 500.
-    verbose : bool
-        Whether to print optimisation progress. Defaults to True.
-    safe : bool
-        Whether to validate inputs before optimisation. Defaults to True.
+    Args:
+        model (Module): The model to be optimised.
+        objective (Objective): The objective function to minimise with respect
+            to the model parameters.
+        train_data (Dataset): The training data used to evaluate the objective.
+        max_iters (int): Maximum number of L-BFGS-B iterations. Defaults to 500.
+        verbose (bool): Whether to print optimisation progress. Defaults to True.
+        safe (bool): Whether to validate inputs before optimisation. Defaults to
+            True.
 
-    Returns
-    -------
-    tuple[Module, Array]
-        A tuple of the optimised model and an array of objective values
-        recorded at each iteration.
+    Returns:
+        tuple[Module, Array]: A tuple of the optimised model and an array of
+            objective values recorded at each iteration.
 
     Example:
         >>> import jax
@@ -269,28 +259,21 @@ def fit_lbfgs(
 
     Uses Optax's L-BFGS implementation with a ``jax.lax.while_loop``.
 
-    Parameters
-    ----------
-    model : Module
-        The model to be optimised.
-    objective : Objective
-        The objective function to minimise.
-    train_data : Dataset
-        The training data used to evaluate the objective.
-    max_iters : int
-        Maximum number of L-BFGS iterations. Defaults to 100.
-    safe : bool
-        Whether to validate inputs before optimisation. Defaults to True.
-    max_linesearch_steps : int
-        Maximum number of line-search steps per iteration. Defaults to 32.
-    gtol : float
-        Terminate if the L2 norm of the gradient falls below this
-        threshold. Defaults to 1e-5.
+    Args:
+        model (Module): The model to be optimised.
+        objective (Objective): The objective function to minimise.
+        train_data (Dataset): The training data used to evaluate the objective.
+        max_iters (int): Maximum number of L-BFGS iterations. Defaults to 100.
+        safe (bool): Whether to validate inputs before optimisation. Defaults to
+            True.
+        max_linesearch_steps (int): Maximum number of line-search steps per
+            iteration. Defaults to 32.
+        gtol (float): Terminate if the L2 norm of the gradient falls below this
+            threshold. Defaults to 1e-5.
 
-    Returns
-    -------
-    tuple[Module, Array]
-        A tuple of the optimised model and the final loss value.
+    Returns:
+        tuple[Module, Array]: A tuple of the optimised model and the final loss
+            value.
 
     Example:
         >>> import jax
@@ -397,10 +380,8 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
         >>> from gpjax.fit import get_batch
         >>> batch = get_batch(D, batch_size=16, key=jr.key(0))
 
-    Returns
-    -------
-    Dataset
-        The batched dataset.
+    Returns:
+        Dataset: The batched dataset.
     """
     x, y, n = train_data.X, train_data.y, train_data.n
 

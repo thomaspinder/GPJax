@@ -19,6 +19,8 @@ from dataclasses import (
     dataclass,
     field,
 )
+import os
+import sys
 
 # %%
 from beartype.typing import (
@@ -84,7 +86,16 @@ class Result:
         # since it's used in a lambda function inside the examples
         _globals = globals()
         _globals["gpx"] = gpjax
-        exec(contents, _globals, loc)
+        # The notebooks do `from utils import ...`, which resolves against the
+        # directory they live in (docs/examples/) when Sphinx executes them.
+        # This script runs from the repository root, so put that directory on
+        # sys.path for the duration of the exec.
+        notebook_dir = os.path.dirname(os.path.abspath(self.path))
+        sys.path.insert(0, notebook_dir)
+        try:
+            exec(contents, _globals, loc)
+        finally:
+            sys.path.remove(notebook_dir)
         for k, v in self.comparisons.items():
             truth, op = v
             self._compare(
@@ -94,7 +105,7 @@ class Result:
 
 # %%
 regression = Result(
-    path="examples/regression.py",
+    path="docs/examples/regression.py",
     comparisons={
         "history": (55.07405622, get_last),
         "predictive_mean": (36.24383416, jnp.sum),
@@ -105,7 +116,7 @@ regression.test()
 
 # %%
 sparse = Result(
-    path="examples/collapsed_vi.py",
+    path="docs/examples/collapsed_vi.py",
     comparisons={
         "history": (1924.7634809, get_last),
         "predictive_mean": (-8.39869652, jnp.sum),
@@ -116,7 +127,7 @@ sparse.test()
 
 # %%
 stochastic = Result(
-    path="examples/uncollapsed_vi.py",
+    path="docs/examples/uncollapsed_vi.py",
     comparisons={
         "history": (-2678.41302494, get_last),
         "meanf": (-54.14787028, jnp.sum),
@@ -127,7 +138,7 @@ stochastic.test()
 
 # %%
 heteroscedastic = Result(
-    path="examples/heteroscedastic_inference.py",
+    path="docs/examples/heteroscedastic_inference.py",
     comparisons={
         "history": (-141.590, get_last),
     },

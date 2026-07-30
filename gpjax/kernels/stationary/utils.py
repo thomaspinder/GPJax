@@ -38,8 +38,7 @@ def build_student_t_distribution(
         scale_tril (Float[Array, "D D"]): The scale matrix $\mathrm{diag}(\ell)^{-1}$
             of the measure, as returned by `StationaryKernel._spectral_scale_tril`.
 
-    Returns
-    -------
+    Returns:
         npd.MultivariateStudentT: The spectral measure over $\mathbb{R}^D$.
     """
     return npd.MultivariateStudentT(
@@ -54,8 +53,7 @@ def squared_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloa
         x (Float[Array, " D"]): First input.
         y (Float[Array, " D"]): Second input.
 
-    Returns
-    -------
+    Returns:
         ScalarFloat: The squared distance between the inputs.
     """
     return jnp.sum((x - y) ** 2)
@@ -68,8 +66,7 @@ def euclidean_distance(x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFl
         x (Float[Array, " D"]): First input.
         y (Float[Array, " D"]): Second input.
 
-    Returns
-    -------
+    Returns:
         ScalarFloat: The euclidean distance between the inputs.
     """
     return jnp.sqrt(jnp.maximum(squared_distance(x, y), 1e-36))

@@ -51,7 +51,6 @@ def fit_scipy(
     and uses ``state_space_mll`` as the objective.
 
     Example:
-    ```python
         >>> import jax.numpy as jnp
         >>> import gpjax as gpx
         >>> from gpjax.state_space import StateSpacePrior, fit_scipy
@@ -71,7 +70,6 @@ def fit_scipy(
         ... )
         >>> bool(jnp.all(jnp.isfinite(history)))
         True
-    ```
     """
     sorted_data, sorted_mask = _prepare_data(train_data, observation_mask)
     objective = _make_objective(sorted_mask)
@@ -98,7 +96,6 @@ def fit_lbfgs(
     Thin wrapper around ``gpx.fit_lbfgs``.
 
     Example:
-    ```python
         >>> import jax.numpy as jnp
         >>> import gpjax as gpx
         >>> from gpjax.state_space import StateSpacePrior, fit_lbfgs
@@ -117,7 +114,6 @@ def fit_lbfgs(
         ... )
         >>> fitted is not None
         True
-    ```
     """
     sorted_data, sorted_mask = _prepare_data(train_data, observation_mask)
     objective = _make_objective(sorted_mask)
@@ -151,7 +147,6 @@ def fit(
     minibatched without breaking the Markov chain).
 
     Example:
-    ```python
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> import optax as ox
@@ -175,7 +170,6 @@ def fit(
         ... )
         >>> bool(jnp.all(jnp.isfinite(history)))
         True
-    ```
     """
     if batch_size != -1:
         raise ValueError(

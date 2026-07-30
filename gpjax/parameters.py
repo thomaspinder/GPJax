@@ -171,3 +171,13 @@ class CoregionalizationMatrix(eqx.Module):
             else self.kappa
         )
         return w @ w.T + jnp.diag(k)
+
+
+__all__ = [
+    "CoregionalizationMatrix",
+    "LowerTriangular",
+    "NonNegativeReal",
+    "PositiveReal",
+    "Real",
+    "SigmoidBounded",
+]

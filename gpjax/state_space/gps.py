@@ -28,7 +28,6 @@ class StateSpacePrior(Prior):
     ``gpjax.gps.ConjugatePosterior`` predictive.
 
     Example:
-    ```python
         >>> import gpjax as gpx
         >>> from gpjax.state_space import StateSpacePrior
         >>> prior = StateSpacePrior(
@@ -37,7 +36,6 @@ class StateSpacePrior(Prior):
         ... )
         >>> isinstance(prior.kernel, gpx.kernels.Matern32)
         True
-    ```
     """
 
     def __call__(self, test_inputs, *, return_covariance_type="diagonal"):
@@ -77,6 +75,7 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
       - ``predict``        : smoothed-latent prediction (Phase 10)
       - ``predict_filter`` : causal filtered prediction (Phase 10)
       - ``__call__``       : delegates to ``predict``
+
     Both ``predict`` and ``predict_filter`` reject ``return_covariance_type="dense"``
     in favour of v1's diagonal-only contract before any further dispatch.
 
@@ -87,7 +86,6 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
     ``gpjax.gps.ConjugatePosterior`` predictive.
 
     Example:
-    ```python
         >>> import gpjax as gpx
         >>> from gpjax.state_space import StateSpacePrior
         >>> prior = StateSpacePrior(
@@ -98,7 +96,6 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
         >>> posterior = prior * likelihood
         >>> posterior.__class__.__name__
         'StateSpaceConjugatePosterior'
-    ```
     """
 
     def __call__(

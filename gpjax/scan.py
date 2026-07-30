@@ -101,8 +101,7 @@ def vscan(
         log_rate (int): The rate at which to log the progress bar.
         log_value (bool): Whether to log the value of the objective function.
 
-    Returns
-    -------
+    Returns:
         Tuple[Carry, list[Y]]: A tuple of the final carry and the outputs.
     """
     _xs_flat = jtu.tree_leaves(xs)

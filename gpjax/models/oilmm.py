@@ -39,8 +39,10 @@ class OrthogonalMixingMatrix(eqx.Module):
     - H = U S^(1/2) is the mixing matrix
     - T = S^(-1/2) U^T is the projection matrix
 
-    The orthogonality of U ensures that the projected noise is diagonal:
+    The orthogonality of U ensures that the projected noise is diagonal::
+
         Sigma_T = T Sigma T^T = sigma^2 S^(-1) + D
+
     where sigma^2 is observation noise and D is latent noise.
 
     Attributes:
@@ -135,8 +137,10 @@ class OrthogonalMixingMatrix(eqx.Module):
     def H_squared(self) -> Float[Array, "P M"]:
         """Element-wise H^2 for fast diagonal variance reconstruction.
 
-        When computing marginal variances, we need H^2 @ latent_vars:
+        When computing marginal variances, we need H^2 @ latent_vars::
+
             var_p = sum_m H^2_pm * var_m
+
         This property caches H^2 to avoid recomputation.
         """
         return self.H**2
@@ -164,13 +168,16 @@ class OILMMModel(eqx.Module):
     GP problems by using an orthogonal mixing matrix. This achieves O(n^3 m)
     complexity instead of O(n^3 m^3).
 
-    The generative model is:
+    The generative model is::
+
         x_i ~ GP(0, K(t,t'))          for i=1..M (latent GPs)
         f(t) = H x(t)                  (mixing)
         y | f ~ N(f(t), Sigma)         (noise: Sigma = sigma^2 I + H D H^T)
 
-    The orthogonality constraint (U^T U = I) ensures the projected noise is diagonal:
+    The orthogonality constraint (U^T U = I) ensures the projected noise is diagonal::
+
         Sigma_T = T Sigma T^T = sigma^2 S^(-1) + D
+
     enabling independent inference for each latent GP.
 
     Attributes:

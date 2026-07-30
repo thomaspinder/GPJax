@@ -44,9 +44,9 @@ install our `pre-commit hooks`, `commit` and `push` your code.
 **New to this?** Don't panic, our [guide](#step-by-step-guide) below will walk
 you through every detail!
 
-!!! attention "Note"
-
-    Before opening a pull request we recommend you check our [pull request checklist](#pull-request-checklist).
+:::{note}
+Before opening a pull request we recommend you check our [pull request checklist](#pull-request-checklist).
+:::
 
 
 ### Step-by-step guide:

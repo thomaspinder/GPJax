@@ -1,0 +1,87 @@
+name: Full Notebook Render
+
+# Ported from impulso's ../impulso/.github/workflows/full-render-notebooks.yml.
+# The PR gate renders notebooks in smoke mode, so nothing else exercises the
+# example suite at full fidelity between deploys. This does, on a schedule, and
+# opens an issue when it breaks.
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Sunday 02:00 UTC
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  full-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install docs dependencies
+        run: uv sync --frozen --extra docs
+
+      - name: Register Jupyter kernel
+        run: uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
+
+      - name: Restore notebook execution cache
+        # Same accumulate-always cache as build_docs.yml: the Sunday full render
+        # warms `.jupyter_cache`, so the next production deploy reuses real
+        # figures instead of re-executing every notebook (or erroring out).
+        uses: actions/cache@v6
+        with:
+          path: |
+            docs/_build/.jupyter_cache
+            docs/_build/.jupyter_cache_ci
+          key: jupyter-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            jupyter-cache-
+
+      - name: Full render (all example notebooks, warnings as errors)
+        run: uv run --extra docs sphinx-build -W --keep-going -b html docs docs/_build/html
+
+  open-issue-on-failure:
+    runs-on: ubuntu-latest
+    needs: full-render
+    if: failure()
+    steps:
+      - name: Open GitHub issue
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const title = `Notebook full render failed (${context.runNumber})`;
+            const body = [
+              '## Full notebook render failed',
+              '',
+              `**Workflow run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Trigger:** ${context.eventName}`,
+              `**Date:** ${new Date().toISOString().split('T')[0]}`,
+              '',
+              'One or more example notebooks failed to render at full fidelity.',
+              'Check the workflow logs for details.',
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['ci', 'examples'],
+            });

@@ -1,119 +1,19 @@
-:root {
-  --md-primary-fg-color: #b71c1c !important;
-  --md-primary-600: #b71c1c !important;
-  --md-primary-700: #9b1a1a !important;
-  --md-accent-fg-color: #d32f2f !important;
-}
-
-/* Top header and navigation background */
-.md-header, .md-header__panel, .md-header__inner, header.md-header {
-  background-color: var(--md-primary-600) !important;
-  color: #fff !important;
-  border-color: var(--md-primary-700) !important;
-}
-
-.md-nav__link--active, .md-nav__link:hover, .md-nav__link:focus {
-  background: transparent !important;
-  color: #d32f2f;
-}
-
-html {
-    /* Decrease font size for overall webpage
-       Down from 137.5% which is the Material default */
-    font-size: 130%;
-}
-
-.md-typeset .admonition {
-    /* Increase font size in admonitions */
-    font-size: 90% !important;
-}
-
-.md-typeset details {
-    /* Increase font size in details */
-    font-size: 120% !important;
-}
-
-.md-typeset h1 {
-    font-size: 1.7rem;
-}
-
-.md-typeset h2 {
-    font-size: 1.6rem;
-}
-
-.md-typeset h3 {
-    font-size: 1.4rem;
-}
-
-.md-typeset h4 {
-    font-size: 1.2rem;
-}
-
-.md-typeset h5 {
-    font-size: 1rem;
-}
-
-.md-typeset h6 {
-    font-size: 0.9rem;
-}
-
+/* GPJax docs overrides for the shibuya theme.
+ *
+ * Everything here is a survivor of the old mkdocs-material `extra.css`; the
+ * ~110 lines that targeted `.md-*` classes, the Material colour variables and
+ * the `permalinks.css` headerlink mask are all Material-only and were dropped
+ * with the theme. Shibuya's `accent_color = "crimson"` covers the palette that
+ * `--md-primary-fg-color` used to force. */
 
 :root {
-    --md-admonition-icon--see-also: url(https://raw.githubusercontent.com/squidfunk/mkdocs-material/master/material/.icons/fontawesome/solid/circle-info.svg)
-  }
-
-.md-typeset .admonition.see-also,
-.md-typeset details.see-also {
-    border-color: rgb(43, 155, 70);
-  }
-.md-typeset .see-also > .admonition-title,
-.md-typeset .see-also > summary {
-    background-color: rgba(43, 155, 70, 0.1);
-  }
-.md-typeset .see-also > .admonition-title::before,
-.md-typeset .see-also > summary::before {
-    background-color: rgb(43, 155, 70);
-    -webkit-mask-image: var(--md-admonition-icon--see-also);
-            mask-image: var(--md-admonition-icon--see-also);
-  }
-
-/* More space at the bottom of the page. */
-.md-main__inner {
-    margin-bottom: 1.5rem;
-  }
-
-/* Indentation */
-/* This makes the documentation much more readable */
-div.doc-contents:not(.first) {
-  padding-left: 25px;
-  border-left: 4px solid rgba(230, 230, 230);
-  margin-bottom: 80px;
+    /* GPJax brand crimson. shibuya's accent_color picks the nearest radix ramp;
+       this pins the exact hex for the pieces we style by hand. */
+    --gpjax-brand: #b71c1c;
+    --linkcolor: var(--gpjax-brand);
 }
 
-/* prevent selection of chevron in example blocks
- * cf. https://mkdocstrings.github.io/recipes/#prevent-selection-of-prompts-and-output-in-python-code-blocks
- */
- .highlight .gp, .highlight .go { /* Generic.Prompt, Generic.Output */
-  user-select: none;
-}
-
-.language-pycon .gp, .language-pycon .go { /* Generic.Prompt, Generic.Output */
-  user-select: none;
-}
-
-/* Centers all PNG images in markdown files */
-img[src$=".png"] {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* Consulting call-to-action block, appended to the homepage and each
-   tutorial/experimental notebook by docs/scripts/gen_examples.py. */
-:root {
-    --linkcolor: #870d14;
-}
-
+/* Consulting call-to-action block on the landing page. */
 .consulting-cta {
     margin: 1.5rem 0;
     padding: 0.75rem 1rem;
@@ -127,9 +27,21 @@ img[src$=".png"] {
     margin: 0;
 }
 
-/* Maximum space for text block */
-/* .md-grid {
-  max-width: 65%; /* or 100%, if you want to stretch to full-width */
-/* }
+.consulting-cta a {
+    color: var(--linkcolor);
+    font-weight: 600;
+}
 
+/* Centre PNG figures, as the mkdocs stylesheet did. */
+img[src$=".png"] {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
 
+/* Prevent selection of the >>> prompt and its output in doctest blocks.
+ * cf. https://mkdocstrings.github.io/recipes/#prevent-selection-of-prompts-and-output-in-python-code-blocks */
+.highlight .gp,
+.highlight .go {
+    user-select: none;
+}

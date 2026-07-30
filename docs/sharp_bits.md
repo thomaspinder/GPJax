@@ -102,21 +102,21 @@ updates while keeping its value available at evaluation time.
 
 ## Positive-definiteness
 
-> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Highman, Accuracy and stability of numerical algorithms [@higham2022accuracy]
+> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Highman, Accuracy and stability of numerical algorithms {cite:p}`higham2022accuracy`
 
 ### Why is positive-definiteness important?
 
 The Gram matrix of a kernel, a concept that we explore more in our
-[kernels notebook](_examples/constructing_new_kernels.md). As such, we
+[kernels notebook](examples/constructing_new_kernels.py). As such, we
 have a range of tools at our disposal to make subsequent operations on the covariance
 matrix faster. One of these tools is the Cholesky factorisation that uniquely decomposes
 any symmetric positive-definite matrix $\mathbf{\Sigma}$ by
 
-```math
+$$
 \begin{align}
     \mathbf{\Sigma} = \mathbf{L}\mathbf{L}^{\top}\,,
 \end{align}
-```
+$$
 where $\mathbf{L}$ is a lower triangular matrix.
 
 We make use of this result in GPJax when solving linear systems of equations of the
@@ -128,22 +128,22 @@ $\boldsymbol{y} \sim \mathcal{N}(f(\boldsymbol{x}), \sigma^2\mathbf{I})$ with $f
 Gaussian process prior and Gram matrix $\mathbf{K}_{\boldsymbol{xx}}$ at the inputs
 $\boldsymbol{x}$. Here the marginal log-likelihood comprises the following form
 
-```math
+$$
 \begin{align}
     \log p(\boldsymbol{y}) = 0.5\left(-\boldsymbol{y}^{\top}\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}\boldsymbol{y} -\log\lvert \mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I}\rvert -n\log(2\pi)\right) ,
 \end{align}
-```
+$$
 
 and the goal of inference is to maximise kernel hyperparameters (contained in the Gram
 matrix $\mathbf{K}_{\boldsymbol{xx}}$) and likelihood hyperparameters (contained in the
 noise covariance $\sigma^2\mathbf{I}$). Computing the marginal log-likelihood (and its
 gradients), draws our attention to the term
 
-```math
+$$
 \begin{align}
     \underbrace{\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}}_{\mathbf{A}}\boldsymbol{y},
 \end{align}
-```
+$$
 
 then we can see a solution can be obtained by solving the corresponding system of
 equations. By working with $\mathbf{L} = \operatorname{chol}{\mathbf{A}}$ instead of
@@ -173,25 +173,25 @@ for some problems, this amount may need to be increased.
 ## Slow-to-evaluate
 
 Famously, a regular Gaussian process model (as detailed in
-[our regression notebook](_examples/regression.md)) will scale cubically in the number of data points.
+[our regression notebook](examples/regression.py)) will scale cubically in the number of data points.
 Consequently, if you try to fit your Gaussian process model to a data set containing more
 than several thousand data points, then you will likely incur a significant
 computational overhead. In such cases, we recommend using Sparse Gaussian processes to
 alleviate this issue.
 
 When the data contains less than around 50000 data points, we recommend using
-the collapsed evidence lower bound objective [@titsias2009] to optimise the parameters
+the collapsed evidence lower bound objective {cite:p}`titsias2009` to optimise the parameters
 of your sparse Gaussian process model. Such a model will scale linearly in the number of
 data points and quadratically in the number of inducing points. We demonstrate its use
-in [our sparse regression notebook](_examples/collapsed_vi.md).
+in [our sparse regression notebook](examples/collapsed_vi.py).
 
 For data sets exceeding 50000 data points, even the sparse Gaussian process outlined
 above will become computationally infeasible. In such cases, we recommend using the
-uncollapsed evidence lower bound objective [@hensman2013gaussian] that allows stochastic
+uncollapsed evidence lower bound objective {cite:p}`hensman2013gaussian` that allows stochastic
 mini-batch optimisation of the parameters of your sparse Gaussian process model. Such a
 model will scale linearly in the batch size and quadratically in the number of inducing
 points. We demonstrate its use in
-[our sparse stochastic variational inference notebook](_examples/uncollapsed_vi.md).
+[our sparse stochastic variational inference notebook](examples/uncollapsed_vi.py).
 
 ## JIT compilation
 

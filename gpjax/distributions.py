@@ -52,26 +52,23 @@ class GaussianDistribution(Distribution):
     :math:`\mathbf{\Sigma}` is represented by the ``scale``
     ``lx.AbstractLinearOperator``.
 
-    Parameters
-    ----------
-    loc : Float[Array, " N"]
-        Mean vector of the distribution.
-    scale : lx.AbstractLinearOperator
-        Covariance matrix represented as a Lineax linear operator (e.g.
-        ``lx.MatrixLinearOperator`` or ``lx.DiagonalLinearOperator``).
+    Args:
+        loc (Float[Array, " N"]): Mean vector of the distribution.
+        scale (lx.AbstractLinearOperator): Covariance matrix represented as a
+            Lineax linear operator (e.g. ``lx.MatrixLinearOperator`` or
+            ``lx.DiagonalLinearOperator``).
 
-    Examples
-    --------
-    >>> import jax.numpy as jnp
-    >>> import lineax as lx
-    >>> from gpjax.distributions import GaussianDistribution
-    >>> mu = jnp.array([0.0, 1.0])
-    >>> cov = lx.MatrixLinearOperator(jnp.eye(2))
-    >>> dist = GaussianDistribution(loc=mu, scale=cov)
-    >>> dist.mean  # doctest: +SKIP
-    Array([0., 1.], dtype=float32)
-    >>> dist.variance  # doctest: +SKIP
-    Array([1., 1.], dtype=float32)
+    Examples:
+        >>> import jax.numpy as jnp
+        >>> import lineax as lx
+        >>> from gpjax.distributions import GaussianDistribution
+        >>> mu = jnp.array([0.0, 1.0])
+        >>> cov = lx.MatrixLinearOperator(jnp.eye(2))
+        >>> dist = GaussianDistribution(loc=mu, scale=cov)
+        >>> dist.mean  # doctest: +SKIP
+        Array([0., 1.], dtype=float32)
+        >>> dist.variance  # doctest: +SKIP
+        Array([1., 1.], dtype=float32)
     """
 
     support = constraints.real_vector
@@ -100,18 +97,14 @@ class GaussianDistribution(Distribution):
 
         where :math:`\mathbf{L}` is the lower Cholesky factor of the covariance.
 
-        Parameters
-        ----------
-        key : KeyArray
-            JAX PRNG key.
-        sample_shape : tuple of int, optional
-            Leading batch dimensions for the samples. Defaults to ``()``,
-            returning a single sample.
+        Args:
+            key (KeyArray): JAX PRNG key.
+            sample_shape (tuple of int, optional): Leading batch dimensions for
+                the samples. Defaults to ``()``, returning a single sample.
 
-        Returns
-        -------
-        Float[Array, "... N"]
-            Array of samples with shape ``(*sample_shape, N)``.
+        Returns:
+            Float[Array, "... N"]: Array of samples with shape
+                ``(*sample_shape, N)``.
         """
         assert is_prng_key(key)
         # Obtain covariance root.
@@ -148,10 +141,8 @@ class GaussianDistribution(Distribution):
 
             H[p] = \tfrac{1}{2}\bigl(N(1 + \ln 2\pi) + \ln|\mathbf{\Sigma}|\bigr)
 
-        Returns
-        -------
-        ScalarFloat
-            Entropy in nats.
+        Returns:
+            ScalarFloat: Entropy in nats.
         """
         return 0.5 * (
             self.event_shape[0] * (1.0 + jnp.log(2.0 * jnp.pi)) + logdet(self.scale)
@@ -168,10 +159,8 @@ class GaussianDistribution(Distribution):
     def covariance(self) -> Float[Array, "N N"]:
         r"""Materialises the full covariance matrix as a dense array.
 
-        Returns
-        -------
-        Float[Array, "N N"]
-            Dense covariance matrix.
+        Returns:
+            Float[Array, "N N"]: Dense covariance matrix.
         """
         return self.scale.as_matrix()
 
@@ -196,15 +185,11 @@ class GaussianDistribution(Distribution):
                   (\mathbf{y} - \boldsymbol{\mu})
             \bigr]
 
-        Parameters
-        ----------
-        y : Float[Array, " N"]
-            Point at which to evaluate the log-density.
+        Args:
+            y (Float[Array, " N"]): Point at which to evaluate the log-density.
 
-        Returns
-        -------
-        ScalarFloat
-            Log probability.
+        Returns:
+            ScalarFloat: Log probability.
         """
         mu = self.loc
         sigma = self.scale
@@ -231,15 +216,11 @@ class GaussianDistribution(Distribution):
         Computes :math:`\operatorname{KL}[q \| p]` where ``self`` is *q* and
         ``other`` is *p*.
 
-        Parameters
-        ----------
-        other : GaussianDistribution
-            The reference distribution *p*.
+        Args:
+            other (GaussianDistribution): The reference distribution *p*.
 
-        Returns
-        -------
-        ScalarFloat
-            KL divergence in nats.
+        Returns:
+            ScalarFloat: KL divergence in nats.
         """
         return _kl_divergence(self, other)
 

@@ -20,11 +20,13 @@ or with [conda](https://docs.conda.io/projects/conda/):
 conda install --channel conda-forge gpjax
 ```
 
-!!! note "Check your installation"
-    We recommend you check your installation version:
-    ```
-    python -c 'import gpjax; print(gpjax.__version__)'
-    ```
+:::{note} Check your installation
+We recommend you check your installation version:
+
+```bash
+python -c 'import gpjax; print(gpjax.__version__)'
+```
+:::
 
 ## GPU/TPU support
 
@@ -35,27 +37,29 @@ hardware acceleration support as detailed in the
 
 ## Development version
 
-!!! warning
-    This version is possibly unstable and may contain bugs.
+:::{warning}
+This version is possibly unstable and may contain bugs.
 
-    The latest development version of `GPJax` can be installed via running following:
+The latest development version of `GPJax` can be installed via running following:
 
-    ```bash
-    git clone https://github.com/thomaspinder/GPJax.git
-    cd GPJax
-    uv sync
-    ```
+```bash
+git clone https://github.com/thomaspinder/GPJax.git
+cd GPJax
+uv sync
+```
+:::
 
-!!! tip
-    We advise you create virtual environment before installing:
+:::{tip}
+We advise you create virtual environment before installing:
 
-    ```bash
-    conda create -n gpjax_experimental python=3.11.0
-    conda activate gpjax_experimental
-    ```
+```bash
+conda create -n gpjax_experimental python=3.11.0
+conda activate gpjax_experimental
+```
 
-    and recommend you check your installation passes the supplied unit tests:
+and recommend you check your installation passes the supplied unit tests:
 
-    ```bash
-    uv run poe all-tests
-    ```
+```bash
+uv run poe all-tests
+```
+:::

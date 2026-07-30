@@ -38,7 +38,7 @@ tril = jnp.linalg.cholesky(dist.covariance_matrix)
 
 `gpjax.state_space` is a new, opt-in sub-package — importing or upgrading does
 not change any existing behaviour. See the
-[State-Space GPs example](_examples/state_space_gps.md) to get started.
+[State-Space GPs example](examples/state_space_gps.py) to get started.
 
 ---
 

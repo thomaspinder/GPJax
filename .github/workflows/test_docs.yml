@@ -1,77 +1,72 @@
 name: Test documentation
 
+# Pull-request docs gate: the smoke half of impulso's `build-docs` conditional
+# (../impulso/.github/workflows/main.yml). Fast render, warnings as errors.
 on:
   pull_request:
 
+# No `pages: write` / `id-token: write`: this workflow must never be able to
+# touch GitHub Pages. See the artifact step below.
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-docs:
-    # Functionality for testing documentation builds on multiple OSes and Python versions
-    name: Build docs
-    runs-on: "ubuntu-latest"
+    name: Build docs (smoke render)
     timeout-minutes: 45
-    concurrency:
-      group: ${{ github.head_ref }}
-      cancel-in-progress: true
-    defaults:
-      run:
-        shell: bash -l {0}
-
+    runs-on: ubuntu-latest
     steps:
-      # Grap the latest commit from the branch
-      - name: Checkout the branch
+      - name: Check out the code
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # Create a virtual environment
-      - name: create Conda environment
-        uses: conda-incubator/setup-miniconda@v4
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
-          auto-update-conda: true
           python-version: "3.11"
-          miniforge-version: "latest"
 
-      # Install uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Build the documentation with MKDocs
-        run: |
-          conda install pandoc
-          uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute
-          uv run mkdocs build
+      - name: Install docs dependencies
+        run: uv sync --frozen --extra docs
 
-      - name: Upload built docs artifact
+      - name: Register Jupyter kernel
+        run: uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
+
+      - name: Restore notebook execution cache
+        # Same accumulate-always cache as build_docs.yml: a unique key per run so
+        # actions/cache always re-saves, with restore-keys picking up the newest
+        # previous cache. Both directories are carried because the smoke and full
+        # renders keep separate jupyter-cache stores.
+        uses: actions/cache@v6
+        with:
+          path: |
+            docs/_build/.jupyter_cache
+            docs/_build/.jupyter_cache_ci
+          key: jupyter-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            jupyter-cache-
+
+      - name: Build documentation (smoke render, warnings as errors)
+        run: uv run poe docs-ci
+
+      - name: Upload smoke-render artifact for PR review
+        # Plain artifact, downloadable from the run page. NEVER a Pages
+        # artifact, and never actions/deploy-pages: GitHub Pages "preview"
+        # deployments are unsupported on this plan and silently deploy to the
+        # production URL, so the job that used to live here was replacing the
+        # published docs with a PR's smoke render.
         uses: actions/upload-artifact@v7
         with:
-          name: docs-site-html
-          path: site
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
-
-  deploy-docs-preview:
-    needs: test-docs
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: docs-preview
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy MkDocs preview
-        id: deployment
-        uses: actions/deploy-pages@v5
-        with:
-          preview: true
+          name: docs-smoke-render
+          path: docs/_build/html
+          retention-days: 7
