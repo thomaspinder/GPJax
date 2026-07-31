@@ -193,13 +193,11 @@ fig.colorbar(im3, ax=ax[3], fraction=0.05)
 # Roustant (2015)](https://hal.inria.fr/hal-01119942v1) where any two angles
 # $\theta$ and $\theta'$ are written as
 #
-# $$
-# \begin{align}
+# \begin{align*}
 # W_c(\theta, \theta') & = \left\lvert
 # \left(1 + \tau \frac{d(\theta, \theta')}{c} \right) \left(1 - \frac{d(\theta,
 # \theta')}{c} \right)^{\tau} \right\rvert \quad \tau \geq 4 \tag{1}.
-# \end{align}
-# $$
+# \end{align*}
 #
 # Here the hyperparameter $\tau$ is analogous to a lengthscale for Euclidean
 # stationary kernels, controlling the correlation between pairs of observations.

@@ -36,12 +36,12 @@
 # $\mathbf{x} = \{x_n\}_{n=1}^N$. The evaluation of $f$ at $\mathbf{x}$ is denoted by
 # $\mathbf{f} = \{f(x_n)\}_{n=1}^N$. The _likelihood function_ of the GP is then given
 # by
-# $$
-# \begin{align}
-#     \label{eq:likelihood_fn}
-#     p(\mathbf{y}\mid \mathbf{f}) = \prod_{n=1}^N p(y_n\mid f(x_n))\,.
-# \end{align}
-# $$
+# ```{math}
+# :label: eq-likelihood-fn
+#
+# p(\mathbf{y}\mid \mathbf{f}) = \prod_{n=1}^N p(y_n\mid f(x_n))\,.
+# ```
+#
 # Conceptually, this conditional distribution describes the probability of the observed
 # data, conditional on the latent function values.
 #
@@ -104,7 +104,7 @@ ax.legend()
 # range between $-1$ and $1$, subject to Gaussian noise. Due to this, a Gaussian
 # likelihood is appropriate for this dataset as it allows for negative values.
 #
-# As we see in \eqref{eq:likelihood_fn}, the likelihood function factorises over the
+# As we see in {eq}`eq-likelihood-fn`, the likelihood function factorises over the
 # $n$ observations. As such, we must provide this information to GPJax when
 # instantiating a likelihood object. We do this by specifying the `num_datapoints`
 # argument.
@@ -225,22 +225,18 @@ for ax in axes.ravel():
 # [stochastic variational Gaussian process](uncollapsed_vi.py) in the ELBO term. For a
 # variational approximation $q(f)= \mathcal{N}(f\mid m, S)$, the ELBO can be written as
 #
-# $$
-# \begin{align}
+# \begin{align*}
 #     \mathcal{L}(q) = \mathbb{E}_{f\sim q(f)}\left[ p(\mathbf{y}\mid f)\right] - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
-# \end{align}
-# $$
+# \end{align*}
 #
 # As both $q(f)$ and $p(f)$ are Gaussian distributions, the Kullback-Leibler term can
 # be analytically computed. However, the expectation term is not always so easy to
 # compute. Fortunately, the bound in \eqref{eq:elbo} can be decomposed as a sum of the
 # datapoints
 #
-# $$
-# \begin{align}
+# \begin{align*}
 #     \mathcal{L}(q) = \sum_{n=1}^N \mathbb{E}_{f\sim q(f)}\left[ p(y_n\mid f)\right] - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
-# \end{align}
-# $$
+# \end{align*}
 #
 # This simplifies computation of the expectation as it is now a series of $N$
 # 1-dimensional integrals. As such, GPJax by default uses quadrature to compute these

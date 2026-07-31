@@ -112,11 +112,9 @@ have a range of tools at our disposal to make subsequent operations on the covar
 matrix faster. One of these tools is the Cholesky factorisation that uniquely decomposes
 any symmetric positive-definite matrix $\mathbf{\Sigma}$ by
 
-$$
-\begin{align}
+\begin{align*}
     \mathbf{\Sigma} = \mathbf{L}\mathbf{L}^{\top}\,,
-\end{align}
-$$
+\end{align*}
 where $\mathbf{L}$ is a lower triangular matrix.
 
 We make use of this result in GPJax when solving linear systems of equations of the
@@ -128,22 +126,18 @@ $\boldsymbol{y} \sim \mathcal{N}(f(\boldsymbol{x}), \sigma^2\mathbf{I})$ with $f
 Gaussian process prior and Gram matrix $\mathbf{K}_{\boldsymbol{xx}}$ at the inputs
 $\boldsymbol{x}$. Here the marginal log-likelihood comprises the following form
 
-$$
-\begin{align}
+\begin{align*}
     \log p(\boldsymbol{y}) = 0.5\left(-\boldsymbol{y}^{\top}\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}\boldsymbol{y} -\log\lvert \mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I}\rvert -n\log(2\pi)\right) ,
-\end{align}
-$$
+\end{align*}
 
 and the goal of inference is to maximise kernel hyperparameters (contained in the Gram
 matrix $\mathbf{K}_{\boldsymbol{xx}}$) and likelihood hyperparameters (contained in the
 noise covariance $\sigma^2\mathbf{I}$). Computing the marginal log-likelihood (and its
 gradients), draws our attention to the term
 
-$$
-\begin{align}
+\begin{align*}
     \underbrace{\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}}_{\mathbf{A}}\boldsymbol{y},
-\end{align}
-$$
+\end{align*}
 
 then we can see a solution can be obtained by solving the corresponding system of
 equations. By working with $\mathbf{L} = \operatorname{chol}{\mathbf{A}}$ instead of

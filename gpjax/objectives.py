@@ -52,14 +52,14 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
 
     .. math::
 
-        \begin{align}
+        \begin{aligned}
             \log p(\mathbf{y}) & = \int p(\mathbf{y}\mid\mathbf{f})
             p(\mathbf{f}, \mathbf{f}^{\star})\mathrm{d}\mathbf{f}^{\star}\\
             & = 0.5\left(-\mathbf{y}^{\top}\left(k(\mathbf{x}, \mathbf{x}')
             + \sigma^2\mathbf{I}_N\right)^{-1}\mathbf{y} \right.\\
             & \quad\left. -\log\lvert k(\mathbf{x}, \mathbf{x}')
             + \sigma^2\mathbf{I}_N\rvert - n\log 2\pi \right).
-        \end{align}
+        \end{aligned}
 
     Example:
         >>> import gpjax as gpx

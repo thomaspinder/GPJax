@@ -196,10 +196,10 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
         .. math::
 
-            \begin{align}
+            \begin{aligned}
             \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
             & = \operatorname{KL}[ \mathcal{N}(\mu, S) \mid\mid N(\mu z, \mathbf{K}_{zz}) ],
-            \end{align}
+            \end{aligned}
 
         where $u = f(z)$ and $z$ are the inducing inputs.
 
@@ -395,10 +395,10 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
 
         .. math::
 
-            \begin{align}
+            \begin{aligned}
             \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
                 & = \operatorname{KL}[N(\mu  , S)\mid\mid N(0, I)].
-            \end{align}
+            \end{aligned}
 
         Against a standard normal prior the divergence has a closed form that
         needs no matrix factorisation at all. Writing $S = LL^{\top}$ for the
@@ -536,10 +536,10 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
 
         .. math::
 
-            \begin{align}
+            \begin{aligned}
             \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)] \\
                 & = \operatorname{KL}[N(\mu, S)\mid\mid N(mz, \mathbf{K}_{zz})],
-            \end{align}
+            \end{aligned}
 
         with $\mu$ and $S$ computed from the natural parameterisation $\theta  = (S^{-1}\mu  , -S^{-1}/2)$.
 
@@ -710,10 +710,10 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
 
         .. math::
 
-            \begin{align}
+            \begin{aligned}
             \operatorname{KL}(q(f(\cdot))\mid\mid p(\cdot)) & = \operatorname{KL}(q(u)\mid\mid p(u)) \\
                 & =\operatorname{KL}(\mathcal{N}(\mu, S)\mid\mid \mathcal{N}(m_z, K_{zz})),
-            \end{align}
+            \end{aligned}
 
         where $\mu$ and $S$ are the expectation parameters of the variational
         distribution and $m_z$ and $K_{zz}$ are the mean and covariance of the prior
