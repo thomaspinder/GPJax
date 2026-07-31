@@ -16,7 +16,9 @@ concurrency:
 
 jobs:
   test-docs:
-    name: Build docs (smoke render)
+    # Name must stay "Build docs" — it is a required status check in main's
+    # branch protection, which matches on the job's display name.
+    name: Build docs
     timeout-minutes: 45
     runs-on: ubuntu-latest
     steps:
