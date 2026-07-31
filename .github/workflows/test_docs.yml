@@ -68,6 +68,33 @@ jobs:
       - name: Build documentation (smoke render, warnings as errors)
         run: uv run poe docs-ci
 
+      - name: Resolve the Playwright version
+        # The browser build is tied to the Python package version, so that is
+        # what the cache must be keyed on. Re-downloading Chromium on every run
+        # costs ~30s and a few hundred MB of bandwidth.
+        id: playwright
+        run: |
+          echo "version=$(uv run --extra docs python -c 'from importlib.metadata import version; print(version("playwright"))')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Playwright browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium for Playwright
+        # `--with-deps` installs the shared libraries Chromium needs on the
+        # runner image; those are not covered by the cache above, so this step
+        # runs on a cache hit too (it is a no-op for the browser itself).
+        run: uv run --extra docs playwright install --with-deps chromium
+
+      - name: Check MathJax rendering
+        # Sphinx writes LaTeX into the HTML verbatim and MathJax parses it in
+        # the browser, so the build above can be green while a page displays
+        # "Erroneous nesting of equation structures" to every reader. This is
+        # the only step that can see that. It must fail the job.
+        run: uv run poe docs-check-math
+
       - name: Upload smoke-render artifact for PR review
         # Plain artifact, downloadable from the run page. NEVER a Pages
         # artifact, and never actions/deploy-pages: GitHub Pages "preview"

@@ -88,14 +88,12 @@
 # distribution. Most commonly, we report the first moment and the centred second
 # moment
 #
-# $$
-# \begin{alignat}{2}
+# \begin{alignat*}{2}
 #     \mu  = \mathbb{E}[\theta\,|\,\mathbf{y}]  & = \int \theta
 #     p(\theta\mid\mathbf{y})\mathrm{d}\theta \quad \\
 #     \sigma^2  = \mathbb{V}[\theta\,|\,\mathbf{y}] & = \int \left(\theta -
 #     \mathbb{E}[\theta\,|\,\mathbf{y}]\right)^2p(\theta\,|\,\mathbf{y})\mathrm{d}\theta&\,.
-# \end{alignat}
-# $$
+# \end{alignat*}
 #
 # Through this pair of statistics, we can communicate our beliefs about the most
 # likely value of $\theta$ i.e., $\mu$, and the uncertainty $\sigma$ around the
@@ -369,15 +367,13 @@ with warnings.catch_warnings():
 # For a joint Gaussian random variable, the marginalisation of $\mathbf{x}$ or
 # $\mathbf{y}$ is given by
 #
-# $$
-# \begin{alignat}{3}
+# \begin{alignat*}{3}
 #     & \int p(\mathbf{x}, \mathbf{y})\mathrm{d}\mathbf{y} && = p(\mathbf{x})
 #     && = \mathcal{N}(\boldsymbol{\mu}_{\mathbf{x}},\boldsymbol{\Sigma}_{\mathbf{xx}})\\
 #     & \int p(\mathbf{x}, \mathbf{y})\mathrm{d}\mathbf{x} && = p(\mathbf{y})
 #     && = \mathcal{N}(\boldsymbol{\mu}_{\mathbf{y}},
 #     \boldsymbol{\Sigma}_{\mathbf{yy}})\,.
-# \end{alignat}
-# $$
+# \end{alignat*}
 #
 # The conditional distributions are given by
 #

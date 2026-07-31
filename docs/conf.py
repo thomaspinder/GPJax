@@ -81,6 +81,9 @@ exclude_patterns = [
     # Image/style assets, plus one stray legacy module (static/jaxkern/main.py)
     # that source_suffix would otherwise read as a notebook.
     "static/**",
+    # Build/CI utilities (e.g. check_mathjax.py). `.py` is a source suffix here,
+    # so without this MyST-NB tries to execute them as notebooks.
+    "scripts/**",
 ]
 
 # -- MyST / MyST-NB ----------------------------------------------------------

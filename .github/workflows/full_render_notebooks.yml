@@ -58,6 +58,27 @@ jobs:
       - name: Full render (all example notebooks, warnings as errors)
         run: uv run --extra docs sphinx-build -W --keep-going -b html docs docs/_build/html
 
+      - name: Resolve the Playwright version
+        id: playwright
+        run: |
+          echo "version=$(uv run --extra docs python -c 'from importlib.metadata import version; print(version("playwright"))')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Playwright browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium for Playwright
+        run: uv run --extra docs playwright install --with-deps chromium
+
+      - name: Check MathJax rendering
+        # The full render is the only build that produces every notebook page at
+        # real fidelity, so it is also the only place the whole site's maths gets
+        # checked. Deliberately NOT added to build_docs.yml: that path is
+        # resilient by design and must never block a deploy.
+        run: uv run poe docs-check-math
+
   open-issue-on-failure:
     runs-on: ubuntu-latest
     needs: full-render
