@@ -135,6 +135,29 @@ napoleon_numpy_docstring = False
 # -- Numbered figures, tables and equations ----------------------------------
 numfig = True
 math_eqref_format = "Eq. {number}"
+# Number equations per page, restarting at (1) on each. Sphinx's default
+# `math_numfig = True` routes numbering through `env.toc_fignumbers`
+# (sphinx/domains/math.py:115), which numbers across the whole project in
+# toctree order — so a page opened in the middle started at, say, (105). With it
+# False the number comes from `env.new_serialno('eqno')` instead, which the
+# environment documents as "unique in the current document", i.e. per page.
+# This affects equations only: section and toctree numbering come from
+# `:numbered:` on a toctree, which this project does not use.
+math_numfig = False
+# `math_number_all` is deliberately NOT set. Two reasons, in order:
+#
+# 1. It would not work. Sphinx applies `math_number_all` inside the `math`
+#    *directive* (sphinx.directives.patches.MathDirective), but MyST's dollarmath
+#    builds `math_block` nodes itself and never goes through that directive, so
+#    every `$$...$$` in the notebooks and .md pages would stay unnumbered. Only
+#    `.. math::` / ```{math}``` blocks — i.e. the docstrings — would gain numbers.
+# 2. Even if it did work it would number the ~40 display equations inside API
+#    docstrings, which are definitions rather than referenceable statements.
+#
+# Prose display equations are therefore numbered by giving each one an explicit
+# MyST label: `$$ ... $$ (eq-descriptive-label)`. That is required anyway for the
+# `{eq}` cross-references, and it keeps numbering confined to the pages that want
+# it. Labels are global to the project, so they carry a per-page prefix.
 
 # -- sphinx-codeautolink -----------------------------------------------------
 # Adds a "Examples using …" backreference block to each documented object.
@@ -157,17 +180,51 @@ html_baseurl = "https://docs.jaxgaussianprocesses.com/"  # for sitemap + canonic
 sitemap_url_scheme = "{link}"
 html_static_path = ["stylesheets"]
 html_css_files = ["extra.css"]
+# Folds the Migrations sidebar group after shibuya's own sidebar script has run.
+# See the file header for why this cannot be expressed in theme options.
 html_favicon = "static/favicon.ico"
 # GPJax serves the docs from a custom domain, so GitHub Pages needs a CNAME file
 # at the site root. impulso has no counterpart: it deploys to a github.io path.
 html_extra_path = ["CNAME"]
 html_theme_options = {
-    "accent_color": "crimson",  # radix name closest to the brand #b71c1c
+    # `accent_color` only accepts a radix ramp *name*. shibuya writes the value
+    # verbatim into `<html data-accent-color="...">` and its stylesheet carries
+    # one `[data-accent-color=<name>]` block per radix ramp, each mapping
+    # `--accent-1..12` onto that ramp. A hex value matches no block, so the whole
+    # accent ramp goes undefined -- confirmed in a browser: with
+    # `data-accent-color="#7a2e2a"` both `--accent-9` and the `--sy-c-link` it
+    # feeds compute to the empty string, the active sidebar entry drops back to
+    # body-text grey and code blocks lose their tint entirely.
+    #
+    # So the named ramp stays, and supplies the derived tints (code-block and
+    # admonition surfaces, hover states). `red` replaces the previous `crimson`
+    # because the brand is now #7a2e2a, a true red at hue 3 degrees; crimson is a
+    # pink-red at hue 348 and its tints read pink against it. The exact brand hex
+    # is pinned over `--accent-9` in stylesheets/extra.css.
+    "accent_color": "red",
     "color_mode": "auto",  # follow the reader's light/dark preference
     "github_url": "https://github.com/thomaspinder/GPJax",
     "nav_links": [
         {"title": "PyPI", "url": "https://pypi.org/project/gpjax"},
     ],
+    # -- Sidebar (global toc) shape ------------------------------------------
+    # shibuya renders the sidebar with `toctree(maxdepth=theme_toctree_maxdepth)`.
+    # Any non-zero value there *overrides* the `:maxdepth:` written on each
+    # toctree (sphinx.environment.adapters.toctree: `maxdepth = maxdepth or
+    # toctree.get('maxdepth', -1)`), so with the theme default of 4 every group in
+    # index.md renders four levels deep no matter what it asks for -- which is how
+    # the API reference's autosummary stubs ended up in the sidebar. Setting 0
+    # hands control back to the per-toctree `:maxdepth:` in index.md.
+    "toctree_maxdepth": 0,
+    # Add `_expand` to every level-1 sidebar entry, so each caption group opens
+    # its pages by default instead of hiding them behind a chevron. The theme
+    # default of 0 left "Examples" and "Reference" collapsed. Expansion is purely
+    # depth-based and applies uniformly to every group, so it cannot single out
+    # one group to keep folded -- and `:maxdepth: 1` does not fold a group either,
+    # it drops the group's pages out of the sidebar tree entirely. Any group that
+    # wants to read as one tidy line is therefore written as one page, which is
+    # what `docs/migration.md` does with a `##` per release.
+    "globaltoc_expand_depth": 1,
 }
 html_context = {
     "github_user": "thomaspinder",
@@ -201,6 +258,22 @@ html_context = {
 #    forwards `window.location.hash`, so deep links such as
 #    `/_examples/classification/#laplace-approximation` still land correctly.
 redirects = {
+    # -- 0. Prose pages: /<page>/ -> /<page>.html ----------------------------
+    # MkDocs ran with `use_directory_urls` (its default), so every prose page was
+    # published at `/<page>/`, i.e. `<page>/index.html`. Sphinx serves the same
+    # content at `/<page>.html`. Without these, every published link to the
+    # installation, design or sharp-bits pages 404s after the cutover -- and
+    # those are the pages most likely to be linked from outside the project.
+    # `give_me_the_code` was in the MkDocs nav but its source is long gone; it
+    # points at the landing page rather than nowhere.
+    "installation/index":                               "/installation.html",
+    "design/index":                                     "/design.html",
+    "sharp_bits/index":                                 "/sharp_bits.html",
+    "contributing/index":                               "/contributing.html",
+    "migration/index":                                  "/migration.html",
+    "GOVERNANCE/index":                                 "/GOVERNANCE.html",
+    "CODE_OF_CONDUCT/index":                            "/CODE_OF_CONDUCT.html",
+    "give_me_the_code/index":                           "/index.html",
     # -- 1. API reference: /api/<module>/ -> /reference/<package>.html --------
     "api/citation/index":                               "/reference/citation.html",
     "api/dataset/index":                                "/reference/dataset.html",
@@ -282,6 +355,7 @@ redirects = {
     "_examples/likelihoods_guide/index":                "/examples/likelihoods_guide.html",
     "_examples/backend/index":                          "/examples/backend.html",
     "_examples/yacht/index":                            "/examples/yacht.html",
+    # -- 3. Migration guide: one page -> one page per release -----------------
 }
 
 # Signal to notebooks that they are running inside a docs build.

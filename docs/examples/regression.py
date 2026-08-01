@@ -54,7 +54,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # $\mathcal{D} = (\boldsymbol{x}, \boldsymbol{y}) = \{(x_i, y_i)\}_{i=1}^{100}$ with inputs $\boldsymbol{x}$
 # sampled uniformly on $(-3., 3)$ and corresponding independent noisy outputs
 #
-# $$\boldsymbol{y} \sim \mathcal{N} \left(\sin(4\boldsymbol{x}) + \cos(2 \boldsymbol{x}), \textbf{I} * 0.3^2 \right).$$
+# $$
+# \boldsymbol{y} \sim \mathcal{N} \left(\sin(4\boldsymbol{x}) + \cos(2 \boldsymbol{x}), \textbf{I} * 0.3^2 \right).
+# $$ (eq-regression-data-generating)
 #
 # We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs and labels
 # for later.
@@ -104,7 +106,9 @@ ax.legend(loc="best")
 #
 # For simplicity, we consider a radial basis function (RBF) kernel:
 #
-# $$k(x, x') = \sigma^2 \exp\left(-\frac{\lVert x - x' \rVert_2^2}{2 \ell^2}\right).$$
+# $$
+# k(x, x') = \sigma^2 \exp\left(-\frac{\lVert x - x' \rVert_2^2}{2 \ell^2}\right).
+# $$ (eq-regression-rbf-kernel)
 #
 # On paper a GP is written as $f(\cdot) \sim \mathcal{GP}(\textbf{0}, k(\cdot, \cdot'))$,
 # we can reciprocate this process in GPJax via defining a `Prior` with our chosen `RBF`
@@ -158,7 +162,9 @@ clean_legend(ax)
 # likelihood is a critical in Bayesian modelling, for simplicity we consider a
 # Gaussian with noise parameter $\alpha$
 #
-# $$p(\mathcal{D} | f(\cdot)) = \mathcal{N}(\boldsymbol{y}; f(\boldsymbol{x}), \textbf{I} \alpha^2).$$
+# $$
+# p(\mathcal{D} | f(\cdot)) = \mathcal{N}(\boldsymbol{y}; f(\boldsymbol{x}), \textbf{I} \alpha^2).
+# $$ (eq-regression-gaussian-likelihood)
 #
 # This is defined in GPJax through calling a `Gaussian` instance.
 
@@ -168,7 +174,9 @@ likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
 # %% [markdown]
 # The posterior is proportional to the prior multiplied by the likelihood, written as
 #
-#   $$ p(f(\cdot) | \mathcal{D}) \propto p(f(\cdot)) * p(\mathcal{D} | f(\cdot)). $$
+# $$
+# p(f(\cdot) | \mathcal{D}) \propto p(f(\cdot)) * p(\mathcal{D} | f(\cdot)).
+# $$ (eq-regression-posterior)
 #
 # Mimicking this construct, the posterior is established in GPJax through the `*` operator.
 

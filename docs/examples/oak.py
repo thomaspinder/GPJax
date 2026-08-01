@@ -71,12 +71,14 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # function as
 #
 # $$
+# \begin{aligned}
 # f(\mathbf{x})
-# = f_0
-# + \sum_{d=1}^{D} f_d(x_d)
-# + \sum_{d < d'} f_{dd'}(x_d, x_{d'})
+# & = f_0
+# + \sum_{d=1}^{D} f_d(x_d) \\
+# & \quad + \sum_{d < d'} f_{dd'}(x_d, x_{d'})
 # + \cdots
-# $$
+# \end{aligned}
+# $$ (eq-oak-additive-decomposition)
 #
 # where $f_0$ is a constant offset, $f_d$ are first-order (main) effects,
 # $f_{dd'}$ are second-order interactions, and so on.  Truncating at a maximum
@@ -93,7 +95,7 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \int f_d(x_d) \, p(x_d) \, \mathrm{d}x_d = 0 \quad \forall\, d.
-# $$
+# $$ (eq-oak-orthogonality-constraint)
 #
 # ### Constrained SE kernel
 #
@@ -102,13 +104,15 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # SE kernel is
 #
 # $$
+# \begin{aligned}
 # \tilde{k}(x, y)
-# = k(x, y)
-# - \frac{\sigma^2 \ell \sqrt{\ell^2 + 2}}{\ell^2 + 1}
+# & = k(x, y) \\
+# & \quad - \frac{\sigma^2 \ell \sqrt{\ell^2 + 2}}{\ell^2 + 1}
 #   \exp\!\left(
 #     -\frac{x^2 + y^2}{2(\ell^2 + 1)}
 #   \right),
-# $$
+# \end{aligned}
+# $$ (eq-oak-constrained-se-kernel)
 #
 # where $k(x,y) = \sigma^2 \exp\!\bigl(-\tfrac{(x-y)^2}{2\ell^2}\bigr)$ is
 # the standard SE kernel with lengthscale $\ell$ and variance $\sigma^2$.
@@ -124,7 +128,7 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # = \sum_{\ell=0}^{\tilde{D}} \sigma_\ell^2 \, e_\ell\!\bigl(
 #     \tilde{k}_1(x_1, x_1'),\, \ldots,\, \tilde{k}_D(x_D, x_D')
 #   \bigr),
-# $$
+# $$ (eq-oak-additive-kernel)
 #
 # where $e_\ell$ denotes the $\ell$-th elementary symmetric polynomial
 # and $\sigma_\ell^2$ are learnable order variances.  Computing
@@ -134,9 +138,11 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # $s_k = \sum_{d=1}^D z_d^k$:
 #
 # $$
-# e_\ell = \frac{1}{\ell} \sum_{k=1}^{\ell} (-1)^{k-1}\, e_{\ell-k}\, s_k,
-# \quad e_0 = 1.
-# $$
+# \begin{aligned}
+# e_\ell & = \frac{1}{\ell} \sum_{k=1}^{\ell} (-1)^{k-1}\, e_{\ell-k}\, s_k, \\
+# e_0 & = 1.
+# \end{aligned}
+# $$ (eq-oak-newton-girard)
 #
 # ### Sobol indices
 #
@@ -151,7 +157,7 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #     \sum_{d'=1}^{\tilde{D}}
 #       \sigma_{d'}^4 \;\boldsymbol{\alpha}^\top E_{d'}\,\boldsymbol{\alpha}
 #   },
-# $$
+# $$ (eq-oak-sobol-index)
 #
 # where $\boldsymbol{\alpha} = (K + \sigma_n^2 I)^{-1}\mathbf{y}$ and $E_d$
 # is the matrix-level elementary symmetric polynomial of the per-dimension

@@ -64,7 +64,9 @@ key = jr.key(42)
 # For count data regression, the Poisson distribution is a natural choice for the likelihood
 # function. The probability mass function of the Poisson distribution is given by
 #
-# $$ p(y \,|\, \lambda) = \frac{\lambda^{y} e^{-\lambda}}{y!},$$
+# $$
+# p(y \,|\, \lambda) = \frac{\lambda^{y} e^{-\lambda}}{y!},
+# $$ (eq-poisson-pmf)
 #
 # where $y$ is the count and the parameter $\lambda \in \mathbb{R}_{>0}$ is the rate of the Poisson
 # distribution.

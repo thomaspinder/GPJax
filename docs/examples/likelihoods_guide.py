@@ -36,11 +36,10 @@
 # $\mathbf{x} = \{x_n\}_{n=1}^N$. The evaluation of $f$ at $\mathbf{x}$ is denoted by
 # $\mathbf{f} = \{f(x_n)\}_{n=1}^N$. The _likelihood function_ of the GP is then given
 # by
-# ```{math}
-# :label: eq-likelihood-fn
 #
+# $$
 # p(\mathbf{y}\mid \mathbf{f}) = \prod_{n=1}^N p(y_n\mid f(x_n))\,.
-# ```
+# $$ (eq-likelihoods-factorisation)
 #
 # Conceptually, this conditional distribution describes the probability of the observed
 # data, conditional on the latent function values.
@@ -104,7 +103,7 @@ ax.legend()
 # range between $-1$ and $1$, subject to Gaussian noise. Due to this, a Gaussian
 # likelihood is appropriate for this dataset as it allows for negative values.
 #
-# As we see in {eq}`eq-likelihood-fn`, the likelihood function factorises over the
+# As we see in {eq}`eq-likelihoods-factorisation`, the likelihood function factorises over the
 # $n$ observations. As such, we must provide this information to GPJax when
 # instantiating a likelihood object. We do this by specifying the `num_datapoints`
 # argument.
@@ -209,9 +208,11 @@ for ax in axes.ravel():
 # deterministic function that maps the latent distribution of the Gaussian process to
 # the support of the likelihood function. For example, the link function of the
 # Bernoulli likelihood that is used in GPJax is the inverse probit function
+#
 # $$
 # \eta(x) = 0.5\left(1 + \Phi\left(\frac{x}{\sqrt{2}}\right) * (1-2)\right)\,,
-# $$
+# $$ (eq-likelihoods-inverse-probit)
+#
 # where $\Phi$ is the cumulative distribution function of the standard normal
 # distribution.
 #
@@ -225,18 +226,24 @@ for ax in axes.ravel():
 # [stochastic variational Gaussian process](uncollapsed_vi.py) in the ELBO term. For a
 # variational approximation $q(f)= \mathcal{N}(f\mid m, S)$, the ELBO can be written as
 #
-# \begin{align*}
-#     \mathcal{L}(q) = \mathbb{E}_{f\sim q(f)}\left[ p(\mathbf{y}\mid f)\right] - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
-# \end{align*}
+# $$
+# \begin{aligned}
+#     \mathcal{L}(q) & = \mathbb{E}_{f\sim q(f)}\left[ p(\mathbf{y}\mid f)\right] \\
+#                    & \quad - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
+# \end{aligned}
+# $$ (eq-likelihoods-elbo)
 #
 # As both $q(f)$ and $p(f)$ are Gaussian distributions, the Kullback-Leibler term can
 # be analytically computed. However, the expectation term is not always so easy to
-# compute. Fortunately, the bound in \eqref{eq:elbo} can be decomposed as a sum of the
-# datapoints
+# compute. Fortunately, the bound in {eq}`eq-likelihoods-elbo` can be decomposed as a
+# sum of the datapoints
 #
-# \begin{align*}
-#     \mathcal{L}(q) = \sum_{n=1}^N \mathbb{E}_{f\sim q(f)}\left[ p(y_n\mid f)\right] - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
-# \end{align*}
+# $$
+# \begin{aligned}
+#     \mathcal{L}(q) & = \sum_{n=1}^N \mathbb{E}_{f\sim q(f)}\left[ p(y_n\mid f)\right] \\
+#                    & \quad - \mathrm{KL}\left(q(f)\mid\mid p(f)\right)\,.
+# \end{aligned}
+# $$ (eq-likelihoods-elbo-decomposed)
 #
 # This simplifies computation of the expectation as it is now a series of $N$
 # 1-dimensional integrals. As such, GPJax by default uses quadrature to compute these

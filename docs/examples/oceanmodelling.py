@@ -75,7 +75,13 @@ colors = rcParams["axes.prop_cycle"].by_key()["color"]
 # that fall inside it.
 #
 # We will call this binned ocean data the ground truth, and label it with the vector
-# field $$ \mathbf{F} \equiv \mathbf{F}(\mathbf{x}), $$ where $\mathbf{x} =
+# field
+#
+# $$
+# \mathbf{F} \equiv \mathbf{F}(\mathbf{x}),
+# $$ (eq-ocean-ground-truth-field)
+#
+# where $\mathbf{x} =
 # (x^{(0)}$,$x^{(1)})^\text{T}$, with a vector basis in the standard Cartesian
 # directions (dimensions will be indicated by superscripts).
 #
@@ -169,9 +175,14 @@ ax.legend(
 # $\mathbf{x}$, the components $(y^{(0)}, y^{(1)})$ are described by the latent vector
 # field $\mathbf{F}$, such that
 #
-# $$ \mathbf{y} = \mathbf{F}(\mathbf{x}) = \left(\begin{array}{l}
+# $$
+# \begin{aligned}
+# \mathbf{y} & = \mathbf{F}(\mathbf{x}) \\
+#            & = \left(\begin{array}{l}
 # f^{(0)}\left(\mathbf{x}\right) \\
-# f^{(1)}\left(\mathbf{x}\right) \end{array}\right), $$
+# f^{(1)}\left(\mathbf{x}\right) \end{array}\right),
+# \end{aligned}
+# $$ (eq-ocean-vector-field)
 #
 # where each $f^{(z)}\left(\mathbf{x}\right), z \in \{0,1\}$ is a scalar-valued
 # function.
@@ -179,8 +190,13 @@ ax.legend(
 # Now consider the scalar-valued function $g: \mathbb{R}^2 \times\{0,1\} \rightarrow
 # \mathbb{R}$, such that
 #
-# $$ g \left(\mathbf{x} , 0 \right) = f^{(0)} ( \mathbf{x} ), \text{and } g \left(
-# \mathbf{x}, 1 \right)=f^{(1)}\left(\mathbf{x}\right).  $$
+# $$
+# \begin{aligned}
+# g \left(\mathbf{x} , 0 \right) & = f^{(0)} ( \mathbf{x} ), \\
+# \text{and } g \left(
+# \mathbf{x}, 1 \right) & =f^{(1)}\left(\mathbf{x}\right).
+# \end{aligned}
+# $$ (eq-ocean-scalar-relabelling)
 #
 # We have increased the input dimension by 1, from the 2D $\mathbf{x}$ to the 3D
 # $\mathbf{X} = \left(\mathbf{x}, 0\right)$ or $\mathbf{X} = \left(\mathbf{x},
@@ -193,11 +209,15 @@ ax.legend(
 # \right\} _{i=0}^{2N}$ that incorporates this new labelling, such that for each dataset
 # (indicated by the subscript $D = 0$ or $D=T$),
 #
-# $$ X_{D,i} = \left( \mathbf{x}_{D,i}, z \right), $$
+# $$
+# X_{D,i} = \left( \mathbf{x}_{D,i}, z \right),
+# $$ (eq-ocean-augmented-inputs)
 #
 # and
 #
-# $$ Y_{D,i} = y_{D,i}^{(z)}, $$
+# $$
+# Y_{D,i} = y_{D,i}^{(z)},
+# $$ (eq-ocean-augmented-outputs)
 #
 # where $z = 0$ if $i$ is odd and $z=1$ if $i$ is even.
 
@@ -238,9 +258,11 @@ dataset_ground_truth = dataset_3d(pos_test, vel_test)
 # two inputs $\mathbf{X} = \left( \mathbf{x}, z \right )$ and $\mathbf{X}^\prime =
 # \left( \mathbf{x}^\prime, z^\prime \right )$,
 #
-# $$ k_{\text{vel}} \left(\mathbf{X}, \mathbf{X}^{\prime}\right)=
+# $$
+# k_{\text{vel}} \left(\mathbf{X}, \mathbf{X}^{\prime}\right)=
 # \begin{cases}k^{(z)}\left(\mathbf{x}, \mathbf{x}^{\prime}\right) & \text { if }
-# z=z^{\prime} \\ 0 & \text { if } z \neq z^{\prime}, \end{cases} $$
+# z=z^{\prime} \\ 0 & \text { if } z \neq z^{\prime}, \end{cases}
+# $$ (eq-ocean-velocity-kernel)
 #
 # where $k^{(z)}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)$ are the user chosen
 # kernels for each dimension. What this means is that there are no correlations between
@@ -481,12 +503,23 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # of the gradient of a scalar potential $\Phi: \mathbb{R}^2 \rightarrow \mathbb{R}$,
 # called the potential function, and the vorticity operator of another scalar potential
 # $\Psi: \mathbb{R}^2 \rightarrow \mathbb{R}$, called the stream function ([Berlinghieri
-# et al. (2023)](https://arxiv.org/pdf/2302.10364.pdf)) such that $$
-# \mathbf{F}=\operatorname{grad} \Phi+\operatorname{rot} \Psi, $$ where $$
-# \operatorname{grad} \Phi:=\left[\begin{array}{l} \partial \Phi / \partial x^{(0)} \\
-# \partial \Phi / \partial x^{(1)} \end{array}\right] \text { and } \operatorname{rot}
-# \Psi:=\left[\begin{array}{c} \partial \Psi / \partial x^{(1)} \\
-# -\partial \Psi / \partial x^{(0)} \end{array}\right].  $$
+# et al. (2023)](https://arxiv.org/pdf/2302.10364.pdf)) such that
+#
+# $$
+# \mathbf{F}=\operatorname{grad} \Phi+\operatorname{rot} \Psi,
+# $$ (eq-ocean-helmholtz-decomposition)
+#
+# where
+#
+# $$
+# \begin{aligned}
+# \operatorname{grad} \Phi & :=\left[\begin{array}{l} \partial \Phi / \partial x^{(0)} \\
+# \partial \Phi / \partial x^{(1)} \end{array}\right] \\
+# \text { and } \operatorname{rot}
+# \Psi & :=\left[\begin{array}{c} \partial \Psi / \partial x^{(1)} \\
+# -\partial \Psi / \partial x^{(0)} \end{array}\right].
+# \end{aligned}
+# $$ (eq-ocean-grad-rot-operators)
 #
 # This is reminiscent of a 3 dimensional [Helmholtz
 # decomposition](https://en.wikipedia.org/wiki/Helmholtz_decomposition).
@@ -501,11 +534,18 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # For $\mathbf{X}, \mathbf{X}^{\prime} \in \mathbb{R}^2 \times \left\{0,1\right\}$ and
 # $z, z^\prime \in \{0,1\}$,
 #
-# $$ \boxed{ k_{\mathrm{Helm}}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)_{z,z^\prime}
-# =  \frac{\partial^2 k_{\Phi}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)}{\partial
-# x^{(z)} \partial\left(x^{\prime}\right)^{(z^\prime)}}+(-1)^{z+z^\prime}
+# $$
+# \boxed{
+# \begin{aligned}
+# k_{\mathrm{Helm}}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)_{z,z^\prime}
+# & =  \frac{\partial^2 k_{\Phi}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)}{\partial
+# x^{(z)} \partial\left(x^{\prime}\right)^{(z^\prime)}} \\
+# & \quad +(-1)^{z+z^\prime}
 # \frac{\partial^2 k_{\Psi}\left(\mathbf{x}, \mathbf{x}^{\prime}\right)}{\partial
-# x^{(1-z)} \partial\left(x^{\prime}\right)^{(1-z^\prime)}}}.  $$
+# x^{(1-z)} \partial\left(x^{\prime}\right)^{(1-z^\prime)}}
+# \end{aligned}
+# }.
+# $$ (eq-ocean-helmholtz-kernel)
 #
 # where $x^{(z)}$ and $(x^\prime)^{(z^\prime)}$ are the $z$ and $z^\prime$ components of
 # $\mathbf{X}$ and ${\mathbf{X}}^{\prime}$ respectively.
@@ -514,8 +554,10 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # implementation, for a kernel $k(\mathbf{x}, \mathbf{x}^{\prime})$, this computes the
 # Hessian matrix with respect to the components of $\mathbf{x}$
 #
-# $$ \frac{\partial^2 k\left(\mathbf{x}, \mathbf{x}^{\prime}\right)}{\partial x^{(z)}
-# \partial x^{(z^\prime)}}.  $$
+# $$
+# \frac{\partial^2 k\left(\mathbf{x}, \mathbf{x}^{\prime}\right)}{\partial x^{(z)}
+# \partial x^{(z^\prime)}}.
+# $$ (eq-ocean-kernel-hessian)
 #
 # Note that we have operated $\dfrac{\partial}{\partial x^{(z)}}$, *not*
 # $\dfrac{\partial}{\partial \left(x^\prime \right)^{(z)}}$, as the boxed equation
@@ -523,8 +565,10 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # \mathbf{x}^{\prime}) = k(\mathbf{x} - \mathbf{x}^{\prime})$ , as the partial
 # derivatives with respect to the components have the following exchange symmetry:
 #
-# $$ \frac{\partial}{\partial x^{(z)}} = - \frac{\partial}{\partial \left( x^\prime
-# \right)^{(z)}}, $$
+# $$
+# \frac{\partial}{\partial x^{(z)}} = - \frac{\partial}{\partial \left( x^\prime
+# \right)^{(z)}},
+# $$ (eq-ocean-exchange-symmetry)
 #
 # for either $z$.
 # %%
@@ -613,7 +657,7 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_helmholtz)
 #
 # $$
 # \mathrm{NLPD}=-\sum_{i=1}^{2N} \log \left(  p\left(\mathcal{Y}_i = Y_{0,i} \mid \mathbf{X}_{i}\right) \right),
-# $$
+# $$ (eq-ocean-nlpd)
 #
 # where each $p\left(\mathcal{Y}_i \mid \mathbf{X}_i \right)$ is the marginal Gaussian
 # distribution over $\mathcal{Y}_i$ at each test location, and $Y_{i,0}$ is the $i$-th

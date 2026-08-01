@@ -80,7 +80,12 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # a finite number of its derivatives, forms a state vector
 # $\boldsymbol{s}(t) \in \mathbb{R}^d$ that evolves under a linear SDE
 #
-# $$ \mathrm{d}\boldsymbol{s}(t) = \mathbf{F}\,\boldsymbol{s}(t)\,\mathrm{d}t + \mathbf{L}\,\mathrm{d}\boldsymbol{\beta}(t), \qquad f(t) = \mathbf{H}\,\boldsymbol{s}(t), $$
+# $$
+# \begin{aligned}
+# \mathrm{d}\boldsymbol{s}(t) & = \mathbf{F}\,\boldsymbol{s}(t)\,\mathrm{d}t + \mathbf{L}\,\mathrm{d}\boldsymbol{\beta}(t), \\
+# f(t) & = \mathbf{H}\,\boldsymbol{s}(t),
+# \end{aligned}
+# $$ (eq-state-space-linear-sde)
 #
 # where $\boldsymbol{\beta}(t)$ is a Wiener process and $\mathbf{H}$ reads the
 # function value off the state. The observations are

@@ -193,18 +193,22 @@ fig.colorbar(im3, ax=ax[3], fraction=0.05)
 # Roustant (2015)](https://hal.inria.fr/hal-01119942v1) where any two angles
 # $\theta$ and $\theta'$ are written as
 #
-# \begin{align*}
+# $$
+# \begin{aligned}
 # W_c(\theta, \theta') & = \left\lvert
 # \left(1 + \tau \frac{d(\theta, \theta')}{c} \right) \left(1 - \frac{d(\theta,
-# \theta')}{c} \right)^{\tau} \right\rvert \quad \tau \geq 4 \tag{1}.
-# \end{align*}
+# \theta')}{c} \right)^{\tau} \right\rvert \quad \tau \geq 4.
+# \end{aligned}
+# $$ (eq-new-kernels-polar-warping)
 #
 # Here the hyperparameter $\tau$ is analogous to a lengthscale for Euclidean
 # stationary kernels, controlling the correlation between pairs of observations.
 # Whilst $d$ is an angular distance metric
 #
-# $$d(\theta, \theta') = \lvert (\theta-\theta'+c) \operatorname{mod} 2c - c
-# \rvert.$$
+# $$
+# d(\theta, \theta') = \lvert (\theta-\theta'+c) \operatorname{mod} 2c - c
+# \rvert.
+# $$ (eq-new-kernels-angular-distance)
 #
 # To implement this, one must write the following class.
 
@@ -243,8 +247,9 @@ class Polar(gpx.kernels.AbstractKernel):
 # We unpack this now to make better sense of it. In the kernel's initialiser
 # we specify the length of a single period. As the underlying
 # domain is a circle, this is $2\pi$. We then define the kernel's `__call__`
-# function which is a direct implementation of Equation (1) where we define `c`
-# as half the value of `period`.
+# function which is a direct implementation of
+# {eq}`eq-new-kernels-polar-warping` where we define `c` as half the value of
+# `period`.
 #
 # To constrain $\tau \geq 4$, we store $\tau - 4$ as a `PositiveReal` (which
 # applies softplus internally) and add 4 back in `__call__`.

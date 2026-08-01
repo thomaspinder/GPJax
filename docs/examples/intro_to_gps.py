@@ -34,9 +34,12 @@
 # model are unknown, and our goal is to conduct inference to determine their
 # range of likely values. To achieve this, we apply Bayes' theorem
 #
-# \begin{align*}
-#     p(\theta\mid\mathbf{y}) = \frac{p(\theta)p(\mathbf{y}\mid\theta)}{p(\mathbf{y})} = \frac{p(\theta)p(\mathbf{y}\mid\theta)}{\int_{\theta}p(\mathbf{y}, \theta)\mathrm{d}\theta},
-# \end{align*}
+# $$
+# \begin{aligned}
+#     p(\theta\mid\mathbf{y}) & = \frac{p(\theta)p(\mathbf{y}\mid\theta)}{p(\mathbf{y})} \\
+#                             & = \frac{p(\theta)p(\mathbf{y}\mid\theta)}{\int_{\theta}p(\mathbf{y}, \theta)\mathrm{d}\theta},
+# \end{aligned}
+# $$ (eq-intro-gps-bayes-theorem)
 #
 # where $p(\mathbf{y}\,|\,\theta)$ denotes the _likelihood_, or model, and
 # quantifies how likely the observed dataset $\mathbf{y}$ is, given the
@@ -75,9 +78,9 @@
 # distribution_. This is achieved by integrating out the parameter set $\theta$
 # from our posterior distribution through
 #
-# \begin{align*}
+# $$
 #     p(\mathbf{y}^{\star}\mid \mathbf{y}) = \int p(\mathbf{y}^{\star} \,|\, \theta, \mathbf{y} ) p(\theta\,|\, \mathbf{y})\mathrm{d}\theta\,.
-# \end{align*}
+# $$ (eq-intro-gps-posterior-predictive)
 #
 # As with the marginal log-likelihood, evaluating this quantity requires
 # computing an integral which may not be tractable, particularly when $\theta$
@@ -88,12 +91,14 @@
 # distribution. Most commonly, we report the first moment and the centred second
 # moment
 #
-# \begin{alignat*}{2}
+# $$
+# \begin{alignedat}{2}
 #     \mu  = \mathbb{E}[\theta\,|\,\mathbf{y}]  & = \int \theta
 #     p(\theta\mid\mathbf{y})\mathrm{d}\theta \quad \\
 #     \sigma^2  = \mathbb{V}[\theta\,|\,\mathbf{y}] & = \int \left(\theta -
 #     \mathbb{E}[\theta\,|\,\mathbf{y}]\right)^2p(\theta\,|\,\mathbf{y})\mathrm{d}\theta&\,.
-# \end{alignat*}
+# \end{alignedat}
+# $$ (eq-intro-gps-posterior-moments)
 #
 # Through this pair of statistics, we can communicate our beliefs about the most
 # likely value of $\theta$ i.e., $\mu$, and the uncertainty $\sigma$ around the
@@ -107,9 +112,11 @@
 # variable. For a random variable $y$, let $\mu\in\mathbb{R}$ be a mean scalar
 # and $\sigma^2\in\mathbb{R}_{>0}$ a variance scalar. If $y$ is a Gaussian
 # random variable, then the density of $y$ is
-# \begin{align*}
+#
+# $$
 #     \mathcal{N}(y\,|\, \mu, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\left(-\frac{(y-\mu)^2}{2\sigma^{2}}\right)\,.
-# \end{align*}
+# $$ (eq-intro-gps-univariate-gaussian-density)
+#
 # We can plot three different parameterisations of this density.
 
 # %%
@@ -157,9 +164,14 @@ ax.legend(loc="best")
 # $\mu$ and variance $\sigma^2$ and we therefore write $y\sim\mathcal{N}(\mu,
 # \sigma^2)$ when describing a Gaussian random variable. We can compute
 # these two quantities by
-# \begin{align*}
-#     \mathbb{E}[y] = \mu\,, \quad \quad \mathbb{E}\left[(y-\mu)^2\right] =\sigma^2\,.
-# \end{align*}
+#
+# $$
+# \begin{aligned}
+#     \mathbb{E}[y] & = \mu\,, \\
+#     \mathbb{E}\left[(y-\mu)^2\right] & =\sigma^2\,.
+# \end{aligned}
+# $$ (eq-intro-gps-univariate-moments)
+#
 # Extending this concept to vector-valued random variables reveals the
 # multivariate Gaussian random variables which brings us closer to the full
 # definition of a GP.
@@ -168,9 +180,11 @@ ax.legend(loc="best")
 # $D$-dimensional mean vector and $\boldsymbol{\Sigma}$ be a $D\times D$
 # covariance matrix. If $\mathbf{y}$ is a Gaussian random variable, then the
 # density of $\mathbf{y}$ is
-# \begin{align*}
+#
+# $$
 #     \mathcal{N}(\mathbf{y}\,|\, \boldsymbol{\mu}, \boldsymbol{\Sigma}) = \frac{1}{\sqrt{2\pi}^{D/2} \lvert\boldsymbol{\Sigma}\rvert^{1/2}} \exp\left(-\frac{1}{2} \left(\mathbf{y} - \boldsymbol{\mu}\right)^T \boldsymbol{\Sigma}^{-1} \left(\mathbf{y}-\boldsymbol{\mu}\right) \right) \,.
-# \end{align*}
+# $$ (eq-intro-gps-multivariate-gaussian-density)
+#
 # Three example parameterisations of this can be visualised below where $\rho$
 # determines the correlation of the multivariate Gaussian.
 
@@ -231,12 +245,14 @@ for a, t, d in zip([ax0, ax1, ax2], titles, dists, strict=False):
 # Extending the intuition given for the moments of a univariate Gaussian random
 # variables, we can obtain the mean and covariance by
 #
-# \begin{align*}
+# $$
+# \begin{aligned}
 #     \mathbb{E}[\mathbf{y}] & = \mathbf{\mu}, \\
 #     \operatorname{Cov}(\mathbf{y}) & = \mathbf{E}\left[(\mathbf{y} - \mathbf{\mu})(\mathbf{y} - \mathbf{\mu})^{\top} \right] \\
 #       & =\mathbb{E}[\mathbf{y}\mathbf{y}^{\top}] - \mathbb{E}[\mathbf{y}]\mathbb{E}[\mathbf{y}]^{\top} \\
 #       & =\mathbf{\Sigma}\,.
-# \end{align*}
+# \end{aligned}
+# $$ (eq-intro-gps-multivariate-moments)
 #
 # The covariance matrix is a symmetric positive definite matrix that generalises
 # the notion of variance to multiple dimensions. The matrix's diagonal entries
@@ -340,7 +356,7 @@ with warnings.catch_warnings():
 # $\mathbf{y}\sim\mathcal{N}(\boldsymbol{\mu}_{\mathbf{y}}, \boldsymbol{\Sigma}_{\mathbf{yy}})$.
 # We define the joint distribution as
 #
-# \begin{align*}
+# $$
 #     p\left(\begin{bmatrix}
 #         \mathbf{x} \\ \mathbf{y}
 #     \end{bmatrix}\right) = \mathcal{N}\left(\begin{bmatrix}
@@ -349,7 +365,7 @@ with warnings.catch_warnings():
 #         \boldsymbol{\Sigma}_{\mathbf{xx}} & \boldsymbol{\Sigma}_{\mathbf{xy}}\\
 #         \boldsymbol{\Sigma}_{\mathbf{yx}} & \boldsymbol{\Sigma}_{\mathbf{yy}}
 #     \end{bmatrix} \right)\,,
-# \end{align*}
+# $$ (eq-intro-gps-joint-gaussian)
 #
 # where $\boldsymbol{\Sigma}_{\mathbf{x}\mathbf{y}}$ is the cross-covariance
 # matrix of $\mathbf{x}$ and $\mathbf{y}$.
@@ -367,19 +383,21 @@ with warnings.catch_warnings():
 # For a joint Gaussian random variable, the marginalisation of $\mathbf{x}$ or
 # $\mathbf{y}$ is given by
 #
-# \begin{alignat*}{3}
+# $$
+# \begin{alignedat}{3}
 #     & \int p(\mathbf{x}, \mathbf{y})\mathrm{d}\mathbf{y} && = p(\mathbf{x})
 #     && = \mathcal{N}(\boldsymbol{\mu}_{\mathbf{x}},\boldsymbol{\Sigma}_{\mathbf{xx}})\\
 #     & \int p(\mathbf{x}, \mathbf{y})\mathrm{d}\mathbf{x} && = p(\mathbf{y})
 #     && = \mathcal{N}(\boldsymbol{\mu}_{\mathbf{y}},
 #     \boldsymbol{\Sigma}_{\mathbf{yy}})\,.
-# \end{alignat*}
+# \end{alignedat}
+# $$ (eq-intro-gps-gaussian-marginals)
 #
 # The conditional distributions are given by
 #
-# \begin{align*}
-#     p(\mathbf{y}\,|\, \mathbf{x}) & = \mathcal{N}\left(\boldsymbol{\mu}_{\mathbf{y}} + \boldsymbol{\Sigma}_{\mathbf{yx}}\boldsymbol{\Sigma}_{\mathbf{xx}}^{-1}(\mathbf{x}-\boldsymbol{\mu}_{\mathbf{x}}), \boldsymbol{\Sigma}_{\mathbf{yy}}-\boldsymbol{\Sigma}_{\mathbf{yx}}\boldsymbol{\Sigma}_{\mathbf{xx}}^{-1}\boldsymbol{\Sigma}_{\mathbf{xy}}\right)\,.
-# \end{align*}
+# $$
+#     p(\mathbf{y}\,|\, \mathbf{x}) = \mathcal{N}\left(\boldsymbol{\mu}_{\mathbf{y}} + \boldsymbol{\Sigma}_{\mathbf{yx}}\boldsymbol{\Sigma}_{\mathbf{xx}}^{-1}(\mathbf{x}-\boldsymbol{\mu}_{\mathbf{x}}), \boldsymbol{\Sigma}_{\mathbf{yy}}-\boldsymbol{\Sigma}_{\mathbf{yx}}\boldsymbol{\Sigma}_{\mathbf{xx}}^{-1}\boldsymbol{\Sigma}_{\mathbf{xy}}\right)\,.
+# $$ (eq-intro-gps-gaussian-conditional)
 #
 # Within this section, we have introduced the idea of multivariate Gaussian
 # random variables and presented some key results concerning their properties.
@@ -404,9 +422,10 @@ with warnings.catch_warnings():
 # a model $f$ with which we may make predictions at an unseen set of test points
 # $\mathbf{X}^{\star}\subset\mathcal{X}$. We formalise this by
 #
-# \begin{align*}
+# $$
 #     y = f(\mathbf{X}) + \varepsilon\,,
-# \end{align*}
+# $$ (eq-intro-gps-generative-process)
+#
 # where $\varepsilon$ is an observational noise term. We collectively refer to
 # $(\mathbf{X}, \mathbf{y})$ as the _training data_ and $\mathbf{X}^{\star}$ as
 # the set of _test points_.
@@ -432,19 +451,19 @@ with warnings.catch_warnings():
 #
 # We define a joint GP prior over the latent function
 #
-# \begin{align*}
+# $$
 #     p(\mathbf{f}, \mathbf{f}^{\star}) = \mathcal{N}\left(\mathbf{0}, \begin{bmatrix}
 #         \mathbf{K}_{xf} & \mathbf{K}_{xx}
 #     \end{bmatrix}\right)\,,
-# \end{align*}
+# $$ (eq-intro-gps-joint-prior)
 #
 # where $\mathbf{f}^{\star} = f(\mathbf{X}^{\star})$. Conditional on the GP's
 # latent function $f$, we assume a factorising likelihood generates our
 # observations
 #
-# \begin{align*}
+# $$
 #     p(\mathbf{y}\,|\,\mathbf{f}) = \prod_{i=1}^n p(y_i\,|\, f_i)\,.
-# \end{align*}
+# $$ (eq-intro-gps-factorising-likelihood)
 #
 # Strictly speaking, the likelihood function is
 # $p(\mathbf{y}\,|\,\phi(\mathbf{f}))$ where $\phi$ is the likelihood function's
@@ -456,11 +475,12 @@ with warnings.catch_warnings():
 # non-Gaussian likelihood, such as those encountered in
 # [classification](https://docs.jaxgaussianprocesses.com/_examples/classification).
 #
-# Applying Bayes' theorem \eqref{eq:BayesTheorem} yields the joint posterior distribution over the
-# latent function
-# \begin{align*}
+# Applying Bayes' theorem {eq}`eq-intro-gps-bayes-theorem` yields the joint posterior
+# distribution over the latent function
+#
+# $$
 #     p(\mathbf{f}, \mathbf{f}^{\star}\,|\,\mathbf{y}) = \frac{p(\mathbf{y}\,|\,\mathbf{f})p(\mathbf{f},\mathbf{f}^{\star})}{p(\mathbf{y})}\,.
-# \end{align*}
+# $$ (eq-intro-gps-joint-posterior)
 #
 # The choice of kernel function that we use to parameterise our GP is an
 # important modelling decision as the choice of kernel dictates properties such
@@ -479,23 +499,27 @@ with warnings.catch_warnings():
 # marginalising $\mathbf{f}$ from the joint posterior to obtain
 # the posterior predictive distribution is exact
 #
-# \begin{align*}
+# $$
 #     p(\mathbf{f}^{\star}\mid \mathbf{y}) = \mathcal{N}(\mathbf{f}^{\star}\,|\,\boldsymbol{\mu}_{\,|\,\mathbf{y}}, \Sigma_{\,|\,\mathbf{y}})\,,
-# \end{align*}
+# $$ (eq-intro-gps-conjugate-predictive)
 #
 # where
 #
-# \begin{align*}
+# $$
+# \begin{aligned}
 #     \mathbf{\mu}_{\mid \mathbf{y}} & = \mathbf{K}_{\star f}\left( \mathbf{K}_{ff}+\sigma^2_n\mathbf{I}_n\right)^{-1}\mathbf{y} \\
 #     \Sigma_{\,|\,\mathbf{y}} & = \mathbf{K}_{\star\star} - \mathbf{K}_{xf}\left(\mathbf{K}_{ff} + \sigma_n^2\mathbf{I}_n\right)^{-1}\mathbf{K}_{fx} \,.
-# \end{align*}
+# \end{aligned}
+# $$ (eq-intro-gps-conjugate-predictive-moments)
 #
 # Further, the log of the  marginal likelihood of the GP can
 # be analytically expressed as
 #
-# \begin{align*}
-#         & = 0.5\left(-\underbrace{\mathbf{y}^{\top}\left(\mathbf{K}_{ff} + \sigma_n^2\mathbf{I}_n \right)^{-1}\mathbf{y}}_{\text{Data fit}} -\underbrace{\log\lvert \mathbf{K}_{ff} + \sigma^2_n\rvert}_{\text{Complexity}} -\underbrace{n\log 2\pi}_{\text{Constant}} \right)\,.
-# \end{align*}
+# $$
+# \begin{aligned}
+#     \log p(\mathbf{y}) & = 0.5\left(-\underbrace{\mathbf{y}^{\top}\left(\mathbf{K}_{ff} + \sigma_n^2\mathbf{I}_n \right)^{-1}\mathbf{y}}_{\text{Data fit}} -\underbrace{\log\lvert \mathbf{K}_{ff} + \sigma^2_n\rvert}_{\text{Complexity}} -\underbrace{n\log 2\pi}_{\text{Constant}} \right)\,.
+# \end{aligned}
+# $$ (eq-intro-gps-marginal-log-likelihood)
 #
 # Model selection can be performed for a GP through gradient-based optimisation
 # of $\log p(\mathbf{y})$ with respect to the kernel's parameters
@@ -504,9 +528,9 @@ with warnings.catch_warnings():
 # $\boldsymbol{\xi} = \{\boldsymbol{\theta},\sigma_n^2\}$
 # from which the maximum likelihood estimate is given by
 #
-# \begin{align*}
+# $$
 #     \boldsymbol{\xi}^{\star} = \operatorname{argmax}_{\boldsymbol{\xi} \in \Xi} \log p(\mathbf{y})\,.
-# \end{align*}
+# $$ (eq-intro-gps-maximum-likelihood-estimate)
 #
 #
 # Observing the individual terms in the marginal log-likelihood can help

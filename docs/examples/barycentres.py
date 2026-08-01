@@ -69,8 +69,11 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # distributions, the solution is analytically given by
 #
 # $$
-# W_2^2(\mu, \nu) = \lVert m_1- m_2 \rVert^2_2 + \operatorname{Tr}(S_1 + S_2 - 2(S_1^{1/2}S_2S_1^{1/2})^{1/2}),
-# $$
+# \begin{aligned}
+# W_2^2(\mu, \nu) & = \lVert m_1- m_2 \rVert^2_2 \\
+#                 & \quad + \operatorname{Tr}(S_1 + S_2 - 2(S_1^{1/2}S_2S_1^{1/2})^{1/2}),
+# \end{aligned}
+# $$ (eq-barycentres-wasserstein-distance)
 #
 # where $\mu \sim \mathcal{N}(m_1, S_1)$ and $\nu\sim\mathcal{N}(m_2, S_2)$.
 #
@@ -84,7 +87,7 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \bar{\mu} = \operatorname{argmin}_{\mu\in\mathcal{P}_2(\theta)}\sum_{t=1}^T \alpha_t W_2^2(\mu, \mu_t),
-# $$
+# $$ (eq-barycentres-frechet-mean)
 #
 # where $\alpha\in\mathbb{R}^T$ is a weight vector that sums to 1.
 #
@@ -94,8 +97,11 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # $\bar{\mu} = \mathcal{N}(\bar{m}, \bar{S})$ has analytical solutions
 #
 # $$
-# \bar{m} = \sum_{t=1}^T \alpha_t m_t\,, \quad \bar{S}=\sum_{t=1}^T\alpha_t (\bar{S}^{1/2}S_t\bar{S}^{1/2})^{1/2}\,. \qquad (\star)
-# $$
+# \begin{aligned}
+# \bar{m} & = \sum_{t=1}^T \alpha_t m_t\,, \\
+# \bar{S} & = \sum_{t=1}^T\alpha_t (\bar{S}^{1/2}S_t\bar{S}^{1/2})^{1/2}\,.
+# \end{aligned}
+# $$ (eq-barycentres-gaussian-barycentre)
 #
 # Identifying $\bar{S}$ is achieved through a fixed-point iterative update.
 #
@@ -104,7 +110,8 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # It was shown in <strong data-cite="mallasto2017learning"></strong> that the
 # barycentre $\bar{f}$ of a collection of Gaussian processes
 # $\lbrace f_i\rbrace_{i=1}^T$ such that $f_i \sim \mathcal{GP}(m_i, K_i)$ can be
-# found using the same solutions as in $(\star)$. For a full theoretical understanding,
+# found using the same solutions as in {eq}`eq-barycentres-gaussian-barycentre`. For a
+# full theoretical understanding,
 # we recommend reading the original paper. However, the central argument to this result
 # is that one can first show that the barycentre GP
 # $\bar{f}\sim\mathcal{GP}(\bar{m}, \bar{S})$ is non-degenerate for any finite set of
@@ -191,7 +198,8 @@ posterior_preds = [fit_gp(x, i) for i in ys]
 # [TensorFlow Probability](https://www.tensorflow.org/probability/api_docs/python/tfp/substrates/jax)
 # distribution, making it
 # straightforward to extract the mean vector and covariance matrix of each GP for
-# learning a barycentre. We implement the fixed point scheme given in (3) in the
+# learning a barycentre. We implement the fixed point scheme given in
+# {eq}`eq-barycentres-gaussian-barycentre` in the
 # following cell by utilising Jax's `vmap` operator to speed up large matrix operations
 # using broadcasting in `tensordot`.
 

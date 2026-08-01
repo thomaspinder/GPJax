@@ -70,7 +70,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \mathbf{y}(t) = \mathbf{H}\,\mathbf{x}(t) + \boldsymbol{\varepsilon}(t),
-# $$
+# $$ (eq-oilmm-linear-mixing)
 #
 # where
 # - $\mathbf{x}(t) = \bigl(x_1(t),\ldots,x_m(t)\bigr)^\top$ collects $m$
@@ -85,9 +85,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \begin{aligned}
-# \operatorname{cov}[\bar{\mathbf{y}}] = (\mathbf{H} \otimes \mathbf{I}_n)\, \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\, (\mathbf{H} \otimes \mathbf{I}_n)^\top + \sigma^2\,\mathbf{I}_{np},
+# \operatorname{cov}[\bar{\mathbf{y}}] & = (\mathbf{H} \otimes \mathbf{I}_n)\, \operatorname{blkdiag}(\mathbf{K}_1,\ldots,\mathbf{K}_m)\, (\mathbf{H} \otimes \mathbf{I}_n)^\top \\
+# & \quad + \sigma^2\,\mathbf{I}_{np},
 # \end{aligned}
-# $$
+# $$ (eq-oilmm-joint-covariance)
 #
 # where $\mathbf{K}_i$ is the $n \times n$ Gram matrix of the $i$-th latent
 # kernel. Inverting this $np \times np$ matrix naively costs
@@ -100,7 +101,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \mathbf{H} = \mathbf{U}\,\mathbf{S}^{1/2},
-# $$
+# $$ (eq-oilmm-orthogonal-mixing)
 #
 # where $\mathbf{U} \in \mathbb{R}^{p \times m}$ has orthonormal columns
 # ($\mathbf{U}^\top\mathbf{U} = \mathbf{I}_m$) and
@@ -115,18 +116,20 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # \mathbf{T} &= \mathbf{S}^{-1/2}\,\mathbf{U}^\top, \\
 # \mathbf{T}\,\mathbf{H} &= \mathbf{S}^{-1/2}\, \underbrace{\mathbf{U}^\top\mathbf{U}}_{\mathbf{I}_m}\, \mathbf{S}^{1/2} = \mathbf{I}_m.
 # \end{aligned}
-# $$
+# $$ (eq-oilmm-projection-matrix)
 #
 # Applying $\mathbf{T}$ to the observed outputs projects them into the latent
 # space:
 #
 # $$
+# \begin{aligned}
 # \tilde{\mathbf{y}}(t)
-# = \mathbf{T}\,\mathbf{y}(t)
-# = \underbrace{\mathbf{T}\,\mathbf{H}}_{\mathbf{I}_m}\,\mathbf{x}(t)
-#   + \mathbf{T}\,\boldsymbol{\varepsilon}(t)
-# = \mathbf{x}(t) + \tilde{\boldsymbol{\varepsilon}}(t).
-# $$
+# & = \mathbf{T}\,\mathbf{y}(t) \\
+# & = \underbrace{\mathbf{T}\,\mathbf{H}}_{\mathbf{I}_m}\,\mathbf{x}(t)
+#   + \mathbf{T}\,\boldsymbol{\varepsilon}(t) \\
+# & = \mathbf{x}(t) + \tilde{\boldsymbol{\varepsilon}}(t).
+# \end{aligned}
+# $$ (eq-oilmm-latent-projection)
 #
 
 # %% [markdown]
@@ -137,13 +140,15 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # diagonal covariance:
 #
 # $$
+# \begin{aligned}
 # \operatorname{cov}[\tilde{\boldsymbol{\varepsilon}}]
-# = \sigma^2\,\mathbf{T}\,\mathbf{T}^\top
-# = \sigma^2\,\mathbf{S}^{-1/2}\,
+# & = \sigma^2\,\mathbf{T}\,\mathbf{T}^\top \\
+# & = \sigma^2\,\mathbf{S}^{-1/2}\,
 #   \underbrace{\mathbf{U}^\top\mathbf{U}}_{\mathbf{I}_m}\,
-#   \mathbf{S}^{-1/2}
-# = \sigma^2\,\mathbf{S}^{-1}.
-# $$
+#   \mathbf{S}^{-1/2} \\
+# & = \sigma^2\,\mathbf{S}^{-1}.
+# \end{aligned}
+# $$ (eq-oilmm-projected-noise)
 #
 # Because $\mathbf{S}$ is diagonal, the projected noise components are
 # independent: the $i$-th latent observation has noise variance $\sigma^2/s_i$.
@@ -155,7 +160,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # $$
 # \boldsymbol{\Sigma}_{\mathbf{T}} = \sigma^2\,\mathbf{S}^{-1} + \mathbf{D},
-# $$
+# $$ (eq-oilmm-projected-noise-covariance)
 #
 # which remains diagonal.
 
@@ -193,7 +198,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #    \boldsymbol{\Sigma}_m)\,
 #    (\mathbf{H} \otimes \mathbf{I}_{n_*})^\top.
 # \end{aligned}
-# $$
+# $$ (eq-oilmm-output-predictive)
 #
 # When only marginal variances are needed, the Kronecker product need not be
 # formed explicitly. The marginal variance of output $j$ at test point $t$ is
@@ -201,7 +206,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # $$
 # \operatorname{var}\bigl[f_j(t)\bigr]
 # = \sum_{i=1}^{m} H_{ji}^2\,\operatorname{var}\bigl[x_i(t)\bigr],
-# $$
+# $$ (eq-oilmm-marginal-variance)
 #
 # which costs only $\mathcal{O}(n_* p\, m)$.
 
@@ -341,9 +346,11 @@ plt.suptitle("North Atlantic Wave Components", fontsize=13)
 # GPJax provides `create_oilmm_from_data`, which initialises the mixing matrix
 # using the empirical correlation structure of the outputs. Under the hood it
 # first computes the empirical covariance matrix
+#
 # $$
 # \hat{\boldsymbol{\Sigma}} = \tfrac{1}{n-1}\,\mathbf{Y}_c^\top\mathbf{Y}_c,
-# $$
+# $$ (eq-oilmm-empirical-covariance)
+#
 # where $\mathbf{Y}_c$ is the column-centred observation matrix. The next step
 # extracts the top $m$ eigenvectors and eigenvalues of $\hat{\boldsymbol{\Sigma}}$.
 # The function then sets $\mathbf{U}_{\text{latent}}$ to the eigenvectors. This
@@ -372,11 +379,12 @@ model = gpx.models.create_oilmm_from_data(
 # forward pass using SVD:
 #
 # $$
+# \begin{aligned}
 # \mathbf{U}_{\text{SVD}},\,\_,\,\mathbf{V}^\top
-# = \operatorname{SVD}(\mathbf{U}_{\text{latent}}),
-# \qquad
-# \mathbf{U} = \mathbf{U}_{\text{SVD}}\,\mathbf{V}^\top.
-# $$
+# & = \operatorname{SVD}(\mathbf{U}_{\text{latent}}), \\
+# \mathbf{U} & = \mathbf{U}_{\text{SVD}}\,\mathbf{V}^\top.
+# \end{aligned}
+# $$ (eq-oilmm-stiefel-projection)
 #
 # This ensures $\mathbf{U}^\top\mathbf{U} = \mathbf{I}_m$ exactly, regardless
 # of the optimiser's updates to the unconstrained representation.
@@ -461,17 +469,19 @@ plt.suptitle("Before Optimisation", fontsize=13)
 # Proposition 9 of Bruinsma et al. (2020) gives the exact expression:
 #
 # $$
+# \begin{aligned}
 # \log p(\mathbf{Y})
-# = \underbrace{-\tfrac{n}{2}\log|\mathbf{S}|}_{\text{scaling penalty}}
-# \;\underbrace{-\tfrac{n(p-m)}{2}\log(2\pi\sigma^2)}_{\text{residual noise}}
-# \;\underbrace{-\tfrac{1}{2\sigma^2}\bigl\|(\mathbf{I}_p -
+# & = \underbrace{-\tfrac{n}{2}\log|\mathbf{S}|}_{\text{scaling penalty}}
+# \;\underbrace{-\tfrac{n(p-m)}{2}\log(2\pi\sigma^2)}_{\text{residual noise}} \\
+# & \quad \;\underbrace{-\tfrac{1}{2\sigma^2}\bigl\|(\mathbf{I}_p -
 #   \mathbf{U}\mathbf{U}^\top)\mathbf{Y}^\top\bigr\|_F^2}_{\text{projection
-#   residual}}
-# \;+\;\sum_{i=1}^{m}
+#   residual}} \\
+# & \quad \;+\;\sum_{i=1}^{m}
 #   \underbrace{\log\mathcal{N}\bigl(\tilde{\mathbf{y}}_i \mid \mathbf{0},\,
 #   \mathbf{K}_i + (\sigma^2/s_i + d_i)\mathbf{I}_n\bigr)}_{\text{latent GP
 #   marginal likelihood}}.
-# $$
+# \end{aligned}
+# $$ (eq-oilmm-log-marginal-likelihood)
 #
 # The first three terms are correction factors that account for the
 # deterministic projection from output space to latent space:
@@ -585,9 +595,11 @@ plt.suptitle("OILMM Wave Predictions: Default vs Optimised", fontsize=13, y=1.01
 # observed outputs $\mathbf{y}(t)$, we add output-space noise:
 #
 # $$
-# \operatorname{var}[y_j(t)] = \operatorname{var}[f_j(t)]
-# + \sigma^2 + \sum_{i=1}^m H_{ji}^2 d_i.
-# $$
+# \begin{aligned}
+# \operatorname{var}[y_j(t)] & = \operatorname{var}[f_j(t)] \\
+# & \quad + \sigma^2 + \sum_{i=1}^m H_{ji}^2 d_i.
+# \end{aligned}
+# $$ (eq-oilmm-observation-variance)
 #
 # The wider band below is the predictive standard deviation of noisy observations,
 # whilst the narrower band is the latent function's standard deviation.

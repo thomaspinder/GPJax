@@ -86,7 +86,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #   k(\mathbf{x}, \mathbf{x}') &= \text{Cov}[f(\mathbf{x}), f(\mathbf{x}')] \\
 #   &= \mathbb{E}[(f(\mathbf{x}) - \mathbb{E}[f(\mathbf{x})])(f(\mathbf{x}') - \mathbb{E}[f(\mathbf{x}')])]
 # \end{aligned}
-# $$
+# $$ (eq-kernels-covariance-definition)
 #
 # One would expect that, given a previously unobserved test point $\mathbf{x}^*$, the
 # training points which are *closest* to this unobserved point will be most similar to
@@ -125,7 +125,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # input points and a kernel function $k$ the *Gram matrix* stores the pairwise kernel
 # evaluations between all input points. Mathematically, this leads to the Gram matrix being defined as:
 #
-# $$K(\mathbf{X}, \mathbf{X}) = \begin{bmatrix} k(\mathbf{x}_1, \mathbf{x}_1) & \cdots & k(\mathbf{x}_1, \mathbf{x}_n) \\ \vdots & \ddots & \vdots \\ k(\mathbf{x}_n, \mathbf{x}_1) & \cdots & k(\mathbf{x}_n, \mathbf{x}_n) \end{bmatrix}$$
+# $$
+# K(\mathbf{X}, \mathbf{X}) = \begin{bmatrix} k(\mathbf{x}_1, \mathbf{x}_1) & \cdots & k(\mathbf{x}_1, \mathbf{x}_n) \\ \vdots & \ddots & \vdots \\ k(\mathbf{x}_n, \mathbf{x}_1) & \cdots & k(\mathbf{x}_n, \mathbf{x}_n) \end{bmatrix}
+# $$ (eq-kernels-gram-matrix)
 #
 # such that $K(\mathbf{X}, \mathbf{X})_{ij} = k(\mathbf{x}_i, \mathbf{x}_j)$.
 #
@@ -134,7 +136,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # *covariance matrix*. A real $n \times n$ matrix $K$ is positive semi-definite if and
 # only if for all vectors $\mathbf{z} \in \mathbb{R}^n$:
 #
-# $$\mathbf{z}^\top K \mathbf{z} \geq 0$$
+# $$
+# \mathbf{z}^\top K \mathbf{z} \geq 0
+# $$ (eq-kernels-psd-condition)
 #
 # Alternatively, a real $n \times n$ matrix $K$ is positive semi-definite if and only if
 # all of its eigenvalues are non-negative.
@@ -156,7 +160,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # %% [markdown]
 # One of the most widely used families of kernels is the Matérn family ([Matérn, 1960](https://core.ac.uk/download/pdf/11698705.pdf)). These kernels take on the following form:
 #
-# $$k_{\nu}(\mathbf{x}, \mathbf{x'}) = \sigma^2 \frac{2^{1 - \nu}}{\Gamma(\nu)}\left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)^{\nu} K_{\nu} \left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)$$
+# $$
+# k_{\nu}(\mathbf{x}, \mathbf{x'}) = \sigma^2 \frac{2^{1 - \nu}}{\Gamma(\nu)}\left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)^{\nu} K_{\nu} \left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)
+# $$ (eq-kernels-matern-family)
 #
 # where $K_{\nu}$ is a modified Bessel function, $\nu$, $\kappa$ and $\sigma^2$ are
 # hyperparameters specifying the mean-square differentiability, lengthscale and
@@ -176,14 +182,20 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Matérn32 kernel. When $\nu$ takes in a half-integer value, $\nu = k + 1/2$, the kernel
 # can be expressed as the product of a polynomial of order $k$ and an exponential:
 #
-# $$k_{k + 1/2}(\mathbf{x}, \mathbf{x'}) = \sigma^2
-# \exp\left(-\frac{\sqrt{2\nu}|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)
-# \frac{\Gamma(k+1)}{\Gamma(2k+1)} \times \sum_{i= 0}^k \frac{(k+i)!}{i!(k-i)!}
-# \left(\frac{(\sqrt{8\nu}|\mathbf{x} - \mathbf{x'}|)}{\kappa}\right)^{k-i}$$
+# $$
+# \begin{aligned}
+# k_{k + 1/2}(\mathbf{x}, \mathbf{x'}) & = \sigma^2
+# \exp\left(-\frac{\sqrt{2\nu}|\mathbf{x} - \mathbf{x'}|}{\kappa}\right) \\
+# & \quad \frac{\Gamma(k+1)}{\Gamma(2k+1)} \times \sum_{i= 0}^k \frac{(k+i)!}{i!(k-i)!}
+# \left(\frac{(\sqrt{8\nu}|\mathbf{x} - \mathbf{x'}|)}{\kappa}\right)^{k-i}
+# \end{aligned}
+# $$ (eq-kernels-matern-half-integer)
 #
 # In the limit of $\nu \to \infty$ this yields the *squared-exponential*, or *radial basis function (RBF)*, kernel, which is infinitely mean-square differentiable:
 #
-# $$k_{\infty}(\mathbf{x}, \mathbf{x'}) = \sigma^2 \exp\left(-\frac{|\mathbf{x} - \mathbf{x'}|^2}{2\kappa^2}\right)$$
+# $$
+# k_{\infty}(\mathbf{x}, \mathbf{x'}) = \sigma^2 \exp\left(-\frac{|\mathbf{x} - \mathbf{x'}|^2}{2\kappa^2}\right)
+# $$ (eq-kernels-rbf)
 #
 # But what kind of functions does this kernel encode prior knowledge about? Let's take a look at some samples from GP priors defined used Matérn kernels with different values of $\nu$:
 
@@ -219,10 +231,13 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
 # %% [markdown]
 # Most kernels have several *hyperparameters*, which we denote $\mathbf{\theta}$, which encode different assumptions about the underlying function being modelled. For the Matérn family described above, $\mathbf{\theta} = \{\nu, \kappa, \sigma\}$. A fully Bayesian approach to dealing with hyperparameters would be to place a prior over them, and marginalise over the posterior derived from the data in order to perform predictions. However, this is often computationally very expensive, and so a common approach is to instead *optimise* the hyperparameters by maximising the log marginal likelihood of the data. Given training data $\mathbf{D} = (\mathbf{X}, \mathbf{y})$, assumed to contain some additive Gaussian noise $\epsilon \sim \mathcal{N}(0, \sigma^2)$, the log marginal likelihood of the dataset is defined as:
 #
-# $$ \begin{aligned}
-# \log(p(\mathbf{y} | \mathbf{X}, \boldsymbol{\theta})) &= \log\left(\int p(\mathbf{y} | \mathbf{f}, \mathbf{X}, \boldsymbol{\theta}) p(\mathbf{f} | \mathbf{X}, \boldsymbol{\theta}) d\mathbf{f}\right) \nonumber \\
-# &= - \frac{1}{2} \mathbf{y} ^ \top \left(K(\mathbf{X}, \mathbf{X}) + \sigma^2 \mathbf{I} \right)^{-1} \mathbf{y} - \frac{1}{2} \log |K(\mathbf{X}, \mathbf{X}) + \sigma^2 \mathbf{I}| - \frac{n}{2} \log 2 \pi
-# \end{aligned}$$
+# $$
+# \begin{aligned}
+# \log(p(\mathbf{y} | \mathbf{X}, \boldsymbol{\theta})) &= \log\left(\int p(\mathbf{y} | \mathbf{f}, \mathbf{X}, \boldsymbol{\theta}) p(\mathbf{f} | \mathbf{X}, \boldsymbol{\theta}) d\mathbf{f}\right) \\
+# &= - \frac{1}{2} \mathbf{y} ^ \top \left(K(\mathbf{X}, \mathbf{X}) + \sigma^2 \mathbf{I} \right)^{-1} \mathbf{y} \\
+# &\quad - \frac{1}{2} \log |K(\mathbf{X}, \mathbf{X}) + \sigma^2 \mathbf{I}| - \frac{n}{2} \log 2 \pi
+# \end{aligned}
+# $$ (eq-kernels-log-marginal-likelihood)
 
 # %% [markdown]
 # This expression can then be maximised with respect to the hyperparameters using a
@@ -233,7 +248,9 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
 #
 # We'll demonstrate the advantages of being able to infer kernel parameters from the training data by fitting a GP to the widely used [Forrester function](https://www.sfu.ca/~ssurjano/forretal08.html):
 #
-# $$f(x) = (6x - 2)^2 \sin(12x - 4)$$
+# $$
+# f(x) = (6x - 2)^2 \sin(12x - 4)
+# $$ (eq-kernels-forrester-function)
 
 
 # %%
@@ -355,7 +372,9 @@ print(
 # %% [markdown]
 # Whilst the Matérn kernels are often used as a first choice of kernel, and they often perform well due to their smoothing properties often being well-aligned with the properties of the underlying function being modelled, sometimes more prior knowledge is known about the function being modelled. For instance, it may be known that the function being modelled is *periodic*. In this case, a suitable kernel choice would be the *periodic* kernel:
 #
-# $$k(\mathbf{x}, \mathbf{x}') = \sigma^2 \exp \left( -\frac{1}{2} \sum_{i=1}^{D} \left(\frac{\sin (\pi (\mathbf{x}_i - \mathbf{x}_i')/p)}{\ell}\right)^2 \right)$$
+# $$
+# k(\mathbf{x}, \mathbf{x}') = \sigma^2 \exp \left( -\frac{1}{2} \sum_{i=1}^{D} \left(\frac{\sin (\pi (\mathbf{x}_i - \mathbf{x}_i')/p)}{\ell}\right)^2 \right)
+# $$ (eq-kernels-periodic)
 #
 # with $D$ being the dimensionality of the inputs.
 #
@@ -377,7 +396,9 @@ ax.set_title("Samples from the Periodic Kernel")
 # %% [markdown]
 # In other scenarios, it may be known that the underlying function is *linear*, in which case the *linear* kernel would be a suitable choice:
 #
-# $$k(\mathbf{x}, \mathbf{x}') = \sigma^2 \mathbf{x}^\top \mathbf{x}'$$
+# $$
+# k(\mathbf{x}, \mathbf{x}') = \sigma^2 \mathbf{x}^\top \mathbf{x}'
+# $$ (eq-kernels-linear)
 #
 # Unlike the kernels shown above, the linear kernel is *not* stationary, and so it is not invariant to translations in the input space.
 #
@@ -520,7 +541,9 @@ D = gpx.Dataset(X=train_x, y=standardised_train_y)
 # data. We'll also add an RBF kernel to the sum, which will allow us to capture any
 # non-linear trends in the data:
 #
-# $$\text{Kernel = Linear + Periodic + RBF}$$
+# $$
+# \text{Kernel = Linear + Periodic + RBF}
+# $$ (eq-kernels-composite-sum)
 #
 #
 

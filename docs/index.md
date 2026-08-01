@@ -23,12 +23,14 @@ likelihood = gpx.likelihoods.Gaussian(num_datapoints=123)
 posterior = prior * likelihood
 ```
 
-\begin{align*}
+$$
+\begin{aligned}
 k(\cdot, \cdot') & = \sigma^2\exp\left(-\frac{\lVert \cdot- \cdot'\rVert_2^2}{2\ell^2}\right)\\
 p(f(\cdot)) & = \mathcal{GP}(\mathbf{0}, k(\cdot, \cdot')) \\
 p(y\,|\, f(\cdot)) & = \mathcal{N}(y\,|\, f(\cdot), \sigma_n^2) \\ \\
 p(f(\cdot) \,|\, y) & \propto p(f(\cdot))p(y\,|\, f(\cdot))\,.
-\end{align*}
+\end{aligned}
+$$ (eq-index-conjugate-gp)
 
 <section class="consulting-cta">
     <p>We currently have some <strong>availability for consulting</strong> on how Gaussian processes, Bayesian modelling, and GPJax can be integrated into your team's work. If this sounds relevant to your work, <a href="https://calendly.com/hello-1761-izqw/15-minute-meeting-clone-1">book an introductory call</a>. These calls are for consulting inquiries only. For technical usage questions and free community support, please use GitHub Discussions and the documentation below.</p>
@@ -64,6 +66,20 @@ If you use GPJax in your research, please cite our [JOSS paper](https://joss.the
 }
 ```
 
+<!-- Sidebar grouping. `toctree_maxdepth = 0` in conf.py hands depth control to the
+     `:maxdepth:` on each toctree below, and `globaltoc_expand_depth = 1` opens every
+     top-level entry. So `:maxdepth: 2` is what puts a group's pages into the sidebar
+     tree at all, and `:maxdepth: 1` keeps a group to a single line.
+
+     Every group whose pages should be reachable from the sidebar therefore needs
+     `:maxdepth: 2`. Groups that are a single page — Getting started, Migrations,
+     Project — use `:maxdepth: 1`, because there are no children to reach.
+
+     Note shibuya's fold state is uniform by depth: it cannot open some groups and
+     leave others folded. That is why the migration guides live in one page with a
+     `##` per release rather than as separate documents under a folded parent. The
+     structure gives the tidy single sidebar line for free, with no JavaScript. -->
+
 ```{toctree}
 :hidden:
 :caption: Getting started
@@ -90,14 +106,28 @@ reference/index
 
 ```{toctree}
 :hidden:
+:caption: Background
+:maxdepth: 1
+
+design
+sharp_bits
+```
+
+```{toctree}
+:hidden:
+:caption: Migrations
+:maxdepth: 1
+
+migration
+```
+
+```{toctree}
+:hidden:
 :caption: Project
 :maxdepth: 1
 
 contributing
 GOVERNANCE
 CODE_OF_CONDUCT
-design
-sharp_bits
-migration
 references
 ```

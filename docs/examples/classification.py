@@ -65,8 +65,11 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # $\boldsymbol{x}$ sampled uniformly on $(-1., 1)$ and corresponding binary outputs
 #
 # $$
-# \boldsymbol{y} = 0.5 * \text{sign}(\cos(2 *  + \boldsymbol{\epsilon})) + 0.5, \quad \boldsymbol{\epsilon} \sim \mathcal{N} \left(\textbf{0}, \textbf{I} * (0.05)^{2} \right).
-# $$
+# \begin{aligned}
+# \boldsymbol{y} & = 0.5 * \text{sign}(\cos(3 \boldsymbol{x} + \boldsymbol{\epsilon})) + 0.5, \\
+# \boldsymbol{\epsilon} & \sim \mathcal{N} \left(\textbf{0}, \textbf{I} * (0.05)^{2} \right).
+# \end{aligned}
+# $$ (eq-classification-data-generating)
 #
 # We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs for
 # later.
@@ -171,9 +174,13 @@ ax.legend()
 # $\boldsymbol{f}$ at the data points $\boldsymbol{x}$ to get predictions over the
 # whole domain,
 #
-# \begin{align}
-# p(f(\cdot)| \mathcal{D})  \approx q_{map}(f(\cdot)) := \int p(f(\cdot)| \boldsymbol{f}) \delta(\boldsymbol{f} - \hat{\boldsymbol{f}}) d \boldsymbol{f} = \mathcal{N}(\mathbf{K}_{\boldsymbol{(\cdot)x}}  \mathbf{K}_{\boldsymbol{xx}}^{-1} \hat{\boldsymbol{f}},  \mathbf{K}_{\boldsymbol{(\cdot, \cdot)}} - \mathbf{K}_{\boldsymbol{(\cdot)\boldsymbol{x}}} \mathbf{K}_{\boldsymbol{xx}}^{-1} \mathbf{K}_{\boldsymbol{\boldsymbol{x}(\cdot)}}).
-# \end{align}
+# $$
+# \begin{aligned}
+# p(f(\cdot)| \mathcal{D}) & \approx q_{map}(f(\cdot)) \\
+# & := \int p(f(\cdot)| \boldsymbol{f}) \delta(\boldsymbol{f} - \hat{\boldsymbol{f}}) d \boldsymbol{f} \\
+# & = \mathcal{N}(\mathbf{K}_{\boldsymbol{(\cdot)x}}  \mathbf{K}_{\boldsymbol{xx}}^{-1} \hat{\boldsymbol{f}},  \mathbf{K}_{\boldsymbol{(\cdot, \cdot)}} - \mathbf{K}_{\boldsymbol{(\cdot)\boldsymbol{x}}} \mathbf{K}_{\boldsymbol{xx}}^{-1} \mathbf{K}_{\boldsymbol{\boldsymbol{x}(\cdot)}}).
+# \end{aligned}
+# $$ (eq-classification-map-predictive)
 
 # %% [markdown]
 # However, as a point estimate, MAP estimation is severely limited for uncertainty
@@ -189,16 +196,22 @@ ax.legend()
 # $\boldsymbol{x}$, we can expand the log of this about the posterior mode
 # $\hat{\boldsymbol{f}}$ via a Taylor expansion. This gives:
 #
-# \begin{align*}
-# \log\tilde{p}(\boldsymbol{f}|\mathcal{D}) = \log\tilde{p}(\hat{\boldsymbol{f}}|\mathcal{D}) + \left[\nabla \log\tilde{p}({\boldsymbol{f}}|\mathcal{D})|_{\hat{\boldsymbol{f}}}\right]^{T} (\boldsymbol{f}-\hat{\boldsymbol{f}}) + \frac{1}{2} (\boldsymbol{f}-\hat{\boldsymbol{f}})^{T} \left[\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} \right] (\boldsymbol{f}-\hat{\boldsymbol{f}}) + \mathcal{O}(\lVert \boldsymbol{f} - \hat{\boldsymbol{f}} \rVert^3).
-# \end{align*}
+# $$
+# \begin{aligned}
+# \log\tilde{p}(\boldsymbol{f}|\mathcal{D}) & = \log\tilde{p}(\hat{\boldsymbol{f}}|\mathcal{D}) + \left[\nabla \log\tilde{p}({\boldsymbol{f}}|\mathcal{D})|_{\hat{\boldsymbol{f}}}\right]^{T} (\boldsymbol{f}-\hat{\boldsymbol{f}}) \\
+# & \quad + \frac{1}{2} (\boldsymbol{f}-\hat{\boldsymbol{f}})^{T} \left[\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} \right] (\boldsymbol{f}-\hat{\boldsymbol{f}}) \\
+# & \quad + \mathcal{O}(\lVert \boldsymbol{f} - \hat{\boldsymbol{f}} \rVert^3).
+# \end{aligned}
+# $$ (eq-classification-laplace-taylor)
 #
 # Since $\nabla \log\tilde{p}({\boldsymbol{f}}|\mathcal{D})$ is zero at the mode,
 # this suggests the following approximation
 #
-# \begin{align*}
-# \tilde{p}(\boldsymbol{f}|\mathcal{D}) \approx \log\tilde{p}(\hat{\boldsymbol{f}}|\mathcal{D}) \exp\left\{ \frac{1}{2} (\boldsymbol{f}-\hat{\boldsymbol{f}})^{T} \left[-\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} \right] (\boldsymbol{f}-\hat{\boldsymbol{f}}) \right\},
-# \end{align*}
+# $$
+# \begin{aligned}
+# \tilde{p}(\boldsymbol{f}|\mathcal{D}) & \approx \log\tilde{p}(\hat{\boldsymbol{f}}|\mathcal{D}) \exp\left\{ \frac{1}{2} (\boldsymbol{f}-\hat{\boldsymbol{f}})^{T} \left[-\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} \right] (\boldsymbol{f}-\hat{\boldsymbol{f}}) \right\},
+# \end{aligned}
+# $$ (eq-classification-laplace-approximation)
 #
 # that we identify as a Gaussian distribution,
 # $p(\boldsymbol{f}| \mathcal{D}) \approx q(\boldsymbol{f}) := \mathcal{N}(\hat{\boldsymbol{f}}, [-\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} ]^{-1} )$.
@@ -241,9 +254,13 @@ laplace_approximation = npd.MultivariateNormal(f_hat.squeeze(), scale_tril=LH)
 # For novel inputs, we must project the above approximating distribution through the
 # Gaussian conditional distribution $p(f(\cdot)| \boldsymbol{f})$,
 #
-# \begin{align}
-# p(f(\cdot)| \mathcal{D}) \approx q_{Laplace}(f(\cdot)) := \int p(f(\cdot)| \boldsymbol{f}) q(\boldsymbol{f}) d \boldsymbol{f} = \mathcal{N}(\mathbf{K}_{\boldsymbol{(\cdot)x}}  \mathbf{K}_{\boldsymbol{xx}}^{-1} \hat{\boldsymbol{f}},  \mathbf{K}_{\boldsymbol{(\cdot, \cdot)}} - \mathbf{K}_{\boldsymbol{(\cdot)\boldsymbol{x}}} \mathbf{K}_{\boldsymbol{xx}}^{-1} (\mathbf{K}_{\boldsymbol{xx}} - [-\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} ]^{-1}) \mathbf{K}_{\boldsymbol{xx}}^{-1} \mathbf{K}_{\boldsymbol{\boldsymbol{x}(\cdot)}}).
-# \end{align}
+# $$
+# \begin{aligned}
+# p(f(\cdot)| \mathcal{D}) & \approx q_{Laplace}(f(\cdot)) \\
+# & := \int p(f(\cdot)| \boldsymbol{f}) q(\boldsymbol{f}) d \boldsymbol{f} \\
+# & = \mathcal{N}(\mathbf{K}_{\boldsymbol{(\cdot)x}}  \mathbf{K}_{\boldsymbol{xx}}^{-1} \hat{\boldsymbol{f}},  \mathbf{K}_{\boldsymbol{(\cdot, \cdot)}} - \mathbf{K}_{\boldsymbol{(\cdot)\boldsymbol{x}}} \mathbf{K}_{\boldsymbol{xx}}^{-1} (\mathbf{K}_{\boldsymbol{xx}} - [-\nabla^2 \tilde{p}(\boldsymbol{y}|\boldsymbol{f})|_{\hat{\boldsymbol{f}}} ]^{-1}) \mathbf{K}_{\boldsymbol{xx}}^{-1} \mathbf{K}_{\boldsymbol{\boldsymbol{x}(\cdot)}}).
+# \end{aligned}
+# $$ (eq-classification-laplace-predictive)
 #
 # This is the same approximate distribution $q_{map}(f(\cdot))$, but we have perturbed
 # the covariance by a curvature term of

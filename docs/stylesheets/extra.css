@@ -3,14 +3,104 @@
  * Everything here is a survivor of the old mkdocs-material `extra.css`; the
  * ~110 lines that targeted `.md-*` classes, the Material colour variables and
  * the `permalinks.css` headerlink mask are all Material-only and were dropped
- * with the theme. Shibuya's `accent_color = "crimson"` covers the palette that
+ * with the theme. Shibuya's `accent_color` covers the palette that
  * `--md-primary-fg-color` used to force. */
 
-:root {
-    /* GPJax brand crimson. shibuya's accent_color picks the nearest radix ramp;
-       this pins the exact hex for the pieces we style by hand. */
-    --gpjax-brand: #b71c1c;
+/* -- Brand accent ------------------------------------------------------------
+ *
+ * conf.py can only name a radix ramp (`accent_color = "red"`); shibuya has no
+ * way to take a hex. The ramp supplies every derived tint, and the exact brand
+ * hex is pinned over the one step that carries the visible accent.
+ *
+ * `--accent-9` is that step. shibuya defines `--sy-c-link: var(--accent-9)`, and
+ * `--sy-c-link` is what colours `.globaltoc > ul a.current`, `.localtoc > ul
+ * li.active > a` and (via `--yue-c-link-border`) the underline under every prose
+ * link, so overriding `--accent-9` alone reaches all of them.
+ *
+ * Scoped to `html[data-accent-color]` (specificity 0,2,0) to outrank shibuya's
+ * own `[data-accent-color=red]` block (0,1,0). It is deliberately NOT scoped to
+ * `html.light` / `html.dark`: shibuya switches colour mode with a class on this
+ * same element and never re-declares `--accent-9`, so one unscoped declaration
+ * holds in both modes. */
+html[data-accent-color] {
+    --gpjax-brand: #7a2e2a;
+    --accent-9: var(--gpjax-brand);
+    /* Local alias for the hand-styled pieces below. Note this is *not* a shibuya
+       variable -- the theme stylesheet never reads `--linkcolor`. */
     --linkcolor: var(--gpjax-brand);
+}
+
+/* Dark mode needs a lighter step of the same ramp. The brand hex is built for a
+ * white page: on shibuya's dark background (#111113) #7a2e2a measures 2.02:1,
+ * under both the 4.5:1 AA text threshold and the 3:1 threshold for UI. Links and
+ * the active sidebar entry are effectively unreadable.
+ *
+ * #d07b76 is the same colour lifted for a dark ground -- hue 3deg and saturation
+ * 0.49 are both unchanged, only lightness moves (0.32 -> 0.64), which is how a
+ * radix-style ramp is meant to be traversed. It measures 6.09:1, past AA and
+ * close to AAA. A true colour-theory complement (cyan-green, hue 183deg) was
+ * rejected: it reads as a different brand.
+ *
+ * `html.dark[data-accent-color]` is (0,2,1) against the (0,1,1) above, so it
+ * wins regardless of source order. shibuya always sets the mode class, including
+ * under `color_mode: "auto"`, so this holds when following the OS preference. */
+html.dark[data-accent-color] {
+    --gpjax-brand: #d07b76;
+}
+
+/* -- Notebook cells follow the site's colour mode ----------------------------
+ *
+ * MyST-NB's stylesheet switches its whole palette on two marker custom
+ * properties, `--light` and `--dark`, which it sets from `prefers-color-scheme`
+ * or from a `[data-theme]` attribute on <html>/<body> (Furo's and PyData's
+ * convention). shibuya uses neither: it toggles `html.light` / `html.dark`.
+ *
+ * The two therefore disagreed whenever the site's mode differed from the OS
+ * preference -- which is the default path, since `color_mode = "auto"` starts
+ * from the OS but the reader's toggle is remembered in localStorage. A reader on
+ * a light OS viewing the site in dark mode got MyST-NB's *light* cell background
+ * (#f7f7f7) underneath Pygments' *dark* token colours (#e6edf3 text), because
+ * shibuya's Pygments stylesheet does key on `html.dark`. Near-white on
+ * near-white: the unreadable code blocks.
+ *
+ * Driving MyST-NB's two markers from shibuya's classes reconnects the whole
+ * MyST-NB palette to the site's colour mode. Specificity 0,1,1 outranks the
+ * `:root` (0,1,0) that MyST-NB sets inside its media queries.
+ *
+ * The empty values are load-bearing and not typos: `var(--light, X)` substitutes
+ * nothing when `--light` is the empty value, and falls back to `X` when it is
+ * `initial`. That is the switch MyST-NB is built on. */
+html.light {
+    --light: initial;
+    --dark: ;
+}
+
+html.dark {
+    --light: ;
+    --dark: initial;
+}
+
+/* With the switch reconnected MyST-NB's own greys are legible but they are not
+ * shibuya's, so a notebook input cell still read as a foreign panel. Point its
+ * surfaces at the theme's own tokens instead; each of those already resolves per
+ * colour mode, so this needs no light/dark branching of its own. */
+:root {
+    /* Transparent, not a colour: shibuya already paints `.highlight pre` with
+       `--code-block-background`, and that <pre> fills the input cell. Giving the
+       cell its own tint as well would stack two translucent accent layers and
+       make notebook code read heavier than the same code in prose. */
+    --mystnb-source-bg-color: transparent;
+    --mystnb-source-border-color: var(--sy-c-border);
+    /* MyST-NB's default for the thick left rule is the literal keyword `green`. */
+    --mystnb-source-margin-color: var(--accent-9);
+    --mystnb-stdout-bg-color: var(--sy-c-surface);
+    --mystnb-stdout-border-color: var(--sy-c-border);
+    --mystnb-traceback-bg-color: var(--red-a2);
+    --mystnb-traceback-border-color: var(--red-a6);
+    --mystnb-stderr-bg-color: var(--red-a2);
+    --mystnb-stderr-border-color: var(--red-a6);
+    --mystnb-scrollbar-thumb-color: var(--gray-a6);
+    --mystnb-scrollbar-thumb-hover-color: var(--gray-a8);
 }
 
 /* Consulting call-to-action block on the landing page. */

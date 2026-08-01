@@ -54,21 +54,27 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # matrix $\mathbf{B} \in \mathbb{R}^{P \times P}$. Given an input-space kernel
 # $k(\mathbf{x}, \mathbf{x}')$, the multi-output covariance between output $p$ at
 # input $\mathbf{x}$ and output $q$ at input $\mathbf{x}'$ is
+#
 # $$
 # \operatorname{cov}\bigl(f_p(\mathbf{x}),\, f_q(\mathbf{x}')\bigr) = B_{pq}\, k(\mathbf{x}, \mathbf{x}').
-# $$
+# $$ (eq-multioutput-icm-covariance)
+#
 # Stacking all $N$ observations across $P$ outputs into a single vector of length
 # $NP$, the joint covariance matrix takes the Kronecker form
+#
 # $$
 # \mathbf{K} = \mathbf{B} \otimes \mathbf{K}_{\mathbf{x}\mathbf{x}},
-# $$
+# $$ (eq-multioutput-icm-kronecker)
+#
 # where $\mathbf{K}_{\mathbf{x}\mathbf{x}}$ is the $N \times N$ Gram matrix of the
 # base kernel.
 #
 # The coregionalization matrix is parameterised as
+#
 # $$
 # \mathbf{B} = \mathbf{W}\mathbf{W}^\top + \operatorname{diag}(\boldsymbol{\kappa}),
-# $$
+# $$ (eq-multioutput-icm-coregionalization)
+#
 # where $\mathbf{W} \in \mathbb{R}^{P \times R}$ is a low-rank factor of rank $R$
 # and $\boldsymbol{\kappa} \in \mathbb{R}^P_{>0}$ is a positive diagonal. The rank
 # parameter controls how many latent sources of correlation the model can express.
@@ -282,17 +288,20 @@ fig.colorbar(im, ax=ax, shrink=0.8)
 # $\{\mathbf{B}^{(q)}\}_{q=1}^{Q}$, each of size $P \times P$, the LCM defines the
 # multi-output covariance between output $p$ at input $\mathbf{x}$ and output $r$ at
 # input $\mathbf{x}'$ as
+#
 # $$
 # \operatorname{cov}\bigl(f_p(\mathbf{x}),\, f_r(\mathbf{x}')\bigr)
 # = \sum_{q=1}^{Q} B^{(q)}_{pr}\, k_q(\mathbf{x}, \mathbf{x}').
-# $$
+# $$ (eq-multioutput-lcm-covariance)
 #
 # Stacking all $N$ observations across $P$ outputs into a single vector of length
 # $NP$, the joint covariance matrix is the **sum of Kronecker products**
+#
 # $$
 # \mathbf{K} = \sum_{q=1}^{Q} \mathbf{B}^{(q)} \otimes
 #              \mathbf{K}^{(q)}_{\mathbf{x}\mathbf{x}},
-# $$
+# $$ (eq-multioutput-lcm-kronecker-sum)
+#
 # where $\mathbf{K}^{(q)}_{\mathbf{x}\mathbf{x}}$ is the $N \times N$ Gram matrix
 # of the $q$-th latent kernel.
 #
@@ -310,10 +319,12 @@ fig.colorbar(im, ax=ax, shrink=0.8)
 # ### Per-component coregionalization
 #
 # Each coregionalization matrix is parameterised as before:
+#
 # $$
 # \mathbf{B}^{(q)} = \mathbf{W}^{(q)}{\mathbf{W}^{(q)}}^\top
 #   + \operatorname{diag}(\boldsymbol{\kappa}^{(q)}),
-# $$
+# $$ (eq-multioutput-lcm-coregionalization)
+#
 # where $\mathbf{W}^{(q)} \in \mathbb{R}^{P \times R_q}$ is a low-rank factor and
 # $\boldsymbol{\kappa}^{(q)} \in \mathbb{R}^P_{>0}$ a positive diagonal. The rank
 # $R_q$ of each component can be chosen independently. A component with rank 1
@@ -330,11 +341,15 @@ fig.colorbar(im, ax=ax, shrink=0.8)
 # - $g_2(x) = \cos(4\pi x)$ — a faster oscillation at double the frequency.
 #
 # The three observed outputs are mixtures of these latent functions:
-# \begin{align}
+#
+# $$
+# \begin{aligned}
 # f_1(x) &= g_1(x), \\
 # f_2(x) &= 0.5\,g_1(x) + 0.5\,g_2(x), \\
 # f_3(x) &= g_2(x).
-# \end{align}
+# \end{aligned}
+# $$ (eq-multioutput-latent-mixtures)
+#
 # Outputs 1 and 3 are each dominated by a single latent source, while output 2 is a
 # balanced mixture of both. A single-component ICM kernel would struggle here because
 # it cannot separate the two frequency scales. An LCM with $Q = 2$ components —

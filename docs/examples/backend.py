@@ -238,9 +238,11 @@ print(positive_reals)
 #
 # For inputs $x_n \in \mathbb{R}^d$, the linear mean function $m(x): \mathbb{R}^d \to
 # \mathbb{R}$ is defined as:
+#
 # $$
 # m(x) = \alpha + \sum_{i=1}^d \beta_i x_i
-# $$
+# $$ (eq-backend-linear-mean)
+#
 # where $\alpha \in \mathbb{R}$ and $\beta_i \in \mathbb{R}$ are the parameters of the
 # mean function. Let's now implement that using Equinox.
 

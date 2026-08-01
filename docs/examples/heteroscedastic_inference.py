@@ -35,7 +35,11 @@
 # where we learn a constant value for the noise.
 #
 # In the Gaussian case, the observed response follows
-# $$y \mid f, g \sim \mathcal{N}(f, \sigma^2(x)).$$
+#
+# $$
+# y \mid f, g \sim \mathcal{N}(f, \sigma^2(x)).
+# $$ (eq-heteroscedastic-observation-model)
+#
 # Variational inference works with independent posteriors $q(f)q(g)$, combining the
 # moments of each into an ELBO. For non-Gaussian likelihoods the same structure
 # remains; only the expected log-likelihood changes.
@@ -80,12 +84,24 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # We simulate whose mean and noise levels vary with
 # the input. We sample inputs $x \sim \mathcal{U}(0, 1)$ and define the
 # latent signal to be
-# $$f(x) = (x - 0.5)^2 + 0.05;$$
+#
+# $$
+# f(x) = (x - 0.5)^2 + 0.05;
+# $$ (eq-heteroscedastic-latent-signal)
+#
 # a smooth bowl-shaped curve. The observation standard deviation is chosen to be
 # proportional to the signal,
-# $$\sigma(x) = 0.5\,f(x),$$
+#
+# $$
+# \sigma(x) = 0.5\,f(x),
+# $$ (eq-heteroscedastic-noise-scale)
+#
 # which yields the heteroscedastic generative model
-# $$y \mid x \sim \mathcal{N}\!\big(f(x), \sigma^2(x)\big).$$
+#
+# $$
+# y \mid x \sim \mathcal{N}\!\big(f(x), \sigma^2(x)\big).
+# $$ (eq-heteroscedastic-generative-model)
+#
 # This construction makes the noise small near the minimum of the bowl and much
 # larger in the tails. We also create a dense test grid that we shall use later for
 # visualising posterior fits and predictive uncertainty.
@@ -124,14 +140,25 @@ ax.legend(loc="upper left")
 # %% [markdown]
 # ## Prior specification
 # We place independent Gaussian process priors on the signal and noise processes:
-# $$f \sim \mathcal{GP}\big(0, k_f\big), \qquad g \sim \mathcal{GP}\big(0, k_g\big),$$
+#
+# $$
+# \begin{aligned}
+# f & \sim \mathcal{GP}\big(0, k_f\big), \\
+# g & \sim \mathcal{GP}\big(0, k_g\big),
+# \end{aligned}
+# $$ (eq-heteroscedastic-priors)
+#
 # where $k_f$ and $k_g$ are stationary squared-exponential kernels with unit
 # variance and lengthscale of one. The noise process $g$ is mapped to the variance
 # via the logarithmic transform in `LogNormalTransform`, giving
 # $\sigma^2(x) = \exp\big(g(x)\big)$. The joint prior over $(f, g)$ combines with
 # the heteroscedastic Gaussian likelihood,
-# $$p(\mathbf{y} \mid f, g) = \prod_{i=1}^n
-# \mathcal{N}\!\big(y_i \mid f(x_i), \exp(g(x_i))\big),$$
+#
+# $$
+# p(\mathbf{y} \mid f, g) = \prod_{i=1}^n
+# \mathcal{N}\!\big(y_i \mid f(x_i), \exp(g(x_i))\big),
+# $$ (eq-heteroscedastic-likelihood)
+#
 # to form the posterior target that we shall approximate variationally. The product
 # syntax `signal_prior * likelihood` used below constructs this augmented GP model.
 
@@ -176,9 +203,15 @@ q = HeteroscedasticVariationalFamily(
 # %% [markdown]
 # ### Optimisation
 # With the model specified, we minimise the negative ELBO,
-# $$\mathcal{L} = \mathbb{E}_{q(f)q(g)}\!\big[\log p(\mathbf{y}\mid f, g)\big]
-# - \mathrm{KL}\!\left[q(f) \,\|\, p(f)\right]
-# - \mathrm{KL}\!\left[q(g) \,\|\, p(g)\right],$$
+#
+# $$
+# \begin{aligned}
+# \mathcal{L} & = \mathbb{E}_{q(f)q(g)}\!\big[\log p(\mathbf{y}\mid f, g)\big] \\
+#             & \quad - \mathrm{KL}\!\left[q(f) \,\|\, p(f)\right] \\
+#             & \quad - \mathrm{KL}\!\left[q(g) \,\|\, p(g)\right],
+# \end{aligned}
+# $$ (eq-heteroscedastic-elbo)
+#
 # using the Adam optimiser. GPJax automatically selects the tight bound of
 # Lázaro-Gredilla & Titsias (2011) when the likelihood is Gaussian, yielding an
 # analytically tractable expectation over the latent noise process. The resulting

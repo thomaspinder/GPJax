@@ -61,7 +61,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # with inputs $\boldsymbol{x}$ sampled uniformly on $(-3., 3)$ and corresponding
 # independent noisy outputs
 #
-# $$\boldsymbol{y} \sim \mathcal{N} \left(\sin(7\boldsymbol{x}) + x \cos(2 \boldsymbol{x}), \textbf{I} * 0.5^2 \right).$$
+# $$
+# \boldsymbol{y} \sim \mathcal{N} \left(\sin(7\boldsymbol{x}) + x \cos(2 \boldsymbol{x}), \textbf{I} * 0.5^2 \right).
+# $$ (eq-collapsed-vi-data-generating)
 #
 # We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs and
 # labels for later.

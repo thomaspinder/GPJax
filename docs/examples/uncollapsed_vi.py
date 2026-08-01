@@ -61,7 +61,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # $\mathcal{D} = (\boldsymbol{x}, \boldsymbol{y}) = \{(x_i, y_i)\}_{i=1}^{5000}$
 # with inputs $\boldsymbol{x}$ sampled uniformly on $(-5, 5)$ and corresponding binary outputs
 #
-# $$\boldsymbol{y} \sim \mathcal{N} \left(\sin(4 * \boldsymbol{x}) + \sin(2 * \boldsymbol{x}), \textbf{I} * (0.2)^{2} \right).$$
+# $$
+# \boldsymbol{y} \sim \mathcal{N} \left(\sin(4 * \boldsymbol{x}) + \sin(2 * \boldsymbol{x}), \textbf{I} * (0.2)^{2} \right).
+# $$ (eq-uncollapsed-vi-data-generating)
 #
 # We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs for later.
 
@@ -156,16 +158,18 @@ ax.set(xlabel=r"$x$", ylabel=r"$f(x)$")
 # We begin by considering the form of the posterior distribution for all function
 # values $f(\cdot)$
 #
-# \begin{align}
-# p(f(\cdot) | \mathcal{D}) = \int p(f(\cdot)|f(\boldsymbol{x})) p(f(\boldsymbol{x})|\mathcal{D}) \text{d}f(\boldsymbol{x}). \qquad (\dagger)
-# \end{align}
+# $$
+# p(f(\cdot) | \mathcal{D}) = \int p(f(\cdot)|f(\boldsymbol{x})) p(f(\boldsymbol{x})|\mathcal{D}) \text{d}f(\boldsymbol{x}).
+# $$ (eq-uncollapsed-vi-exact-predictive)
 #
 # To arrive at an approximation framework, we assume some redundancy in the data.
 # Instead of predicting $f(\cdot)$ with function values at the datapoints
 # $f(\boldsymbol{x})$, we assume this can be achieved with only function values at
 # $m$ inducing inputs $\boldsymbol{z}$
 #
-# $$ p(f(\cdot) | \mathcal{D}) \approx \int p(f(\cdot)|f(\boldsymbol{z})) p(f(\boldsymbol{z})|\mathcal{D}) \text{d}f(\boldsymbol{z}). \qquad (\star) $$
+# $$
+# p(f(\cdot) | \mathcal{D}) \approx \int p(f(\cdot)|f(\boldsymbol{z})) p(f(\boldsymbol{z})|\mathcal{D}) \text{d}f(\boldsymbol{z}).
+# $$ (eq-uncollapsed-vi-inducing-predictive)
 #
 # This lower dimensional integral results in computational savings in the model's
 # predictive component from $p(f(\cdot)|f(\boldsymbol{x}))$ to
@@ -175,12 +179,16 @@ ax.set(xlabel=r"$x$", ylabel=r"$f(x)$")
 # However, since we did not observe our data $\mathcal{D}$ at $\boldsymbol{z}$ we ask,
 # what exactly is the posterior $p(f(\boldsymbol{z})|\mathcal{D})$?
 #
-# Notice this is simply obtained by substituting $\boldsymbol{z}$ into $(\dagger)$,
+# Notice this is simply obtained by substituting $\boldsymbol{z}$ into
+# {eq}`eq-uncollapsed-vi-exact-predictive`,
 # but we arrive back at square one with computing the expensive integral. To side-step
-# this, we consider replacing $p(f(\boldsymbol{z})|\mathcal{D})$ in $(\star)$ with a
+# this, we consider replacing $p(f(\boldsymbol{z})|\mathcal{D})$ in
+# {eq}`eq-uncollapsed-vi-inducing-predictive` with a
 # cheap-to-compute approximate distribution $q(f(\boldsymbol{z}))$
 #
-#   $$ q(f(\cdot)) = \int p(f(\cdot)|f(\boldsymbol{z})) q(f(\boldsymbol{z})) \text{d}f(\boldsymbol{z}). \qquad (\times) $$
+# $$
+# q(f(\cdot)) = \int p(f(\cdot)|f(\boldsymbol{z})) q(f(\boldsymbol{z})) \text{d}f(\boldsymbol{z}).
+# $$ (eq-uncollapsed-vi-variational-predictive)
 #
 # To measure the quality of the approximation, we consider the Kullback-Leibler
 # divergence $\operatorname{KL}(\cdot || \cdot)$ from our approximate process
@@ -209,7 +217,7 @@ q = gpx.variational_families.VariationalGaussian(posterior=p, inducing_inputs=z)
 
 # %% [markdown]
 # Here, the variational process $q(\cdot)$ depends on the prior through
-# $p(f(\cdot)|f(\boldsymbol{z}))$ in $(\times)$.
+# $p(f(\cdot)|f(\boldsymbol{z}))$ in {eq}`eq-uncollapsed-vi-variational-predictive`.
 
 # %% [markdown]
 # ## Inference

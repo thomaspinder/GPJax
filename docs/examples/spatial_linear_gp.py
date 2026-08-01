@@ -96,10 +96,14 @@ y = latent_signal + noise_stddev * jr.normal(keys[1], shape=latent_signal.shape)
 # will later be combined with a GP residual, but for now, we'll establish a baseline model
 # through ordinary linear regression.
 #
-# $$\begin{aligned} \mathbf{w} &\sim \mathcal{N}(\mathbf{0}, 5\mathbf{I}) \\
+# $$
+# \begin{aligned}
+# \mathbf{w} &\sim \mathcal{N}(\mathbf{0}, 5\mathbf{I}) \\
 # b &\sim \mathcal{N}(0, 5) \\
 # \sigma &\sim \text{LogNormal}(0, 1) \\
-# \mathbf{y} &\sim \mathcal{N}(\mathbf{X}\mathbf{w} + b, \sigma^2 \mathbf{I}) \end{aligned} $$
+# \mathbf{y} &\sim \mathcal{N}(\mathbf{X}\mathbf{w} + b, \sigma^2 \mathbf{I})
+# \end{aligned}
+# $$ (eq-spatial-linear-priors)
 #
 # We use the No-U-Turn Sampler (NUTS) to draw samples from the posterior distributions of the slope
 # $\mathbf{w}$, intercept $b$, and noise $\sigma$.
@@ -131,8 +135,10 @@ mcmc_lin.print_summary()
 #
 # We now augment the linear component with a GP tasked with modelling the residual.
 #
-# $$ y(\mathbf{x}) = \underbrace{\mathbf{w}^T \mathbf{x} + b}_{\text{Linear Mean}} +
-# \underbrace{f(\mathbf{x})}_{\text{GP Residual}} + \epsilon $$
+# $$
+# y(\mathbf{x}) = \underbrace{\mathbf{w}^T \mathbf{x} + b}_{\text{Linear Mean}} +
+# \underbrace{f(\mathbf{x})}_{\text{GP Residual}} + \epsilon
+# $$ (eq-spatial-linear-gp-residual)
 #
 # ### GPJax and NumPyro Integration
 #
