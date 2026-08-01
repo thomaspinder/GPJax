@@ -39,7 +39,8 @@ $$ (eq-index-conjugate-gp)
 ## Learn more
 
 - [Installation](installation.md) — install the stable or development version
-- [Examples](examples/index.md) — executable notebooks, from an introduction to GPs through to sparse and multi-output models
+- [New to Gaussian Processes?](examples/intro_to_gps.py) — priors, posteriors and the marginal likelihood from first principles
+- [Regression](examples/regression.py) — the canonical end-to-end workflow
 - [API Reference](reference/index.md) — complete module documentation
 - [Sharp bits](sharp_bits.md) — the numerical pitfalls worth knowing about before you hit them
 <!-- The ASV dashboard is copied into the built site by .github/workflows/build_docs.yml,
@@ -86,22 +87,49 @@ If you use GPJax in your research, please cite our [JOSS paper](https://joss.the
 :maxdepth: 1
 
 installation
+examples/intro_to_gps
+examples/intro_to_kernels
+examples/regression
+examples/classification
+examples/poisson
 ```
 
 ```{toctree}
 :hidden:
-:caption: Examples
-:maxdepth: 2
+:caption: Accelerating Gaussian processes
+:maxdepth: 1
 
-examples/index
+examples/collapsed_vi
+examples/uncollapsed_vi
+examples/state_space_gps
+examples/oilmm
 ```
 
 ```{toctree}
 :hidden:
-:caption: Reference
-:maxdepth: 2
+:caption: Applied modelling
+:maxdepth: 1
 
-reference/index
+examples/barycentres
+examples/graph_kernels
+examples/heteroscedastic_inference
+examples/multioutput
+examples/oak
+examples/oceanmodelling
+examples/spatial_linear_gp
+examples/yacht
+```
+
+```{toctree}
+:hidden:
+:caption: Guides for customisation
+:maxdepth: 1
+
+examples/constructing_new_kernels
+examples/likelihoods_guide
+examples/deep_kernels
+examples/numpyro_integration
+examples/backend
 ```
 
 ```{toctree}
@@ -111,6 +139,14 @@ reference/index
 
 design
 sharp_bits
+```
+
+```{toctree}
+:hidden:
+:caption: Reference
+:maxdepth: 2
+
+reference/index
 ```
 
 ```{toctree}
