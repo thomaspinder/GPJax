@@ -18,7 +18,7 @@
 # # Gaussian Processes Barycentres
 #
 # In this notebook we'll give an implementation of
-# <strong data-cite="mallasto2017learning"></strong>. In this work, the existence of a
+# {cite:t}`mallasto2017learning`. In this work, the existence of a
 # Wasserstein barycentre between a collection of Gaussian processes is proven. When
 # faced with trying to _average_ a set of probability distributions, the Wasserstein
 # barycentre is an attractive choice as it enables uncertainty amongst the individual
@@ -107,7 +107,7 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # ## Barycentre of Gaussian processes
 #
-# It was shown in <strong data-cite="mallasto2017learning"></strong> that the
+# It was shown in {cite:t}`mallasto2017learning` that the
 # barycentre $\bar{f}$ of a collection of Gaussian processes
 # $\lbrace f_i\rbrace_{i=1}^T$ such that $f_i \sim \mathcal{GP}(m_i, K_i)$ can be
 # found using the same solutions as in {eq}`eq-barycentres-gaussian-barycentre`. For a

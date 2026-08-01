@@ -555,8 +555,8 @@ with warnings.catch_warnings():
 # into our [Regression
 # notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/) and
 # start getting their hands on some code. For those looking to learn more about
-# the underling theory of GPs, an excellent starting point is the [Gaussian
-# Processes for Machine Learning](http://gaussianprocess.org/gpml/) textbook.
+# the underling theory of GPs, an excellent starting point is the *Gaussian
+# Processes for Machine Learning* textbook {cite:p}`rasmussen2006gaussian`.
 # Alternatively, the [thesis of Alexander
 # Terenin](https://arxiv.org/abs/2202.10613) provides a rigorous exposition of
 # GPs that served as the inspiration for this notebook.

@@ -19,7 +19,7 @@
 #
 # In this notebook we demonstrate how to implement sparse variational Gaussian
 # processes (SVGPs) of
-# <strong data-cite="hensman2015gaussian">Hensman et al. (2015)</strong>. In
+# {cite:t}`hensman2015gaussian`. In
 # particular, this approximation framework provides a tractable option for working with
 # non-conjugate Gaussian processes with more than ~5000 data points. However, for
 # conjugate models of less than 5000 data points, we recommend using the marginal
@@ -100,7 +100,7 @@ xtest = jnp.linspace(-5.5, 5.5, 500).reshape(-1, 1)
 # we can arrive at a flexible low-rank approximation framework of the model using
 # functions of $\mathbf{K}_{\boldsymbol{z}\boldsymbol{z}}$ to replace the true
 # covariance matrix $\mathbf{K}_{\boldsymbol{x}\boldsymbol{x}}$ at significantly
-# lower costs. For example, <strong data-cite="quinonero-candela2005gaussian"></strong>
+# lower costs. For example, {cite:t}`quinonero-candela2005gaussian`
 # review many popular approximation schemes in this vein. However, because the model
 # and the approximation are intertwined, assigning performance and faults to one or the
 # other becomes tricky.
@@ -115,8 +115,8 @@ xtest = jnp.linspace(-5.5, 5.5, 500).reshape(-1, 1)
 # This procedure makes variational methods efficiently solvable via off-the-shelf
 # optimisation techniques whilst retaining the true-underlying model.
 # Furthermore, SVGPs offer further cost reductions with mini-batch stochastic gradient
-# descent  <strong data-cite="hensman2013gaussian"></strong> and address non-conjugacy
-# <strong data-cite="hensman2015gaussian"></strong>.
+# descent {cite:p}`hensman2013gaussian` and address non-conjugacy
+# {cite:p}`hensman2015gaussian`.
 # We show a cost comparison between the approaches below, where $b$ is the mini-batch
 # size.
 #
@@ -232,8 +232,8 @@ q = gpx.variational_families.VariationalGaussian(posterior=p, inducing_inputs=z)
 # Kullback-Leibler divergence. Moreover, as hinted by its name, the ELBO is a lower
 # bound to the marginal log-likelihood, providing a tractable objective to optimise the
 # model's hyperparameters akin to the conjugate setting. For further details on this,
-# see Sections 3.1 and 4.1 of the excellent review paper
-# <strong data-cite="leibfried2020tutorial"></strong>.
+# see Sections 3.1 and 4.1 of the excellent review paper by
+# {cite:t}`leibfried2020tutorial`.
 #
 
 # %% [markdown]

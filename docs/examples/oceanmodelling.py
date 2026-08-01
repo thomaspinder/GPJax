@@ -685,7 +685,7 @@ print("NLPD for Velocity: %.2f \nNLPD for Helmholtz: %.2f" % (nlpd_vel, nlpd_hel
 # %% [markdown]
 # (fn1)=
 # ## Footnote
-# Kernels for vector-valued functions have been studied in the literature, see [Alvarez et al. (2012)](https://doi.org/10.48550/arXiv.1106.6251)
+# Kernels for vector-valued functions have been studied in the literature, see {cite:t}`alvarez2012kernels`.
 # ## System configuration
 # %%
 # %reload_ext watermark

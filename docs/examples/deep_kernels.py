@@ -21,7 +21,7 @@
 # [Equinox](https://docs.kidger.site/equinox/) to build deep kernel Gaussian
 # processes. Modelling data with discontinuities is a challenging task for regular
 # Gaussian process models. However, as shown in
-# <strong data-cite="wilson2016deep"></strong>, transforming the inputs to our
+# {cite:t}`wilson2016deep`, transforming the inputs to our
 # Gaussian process model's kernel through a neural network can offer a solution to this.
 
 # %%

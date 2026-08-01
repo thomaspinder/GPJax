@@ -19,7 +19,7 @@
 #
 # This notebook demonstrates how regression models can be constructed on the vertices
 # of a graph using a Gaussian process with a Matérn kernel presented in
-# <strong data-cite="borovitskiy2021matern"></strong>. For a general discussion of the
+# {cite:t}`borovitskiy2021matern`. For a general discussion of the
 # kernels supported within GPJax, see the
 # [kernels notebook](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels).
 

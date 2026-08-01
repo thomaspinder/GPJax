@@ -29,7 +29,7 @@
 # become prohibitively expensive from a computational and memory perspective.
 #
 # The Orthogonal Instantaneous Linear Mixing Model (OILMM) of
-# [Bruinsma et al. (2020)](https://arxiv.org/abs/1911.06287) resolves this
+# {cite:t}`bruinsma2020scalable` resolves this
 # bottleneck. It models the $p$ outputs as linear mixtures of $m \leq p$ latent
 # Gaussian processes through a mixing matrix $\mathbf{H}$ whose columns are
 # mutually orthogonal. This orthogonality causes the projected observation noise

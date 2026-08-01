@@ -18,7 +18,7 @@
 # # Sparse Gaussian Process Regression
 #
 # In this notebook we consider sparse Gaussian process regression (SGPR)
-# <strong data-cite="titsias2009">Titsias (2009)</strong>. This is a solution for
+# {cite:p}`titsias2009`. This is a solution for
 # medium to large-scale conjugate regression problems.
 # In order to arrive at a computationally tractable method, the approximate posterior
 # is parameterized via a set of $m$ pseudo-points $\boldsymbol{z}$. Critically, the

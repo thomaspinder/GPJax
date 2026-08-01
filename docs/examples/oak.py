@@ -18,7 +18,7 @@
 # # Orthogonal Additive Kernels
 #
 # In this notebook we demonstrate the Orthogonal Additive Kernel (OAK) of
-# [Lu, Boukouvalas & Hensman (2022)](https://proceedings.mlr.press/v162/lu22b.html).
+# {cite:t}`lu2022additive`.
 # OAK provides an interpretable additive Gaussian process model that decomposes
 # the target function into main effects and interaction terms, whilst remaining
 # a valid positive-definite kernel. The key ingredients are:

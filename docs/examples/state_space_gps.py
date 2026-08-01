@@ -91,11 +91,11 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # function value off the state. The observations are
 # $y_i = f(t_i) + \varepsilon_i$ with $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$.
 # The Matérn kernel family admits an exact representation of this form
-# [Hartikainen and Särkkä (2010)](https://ieeexplore.ieee.org/abstract/document/5589113)
+# {cite:p}`hartikainen2010kalman`,
 # whereby the state dimension is
 # $d = 1, 2, 3$ for the Matérn-1/2, 3/2 and 5/2 kernels respectively. Periodic
 # structure is captured to arbitrary accuracy by a truncated harmonic expansion
-# [Solin and Särkkä (2014)](https://proceedings.mlr.press/v33/solin14.html),
+# {cite:p}`solin2014explicit`,
 # and sums of these kernels simply stack their states.
 #
 # Because the process is Markovian, the marginal log-likelihood and the
@@ -104,7 +104,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # matrices, so the whole sweep costs $\mathcal{O}(N d^3)$ — linear in the number
 # of observations, against the dense path's $\mathcal{O}(N^3)$. For a complete
 # reference on this construction, see
-# [Solin and Särkkä (2019)](https://users.aalto.fi/~asolin/sde-book/sde-book.pdf)
+# {cite:t}`sarkka2019applied`.
 #
 # Two structural caveats follow from requiring a finite state. The RBF kernel
 # has no exact finite-dimensional state (its SDE is infinite order), and kernel

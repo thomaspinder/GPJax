@@ -158,7 +158,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # ## Introducing a Common Family of Kernels - The Matérn Family
 
 # %% [markdown]
-# One of the most widely used families of kernels is the Matérn family ([Matérn, 1960](https://core.ac.uk/download/pdf/11698705.pdf)). These kernels take on the following form:
+# One of the most widely used families of kernels is the Matérn family {cite:p}`matern1960SpatialV`. These kernels take on the following form:
 #
 # $$
 # k_{\nu}(\mathbf{x}, \mathbf{x'}) = \sigma^2 \frac{2^{1 - \nu}}{\Gamma(\nu)}\left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)^{\nu} K_{\nu} \left(\sqrt{2\nu} \frac{|\mathbf{x} - \mathbf{x'}|}{\kappa}\right)
@@ -701,8 +701,8 @@ print(
 #
 # Congratulations on making it this far! We hope that this guide has given you a good introduction to kernels and how they can be used in GPJax. If you're interested in learning more about kernels, we recommend the following resources, which have also been used as inspiration for this guide:
 #
-# - [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/chapters/RW.pdf) - Chapter 4 provides a comprehensive overview of kernels, diving deep into some of the technical details and also providing some kernels defined on non-Euclidean spaces such as strings.
-# - David Duvenaud's [Kernel Cookbook](https://www.cs.toronto.edu/~duvenaud/cookbook/) is a great resource for learning about kernels, and also provides some information about some of the pitfalls people commonly encounter when using the Matérn family of kernels. His PhD thesis, [Automatic Model Construction with Gaussian Processes](https://www.cs.toronto.edu/~duvenaud/thesis.pdf), also provides some in-depth recipes for how one may incorporate their prior knowledge when constructing kernels.
+# - *Gaussian Processes for Machine Learning* {cite:p}`rasmussen2006gaussian` - Chapter 4 provides a comprehensive overview of kernels, diving deep into some of the technical details and also providing some kernels defined on non-Euclidean spaces such as strings.
+# - David Duvenaud's [Kernel Cookbook](https://www.cs.toronto.edu/~duvenaud/cookbook/) is a great resource for learning about kernels, and also provides some information about some of the pitfalls people commonly encounter when using the Matérn family of kernels. His PhD thesis, *Automatic Model Construction with Gaussian Processes* {cite:p}`duvenaud2014automatic`, also provides some in-depth recipes for how one may incorporate their prior knowledge when constructing kernels.
 # - Finally, please check out our [more advanced kernel guide](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/), which details some more kernels available in GPJax as well as how one may combine kernels together to form more complex kernels.
 #
 # ## System Configuration
