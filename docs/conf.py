@@ -297,7 +297,7 @@ html_theme = "shibuya"
 html_title = "GPJax"
 # Sitemap, canonical link, og:url and the absolute og:image URL all derive from
 # this, so it must match the domain GitHub Pages is actually serving (docs/CNAME).
-html_baseurl = "https://docs.quantclimate.com/"
+html_baseurl = "https://gpjax.quantclimate.com/"
 sitemap_url_scheme = "{link}"
 html_static_path = ["stylesheets"]
 html_css_files = ["extra.css"]

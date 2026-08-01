@@ -1,0 +1,18 @@
+# Netlify redirect rules for the RETIRED docs host, docs.jaxgaussianprocesses.com.
+#
+# `:splat` carries the whole matched path across, so deep links survive:
+#   /examples/regression.html          -> /examples/regression.html
+#   /_examples/classification/         -> /_examples/classification/
+#
+# That second form matters. Old MkDocs URLs are still in the wild, and the new
+# site ships 87 sphinx-reredirects stubs for exactly those paths — so the chain
+# is: legacy host -> (301, path preserved) -> new host -> stub -> final page.
+# Rewriting paths here would break that, which is why this is a bare wildcard.
+#
+# URL fragments are not sent to the server; browsers reattach them after a
+# redirect, so `#laplace-approximation` style deep links survive too.
+#
+# `301!` — permanent, and the `!` forces the rule even if a file of the same
+# name exists in the deploy. This directory contains no other files, so the
+# force is belt-and-braces against a stale build lingering on the site.
+/*    https://gpjax.quantclimate.com/:splat    301!

@@ -120,7 +120,7 @@ dev = [
 
 
 [project.urls]
-Documentation = "https://docs.quantclimate.com/"
+Documentation = "https://gpjax.quantclimate.com/"
 Issues = "https://github.com/thomaspinder/GPJax/issues"
 Source = "https://github.com/thomaspinder/GPJax"
 

@@ -14,7 +14,7 @@
 
 [**Quickstart**](#simple-example)
 | [**Install guide**](#installation)
-| [**Documentation**](https://docs.quantclimate.com/)
+| [**Documentation**](https://gpjax.quantclimate.com/)
 | [**Slack Community**](https://join.slack.com/t/gpjax/shared_invite/zt-3cesiykcx-nzajjRdnV3ohw7~~eMlCYA)
 
 GPJax aims to provide a low-level interface to Gaussian process (GP) models in
@@ -47,7 +47,7 @@ As a contributor to GPJax, you are expected to abide by our [code of
 conduct](docs/CODE_OF_CONDUCT.md). If you feel that you have either experienced or
 witnessed behaviour that violates this standard, then we ask that you report any such
 behaviours through [this form](https://jaxgaussianprocesses.com/contact/) or reach out to
-one of the project's [_gardeners_](https://docs.quantclimate.com/GOVERNANCE.html#roles).
+one of the project's [_gardeners_](https://gpjax.quantclimate.com/GOVERNANCE.html#roles).
 
 Feel free to join our [Slack
 Channel](https://join.slack.com/t/gpjax/shared_invite/zt-3cesiykcx-nzajjRdnV3ohw7~~eMlCYA),
@@ -62,22 +62,22 @@ GPJax into the package it is today.
 
 ## Notebook examples
 
-> - [**Conjugate Inference**](https://docs.quantclimate.com/examples/regression.html)
-> - [**Classification**](https://docs.quantclimate.com/examples/classification.html)
-> - [**Sparse Variational Inference**](https://docs.quantclimate.com/examples/collapsed_vi.html)
-> - [**Stochastic Variational Inference**](https://docs.quantclimate.com/examples/uncollapsed_vi.html)
-> - [**Laplace Approximation**](https://docs.quantclimate.com/examples/classification.html#laplace-approximation)
-> - [**Inference on Non-Euclidean Spaces**](https://docs.quantclimate.com/examples/constructing_new_kernels.html#custom-kernel)
-> - [**Inference on Graphs**](https://docs.quantclimate.com/examples/graph_kernels.html)
-> - [**Heteroscedastic Inference**](https://docs.quantclimate.com/examples/heteroscedastic_inference.html)
-> - [**Learning Gaussian Process Barycentres**](https://docs.quantclimate.com/examples/barycentres.html)
-> - [**Deep Kernel Regression**](https://docs.quantclimate.com/examples/deep_kernels.html)
-> - [**Poisson Regression**](https://docs.quantclimate.com/examples/poisson.html)
+> - [**Conjugate Inference**](https://gpjax.quantclimate.com/examples/regression.html)
+> - [**Classification**](https://gpjax.quantclimate.com/examples/classification.html)
+> - [**Sparse Variational Inference**](https://gpjax.quantclimate.com/examples/collapsed_vi.html)
+> - [**Stochastic Variational Inference**](https://gpjax.quantclimate.com/examples/uncollapsed_vi.html)
+> - [**Laplace Approximation**](https://gpjax.quantclimate.com/examples/classification.html#laplace-approximation)
+> - [**Inference on Non-Euclidean Spaces**](https://gpjax.quantclimate.com/examples/constructing_new_kernels.html#custom-kernel)
+> - [**Inference on Graphs**](https://gpjax.quantclimate.com/examples/graph_kernels.html)
+> - [**Heteroscedastic Inference**](https://gpjax.quantclimate.com/examples/heteroscedastic_inference.html)
+> - [**Learning Gaussian Process Barycentres**](https://gpjax.quantclimate.com/examples/barycentres.html)
+> - [**Deep Kernel Regression**](https://gpjax.quantclimate.com/examples/deep_kernels.html)
+> - [**Poisson Regression**](https://gpjax.quantclimate.com/examples/poisson.html)
 
 ## Guides for customisation
 >
-> - [**Custom kernels**](https://docs.quantclimate.com/examples/constructing_new_kernels.html#custom-kernel)
-> - [**UCI regression**](https://docs.quantclimate.com/examples/yacht.html)
+> - [**Custom kernels**](https://gpjax.quantclimate.com/examples/constructing_new_kernels.html#custom-kernel)
+> - [**UCI regression**](https://gpjax.quantclimate.com/examples/yacht.html)
 
 ## Conversion between `.ipynb` and `.py`
 Above examples are stored in [examples](docs/examples) directory in the double
