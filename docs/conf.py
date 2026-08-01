@@ -164,13 +164,33 @@ math_numfig = False
 codeautolink_autodoc_inject = True
 
 # -- Intersphinx -------------------------------------------------------------
+# Each mapping lists two inventory locations: the upstream one (`None` means
+# "<target_uri>objects.inv"), then a vendored copy under `_inventories/`.
+# intersphinx tries them in order and stops at the first that loads.
+#
+# The fallback exists because this build runs under `-W`, and an unreachable
+# inventory is a hard failure. It is not hypothetical: a CI run failed with
+# `415 Unsupported Media Type` fetching the equinox inventory from a GitHub
+# runner, while the same URL returned 200 from a laptop -- bot protection
+# reacting to the runner, not a broken URL. The warning carries no warning type
+# (sphinx/ext/intersphinx/_load.py:326), so `suppress_warnings` cannot single it
+# out; the choice would otherwise be a flaky gate or no `-W` at all.
+#
+# The failure levels make this work: all locations failing logs a warning, but
+# *some* failing while another succeeds logs only info (`_load.py:319-327`), so
+# falling back to the vendored copy keeps the build green and silent under `-W`.
+#
+# Cost: the vendored inventories go stale, so a newly added upstream object will
+# not resolve until they are refreshed -- only on builds where the fetch failed.
+# Refresh by re-downloading each `objects.inv` into docs/_inventories/.
+_INV = os.path.join(os.path.dirname(__file__), "_inventories")
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "matplotlib": ("https://matplotlib.org/stable/", None),
-    "jax": ("https://docs.jax.dev/en/latest/", None),
-    "optax": ("https://optax.readthedocs.io/en/latest/", None),
-    "equinox": ("https://docs.kidger.site/equinox/", None),
+    "python": ("https://docs.python.org/3", (None, f"{_INV}/python.inv")),
+    "numpy": ("https://numpy.org/doc/stable/", (None, f"{_INV}/numpy.inv")),
+    "matplotlib": ("https://matplotlib.org/stable/", (None, f"{_INV}/matplotlib.inv")),
+    "jax": ("https://docs.jax.dev/en/latest/", (None, f"{_INV}/jax.inv")),
+    "optax": ("https://optax.readthedocs.io/en/latest/", (None, f"{_INV}/optax.inv")),
+    "equinox": ("https://docs.kidger.site/equinox/", (None, f"{_INV}/equinox.inv")),
 }
 
 # -- HTML output -------------------------------------------------------------

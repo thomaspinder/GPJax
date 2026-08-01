@@ -102,7 +102,7 @@ updates while keeping its value available at evaluation time.
 
 ## Positive-definiteness
 
-> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Highman, Accuracy and stability of numerical algorithms {cite:p}`higham2022accuracy`
+> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Higham, Accuracy and stability of numerical algorithms {cite:p}`higham2002accuracy`
 
 ### Why is positive-definiteness important?
 
