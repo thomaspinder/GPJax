@@ -193,25 +193,29 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         Gaussian process prior.
 
         For this variational family, we have
-        ```math
-        \begin{align}
-        \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
-        & = \operatorname{KL}[ \mathcal{N}(\mu, S) \mid\mid N(\mu z, \mathbf{K}_{zz}) ],
-        \end{align}
-        ```
+
+        .. math::
+
+            \begin{aligned}
+            \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
+            & = \operatorname{KL}[ \mathcal{N}(\mu, S) \mid\mid N(\mu z, \mathbf{K}_{zz}) ],
+            \end{aligned}
+
         where $u = f(z)$ and $z$ are the inducing inputs.
 
         With $S = LL^{\top}$ for the stored triangular root $L$ and
         $\mathbf{K}_{zz} = L_z L_z^{\top}$, this evaluates in closed form as
-        ```math
-        \tfrac{1}{2}\left(
-            \lVert L_z^{-1}(\mu_z - \mu)\rVert^2
-            + \lVert L_z^{-1} L\rVert_F^2
-            - m
-            + 2\sum_i \log [L_z]_{ii}
-            - 2\sum_i \log \lvert L_{ii}\rvert
-        \right),
-        ```
+
+        .. math::
+
+            \tfrac{1}{2}\left(
+                \lVert L_z^{-1}(\mu_z - \mu)\rVert^2
+                + \lVert L_z^{-1} L\rVert_F^2
+                - m
+                + 2\sum_i \log [L_z]_{ii}
+                - 2\sum_i \log \lvert L_{ii}\rvert
+            \right),
+
         so the Cholesky factor of $\mathbf{K}_{zz}$ is the only factorisation
         required; $S$ is never formed and never re-factorised.
 
@@ -263,9 +267,10 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
         This is the integral $q(f(t)) = \int p(f(t)\mid u) q(u) \mathrm{d}u$, which
         can be computed in closed form as:
-        ```math
+
+        .. math::
+
             \mathcal{N}\left(f(t); \mu t + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} (\mu - \mu z),  \mathbf{K}_{tt} - \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} S \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt}\right).
-        ```
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
@@ -387,25 +392,28 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
         the Gaussian process prior.
 
         For this variational family, we have
-        ```math
-        \begin{align}
-        \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
-            & = \operatorname{KL}[N(\mu  , S)\mid\mid N(0, I)].
-        \end{align}
-        ```
+
+        .. math::
+
+            \begin{aligned}
+            \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)]\\
+                & = \operatorname{KL}[N(\mu  , S)\mid\mid N(0, I)].
+            \end{aligned}
 
         Against a standard normal prior the divergence has a closed form that
         needs no matrix factorisation at all. Writing $S = LL^{\top}$ for the
         stored triangular root $L$, and using
         $\operatorname{tr}[S] = \lVert L\rVert_F^2$ and
         $\log\lvert S\rvert = 2\sum_i \log\lvert L_{ii}\rvert$,
-        ```math
-        \operatorname{KL}[\mathcal{N}(\mu, S)\mid\mid\mathcal{N}(0, I)] =
-        \tfrac{1}{2}\left(
-            \lVert\mu\rVert^2 + \lVert L\rVert_F^2 - m
-            - 2\sum_i \log\lvert L_{ii}\rvert
-        \right),
-        ```
+
+        .. math::
+
+            \operatorname{KL}[\mathcal{N}(\mu, S)\mid\mid\mathcal{N}(0, I)] =
+            \tfrac{1}{2}\left(
+                \lVert\mu\rVert^2 + \lVert L\rVert_F^2 - m
+                - 2\sum_i \log\lvert L_{ii}\rvert
+            \right),
+
         where $m$ is the number of inducing points.
 
         Returns:
@@ -430,9 +438,10 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
 
         This is the integral q(f(t)) = \int p(f(t)\midu) q(u) du, which can be computed in
         closed form as
-        ```math
+
+        .. math::
+
             \mathcal{N}\left(f(t); \mu t  +  \mathbf{K}_{tz} \mathbf{L}z^{\top} \mu  ,  \mathbf{K}_{tt}  -  \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt}  +  \mathbf{K}_{tz} \mathbf{L}z^{\top} S \mathbf{L}z^{-1} \mathbf{K}_{zt} \right).
-        ```
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
@@ -524,12 +533,14 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
         and the Gaussian process prior.
 
         For this variational family, we have
-        ```math
-        \begin{align}
-        \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)] \\
-            & = \operatorname{KL}[N(\mu, S)\mid\mid N(mz, \mathbf{K}_{zz})],
-        \end{align}
-        ```
+
+        .. math::
+
+            \begin{aligned}
+            \operatorname{KL}[q(f(\cdot))\mid\mid p(\cdot)] & = \operatorname{KL}[q(u)\mid\mid p(u)] \\
+                & = \operatorname{KL}[N(\mu, S)\mid\mid N(mz, \mathbf{K}_{zz})],
+            \end{aligned}
+
         with $\mu$ and $S$ computed from the natural parameterisation $\theta  = (S^{-1}\mu  , -S^{-1}/2)$.
 
         Returns:
@@ -579,9 +590,11 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
 
         This is the integral $q(f(t)) = \int p(f(t)\mid u) q(u) \mathrm{d}u$, which
         can be computed in closed form as
-        ```math
-             \mathcal{N}\left(f(t); \mu  t + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} (\mu   - \mu  z),  \mathbf{K}_{tt} - \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} S \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} \right),
-        ```
+
+        .. math::
+
+            \mathcal{N}\left(f(t); \mu  t + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} (\mu   - \mu  z),  \mathbf{K}_{tt} - \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} S \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} \right),
+
         with $\mu$ and $S$ computed from the natural parameterisation
         $\theta = (S^{-1}\mu  , -S^{-1}/2)$.
 
@@ -694,12 +707,14 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
         the Gaussian process prior.
 
         For this variational family, we have
-        ```math
-        \begin{align}
-        \operatorname{KL}(q(f(\cdot))\mid\mid p(\cdot)) & = \operatorname{KL}(q(u)\mid\mid p(u)) \\
-            & =\operatorname{KL}(\mathcal{N}(\mu, S)\mid\mid \mathcal{N}(m_z, K_{zz})),
-        \end{align}
-        ```
+
+        .. math::
+
+            \begin{aligned}
+            \operatorname{KL}(q(f(\cdot))\mid\mid p(\cdot)) & = \operatorname{KL}(q(u)\mid\mid p(u)) \\
+                & =\operatorname{KL}(\mathcal{N}(\mu, S)\mid\mid \mathcal{N}(m_z, K_{zz})),
+            \end{aligned}
+
         where $\mu$ and $S$ are the expectation parameters of the variational
         distribution and $m_z$ and $K_{zz}$ are the mean and covariance of the prior
         distribution.
@@ -742,9 +757,10 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
 
         This is the integral $q(f(t)) = \int p(f(t)\mid u)q(u)\mathrm{d}u$, which can
         be computed in closed form as  which can be computed in closed form as
-        ```math
-        \mathcal{N}(f(t); \mu_t + \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}(\mu - \mu_z), \mathbf{K}_{tt} - \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zt} + \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{S} \mathbf{K}_{zz}^{-1}\mathbf{K}_{zt})
-        ```
+
+        .. math::
+
+            \mathcal{N}(f(t); \mu_t + \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}(\mu - \mu_z), \mathbf{K}_{tt} - \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zt} + \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{S} \mathbf{K}_{zz}^{-1}\mathbf{K}_{zt})
 
         with $\mu$ and $S$ computed from the expectation parameterisation
         $\eta = (\mu, S + uu^\top)$.
@@ -818,6 +834,16 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
     Collapsed variational Gaussian family of probability distributions.
     The key reference is Titsias, (2009) - Variational Learning of Inducing Variables
     in Sparse Gaussian Processes.
+
+    The bound is *collapsed*: the variational parameters are solved for
+    analytically, which requires a Gaussian likelihood and a pass over the full
+    dataset. Lift either restriction and you need the uncollapsed bound of
+    :class:`VariationalGaussian` instead.
+
+    .. seealso::
+
+        :doc:`/examples/collapsed_vi` works through the sparse regression setting
+        this family is designed for.
     """
 
     def __init__(

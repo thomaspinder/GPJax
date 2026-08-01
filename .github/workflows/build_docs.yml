@@ -1,66 +1,94 @@
 name: Build the documentation
 
+# Production docs build. Ported from impulso's `build-docs` + `deploy-docs`
+# jobs (../impulso/.github/workflows/main.yml).
+#
+# Deliberately NOT triggered by tags: a tag used to fire the same publish job as
+# `main`, so tagging a release overwrote the main-branch docs with a snapshot and
+# the next merge overwrote it back.
+#
+# The pull-request half of impulso's conditional lives in test_docs.yml, which is
+# where GPJax already runs its PR docs build.
 on:
   push:
     branches:
       - main
-    tags:
-      - "**"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-docs:
-    timeout-minutes: 60
-    concurrency: ci-${{ github.ref }}
-    name: Build docs (${{ matrix.python-version }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash -l {0}
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-        python-version: ["3.11"]
-
+    name: Build docs (full render)
+    # Full render on main executes every example notebook for real.
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
     steps:
-      # Grap the latest commit from the branch
-      - name: Checkout the branch
+      - name: Check out the code
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # Create a virtual environment
-      - name: create Conda environment
-        uses: conda-incubator/setup-miniconda@v4
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
 
-      # Install katex for math support
-      - name: Install NPM
-        uses: actions/setup-node@v7
-        with:
-          node-version: 16
-      - name: Install KaTeX
-        run: |
-          npm install katex
-
-      # Install uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Build the documentation with MKDocs
-        run: |
-          conda install pandoc
-          uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute
-          uv run mkdocs build
+      - name: Install docs dependencies
+        run: uv sync --frozen --extra docs
+
+      - name: Register Jupyter kernel
+        run: uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
+
+      - name: Restore notebook execution cache
+        # Unique key per run so the cache is ALWAYS re-saved (actions/cache
+        # refuses to overwrite an existing key). Combined with jupyter-cache's
+        # own content-hash invalidation, this makes the cache accumulate every
+        # successfully executed notebook instead of freezing partial progress.
+        uses: actions/cache@v6
+        with:
+          path: |
+            docs/_build/.jupyter_cache
+            docs/_build/.jupyter_cache_ci
+          key: jupyter-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            jupyter-cache-
+
+      - name: Build documentation (full-fidelity render, resilient)
+        # `-W` IS used here, unlike before. GPJAX_DOCS_RESILIENT=1 makes conf.py
+        # suppress exactly the two notebook-execution warning subtypes, so a
+        # slow or broken notebook still renders an error cell and the site still
+        # deploys — but a broken xref, bad anchor or malformed directive now
+        # fails the deploy instead of shipping silently, which is what this
+        # build did when it ran with no `-W` at all.
+        env:
+          GPJAX_DOCS_RESILIENT: "1"
+        run: uv run --extra docs sphinx-build -W --keep-going -b html docs docs/_build/html
+
+      - name: Upload notebook execution tracebacks
+        # `nb_execution_raise_on_error` is off, so MyST-NB writes the full
+        # traceback of any failed notebook to <outdir>/reports/<docname>.err.log
+        # rather than aborting. Nothing else in the deploy log carries it.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: notebook-error-logs
+          path: docs/_build/html/reports
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Checkout benchmark results
         uses: actions/checkout@v7
@@ -74,15 +102,34 @@ jobs:
         run: |
           uv run asv publish || true
           if [ -d ".asv/html" ]; then
-            mkdir -p site/benchmarks
-            cp -r .asv/html/* site/benchmarks/
+            mkdir -p docs/_build/html/benchmarks
+            cp -r .asv/html/* docs/_build/html/benchmarks/
           else
             echo "No benchmark HTML produced — skipping"
           fi
         continue-on-error: true
 
-      - name: Deploy Page 🚀
-        uses: JamesIves/github-pages-deploy-action@v4.8.0
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
         with:
-          branch: gh-pages
-          folder: site
+          path: docs/_build/html
+
+  deploy-docs:
+    needs: build-docs
+    # impulso guards this job with `github.event_name == 'push' && github.ref ==
+    # 'refs/heads/main'`. GPJax also allows workflow_dispatch, so the branch
+    # check is kept but the event check is not: a manual run from a feature
+    # branch must never publish to the production URL.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -24,11 +24,16 @@
   publisher = {MIT press Cambridge, MA}
 }
 
-@article{hensman2013gaussian,
-  title   = {{G}aussian processes for big data},
-  author  = {Hensman, James and Fusi, Nicolo and Lawrence, Neil D},
-  journal = {Artificial intelligence and statistics},
-  year    = {2013}
+% Venue corrected 2026-08: this is a UAI 2013 paper, not AISTATS. Verified against
+% arXiv:1309.6835, whose comments read "Appears in Proceedings of the Twenty-Ninth
+% Conference on Uncertainty in Artificial Intelligence (UAI2013)" with report number
+% UAI-P-2013-PG-282-290.
+@inproceedings{hensman2013gaussian,
+  title     = {{G}aussian processes for big data},
+  author    = {Hensman, James and Fusi, Nicolo and Lawrence, Neil D},
+  booktitle = {Proceedings of the Twenty-Ninth Conference on Uncertainty in Artificial Intelligence (UAI)},
+  pages     = {282--290},
+  year      = {2013}
 }
 
 
@@ -80,7 +85,7 @@
   publisher = {PMLR}
 }
 
-@misc{salimbeni2018,
+@inproceedings{salimbeni2018,
   author    = {Hugh Salimbeni and
                Stefanos Eleftheriadis and
                James Hensman},
@@ -95,10 +100,12 @@
   year      = {2018}
 }
 
-@article{lao2020tfp,
+@misc{lao2020tfp,
   title   = {tfp. mcmc: Modern Markov chain Monte Carlo tools built for modern hardware},
   author  = {Lao, Junpeng and Suter, Christopher and Langmore, Ian and Chimisov, Cyril and Saxena, Ashish and Sountsov, Pavel and Moore, Dave and Saurous, Rif A and Hoffman, Matthew D and Dillon, Joshua V},
-  journal = {arXiv preprint arXiv:2002.01184},
+  eprint        = {2002.01184},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.CO},
   year    = {2020}
 }
 
@@ -113,16 +120,15 @@
   series    = {ICML'20}
 }
 
-@book{higham2022accuracy,
+@book{higham2002accuracy,
   author    = {Higham, Nicholas J.},
   title     = {Accuracy and Stability of Numerical Algorithms},
   publisher = {Society for Industrial and Applied Mathematics},
   year      = {2002},
   doi       = {10.1137/1.9780898718027},
-  address   = {},
+  address   = {Philadelphia, PA},
   edition   = {Second},
-  url       = {https://epubs.siam.org/doi/abs/10.1137/1.9780898718027},
-  eprint    = {https://epubs.siam.org/doi/pdf/10.1137/1.9780898718027}
+  url       = {https://epubs.siam.org/doi/abs/10.1137/1.9780898718027}
 }
 
 @book{sarkka2019applied,
@@ -151,4 +157,64 @@
   volume    = {33},
   pages     = {904--912},
   series    = {Proceedings of Machine Learning Research}
+}
+
+% Verified against https://www.emerald.com/ftmal/article/4/3/195/1332166 (the
+% resolution target of doi:10.1561/2200000036) and https://arxiv.org/abs/1106.6251.
+@article{alvarez2012kernels,
+  author  = {{\'A}lvarez, Mauricio A. and Rosasco, Lorenzo and Lawrence, Neil D.},
+  title   = {Kernels for Vector-Valued Functions: A Review},
+  journal = {Foundations and Trends in Machine Learning},
+  year    = {2012},
+  volume  = {4},
+  number  = {3},
+  pages   = {195--266},
+  doi     = {10.1561/2200000036}
+}
+
+% Verified against the PMLR record https://proceedings.mlr.press/v119/bruinsma20a.html
+% (BibTeX copied from that page) and https://arxiv.org/abs/1911.06287.
+@inproceedings{bruinsma2020scalable,
+  author    = {Bruinsma, Wessel and Perim, Eric and Tebbutt, William and Hosking, Scott and Solin, Arno and Turner, Richard},
+  title     = {Scalable Exact Inference in Multi-Output {G}aussian Processes},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  year      = {2020},
+  volume    = {119},
+  pages     = {1190--1201},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v119/bruinsma20a.html}
+}
+
+% Verified against the PMLR record https://proceedings.mlr.press/v162/lu22b.html
+% (BibTeX copied from that page).
+@inproceedings{lu2022additive,
+  author    = {Lu, Xiaoyu and Boukouvalas, Alexis and Hensman, James},
+  title     = {Additive {G}aussian Processes Revisited},
+  booktitle = {Proceedings of the 39th International Conference on Machine Learning},
+  year      = {2022},
+  volume    = {162},
+  pages     = {14358--14383},
+  series    = {Proceedings of Machine Learning Research},
+  publisher = {PMLR},
+  url       = {https://proceedings.mlr.press/v162/lu22b.html}
+}
+
+% Lifted verbatim from the hand-verified record in gpjax/citation.py
+% (`PhDThesisCitation(citation_key="matern1960SpatialV", ...)`).
+@phdthesis{matern1960SpatialV,
+  author = {Mat{\'e}rn, Bertil},
+  title  = {Spatial variation: Stochastic models and their application to some problems in forest surveys and other sampling investigations},
+  school = {Stockholm University},
+  year   = {1960}
+}
+
+% Verified against the thesis title page and declaration page at
+% https://www.cs.toronto.edu/~duvenaud/thesis.pdf (Pembroke College, June 2014) and
+% the Cambridge repository record https://www.repository.cam.ac.uk/handle/1810/247281.
+@phdthesis{duvenaud2014automatic,
+  author = {Duvenaud, David Kristjanson},
+  title  = {Automatic Model Construction with {G}aussian Processes},
+  school = {University of Cambridge},
+  year   = {2014}
 }

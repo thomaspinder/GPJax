@@ -40,14 +40,12 @@ class TruncatedPeriodic(StationaryKernel):
     ``_validate_temporal_kernel`` at ``to_sde`` time, not here.
 
     Example:
-    ```python
         >>> from gpjax.state_space import TruncatedPeriodic
         >>> kernel = TruncatedPeriodic(
         ...     lengthscale=1.0, variance=1.0, period=1.0, truncation_order=6,
         ... )
         >>> kernel.truncation_order
         6
-    ```
     """
 
     period: paramax.AbstractUnwrappable
@@ -103,13 +101,11 @@ def to_sde(kernel) -> LinearSDE:
     Default handler raises ``NotImplementedError`` listing supported kernels.
 
     Example:
-    ```python
         >>> import gpjax as gpx
         >>> from gpjax.state_space import to_sde
         >>> sde = to_sde(gpx.kernels.Matern32(lengthscale=1.0, variance=1.0))
         >>> sde.__class__.__name__
         'Matern32SDE'
-    ```
     """
     raise NotImplementedError(
         f"State-space conversion not implemented for {type(kernel).__name__}. "

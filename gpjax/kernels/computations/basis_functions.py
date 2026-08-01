@@ -38,8 +38,7 @@ class BasisFunctionComputation(AbstractKernelComputation):
             kernel (AbstractKernel): the kernel function.
             inputs (Float[Array, "N D"]): The input matrix.
 
-        Returns
-        -------
+        Returns:
             Diagonal: The computed diagonal variance entries.
         """
         return super().diagonal(kernel.base_kernel, inputs)

@@ -57,6 +57,9 @@ class GraphKernel(StationaryKernel):
 
     The key reference for this object is Borovitskiy et al. (2021).
 
+    .. seealso::
+
+        :doc:`/examples/graph_kernels` fits one to a signal on a barbell graph.
     """
 
     smoothness: tp.Any

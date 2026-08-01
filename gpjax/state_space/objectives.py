@@ -36,7 +36,6 @@ def state_space_mll(
     See plans/2026-04-21-state-space-gps-design.md §Stage 1.
 
     Example:
-    ```python
         >>> import jax.numpy as jnp
         >>> import gpjax as gpx
         >>> from gpjax.state_space import StateSpacePrior, state_space_mll
@@ -52,7 +51,6 @@ def state_space_mll(
         >>> mll = state_space_mll(posterior, train_data)
         >>> bool(jnp.isfinite(mll))
         True
-    ```
     """
     posterior = paramax.unwrap(posterior)
     prior = posterior.prior

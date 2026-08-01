@@ -16,8 +16,11 @@ uv run poe lint          # ruff format check + ruff check --fix
 uv run poe format        # ruff import sorting + formatting (mutates files)
 uv run poe docstrings    # xdoctest on gpjax/
 uv run poe all-tests     # lint + docstrings + test (CI gate)
-uv run poe docs-build    # execute example notebooks then mkdocs build
-uv run poe docs-serve    # local docs server at localhost:8000
+uv run poe docs          # sphinx-build: executes + caches the example notebooks
+uv run poe docs-ci       # smoke render, warnings-as-errors (the CI docs gate)
+uv run poe docs-serve    # build, then serve docs/_build/html at localhost:8000
+uv run poe docs-linkcheck # sphinx linkcheck, no notebook execution
+uv run poe docs-clean    # remove built docs (keeps the notebook exec cache)
 ```
 
 Run a single test file or test:
@@ -104,7 +107,7 @@ Helpers for registering GPJax `Parameter` priors as NumPyro sample sites, enabli
 
 ## Code style
 
-- Ruff with 88-char line limit, numpy docstring convention
+- Ruff with 88-char line limit, google docstring convention
 - `F722` suppressed (jaxtyping string annotations like `"N D"`)
 - Unicode math identifiers allowed in docstrings (`RUF002`/`RUF003` suppressed)
 - Imports: `isort` via ruff with combined-as-imports and force-sort-within-sections
@@ -112,7 +115,8 @@ Helpers for registering GPJax `Parameter` priors as NumPyro sample sites, enabli
 
 ## Examples
 
-Stored in `examples/` as `py:percent` format (jupytext). Convert with:
+Stored in `docs/examples/` as `py:percent` format (jupytext), executed at docs
+build time by MyST-NB (`nb_custom_formats` in `docs/conf.py`). Convert with:
 ```bash
 jupytext --to notebook example.py   # .py -> .ipynb
 jupytext --to py:percent example.ipynb  # .ipynb -> .py

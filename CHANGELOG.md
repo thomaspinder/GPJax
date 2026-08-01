@@ -231,7 +231,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.0] — 2026-04-21
 
-See [`docs/migration.md`](docs/migration.md) for full upgrade instructions.
+See [`docs/migrations/0.14.0.md`](docs/migrations/0.14.0.md) for full upgrade
+instructions.
 
 ### Changed (breaking)
 
@@ -272,7 +273,8 @@ See [`docs/migration.md`](docs/migration.md) for full upgrade instructions.
   that returns a lower-triangular Lineax operator.
 - `gpjax.linalg.add_jitter` — helper for adding a jitter term to a
   covariance operator.
-- [`docs/migration.md`](docs/migration.md) — upgrade guide from 0.13.x.
+- [`docs/migrations/0.14.0.md`](docs/migrations/0.14.0.md) — upgrade guide from
+  0.13.x.
 
 ### Removed
 

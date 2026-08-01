@@ -156,9 +156,10 @@ class AbstractLikelihood(_SummaryMixin, eqx.Module):
 
         For a variational distribution $q(f)\sim\mathcal{N}(m, s)$ and a likelihood
         $p(y|f)$, compute the expected log likelihood:
-        ```math
-        \mathbb{E}_{q(f)}\left[\log p(y|f)\right]
-        ```
+
+        .. math::
+
+            \mathbb{E}_{q(f)}\left[\log p(y|f)\right]
 
         Args:
             y (Float[Array, 'N D']): The observed response variable.
@@ -609,12 +610,10 @@ def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
     r"""Compute the inverse probit function.
 
     Args:
-        x (Float[Array, "*N"]): A vector of values.
+        x (``Float[Array, "*N"]``): A vector of values.
 
-    Returns
-    -------
-    Float[Array, "*N"]
-        The inverse probit of the input vector.
+    Returns:
+        ``Float[Array, "*N"]``: The inverse probit of the input vector.
     """
     jitter = 1e-3  # To ensure output is in interval (0, 1).
     return 0.5 * (1.0 + jsp.special.erf(x / jnp.sqrt(2.0))) * (1 - 2 * jitter) + jitter

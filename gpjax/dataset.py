@@ -124,7 +124,7 @@ def _check_shape(
 def _check_precision(
     X: Optional[Num[Array, "..."]], y: Optional[Num[Array, "..."]]
 ) -> None:
-    r"""Checks the precision of $X$ and $y`."""
+    r"""Checks the precision of $X$ and $y$."""
     if X is not None and X.dtype != jnp.float64:
         warnings.warn(
             "X is not of type float64. "

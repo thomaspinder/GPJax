@@ -18,23 +18,20 @@ from gpjax.state_space.kernels import to_sde
 def _merge_grids(train_times, test_times, centred_targets, observation_mask):
     """Build the merged train+test grid for state-space prediction.
 
-    Returns
-    -------
-    sorted_times : (N+M,)
-        Combined timestamps in non-decreasing order. Train entries sort before
-        test entries when timestamps tie.
-    sorted_targets : (N+M,)
-        Centred targets at training positions; zero at test positions (unused
-        because the filter skips updates where ``sorted_is_observed`` is False).
-    sorted_is_observed : (N+M,) bool
-        True at training positions retained by the input mask; False everywhere else.
-    sorted_is_test : (N+M,) int
-        0 at training positions, 1 at test positions, ordered by the merge permutation.
-    merge_perm : (N+M,) int
-        The permutation array such that the sorted views above are
-        ``concat([train, test])[merge_perm]``. Caller can compute
-        ``inv_perm = argsort(merge_perm)`` and gather ``inv_perm[N:]`` to recover
-        test-point positions in caller order.
+    Returns:
+        sorted_times ((N+M,)): Combined timestamps in non-decreasing order.
+            Train entries sort before test entries when timestamps tie.
+        sorted_targets ((N+M,)): Centred targets at training positions; zero at
+            test positions (unused because the filter skips updates where
+            ``sorted_is_observed`` is False).
+        sorted_is_observed ((N+M,) bool): True at training positions retained by
+            the input mask; False everywhere else.
+        sorted_is_test ((N+M,) int): 0 at training positions, 1 at test
+            positions, ordered by the merge permutation.
+        merge_perm ((N+M,) int): The permutation array such that the sorted
+            views above are ``concat([train, test])[merge_perm]``. Caller can
+            compute ``inv_perm = argsort(merge_perm)`` and gather
+            ``inv_perm[N:]`` to recover test-point positions in caller order.
     """
     n_train = train_times.shape[0]
     n_test = test_times.shape[0]

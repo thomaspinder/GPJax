@@ -2,8 +2,15 @@
 
 `GPJax` is designed to be a Gaussian process package that provides an accurate
 representation of the underlying maths. Variable names are chosen to closely
-match the notation in [@rasmussen2006gaussian]. We here list the notation used
+match the notation in {cite:p}`rasmussen2006gaussian`. We here list the notation used
 in `GPJax` with its corresponding mathematical quantity.
+
+:::{seealso}
+For the words rather than the symbols, see the [glossary](glossary.md). For the
+model-building pipeline these names appear in — [`Prior`](#gpjax.gps.Prior) times a
+likelihood giving a posterior — start with
+[the introduction to Gaussian processes](examples/intro_to_gps.py).
+:::
 
 ## Gaussian process notation
 
@@ -16,15 +23,15 @@ in `GPJax` with its corresponding mathematical quantity.
 | $f(\cdot)$                                  | f          | Latent function modelled as a GP                                                |
 | $f({\boldsymbol{x}})$                       | fx         | Latent function at inputs $\boldsymbol{x}$                                      |
 | $\boldsymbol{\mu}_{\boldsymbol{x}}$         | mux         | Prior mean at inputs $\boldsymbol{x}$                                           |
-| $\mathbf{K}_{\boldsymbol{x}\boldsymbol{x}}$ | Kxx        | Kernel Gram matrix at inputs $\boldsymbol{x}$                                   |
-| $\mathbf{L}_{\boldsymbol{x}}$               | Lx         | Lower Cholesky decomposition of $\boldsymbol{K}_{\boldsymbol{x}\boldsymbol{x}}$ |
+| $\mathbf{K}_{\boldsymbol{x}\boldsymbol{x}}$ | Kxx        | Kernel {term}`Gram matrix` at inputs $\boldsymbol{x}$                           |
+| $\mathbf{L}_{\boldsymbol{x}}$               | Lx         | Lower {term}`Cholesky factor` of $\boldsymbol{K}_{\boldsymbol{x}\boldsymbol{x}}$ |
 | $\mathbf{K}_{\boldsymbol{t}\boldsymbol{x}}$ | Ktx        | Cross-covariance between inputs $\boldsymbol{t}$ and $\boldsymbol{x}$           |
 
 ## Sparse Gaussian process notation
 
 | On paper                              | GPJax code | Description               |
 | ------------------------------------- | ---------- | ------------------------- |
-| $m$                                   | m          | Number of inducing inputs |
+| $m$                                   | m          | Number of {term}`inducing points` |
 | $\boldsymbol{z} = (z_1,\dotsc,z_{m})$ | z          | Inducing inputs           |
 | $\boldsymbol{u} = (u_1,\dotsc,u_{m})$ | u          | Inducing outputs          |
 

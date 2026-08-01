@@ -43,7 +43,7 @@ class RationalQuadratic(StationaryKernel):
     k(x,y)=\sigma^2\Bigg(1+\frac{\lVert x-y\rVert^2_2}{2\alpha\ell^2}\Bigg)^{-\alpha}
     $$
 
-    As $\alpha \to \infty$ this recovers the [`RBF`][gpjax.kernels.RBF] kernel; it is
+    As $\alpha \to \infty$ this recovers the :class:`~gpjax.kernels.RBF` kernel; it is
     equivalently a scale mixture of RBF kernels with a Gamma-distributed inverse
     squared lengthscale.
     """

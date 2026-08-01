@@ -149,8 +149,8 @@ class Prior(AbstractPrior[M, K]):
     r"""A Gaussian process prior object.
 
     The GP is parameterised by a
-    [mean](https://docs.thomaspinder.com/api/mean_functions/)
-    and [kernel](https://docs.thomaspinder.com/api/kernels/base/)
+    mean
+    and kernel
     function.
 
     A Gaussian process prior parameterised by a mean function $m(\cdot)$ and a kernel
@@ -160,12 +160,15 @@ class Prior(AbstractPrior[M, K]):
     To invoke a `Prior` distribution, a kernel and mean function must be specified.
 
     Example:
-    ```python
         >>> import gpjax as gpx
         >>> kernel = gpx.kernels.RBF()
         >>> meanf = gpx.mean_functions.Zero()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel = kernel)
-    ```
+
+    .. seealso::
+
+        :doc:`/examples/intro_to_gps` derives the prior from first principles, and
+        :doc:`/examples/regression` puts one to work end to end.
     """
 
     if tp.TYPE_CHECKING:
@@ -186,24 +189,24 @@ class Prior(AbstractPrior[M, K]):
         distribution. By computing the product of a GP prior and a likelihood
         object, a posterior GP object will be returned. Mathematically, this can
         be described by:
-        ```math
-        p(f(\cdot) \mid y) \propto p(y \mid f(\cdot))p(f(\cdot)),
-        ```
+
+        .. math::
+
+            p(f(\cdot) \mid y) \propto p(y \mid f(\cdot))p(f(\cdot)),
+
         where $p(y | f(\cdot))$ is the likelihood and $p(f(\cdot))$ is the prior.
 
         Example:
-        ```pycon
             >>> import gpjax as gpx
             >>> meanf = gpx.mean_functions.Zero()
             >>> kernel = gpx.kernels.RBF()
             >>> prior = gpx.gps.Prior(mean_function=meanf, kernel = kernel)
             >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=100)
             >>> prior * likelihood
-        ```
         Args:
             other (Likelihood): The likelihood distribution of the observed dataset.
 
-        Returns
+        Returns:
             Posterior: The relevant GP posterior for the given prior and
                 likelihood. Special cases are accounted for where the model
                 is conjugate.
@@ -231,7 +234,7 @@ class Prior(AbstractPrior[M, K]):
             other (Likelihood): The likelihood distribution of the observed
                 dataset.
 
-        Returns
+        Returns:
             Posterior: The relevant GP posterior for the given prior and
                 likelihood. Special cases are accounted for where the model
                 is conjugate.
@@ -252,14 +255,12 @@ class Prior(AbstractPrior[M, K]):
         and then evaluate it on the interval :math:`[0, 1]`:
 
         Example:
-        ```pycon
             >>> import gpjax as gpx
             >>> import jax.numpy as jnp
             >>> kernel = gpx.kernels.RBF()
             >>> mean_function = gpx.mean_functions.Zero()
             >>> prior = gpx.gps.Prior(mean_function=mean_function, kernel=kernel)
             >>> prior.predict(jnp.linspace(0, 1, 100)[:, None])
-        ```
 
         Args:
             test_inputs (Float[Array, "N D"]): The inputs at which to evaluate the
@@ -320,7 +321,6 @@ class Prior(AbstractPrior[M, K]):
         build and evaluate an approximate sample.
 
         Example:
-        ```pycon
             >>> import gpjax as gpx
             >>> import jax.numpy as jnp
             >>> import jax.random as jr
@@ -332,7 +332,6 @@ class Prior(AbstractPrior[M, K]):
             >>>
             >>> sample_fn = prior.sample_approx(10, key)
             >>> sample_fn(jnp.linspace(0, 1, 100).reshape(-1, 1))
-        ```
 
         Args:
             num_samples (int): The desired number of samples.
@@ -487,33 +486,34 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
     $p(y | \mathbf{f}) = \mathcal{N}(y\mid \mathbf{f}, \sigma^2))$ where
     $\mathbf{f} = f(\mathbf{x})$, the predictive posterior distribution at
     a set of inputs $\mathbf{x}$ is given by
-    ```math
-    \begin{align}
-    p(\mathbf{f}^{\star}\mid \mathbf{y}) & = \int p(\mathbf{f}^{\star}, \mathbf{f} \mid \mathbf{y})\\
-        & =\mathcal{N}(\mathbf{f}^{\star} \boldsymbol{\mu}_{\mid \mathbf{y}}, \boldsymbol{\Sigma}_{\mid \mathbf{y}}
-    \end{align}
-    ```
+
+    .. math::
+
+        \begin{aligned}
+        p(\mathbf{f}^{\star}\mid \mathbf{y}) & = \int p(\mathbf{f}^{\star}, \mathbf{f} \mid \mathbf{y})\\
+            & =\mathcal{N}(\mathbf{f}^{\star} \boldsymbol{\mu}_{\mid \mathbf{y}}, \boldsymbol{\Sigma}_{\mid \mathbf{y}}
+        \end{aligned}
+
     where
-    ```math
-    \begin{align}
-    \boldsymbol{\mu}_{\mid \mathbf{y}} & = k(\mathbf{x}^{\star}, \mathbf{x})\left(k(\mathbf{x}, \mathbf{x}')+\sigma^2\mathbf{I}_n\right)^{-1}\mathbf{y}  \\
-    \boldsymbol{\Sigma}_{\mid \mathbf{y}} & =k(\mathbf{x}^{\star}, \mathbf{x}^{\star\prime}) -k(\mathbf{x}^{\star}, \mathbf{x})\left( k(\mathbf{x}, \mathbf{x}') + \sigma^2\mathbf{I}_n \right)^{-1}k(\mathbf{x}, \mathbf{x}^{\star}).
-    \end{align}
-    ```
+
+    .. math::
+
+        \begin{aligned}
+        \boldsymbol{\mu}_{\mid \mathbf{y}} & = k(\mathbf{x}^{\star}, \mathbf{x})\left(k(\mathbf{x}, \mathbf{x}')+\sigma^2\mathbf{I}_n\right)^{-1}\mathbf{y}  \\
+        \boldsymbol{\Sigma}_{\mid \mathbf{y}} & =k(\mathbf{x}^{\star}, \mathbf{x}^{\star\prime}) -k(\mathbf{x}^{\star}, \mathbf{x})\left( k(\mathbf{x}, \mathbf{x}') + \sigma^2\mathbf{I}_n \right)^{-1}k(\mathbf{x}, \mathbf{x}^{\star}).
+        \end{aligned}
 
     Example:
-    ```pycon
         >>> import gpjax as gpx
         >>> import jax.numpy as jnp
         >>>
         >>> prior = gpx.gps.Prior(
-                mean_function = gpx.mean_functions.Zero(),
-                kernel = gpx.kernels.RBF()
-            )
+        ...     mean_function = gpx.mean_functions.Zero(),
+        ...     kernel = gpx.kernels.RBF()
+        ... )
         >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=100)
         >>>
         >>> posterior = prior * likelihood
-    ```
     """
 
     def predict(
@@ -545,7 +545,6 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
         are made on a regular Jax array.
 
         Example:
-        ```pycon
             >>> import gpjax as gpx
             >>> import jax.numpy as jnp
             >>>
@@ -557,7 +556,6 @@ class ConjugatePosterior(AbstractPosterior[P, GL]):
             >>> prior = gpx.gps.Prior(mean_function = gpx.mean_functions.Zero(), kernel = gpx.kernels.RBF())
             >>> posterior = prior * gpx.likelihoods.Gaussian(num_datapoints = D.n)
             >>> predictive_dist = posterior(xtest, D)
-        ```
 
         Args:
             test_inputs (Num[Array, "N D"]): A Jax array of test inputs at which the
@@ -766,14 +764,14 @@ class NonConjugatePosterior(AbstractPosterior[P, NGL]):
         transformed through the likelihood function's inverse link function.
 
         Args:
-        test_inputs (Num[Array, "N D"]): A Jax array of test inputs at which the
-            predictive distribution is evaluated.
-        train_data (Dataset): A `gpx.Dataset` object that contains the input
-            and output data used for training dataset.
-        return_covariance_type: Literal denoting whether to return the full covariance
-            of the joint predictive distribution at the test_inputs (dense)
-            or just the the standard-deviation of the predictive distribution at
-            the test_inputs.
+            test_inputs (Num[Array, "N D"]): A Jax array of test inputs at which the
+                predictive distribution is evaluated.
+            train_data (Dataset): A `gpx.Dataset` object that contains the input
+                and output data used for training dataset.
+            return_covariance_type: Literal denoting whether to return the full
+                covariance of the joint predictive distribution at the test_inputs
+                (dense) or just the the standard-deviation of the predictive
+                distribution at the test_inputs.
 
         Returns:
             GaussianDistribution: A function that accepts an
@@ -892,12 +890,10 @@ def construct_posterior(
         likelihood (AbstractLikelihood): The likelihood that represents our
             beliefs around the distribution of the data.
 
-    Returns
-    -------
-    AbstractPosterior
-        A posterior distribution. If the likelihood is Gaussian, then a
-        `ConjugatePosterior` will be returned. Otherwise, a
-        `NonConjugatePosterior` will be returned.
+    Returns:
+        AbstractPosterior: A posterior distribution. If the likelihood is
+            Gaussian, then a `ConjugatePosterior` will be returned. Otherwise, a
+            `NonConjugatePosterior` will be returned.
     """
     # Multi-output validation
     from gpjax.kernels.multioutput.base import MultiOutputKernel
@@ -942,10 +938,8 @@ def _build_fourier_features_fn(
         num_features (int): The number of feature functions to be sampled.
         key (KeyArray): The random seed used.
 
-    Returns
-    -------
-    Callable
-        A callable function evaluating the sampled feature functions.
+    Returns:
+        Callable: A callable function evaluating the sampled feature functions.
     """
     if (not isinstance(num_features, int)) or num_features <= 0:
         raise ValueError("num_features must be a positive integer")

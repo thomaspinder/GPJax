@@ -1,10 +1,20 @@
-# Migration guide: 0.14.x → 0.15.0
+# Migrations
+
+One section per release that changed a public API. Work through them in order
+from whichever version you are on: each guide only describes the step it names,
+so upgrading across two releases means reading two sections.
+
+Releases not listed here made no breaking changes; see the
+[changelog](gh:blob/main/CHANGELOG.md) for
+the full history.
+
+## 0.14.x → 0.15.0
 
 GPJax `0.15` adds the `gpjax.state_space` sub-package (state-space / Markovian
 Gaussian processes) and makes **one** breaking change to likelihood prediction.
 Everything else is additive.
 
-## Breaking change: likelihood `.predict` return type
+### Breaking change: likelihood `.predict` return type
 
 `gpjax.likelihoods.Gaussian.predict` and
 `gpjax.likelihoods.HeteroscedasticGaussian.predict` now return a
@@ -34,15 +44,13 @@ import jax.numpy as jnp
 tril = jnp.linalg.cholesky(dist.covariance_matrix)
 ```
 
-## New: state-space Gaussian processes
+### New: state-space Gaussian processes
 
 `gpjax.state_space` is a new, opt-in sub-package — importing or upgrading does
 not change any existing behaviour. See the
-[State-Space GPs example](_examples/state_space_gps.md) to get started.
+[State-Space GPs example](examples/state_space_gps.py) to get started.
 
----
-
-# Migration guide: 0.13.x → 0.14.0
+## 0.13.x → 0.14.0
 
 GPJax `0.14` replaces the Flax NNX backend with
 [Equinox](https://docs.kidger.site/equinox/) +
@@ -63,7 +71,7 @@ If you only use the high-level API (`gpx.Prior`, `gpx.Posterior`, `gpx.fit`,
 etc.) most code keeps working once you update the two or three call sites
 below.
 
-## Installation
+### Installation
 
 ```bash
 pip install "gpjax==0.14.0"
@@ -74,9 +82,9 @@ uv add "gpjax==0.14.0"
 New dependencies (pulled in automatically): `equinox>=0.11`, `paramax>=0.0.5`.
 Flax is no longer a runtime dependency.
 
-## Breaking changes
+### Breaking changes
 
-### 1. Backend: flax.nnx.Module → equinox.Module
+#### 1. Backend: flax.nnx.Module → equinox.Module
 
 If you subclassed `nnx.Module` to build a custom model, kernel, mean function,
 likelihood, or variational family, change the base class:
@@ -104,7 +112,7 @@ class MyKernel(eqx.Module):
 Equinox requires **class-level field annotations** for every attribute, and
 static configuration fields should be marked with `eqx.field(static=True)`.
 
-### 2. Parameter classes are now paramax.AbstractUnwrappable
+#### 2. Parameter classes are now paramax.AbstractUnwrappable
 
 `PositiveReal`, `NonNegativeReal`, `Real`, `SigmoidBounded`, and
 `LowerTriangular` all live in `gpjax.parameters` with the same names, but they
@@ -134,7 +142,7 @@ model_resolved = paramax.unwrap(model)
 **removed**. `numpyro.distributions.biject_to` now handles every
 constraint → bijection mapping.
 
-### 3. LowerTriangular now requires a valid Cholesky factor
+#### 3. LowerTriangular now requires a valid Cholesky factor
 
 Previously `LowerTriangular` accepted any lower-triangular matrix (the
 diagonal was unconstrained). It is now parameterised via
@@ -151,7 +159,7 @@ diagonal was unconstrained). It is now parameterised via
   negative diagonals produced singular or sign-ambiguous variational
   covariances.
 
-### 4. `gpx.fit` / `fit_scipy` / `fit_lbfgs`: removed `params_bijection` and `trainable`
+#### 4. `gpx.fit` / `fit_scipy` / `fit_lbfgs`: removed `params_bijection` and `trainable`
 
 Bijection handling is now automatic via `paramax.unwrap` inside the loss
 function, and freezing parameters is expressed by wrapping them in
@@ -192,14 +200,14 @@ Internally, `fit` now splits the model with `eqx.partition(model, eqx.is_array)`
 so only concrete JAX arrays participate in the gradient update; everything
 wrapped in `paramax.non_trainable` is held constant.
 
-### 5. register_parameters removed
+#### 5. register_parameters removed
 
 The `gpx.parameters.register_parameters` decorator (added in 0.13.x to mark
 NNX variables as GPJax parameters) is gone. With Equinox, GPJax identifies
 parameter classes through `isinstance` checks on `AbstractUnwrappable`, so
 registration is unnecessary.
 
-### 6. gpjax.linalg rewrite: cola → Lineax
+#### 6. gpjax.linalg rewrite: cola → Lineax
 
 Kernel `gram()` now returns a `lineax.AbstractLinearOperator`
 (typically `lineax.MatrixLinearOperator`) instead of a `cola.LinearOperator`.
@@ -218,7 +226,7 @@ The following names have been **removed** from `gpjax.linalg`:
 `BlockDiag`, `Kronecker`, and `logdet` are unchanged. Use
 `gpjax.linalg.add_jitter` to add a jitter term to a covariance operator.
 
-### 7. Custom bijectors replaced with numpyro constraints
+#### 7. Custom bijectors replaced with numpyro constraints
 
 If you had a custom `Parameter` subclass that declared a bijection, replace
 the bijection with a numpyro constraint and use `biject_to`:
@@ -247,7 +255,7 @@ class MyParam(AbstractUnwrappable):
         return biject_to(self._constraint)(self._unconstrained)
 ```
 
-## Non-breaking cleanup
+### Non-breaking cleanup
 
 - `__description__` changed from `"Gaussian processes in JAX and Flax"` to
   `"Gaussian processes in JAX"`, since Flax is no longer a dependency.
@@ -255,7 +263,7 @@ class MyParam(AbstractUnwrappable):
   `kernel.gram(x)`, `kernel.cross_covariance(x, y)`, and `kernel.diagonal(x)`
   methods are unchanged.
 
-## Upgrade checklist
+### Upgrade checklist
 
 - [ ] Replace `nnx.Module` base classes with `eqx.Module`, and add class-level
       type annotations for every field.
@@ -271,8 +279,8 @@ class MyParam(AbstractUnwrappable):
 - [ ] If you used `gpjax.linalg` operators directly, switch to the Lineax
       equivalents listed above.
 
-## Reporting issues
+### Reporting issues
 
 Please file migration issues at
-<https://github.com/thomaspinder/GPJax/issues> with the `0.14-migration`
+[the issue tracker](gh:issues) with the `0.14-migration`
 label.

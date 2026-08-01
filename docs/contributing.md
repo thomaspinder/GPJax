@@ -5,53 +5,46 @@
 GPJax welcomes contributions from interested individuals or groups. There are
 many ways to contribute, including:
 
-- Answering questions on our [discussions
-  page](https://github.com/thomaspinder/GPJax/discussions).
-- Raising [issues](https://github.com/thomaspinder/GPJax/issues) related to bugs
-  or desired enhancements.
-- Contributing or improving the
-  [docs](https://github.com/thomaspinder/GPJax/tree/main/docs) or
-  [examples](https://github.com/thomaspinder/GPJax/tree/master/docs/nbs).
-- Fixing outstanding [issues](https://github.com/thomaspinder/GPJax/issues)
-  (bugs).
+- Answering questions on our [discussions page](gh:discussions).
+- Raising [issues](gh:issues) related to bugs or desired enhancements.
+- Contributing or improving the [docs](gh:tree/main/docs) or
+  [examples](gh:tree/main/docs/examples).
+- Fixing outstanding [issues](gh:issues) (bugs).
 - Extending or improving our [codebase](https://github.com/thomaspinder/GPJax).
 
 
 ## Code of conduct
 
 As a contributor to GPJax, you can help us keep the community open and
-inclusive. Please read and follow our [Code of
-Conduct](https://github.com/thomaspinder/GPJax/blob/master/.github/CODE_OF_CONDUCT.md).
+inclusive. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Opening issues and getting support
 
-Please open issues on [Github Issue
-Tracker](https://github.com/thomaspinder/GPJax/issues/new/choose). Here you can
+Please open issues on [Github Issue Tracker](gh:issues/new/choose). Here you can
 mention
 
 You can ask a question or start a discussion in the [Discussion
-section](https://github.com/thomaspinder/GPJax/discussions) on Github.
+section](gh:discussions) on Github.
 
 ## Contributing to the source code
 
 Submitting code contributions to GPJax is done via a [GitHub pull
 request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests).
-Our preferred workflow is to first fork the [GitHub
-repository](https://github.com/thomaspinder/GPJax), clone it to your local
-machine, and develop on a _feature branch_. Once you're happy with your changes,
+Our preferred workflow is to first fork the [GitHub repository](https://github.com/thomaspinder/GPJax), clone it to
+your local machine, and develop on a _feature branch_. Once you're happy with your changes,
 install our `pre-commit hooks`, `commit` and `push` your code.
 
 **New to this?** Don't panic, our [guide](#step-by-step-guide) below will walk
 you through every detail!
 
-!!! attention "Note"
-
-    Before opening a pull request we recommend you check our [pull request checklist](#pull-request-checklist).
+:::{note}
+Before opening a pull request we recommend you check our [pull request checklist](#pull-request-checklist).
+:::
 
 
 ### Step-by-step guide:
 
-1.  Click [here](https://github.com/thomaspinder/GPJax/fork) to Fork GPJax's
+1.  Click [here](gh:fork) to Fork GPJax's
   codebase (alternatively, click the 'Fork' button towards the top right of
   the [main repository page](https://github.com/thomaspinder/GPJax)). This
   adds a copy of the codebase to your GitHub user account.
@@ -61,7 +54,7 @@ you through every detail!
   ```bash
   $ git clone git@github.com:<your GitHub handle>/GPJax.git
   $ cd GPJax
-  $ git remote add upstream git@github.com:GPJax.git
+  $ git remote add upstream git@github.com:thomaspinder/GPJax.git
   ```
 
 3.  Create a `feature` branch to hold your development changes:

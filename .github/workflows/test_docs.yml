@@ -1,77 +1,162 @@
 name: Test documentation
 
+# Pull-request docs gate: the smoke half of impulso's `build-docs` conditional
+# (../impulso/.github/workflows/main.yml). Fast render, warnings as errors.
 on:
   pull_request:
 
+# No `pages: write` / `id-token: write`: this workflow must never be able to
+# touch GitHub Pages. See the artifact step below. `pull-requests: write` is
+# only so the Netlify preview URL can be posted as a sticky comment.
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-docs:
-    # Functionality for testing documentation builds on multiple OSes and Python versions
+    # Name must stay "Build docs" — it is a required status check in main's
+    # branch protection, which matches on the job's display name.
     name: Build docs
-    runs-on: "ubuntu-latest"
     timeout-minutes: 45
-    concurrency:
-      group: ${{ github.head_ref }}
-      cancel-in-progress: true
-    defaults:
-      run:
-        shell: bash -l {0}
-
+    runs-on: ubuntu-latest
+    # Job-level so the preview step's own `if` can test them: a step cannot see
+    # env vars it declares itself.
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
     steps:
-      # Grap the latest commit from the branch
-      - name: Checkout the branch
+      - name: Check out the code
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      # Create a virtual environment
-      - name: create Conda environment
-        uses: conda-incubator/setup-miniconda@v4
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
-          auto-update-conda: true
           python-version: "3.11"
-          miniforge-version: "latest"
 
-      # Install uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           enable-cache: true
 
-      - name: Build the documentation with MKDocs
-        run: |
-          conda install pandoc
-          uv sync --frozen --extra docs
-          uv run python docs/scripts/gen_examples.py --execute
-          uv run mkdocs build
+      - name: Install docs dependencies
+        run: uv sync --frozen --extra docs
 
-      - name: Upload built docs artifact
+      - name: Register Jupyter kernel
+        run: uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
+
+      - name: Check the example kernelspecs are normalised
+        # jupyter-cache keys on the whole `kernelspec` dict, `display_name`
+        # included. Opening an example in Jupyter and re-saving rewrites that
+        # field to the local venv's name, silently invalidating the notebook's
+        # cache entry and forcing a re-execution against a 1800s timeout — from
+        # a purely cosmetic header change. These are the values the "Register
+        # Jupyter kernel" step above installs.
+        # Both fields are checked: jupyter-cache hashes the whole kernelspec dict,
+        # so a re-save that flips only `name` invalidates the cache just as surely
+        # as one that flips only `display_name`.
+        run: |
+          bad=$(
+            { grep -L '^#     display_name: Python 3$' docs/examples/*.py
+              grep -L '^#     name: python3$'          docs/examples/*.py
+            } | grep -v 'docs/examples/utils.py' | sort -u
+          )
+          if [ -n "$bad" ]; then
+            echo "$bad"
+            echo "::error::The files above have a non-canonical kernelspec." \
+                 "Set 'display_name: Python 3' and 'name: python3' in the jupytext header."
+            exit 1
+          fi
+
+      - name: Restore notebook execution cache
+        # Same accumulate-always cache as build_docs.yml: a unique key per run so
+        # actions/cache always re-saves, with restore-keys picking up the newest
+        # previous cache. Both directories are carried because the smoke and full
+        # renders keep separate jupyter-cache stores.
+        uses: actions/cache@v6
+        with:
+          path: |
+            docs/_build/.jupyter_cache
+            docs/_build/.jupyter_cache_ci
+          key: jupyter-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            jupyter-cache-
+
+      - name: Build documentation (smoke render, warnings as errors)
+        run: uv run poe docs-ci
+
+      - name: Resolve the Playwright version
+        # The browser build is tied to the Python package version, so that is
+        # what the cache must be keyed on. Re-downloading Chromium on every run
+        # costs ~30s and a few hundred MB of bandwidth.
+        id: playwright
+        run: |
+          echo "version=$(uv run --extra docs python -c 'from importlib.metadata import version; print(version("playwright"))')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the Playwright browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium for Playwright
+        # `--with-deps` installs the shared libraries Chromium needs on the
+        # runner image; those are not covered by the cache above, so this step
+        # runs on a cache hit too (it is a no-op for the browser itself).
+        run: uv run --extra docs playwright install --with-deps chromium
+
+      - name: Check MathJax rendering
+        # Sphinx writes LaTeX into the HTML verbatim and MathJax parses it in
+        # the browser, so the build above can be green while a page displays
+        # "Erroneous nesting of equation structures" to every reader. This is
+        # the only step that can see that. It must fail the job.
+        run: uv run poe docs-check-math
+
+      - name: Upload smoke-render artifact for PR review
+        # Plain artifact, downloadable from the run page. NEVER a Pages
+        # artifact, and never actions/deploy-pages: GitHub Pages "preview"
+        # deployments are unsupported on this plan and silently deploy to the
+        # production URL, so the job that used to live here was replacing the
+        # published docs with a PR's smoke render.
         uses: actions/upload-artifact@v7
         with:
-          name: docs-site-html
-          path: site
+          name: docs-smoke-render
+          path: docs/_build/html
+          retention-days: 7
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
+      - name: Deploy Netlify preview
+        # DIVERGENCE from impulso, which ships no PR preview at all. A branch
+        # deploy on the same Netlify site that serves production: `--alias` puts
+        # it at pr-<n>--<site>.netlify.app and, without `--prod`, cannot touch
+        # the production deploy. Never add `--prod` to this step.
+        #
+        # Skipped on forks and until the secrets exist, so the gate above stays
+        # green either way — a missing preview must not fail the docs build.
+        id: netlify
+        if: >-
+          github.event.pull_request.head.repo.full_name == github.repository
+          && env.NETLIFY_AUTH_TOKEN != ''
+        run: |
+          npx --yes netlify-cli@latest deploy \
+            --dir=docs/_build/html \
+            --alias="pr-${{ github.event.number }}" \
+            --message="PR #${{ github.event.number }} smoke render" \
+            --json > netlify-deploy.json
+          echo "url=$(jq -r '.deploy_url' netlify-deploy.json)" >> "$GITHUB_OUTPUT"
 
-  deploy-docs-preview:
-    needs: test-docs
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: docs-preview
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy MkDocs preview
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Comment the preview URL on the PR
+        if: steps.netlify.outputs.url != ''
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          preview: true
+          header: docs-preview
+          message: |
+            📖 **Docs preview:** ${{ steps.netlify.outputs.url }}
+
+            Smoke render — the expensive notebooks run with reduced budgets, so
+            figures are not publication fidelity. `/render-mode.txt` says `smoke`.

@@ -1,4 +1,4 @@
-# 🔪 The sharp bits
+# The sharp bits
 
 ## Pseudo-randomness
 
@@ -45,7 +45,14 @@ always clear when a PRNG is being used. In JAX, the PRNG key is not incremented,
 so the same key will always return the same result. This has further positive benefits
 for reproducibility.
 
-GPJax relies on JAX's PRNGs for all random number generation. Whilst we try wherever possible to handle the PRNG key's state for you, care must be taken when defining your own models and inference schemes to ensure that the PRNG key is handled correctly. The [JAX documentation](https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#random-numbers) has an excellent section on this.
+GPJax relies on JAX's PRNGs for all random number generation. Whilst we try wherever possible to handle the PRNG key's state for you, care must be taken when defining your own models and inference schemes to ensure that the PRNG key is handled correctly. The [JAX documentation](https://docs.jax.dev/en/latest/notebooks/Common_Gotchas_in_JAX.html#random-numbers) has an excellent section on this.
+
+:::{note}
+Anywhere GPJax takes a `key` argument — [`fit`](#gpjax.fit.fit), which owns the
+mini-batch randomness, and every `sample` method — it expects a fresh
+[`jax.random.key`](inv:jax#jax.random.key). Split before you reuse, never reuse
+after you split.
+:::
 
 ## Bijectors
 
@@ -80,43 +87,44 @@ this value that we apply gradient updates to. When we wish to recover the constr
 value, we apply the inverse of the bijector, which is the exponential function in this
 case. This gives us back the blue cross.
 
-In GPJax, we supply bijective functions using [Numpyro](https://num.pyro.ai/en/stable/distributions.html#transforms).
+In GPJax, we supply bijective functions using [NumPyro](https://num.pyro.ai/en/stable/distributions.html#transforms).
 
 ## How does the parameter system work?
 
 GPJax uses [Paramax](https://github.com/danielward27/paramax) to handle constrained
-parameters during optimisation. Each constrained parameter is a subclass of
-`paramax.AbstractUnwrappable` — an Equinox-compatible pytree node whose `unwrap()`
-method applies the constraining bijection (e.g. softplus for positivity, sigmoid for
-bounded parameters).
+parameters during optimisation. Each constrained parameter — [`PositiveReal`](#gpjax.parameters.PositiveReal),
+[`SigmoidBounded`](#gpjax.parameters.SigmoidBounded) and the rest — is a subclass of
+[`paramax.AbstractUnwrappable`](inv:paramax#paramax.wrappers.AbstractUnwrappable), an
+Equinox-compatible pytree node whose `unwrap()` method applies the constraining
+bijection (e.g. softplus for positivity, sigmoid for bounded parameters).
 
-During optimisation, `fit()` calls `paramax.unwrap(model)` inside the loss function.
+During optimisation, [`fit`](#gpjax.fit.fit) calls
+[`paramax.unwrap`](inv:paramax#paramax.wrappers.unwrap) inside the loss function.
 This recursively resolves every `AbstractUnwrappable` leaf in the model tree, mapping
 internal unconstrained values to their constrained counterparts. Gradients are computed
 in the unconstrained space, and updates are applied directly to the unconstrained
 arrays — no explicit forward/inverse transform step is needed.
 
 To freeze parameters so they are not updated during optimisation, wrap them with
-`paramax.non_trainable(param)`. This excludes the wrapped subtree from gradient
-updates while keeping its value available at evaluation time.
+[`paramax.non_trainable`](inv:paramax#paramax.wrappers.non_trainable). This excludes the
+wrapped subtree from gradient updates while keeping its value available at evaluation time.
 
 ## Positive-definiteness
 
-> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Highman, Accuracy and stability of numerical algorithms [@higham2022accuracy]
+> "Symmetric positive definiteness is one of the highest accolades to which a matrix can aspire" - Nicholas Higham, Accuracy and stability of numerical algorithms {cite:p}`higham2002accuracy`
 
 ### Why is positive-definiteness important?
 
 The Gram matrix of a kernel, a concept that we explore more in our
-[kernels notebook](_examples/constructing_new_kernels.md). As such, we
+[kernels notebook](examples/constructing_new_kernels.py). As such, we
 have a range of tools at our disposal to make subsequent operations on the covariance
 matrix faster. One of these tools is the Cholesky factorisation that uniquely decomposes
 any symmetric positive-definite matrix $\mathbf{\Sigma}$ by
 
-```math
-\begin{align}
+$$
     \mathbf{\Sigma} = \mathbf{L}\mathbf{L}^{\top}\,,
-\end{align}
-```
+$$ (eq-sharp-bits-cholesky)
+
 where $\mathbf{L}$ is a lower triangular matrix.
 
 We make use of this result in GPJax when solving linear systems of equations of the
@@ -128,31 +136,29 @@ $\boldsymbol{y} \sim \mathcal{N}(f(\boldsymbol{x}), \sigma^2\mathbf{I})$ with $f
 Gaussian process prior and Gram matrix $\mathbf{K}_{\boldsymbol{xx}}$ at the inputs
 $\boldsymbol{x}$. Here the marginal log-likelihood comprises the following form
 
-```math
-\begin{align}
+$$
     \log p(\boldsymbol{y}) = 0.5\left(-\boldsymbol{y}^{\top}\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}\boldsymbol{y} -\log\lvert \mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I}\rvert -n\log(2\pi)\right) ,
-\end{align}
-```
+$$ (eq-sharp-bits-marginal-log-likelihood)
 
 and the goal of inference is to maximise kernel hyperparameters (contained in the Gram
 matrix $\mathbf{K}_{\boldsymbol{xx}}$) and likelihood hyperparameters (contained in the
 noise covariance $\sigma^2\mathbf{I}$). Computing the marginal log-likelihood (and its
 gradients), draws our attention to the term
 
-```math
-\begin{align}
+$$
     \underbrace{\left(\mathbf{K}_{\boldsymbol{xx}} + \sigma^2\mathbf{I} \right)^{-1}}_{\mathbf{A}}\boldsymbol{y},
-\end{align}
-```
+$$ (eq-sharp-bits-linear-system)
 
 then we can see a solution can be obtained by solving the corresponding system of
 equations. By working with $\mathbf{L} = \operatorname{chol}{\mathbf{A}}$ instead of
-$\mathbf{A}$, we save a significant amount of floating-point operations (flops) by
-solving two triangular systems of equations (one for $\mathbf{L}$ and another for
-$\mathbf{L}^{\top}$) instead of one dense system of equations. Solving two triangular systems
-of equations has complexity $\mathcal{O}(n^3/6)$; a vast improvement compared to
-regular solvers that have $\mathcal{O}(n^3)$ complexity in the number of datapoints
-$n$.
+$\mathbf{A}$, we save a significant amount of floating-point operations (flops).
+Factorising $\mathbf{A}$ costs $\sim n^3/3$ flops — half what an LU decomposition of
+the same matrix would cost — and every solve thereafter is just two triangular
+substitutions (one for $\mathbf{L}$ and another for $\mathbf{L}^{\top}$), each
+$\mathcal{O}(n^2)$ in the number of datapoints $n$. It is that asymmetry, one cubic
+factorisation against quadratic solves that reuse it, which makes the Cholesky route
+worthwhile: the factor is computed once and then amortised over every subsequent
+solve against the same kernel matrix.
 
 ### The Cholesky drawback
 
@@ -170,28 +176,47 @@ To resolve this, we apply some numerical _jitter_ to the diagonals of any Gram m
 Typically this is very small, with $10^{-6}$ being the system default. However,
 for some problems, this amount may need to be increased.
 
+:::{warning}
+A `Cholesky failure` — `NaN`s appearing in your loss, or a solve returning
+non-finite values — is almost always this. Raise the {term}`jitter` before you
+suspect your model. GPJax applies it through
+[`add_jitter`](#gpjax.linalg.add_jitter), and
+[`cholesky_factor`](#gpjax.linalg.cholesky_factor) is where the factorisation
+itself happens.
+:::
+
 ## Slow-to-evaluate
 
 Famously, a regular Gaussian process model (as detailed in
-[our regression notebook](_examples/regression.md)) will scale cubically in the number of data points.
+[our regression notebook](examples/regression.py)) will scale cubically in the number of data points.
 Consequently, if you try to fit your Gaussian process model to a data set containing more
 than several thousand data points, then you will likely incur a significant
 computational overhead. In such cases, we recommend using Sparse Gaussian processes to
 alleviate this issue.
 
 When the data contains less than around 50000 data points, we recommend using
-the collapsed evidence lower bound objective [@titsias2009] to optimise the parameters
+the collapsed evidence lower bound objective {cite:p}`titsias2009` to optimise the parameters
 of your sparse Gaussian process model. Such a model will scale linearly in the number of
-data points and quadratically in the number of inducing points. We demonstrate its use
-in [our sparse regression notebook](_examples/collapsed_vi.md).
+data points and quadratically in the number of {term}`inducing points`. We demonstrate its use
+in [our sparse regression notebook](examples/collapsed_vi.py).
 
 For data sets exceeding 50000 data points, even the sparse Gaussian process outlined
 above will become computationally infeasible. In such cases, we recommend using the
-uncollapsed evidence lower bound objective [@hensman2013gaussian] that allows stochastic
+uncollapsed evidence lower bound objective {cite:p}`hensman2013gaussian` that allows stochastic
 mini-batch optimisation of the parameters of your sparse Gaussian process model. Such a
 model will scale linearly in the batch size and quadratically in the number of inducing
 points. We demonstrate its use in
-[our sparse stochastic variational inference notebook](_examples/uncollapsed_vi.md).
+[our sparse stochastic variational inference notebook](examples/uncollapsed_vi.py).
+
+:::{tip}
+Which approximation to reach for:
+
+| Data size | Objective | Variational family |
+| --- | --- | --- |
+| Up to a few thousand | [`conjugate_mll`](#gpjax.objectives.conjugate_mll) | none — use [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) directly |
+| Up to ~50,000 | [`collapsed_elbo`](#gpjax.objectives.collapsed_elbo) | [`CollapsedVariationalGaussian`](#gpjax.variational_families.CollapsedVariationalGaussian) |
+| Beyond that, or a non-Gaussian likelihood | [`elbo`](#gpjax.objectives.elbo) | [`VariationalGaussian`](#gpjax.variational_families.VariationalGaussian) |
+:::
 
 ## JIT compilation
 
@@ -203,12 +228,19 @@ GPJax validates parameters at construction time using two kinds of checks:
 
 During JIT tracing, concrete values are replaced by abstract tracers. The type checks
 use `isinstance`, which is a pure Python operation that cannot be intercepted by JAX's
-`checkify` transformation. This means that constructing GPJax objects (kernels, mean
-functions, likelihoods, etc.) **inside** a JIT boundary will fail.
+`checkify` transformation.
+
+:::{warning}
+Constructing GPJax objects — kernels, mean functions, likelihoods — **inside** a
+[`jax.jit`](inv:jax#jax.jit), [`jax.vmap`](inv:jax#jax.vmap) or
+[`jax.grad`](inv:jax#jax.grad) boundary will fail with a `TypeError`. Construct
+them outside and JIT only the computation.
+:::
 
 As an example, consider the following code that constructs a kernel inside a
 JIT-compiled function:
 
+{emphasize-lines="8"}
 ```python
 import jax
 import jax.numpy as jnp
@@ -240,6 +272,7 @@ The solution is to construct GPJax objects **outside** the JIT boundary and only
 computation itself. This follows the standard JAX pattern of keeping object construction
 separate from traced computation:
 
+{emphasize-lines="1"}
 ```python
 k = gpx.kernels.RBF(active_dims=[0], lengthscale=1.0, variance=jnp.array(1.0))
 

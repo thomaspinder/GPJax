@@ -120,8 +120,7 @@ validation:
 examples:
   - changed-files:
     - any-glob-to-any-file:
-      - 'examples/**'
-      - 'docs/_examples/**'
+      - 'docs/examples/**'
 
 documentation:
   - changed-files:

@@ -6,7 +6,6 @@
 
 [![codecov](https://codecov.io/gh/thomaspinder/GPJax/branch/master/graph/badge.svg?token=DM1DRDASU2)](https://codecov.io/gh/thomaspinder/GPJax)
 [![CodeFactor](https://www.codefactor.io/repository/github/thomaspinder/GPJax/badge)](https://www.codefactor.io/repository/github/thomaspinder/GPJax)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/d3950e6f-321f-4508-9e52-426b5dae2715/deploy-status)](https://app.netlify.com/sites/endearing-crepe-c2d5fe/deploys)
 [![PyPI version](https://badge.fury.io/py/GPJax.svg)](https://badge.fury.io/py/GPJax)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/gpjax.svg)](https://anaconda.org/conda-forge/gpjax)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.04455/status.svg)](https://doi.org/10.21105/joss.04455)
@@ -48,7 +47,7 @@ As a contributor to GPJax, you are expected to abide by our [code of
 conduct](docs/CODE_OF_CONDUCT.md). If you feel that you have either experienced or
 witnessed behaviour that violates this standard, then we ask that you report any such
 behaviours through [this form](https://jaxgaussianprocesses.com/contact/) or reach out to
-one of the project's [_gardeners_](https://docs.jaxgaussianprocesses.com/GOVERNANCE/#roles).
+one of the project's [_gardeners_](https://docs.jaxgaussianprocesses.com/GOVERNANCE.html#roles).
 
 Feel free to join our [Slack
 Channel](https://join.slack.com/t/gpjax/shared_invite/zt-3cesiykcx-nzajjRdnV3ohw7~~eMlCYA),
@@ -63,23 +62,22 @@ GPJax into the package it is today.
 
 ## Notebook examples
 
-> - [**Conjugate Inference**](https://docs.jaxgaussianprocesses.com/_examples/regression/)
-> - [**Classification**](https://docs.jaxgaussianprocesses.com/_examples/classification/)
-> - [**Sparse Variational Inference**](https://docs.jaxgaussianprocesses.com/_examples/collapsed_vi/)
-> - [**Stochastic Variational Inference**](https://docs.jaxgaussianprocesses.com/_examples/uncollapsed_vi/)
-> - [**Laplace Approximation**](https://docs.jaxgaussianprocesses.com/_examples/classification/#laplace-approximation)
-> - [**Inference on Non-Euclidean Spaces**](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#custom-kernel)
-> - [**Inference on Graphs**](https://docs.jaxgaussianprocesses.com/_examples/graph_kernels/)
-> - [**Heteroscedastic Inference**](https://docs.jaxgaussianprocesses.com/_examples/heteroscedastic_inference/)
-> - [**Learning Gaussian Process Barycentres**](https://docs.jaxgaussianprocesses.com/_examples/barycentres/)
-> - [**Deep Kernel Regression**](https://docs.jaxgaussianprocesses.com/_examples/deep_kernels/)
-> - [**Poisson Regression**](https://docs.jaxgaussianprocesses.com/_examples/poisson/)
-> - [**Bayesian Optimisation**](https://docs.jaxgaussianprocesses.com/_examples/bayesian_optimisation/)
+> - [**Conjugate Inference**](https://docs.jaxgaussianprocesses.com/examples/regression.html)
+> - [**Classification**](https://docs.jaxgaussianprocesses.com/examples/classification.html)
+> - [**Sparse Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/collapsed_vi.html)
+> - [**Stochastic Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/uncollapsed_vi.html)
+> - [**Laplace Approximation**](https://docs.jaxgaussianprocesses.com/examples/classification.html#laplace-approximation)
+> - [**Inference on Non-Euclidean Spaces**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html#custom-kernel)
+> - [**Inference on Graphs**](https://docs.jaxgaussianprocesses.com/examples/graph_kernels.html)
+> - [**Heteroscedastic Inference**](https://docs.jaxgaussianprocesses.com/examples/heteroscedastic_inference.html)
+> - [**Learning Gaussian Process Barycentres**](https://docs.jaxgaussianprocesses.com/examples/barycentres.html)
+> - [**Deep Kernel Regression**](https://docs.jaxgaussianprocesses.com/examples/deep_kernels.html)
+> - [**Poisson Regression**](https://docs.jaxgaussianprocesses.com/examples/poisson.html)
 
 ## Guides for customisation
 >
-> - [**Custom kernels**](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#custom-kernel)
-> - [**UCI regression**](https://docs.jaxgaussianprocesses.com/_examples/yacht/)
+> - [**Custom kernels**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html#custom-kernel)
+> - [**UCI regression**](https://docs.jaxgaussianprocesses.com/examples/yacht.html)
 
 ## Conversion between `.ipynb` and `.py`
 Above examples are stored in [examples](docs/examples) directory in the double
