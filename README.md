@@ -14,7 +14,7 @@
 
 [**Quickstart**](#simple-example)
 | [**Install guide**](#installation)
-| [**Documentation**](https://docs.jaxgaussianprocesses.com/)
+| [**Documentation**](https://gpjax.quantclimate.com/)
 | [**Slack Community**](https://join.slack.com/t/gpjax/shared_invite/zt-3cesiykcx-nzajjRdnV3ohw7~~eMlCYA)
 
 GPJax aims to provide a low-level interface to Gaussian process (GP) models in
@@ -47,7 +47,7 @@ As a contributor to GPJax, you are expected to abide by our [code of
 conduct](docs/CODE_OF_CONDUCT.md). If you feel that you have either experienced or
 witnessed behaviour that violates this standard, then we ask that you report any such
 behaviours through [this form](https://jaxgaussianprocesses.com/contact/) or reach out to
-one of the project's [_gardeners_](https://docs.jaxgaussianprocesses.com/GOVERNANCE.html#roles).
+one of the project's [_gardeners_](https://gpjax.quantclimate.com/GOVERNANCE.html#roles).
 
 Feel free to join our [Slack
 Channel](https://join.slack.com/t/gpjax/shared_invite/zt-3cesiykcx-nzajjRdnV3ohw7~~eMlCYA),
@@ -64,41 +64,41 @@ GPJax into the package it is today.
 
 ### Getting started
 
-> - [**New to Gaussian Processes?**](https://docs.jaxgaussianprocesses.com/examples/intro_to_gps.html)
-> - [**Introduction to Kernels**](https://docs.jaxgaussianprocesses.com/examples/intro_to_kernels.html)
-> - [**Regression**](https://docs.jaxgaussianprocesses.com/examples/regression.html)
-> - [**Classification**](https://docs.jaxgaussianprocesses.com/examples/classification.html)
-> - [**Count Data Regression**](https://docs.jaxgaussianprocesses.com/examples/poisson.html)
-> - [**Natural Gradients**](https://docs.jaxgaussianprocesses.com/examples/natural_gradients.html)
+> - [**New to Gaussian Processes?**](https://gpjax.quantclimate.com/examples/intro_to_gps.html)
+> - [**Introduction to Kernels**](https://gpjax.quantclimate.com/examples/intro_to_kernels.html)
+> - [**Regression**](https://gpjax.quantclimate.com/examples/regression.html)
+> - [**Classification**](https://gpjax.quantclimate.com/examples/classification.html)
+> - [**Count Data Regression**](https://gpjax.quantclimate.com/examples/poisson.html)
+> - [**Natural Gradients**](https://gpjax.quantclimate.com/examples/natural_gradients.html)
 
 ### Accelerating Gaussian processes
 
-> - [**Sparse Gaussian Process Regression**](https://docs.jaxgaussianprocesses.com/examples/collapsed_vi.html)
-> - [**Sparse Stochastic Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/uncollapsed_vi.html)
-> - [**Natural Gradients in Practice**](https://docs.jaxgaussianprocesses.com/examples/natgrads.html)
-> - [**Dual Parameterisation of Sparse GPs (t-SVGP)**](https://docs.jaxgaussianprocesses.com/examples/dual_svgp.html)
-> - [**State-Space (Markovian) Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/state_space_gps.html)
-> - [**Scalable Multi-Output GPs with OILMM**](https://docs.jaxgaussianprocesses.com/examples/oilmm.html)
+> - [**Sparse Gaussian Process Regression**](https://gpjax.quantclimate.com/examples/collapsed_vi.html)
+> - [**Sparse Stochastic Variational Inference**](https://gpjax.quantclimate.com/examples/uncollapsed_vi.html)
+> - [**Natural Gradients in Practice**](https://gpjax.quantclimate.com/examples/natgrads.html)
+> - [**Dual Parameterisation of Sparse GPs (t-SVGP)**](https://gpjax.quantclimate.com/examples/dual_svgp.html)
+> - [**State-Space (Markovian) Gaussian Processes**](https://gpjax.quantclimate.com/examples/state_space_gps.html)
+> - [**Scalable Multi-Output GPs with OILMM**](https://gpjax.quantclimate.com/examples/oilmm.html)
 
 ### Applied modelling
 
-> - [**Gaussian Processes Barycentres**](https://docs.jaxgaussianprocesses.com/examples/barycentres.html)
-> - [**Graph Kernels**](https://docs.jaxgaussianprocesses.com/examples/graph_kernels.html)
-> - [**Heteroscedastic Inference**](https://docs.jaxgaussianprocesses.com/examples/heteroscedastic_inference.html)
-> - [**Multi-Output Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/multioutput.html)
-> - [**Orthogonal Additive Kernels**](https://docs.jaxgaussianprocesses.com/examples/oak.html)
-> - [**Gaussian Processes for Vector Fields and Ocean Current Modelling**](https://docs.jaxgaussianprocesses.com/examples/oceanmodelling.html)
-> - [**Spatial Modelling with Composable Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/spatial_linear_gp.html)
-> - [**Gridded Data with xarray**](https://docs.jaxgaussianprocesses.com/examples/xarray_workflow.html)
-> - [**UCI Data Benchmarking**](https://docs.jaxgaussianprocesses.com/examples/yacht.html)
+> - [**Gaussian Processes Barycentres**](https://gpjax.quantclimate.com/examples/barycentres.html)
+> - [**Graph Kernels**](https://gpjax.quantclimate.com/examples/graph_kernels.html)
+> - [**Heteroscedastic Inference**](https://gpjax.quantclimate.com/examples/heteroscedastic_inference.html)
+> - [**Multi-Output Gaussian Processes**](https://gpjax.quantclimate.com/examples/multioutput.html)
+> - [**Orthogonal Additive Kernels**](https://gpjax.quantclimate.com/examples/oak.html)
+> - [**Gaussian Processes for Vector Fields and Ocean Current Modelling**](https://gpjax.quantclimate.com/examples/oceanmodelling.html)
+> - [**Spatial Modelling with Composable Gaussian Processes**](https://gpjax.quantclimate.com/examples/spatial_linear_gp.html)
+> - [**Gridded Data with xarray**](https://gpjax.quantclimate.com/examples/xarray_workflow.html)
+> - [**UCI Data Benchmarking**](https://gpjax.quantclimate.com/examples/yacht.html)
 
 ### Guides for customisation
 
-> - [**Kernel Guide**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html)
-> - [**Likelihood Guide**](https://docs.jaxgaussianprocesses.com/examples/likelihoods_guide.html)
-> - [**Deep Kernel Learning**](https://docs.jaxgaussianprocesses.com/examples/deep_kernels.html)
-> - [**Joint Inference with Numpyro**](https://docs.jaxgaussianprocesses.com/examples/numpyro_integration.html)
-> - [**Backend Module Design**](https://docs.jaxgaussianprocesses.com/examples/backend.html)
+> - [**Kernel Guide**](https://gpjax.quantclimate.com/examples/constructing_new_kernels.html)
+> - [**Likelihood Guide**](https://gpjax.quantclimate.com/examples/likelihoods_guide.html)
+> - [**Deep Kernel Learning**](https://gpjax.quantclimate.com/examples/deep_kernels.html)
+> - [**Joint Inference with Numpyro**](https://gpjax.quantclimate.com/examples/numpyro_integration.html)
+> - [**Backend Module Design**](https://gpjax.quantclimate.com/examples/backend.html)
 
 ## Conversion between `.ipynb` and `.py`
 Above examples are stored in [examples](docs/examples) directory in the double
