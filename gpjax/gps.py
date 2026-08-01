@@ -164,6 +164,11 @@ class Prior(AbstractPrior[M, K]):
         >>> kernel = gpx.kernels.RBF()
         >>> meanf = gpx.mean_functions.Zero()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel = kernel)
+
+    .. seealso::
+
+        :doc:`/examples/intro_to_gps` derives the prior from first principles, and
+        :doc:`/examples/regression` puts one to work end to end.
     """
 
     if tp.TYPE_CHECKING:

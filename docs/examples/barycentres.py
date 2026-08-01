@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Gaussian Processes Barycentres
+#
+# Download this notebook: {nb-download}`barycentres.ipynb`
 #
 # In this notebook we'll give an implementation of
 # {cite:t}`mallasto2017learning`. In this work, the existence of a
@@ -41,6 +43,11 @@ import jax.random as jr
 import jax.scipy.linalg as jsl
 from jaxtyping import install_import_hook
 import matplotlib.pyplot as plt
+try:
+    from myst_nb import glue
+except ImportError:  # notebook downloaded and run outside the docs build
+    def glue(*args, **kwargs):
+        """No-op stand-in: gluing only matters when Sphinx renders this page."""
 import numpyro.distributions as npd
 
 config.update("jax_enable_x64", True)
@@ -124,12 +131,13 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # ## Dataset
 #
-# We'll simulate five datasets and develop a Gaussian process posterior before
+# We'll simulate five datasets and develop a Gaussian process
+# [posterior](#gpjax.gps.ConjugatePosterior) before
 # identifying the Gaussian process barycentre at a set of test points. Each dataset
 # will be a sine function with a different vertical shift, periodicity, and quantity
 # of noise.
 
-# %%
+# %% mystnb={"figure": {"caption": "The five simulated datasets, each a sine function with its own vertical shift, periodicity and noise level.", "name": "fig-barycentres-simulated-datasets"}}
 n = 100
 n_test = 200
 n_datasets = 5
@@ -156,10 +164,12 @@ plt.show()
 # %% [markdown]
 # ## Learning a posterior distribution
 #
-# We'll now independently learn Gaussian process posterior distributions for each
-# dataset. Each fit returns a
-# [`GaussianDistribution`](../reference/distributions.md), and it is the mean vector
-# and covariance matrix of these that the barycentre is computed from below. We won't
+# We'll now independently learn Gaussian process posterior distributions for each of the
+# datasets in {numref}`fig-barycentres-simulated-datasets`. Each fit returns a
+# [`GaussianDistribution`](../reference/distributions.md), and it is the
+# [mean vector](#gpjax.distributions.GaussianDistribution.mean)
+# and [covariance matrix](#gpjax.distributions.GaussianDistribution.covariance_matrix)
+# of these that the barycentre is computed from below. We won't
 # spend any time here discussing how GP hyperparameters are
 # optimised. For advice on achieving this, see the
 # [Regression notebook](regression.py)
@@ -203,8 +213,9 @@ posterior_preds = [fit_gp(x, i) for i in ys]
 # straightforward to extract the mean vector and covariance matrix of each GP for
 # learning a barycentre. We implement the fixed point scheme given in
 # {eq}`eq-barycentres-gaussian-barycentre` in the
-# following cell by utilising Jax's `vmap` operator to speed up large matrix operations
-# using broadcasting in `tensordot`.
+# following cell by utilising Jax's [`vmap`](inv:jax#jax.vmap) operator to speed up large
+# matrix operations using broadcasting in
+# [`tensordot`](inv:jax#jax.numpy.tensordot).
 
 
 # %%
@@ -232,8 +243,9 @@ def wasserstein_barycentres(
 # %% [markdown]
 # With a function defined for learning a barycentre, we'll now compute it using the
 # `lax.scan` operator that drastically speeds up for loops in Jax (see the
-# [Jax documentation](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scan.html)).
-# The iterative update will be executed 100 times, with convergence measured by the
+# [Jax documentation](https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html)).
+# The iterative update will be executed {glue:text}`barycentres-num-iterations` times,
+# with convergence measured by the
 # difference between the previous and current iteration that we can confirm by
 # inspecting the `sequence` array in the following cell.
 
@@ -249,6 +261,7 @@ initial_covariance = jnp.eye(n_test)
 barycentre_covariance, sequence = jax.lax.scan(
     step_fn, initial_covariance, jnp.arange(50)
 )
+glue("barycentres-num-iterations", f"{sequence.shape[0]}", display=False)
 L = jnp.linalg.cholesky(barycentre_covariance)
 
 barycentre_process = npd.MultivariateNormal(barycentre_mean, scale_tril=L)

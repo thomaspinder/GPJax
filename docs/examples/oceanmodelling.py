@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Gaussian Processes for Vector Fields and Ocean Current Modelling
+#
+# Download this notebook: {nb-download}`oceanmodelling.ipynb`
 #
 # In this notebook, we use Gaussian processes to learn vector-valued functions. We will
 # be recreating the results by [Berlinghieri et al.
@@ -49,6 +51,11 @@ from jaxtyping import (
 )
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
+try:
+    from myst_nb import glue
+except ImportError:  # notebook downloaded and run outside the docs build
+    def glue(*args, **kwargs):
+        """No-op stand-in: gluing only matters when Sphinx renders this page."""
 import numpyro.distributions as npd
 import pandas as pd
 
@@ -278,7 +285,8 @@ dataset_ground_truth = dataset_3d(pos_test, vel_test)
 # notebook](constructing_new_kernels.py#custom-kernel).
 # This modular implementation takes the choice of user kernels as its class attributes:
 # `kernel0` and `kernel1`. We must additionally pass the argument `active_dims = [0,1]`,
-# which is an attribute of the base class `AbstractKernel`, into the chosen kernels.
+# which is an attribute of the base class
+# [`AbstractKernel`](#gpjax.kernels.AbstractKernel), into the chosen kernels.
 # This is necessary such that the subsequent likelihood optimisation does not optimise
 # over the artificial label dimension.
 #
@@ -315,9 +323,10 @@ class VelocityKernel(gpx.kernels.AbstractKernel):
 
 # %% [markdown]
 # ### GPJax implementation
-# Next, we define the model in GPJax. The prior is defined using
+# Next, we define the model in GPJax. The [prior](#gpjax.gps.Prior) is defined using
 # $k_{\text{vel}}\left(\mathbf{X}, \mathbf{X}^\prime \right)$ and 0 mean and 0
-# observation noise. We choose a Gaussian marginal log-likelihood (MLL).
+# observation noise. We choose a [Gaussian](#gpjax.likelihoods.Gaussian) marginal
+# log-likelihood (MLL).
 #
 
 
@@ -364,7 +373,9 @@ opt_velocity_posterior = optimise_mll(velocity_posterior, dataset_train)
 
 # %% [markdown]
 # ### Comparison
-# We next obtain the latent distribution of the GP of $g$ at $\mathbf{x}_{0,i}$, then
+# We next obtain the
+# [latent distribution](#gpjax.distributions.GaussianDistribution) of the GP of $g$ at
+# $\mathbf{x}_{0,i}$, then
 # extract its mean and standard at the test locations,
 # $\mathbf{F}_{\text{latent}}(\mathbf{x}_{0,i})$, as well as the standard deviation (we
 # will use it at the very end).
@@ -394,7 +405,7 @@ dataset_latent_velocity = dataset_3d(pos_test, velocity_mean)
 # $\left|\left|\mathbf{R}(\mathbf{x}_{0,i})\right|\right|$.
 
 
-# %%
+# %% mystnb={"figure": {"caption": "Ground truth ocean current, the velocity GP estimate of the latent vector field, and the magnitude of the residuals between them, with the drifter measurements overlaid.", "name": "fig-oceanmodelling-velocity-fields"}}
 # Residuals between ground truth and estimate
 
 
@@ -491,7 +502,8 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 
 
 # %% [markdown]
-# From the latent estimate we can see the velocity GP struggles to
+# From the latent estimate in {numref}`fig-oceanmodelling-velocity-fields` we can see
+# the velocity GP struggles to
 # reconstruct features of the ground truth. This is because our construction of the
 # kernel placed an independent prior on each physical dimension, which cannot be
 # assumed. Therefore, we need a different approach that can implicitly incorporate this
@@ -553,7 +565,8 @@ plot_fields(dataset_ground_truth, dataset_train, dataset_latent_velocity)
 # where $x^{(z)}$ and $(x^\prime)^{(z^\prime)}$ are the $z$ and $z^\prime$ components of
 # $\mathbf{X}$ and ${\mathbf{X}}^{\prime}$ respectively.
 #
-# We compute the second derivatives using `jax.hessian`. In the following
+# We compute the second derivatives using [`jax.hessian`](inv:jax#jax.hessian). In the
+# following
 # implementation, for a kernel $k(\mathbf{x}, \mathbf{x}^{\prime})$, this computes the
 # Hessian matrix with respect to the components of $\mathbf{x}$
 #
@@ -633,7 +646,7 @@ opt_helmholtz_posterior = optimise_mll(helmholtz_posterior, dataset_train)
 # \mathbf{F}_{\text{latent}}(\mathbf{x}_{0,i})$ and $\left|\left|R(\mathbf{x}_{0,i})
 # \right|\right|$.
 
-# %%
+# %% mystnb={"figure": {"caption": "The same comparison for the Helmholtz model, whose latent estimate of the vector field retains the local structure of the ground truth and leaves smaller residuals.", "name": "fig-oceanmodelling-helmholtz-fields"}}
 # obtain latent distribution, extract x and y values over g
 helmholtz_mean, helmholtz_std = latent_distribution(
     opt_helmholtz_posterior, dataset_ground_truth.X, dataset_train
@@ -643,7 +656,8 @@ dataset_latent_helmholtz = dataset_3d(pos_test, helmholtz_mean)
 plot_fields(dataset_ground_truth, dataset_train, dataset_latent_helmholtz)
 
 # %% [markdown]
-# Visually, the Helmholtz model performs better than the velocity model, preserving the
+# Visually, the Helmholtz model in {numref}`fig-oceanmodelling-helmholtz-fields`
+# performs better than the velocity model, preserving the
 # local structure of the $\mathbf{F}$. Since we placed priors on $\Phi$ and $\Psi$, the
 # construction of $\mathbf{F}$ allows for correlations between the dimensions (non-zero
 # off-diagonal elements in the Gram matrix populated by
@@ -682,8 +696,12 @@ nlpd_vel = nlpd(velocity_mean, velocity_std, vel_test)
 nlpd_helm = nlpd(helmholtz_mean, helmholtz_std, vel_test)
 
 print("NLPD for Velocity: %.2f \nNLPD for Helmholtz: %.2f" % (nlpd_vel, nlpd_helm))
+glue("oceanmodelling-nlpd-velocity", f"{nlpd_vel:.2f}", display=False)
+glue("oceanmodelling-nlpd-helmholtz", f"{nlpd_helm:.2f}", display=False)
 # %% [markdown]
-# The Helmholtz model outperforms the velocity model, as indicated by the lower NLPD score.
+# The Helmholtz model outperforms the velocity model, as indicated by the lower NLPD
+# score ({glue:text}`oceanmodelling-nlpd-helmholtz` against
+# {glue:text}`oceanmodelling-nlpd-velocity`).
 
 # %% [markdown]
 # (fn1)=

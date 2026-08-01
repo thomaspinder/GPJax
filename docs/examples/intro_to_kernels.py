@@ -9,15 +9,16 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Introduction to Kernels
-
-# %% [markdown]
+#
+# Download this notebook: {nb-download}`intro_to_kernels.ipynb`
+#
 # In this guide we provide an introduction to kernels, and the role they play in Gaussian process models.
 
 # %%
@@ -178,9 +179,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # Some commonly used Matérn kernels use half-integer values of $\nu$, such as $\nu = 1/2$
 # or $\nu = 3/2$. The fraction is sometimes omitted when naming the kernel, so that $\nu =
-# 1/2$ is referred to as the Matérn12 kernel, and $\nu = 3/2$ is referred to as the
-# Matérn32 kernel. When $\nu$ takes in a half-integer value, $\nu = k + 1/2$, the kernel
-# can be expressed as the product of a polynomial of order $k$ and an exponential:
+# 1/2$ is referred to as the [Matérn12](#gpjax.kernels.Matern12) kernel, and $\nu = 3/2$
+# is referred to as the [Matérn32](#gpjax.kernels.Matern32) kernel. When $\nu$ takes in a
+# half-integer value, $\nu = k + 1/2$, the kernel can be expressed as the product of a
+# polynomial of order $k$ and an exponential:
 #
 # $$
 # \begin{aligned}
@@ -199,7 +201,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # But what kind of functions does this kernel encode prior knowledge about? Let's take a look at some samples from GP priors defined used Matérn kernels with different values of $\nu$:
 
-# %%
+# %% mystnb={"figure": {"caption": "Ten function samples drawn from GP priors built with the Matérn12, Matérn32, Matérn52 and RBF kernels, showing how the samples become smoother as the smoothness parameter increases.", "name": "fig-intro-kernels-matern-samples"}}
 kernels = [
     gpx.kernels.Matern12(),
     gpx.kernels.Matern32(),
@@ -221,7 +223,7 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
 
 
 # %% [markdown]
-# The plots above clearly show that the choice of $\nu$ has a large impact on the *smoothness* of the functions being modelled by the GP, with functions drawn from GPs defined with the Matérn kernel becoming increasingly smooth as $\nu \to \infty$. More formally, this notion of smoothness is captured through the mean-square differentiability of the function being modelled. Functions sampled from GPs using a Matérn kernel are $k$-times mean-square differentiable, if and only if $\nu > k$. For instance, functions sampled from a GP using a Matérn12 kernel are zero times mean-square differentiable, and functions sampled from a GP using the RBF kernel are infinitely mean-square differentiable.
+# {numref}`fig-intro-kernels-matern-samples` clearly shows that the choice of $\nu$ has a large impact on the *smoothness* of the functions being modelled by the GP, with functions drawn from GPs defined with the Matérn kernel becoming increasingly smooth as $\nu \to \infty$. More formally, this notion of smoothness is captured through the mean-square differentiability of the function being modelled. Functions sampled from GPs using a Matérn kernel are $k$-times mean-square differentiable, if and only if $\nu > k$. For instance, functions sampled from a GP using a Matérn12 kernel are zero times mean-square differentiable, and functions sampled from a GP using the [RBF](#gpjax.kernels.RBF) kernel are infinitely mean-square differentiable.
 #
 # As an important aside, a general property of the Matérn family of kernels is that they are examples of *stationary* kernels. This means that they only depend on the *displacement* of the two points being compared, $\mathbf{x} - \mathbf{x}'$, and not on their absolute values. This is a useful property to have, as it means that the kernel is invariant to translations in the input space. They also go beyond this, as they only depend on the Euclidean *distance* between the two points being compared, $|\mathbf{x} - \mathbf{x}'|$. Kernels which satisfy this property are known as *isotropic* kernels. This makes the function invariant to all rigid motions in the input space, such as rotations.
 
@@ -241,10 +243,10 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
 
 # %% [markdown]
 # This expression can then be maximised with respect to the hyperparameters using a
-# gradient-based approach such as Adam or L-BFGS. Note that we may choose to fix some
-# hyperparameters, and in GPJax the parameter $\nu$ is set by the user, and not
-# inferred though optimisation. For more details on using the log marginal likelihood to
-# optimise kernel hyperparameters, see our [GP introduction notebook](intro_to_gps.py#gaussian-process-regression).
+# gradient-based approach such as [Adam](inv:optax#optax.adam) or L-BFGS. Note that we
+# may choose to fix some hyperparameters, and in GPJax the parameter $\nu$ is set by the
+# user, and not inferred though optimisation. For more details on using the log marginal
+# likelihood to optimise kernel hyperparameters, see our [GP introduction notebook](intro_to_gps.py#gaussian-process-regression).
 #
 # We'll demonstrate the advantages of being able to infer kernel parameters from the training data by fitting a GP to the widely used [Forrester function](https://www.sfu.ca/~ssurjano/forretal08.html):
 #
@@ -286,7 +288,8 @@ likelihood = gpx.likelihoods.Gaussian(
 no_opt_posterior = prior * likelihood
 
 # %% [markdown]
-# We can then optimise the hyperparameters by minimising the negative log marginal likelihood of the data:
+# We can then optimise the hyperparameters by minimising the negative
+# [log marginal likelihood](#gpjax.objectives.conjugate_mll) of the data:
 
 # %%
 gpx.objectives.conjugate_mll(no_opt_posterior, data=D)
@@ -378,7 +381,8 @@ print(
 #
 # with $D$ being the dimensionality of the inputs.
 #
-# Below we show $10$ samples drawn from a GP prior using the periodic kernel:
+# Below we show $10$ samples drawn from a GP prior using the
+# [periodic kernel](#gpjax.kernels.Periodic):
 
 # %%
 mean = gpx.mean_functions.Zero()
@@ -402,7 +406,8 @@ ax.set_title("Samples from the Periodic Kernel")
 #
 # Unlike the kernels shown above, the linear kernel is *not* stationary, and so it is not invariant to translations in the input space.
 #
-# Below we show $10$ samples drawn from a GP prior using the linear kernel:
+# Below we show $10$ samples drawn from a GP prior using the
+# [linear kernel](#gpjax.kernels.Linear):
 
 # %%
 mean = gpx.mean_functions.Zero()

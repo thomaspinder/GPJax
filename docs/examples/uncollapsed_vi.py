@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Sparse Stochastic Variational Inference
+#
+# Download this notebook: {nb-download}`uncollapsed_vi.ipynb`
 #
 # In this notebook we demonstrate how to implement sparse variational Gaussian
 # processes (SVGPs) of
@@ -26,7 +28,8 @@
 # log-likelihood approach presented in the
 # [regression notebook](regression.py).
 # Though we illustrate SVGPs here with a conjugate regression example, the same GPJax
-# code works for general likelihoods, such as the Bernoulli used in the
+# code works for general likelihoods, such as the
+# [`Bernoulli`](#gpjax.likelihoods.Bernoulli) used in the
 # [classification notebook](classification.py).
 
 
@@ -66,7 +69,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # \boldsymbol{y} \sim \mathcal{N} \left(\sin(4 * \boldsymbol{x}) + \sin(2 * \boldsymbol{x}), \textbf{I} * (0.2)^{2} \right).
 # $$ (eq-uncollapsed-vi-data-generating)
 #
-# We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs for later.
+# We store our data $\mathcal{D}$ as a GPJax [`Dataset`](#gpjax.dataset.Dataset) and
+# create test inputs for later.
 
 # %%
 n = 50000
@@ -130,9 +134,10 @@ xtest = jnp.linspace(-5.5, 5.5, 500).reshape(-1, 1)
 #
 # To apply SVGP inference to our dataset, we begin by initialising $m = 50$ equally
 # spaced inducing inputs $\boldsymbol{z}$ across our observed data's support. These
-# are depicted below via horizontal black lines.
+# are depicted in {numref}`fig-uncollapsed-vi-inducing-inputs` via horizontal black
+# lines.
 
-# %%
+# %% mystnb={"figure": {"caption": "The simulated observations and the latent function that generated them, together with the fifty equally spaced inducing inputs used to initialise the model.", "name": "fig-uncollapsed-vi-inducing-inputs"}}
 z = jnp.linspace(-5.0, 5.0, 50).reshape(-1, 1)
 
 fig, ax = plt.subplots()
@@ -149,6 +154,7 @@ ax.scatter(x, y, alpha=0.2, color=cols[0], label="Observations")
 ax.plot(xtest, f(xtest), color=cols[1], label="Latent function")
 ax.legend()
 ax.set(xlabel=r"$x$", ylabel=r"$f(x)$")
+plt.show()
 
 # %% [markdown]
 # The inducing inputs will summarise our dataset, and since they are treated as
@@ -208,7 +214,9 @@ ax.set(xlabel=r"$x$", ylabel=r"$f(x)$")
 # with parameters $\{\boldsymbol{z}, \mathbf{m}, \mathbf{S}\}$, since conjugacy is
 # provided between $q(f(\boldsymbol{z}))$ and $p(f(\cdot)|f(\boldsymbol{z}))$ so that
 # the resulting variational process $q(f(\cdot))$ is a GP. We can implement this in
-# GPJax by the following.
+# GPJax with
+# [`VariationalGaussian`](#gpjax.variational_families.VariationalGaussian), as
+# follows.
 
 # %%
 meanf = gpx.mean_functions.Zero()
@@ -274,7 +282,7 @@ opt_posterior, history = gpx.fit(
 # example, see the
 # [regression notebook](regression.py)).
 
-# %%
+# %% mystnb={"figure": {"caption": "Posterior mean and two-standard-deviation band of the fitted sparse variational GP, shown against the training data, with the optimised inducing input locations overlaid.", "name": "fig-uncollapsed-vi-predictions"}}
 latent_dist = opt_posterior(xtest)
 predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
 
@@ -302,6 +310,7 @@ ax.vlines(
     color=cols[2],
 )
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## System configuration

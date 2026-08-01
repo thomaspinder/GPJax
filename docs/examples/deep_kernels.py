@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Deep Kernel Learning
+#
+# Download this notebook: {nb-download}`deep_kernels.ipynb`
 #
 # In this notebook we demonstrate how GPJax can be used in conjunction with
 # [Equinox](https://docs.kidger.site/equinox/) to build deep kernel Gaussian
@@ -68,7 +70,7 @@ key = jr.key(42)
 # As previously mentioned, deep kernels are particularly useful when the data has
 # discontinuities. To highlight this, we will use a sawtooth function as our data.
 
-# %%
+# %% mystnb={"figure": {"caption": "The sawtooth target function together with the 500 noisy observations used as training data.", "name": "fig-deep-kernels-data"}}
 n = 500
 noise = 0.2
 
@@ -87,6 +89,7 @@ fig, ax = plt.subplots()
 ax.plot(x, y, "o", label="Training data", alpha=0.5)
 ax.plot(xtest, ytest, label="True function")
 ax.legend(loc="best")
+plt.show()
 
 # %% [markdown]
 # ## Deep kernels
@@ -103,10 +106,13 @@ ax.legend(loc="best")
 # ### Implementation
 #
 # Although deep kernels are not currently supported natively in GPJax, defining one is
-# straightforward as we now demonstrate. Inheriting from the base `AbstractKernel`
+# straightforward as we now demonstrate. Inheriting from the base
+# [`AbstractKernel`](#gpjax.kernels.AbstractKernel)
 # in GPJax, we create the `DeepKernelFunction` object that allows the
 # user to supply the neural network and base kernel of their choice. Kernel matrices
-# are then computed using the regular `gram` and `cross_covariance` functions. The
+# are then computed using the regular
+# [`gram`](#gpjax.kernels.AbstractKernel.gram) and
+# [`cross_covariance`](#gpjax.kernels.AbstractKernel.cross_covariance) functions. The
 # subclassing pattern used below is the one set out in the
 # [kernel guide](constructing_new_kernels.py#custom-kernel).
 
@@ -178,7 +184,7 @@ forward_linear = Network(
 #
 # Having characterised the feature extraction network, we move to define a Gaussian
 # process parameterised by this deep kernel. We consider a third-order Matérn base
-# kernel and assume a Gaussian likelihood. Our
+# kernel and assume a [Gaussian likelihood](#gpjax.likelihoods.Gaussian). Our
 # [introduction to kernels](intro_to_kernels.py) discusses how the choice of base
 # kernel — and the smoothness it assumes — shapes the resulting fit.
 
@@ -195,7 +201,8 @@ posterior = prior * likelihood
 # %% [markdown]
 # ### Optimisation
 #
-# We train our model via maximum likelihood estimation of the marginal log-likelihood,
+# We train our model via maximum likelihood estimation of the
+# [marginal log-likelihood](#gpjax.objectives.conjugate_mll),
 # exactly as in the [regression notebook](regression.py).
 # The parameters of our neural network are learned jointly with the model's
 # hyperparameter set.
@@ -239,7 +246,7 @@ opt_posterior, history = gpx.fit(
 # With a set of learned parameters, the only remaining task is to predict the output
 # of the model. We can do this by simply applying the model to a test data set.
 
-# %%
+# %% mystnb={"figure": {"caption": "Predictive mean and two-standard-deviation interval of the deep kernel Gaussian process, which recovers the discontinuities of the sawtooth.", "name": "fig-deep-kernels-predictive"}}
 latent_dist = opt_posterior(xtest, train_data=D)
 predictive_dist = opt_posterior.likelihood(latent_dist)
 
@@ -272,6 +279,7 @@ ax.plot(
     linewidth=1,
 )
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## System configuration

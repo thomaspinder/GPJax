@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Classification
+#
+# Download this notebook: {nb-download}`classification.ipynb`
 #
 # In this notebook we demonstrate how to perform inference for Gaussian process models
 # with non-Gaussian likelihoods via maximum a posteriori (MAP). We focus on a classification task here.
@@ -74,8 +76,8 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # \end{aligned}
 # $$ (eq-classification-data-generating)
 #
-# We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs for
-# later.
+# We store our data $\mathcal{D}$ as a GPJax [`Dataset`](#gpjax.dataset.Dataset) and
+# create test inputs for later.
 
 # %%
 key, subkey = jr.split(key)
@@ -92,9 +94,10 @@ ax.scatter(x, y)
 # %% [markdown]
 # ## MAP inference
 #
-# We begin by defining a Gaussian process prior with a radial basis function (RBF)
-# kernel, chosen for the purpose of exposition. Since our observations are binary, we
-# choose a Bernoulli likelihood with a probit link function. Our
+# We begin by defining a Gaussian process prior with a radial basis function
+# ([`RBF`](#gpjax.kernels.RBF)) kernel, chosen for the purpose of exposition. Since our
+# observations are binary, we choose a
+# [`Bernoulli`](#gpjax.likelihoods.Bernoulli) likelihood with a probit link function. Our
 # [likelihood guide](likelihoods_guide.py#link-functions) shows what that link function
 # does to the latent distribution.
 
@@ -124,8 +127,9 @@ print(type(posterior))
 # [count data regression notebook](poisson.py).
 
 # %% [markdown]
-# We can obtain a MAP estimate by optimising the log-posterior density with
-# Optax's optimisers.
+# We can obtain a MAP estimate by optimising the
+# [log-posterior density](#gpjax.objectives.log_posterior_density) with
+# [Optax](inv:optax#index)'s optimisers.
 
 # %%
 optimiser = ox.adam(learning_rate=0.01)
@@ -140,9 +144,10 @@ opt_posterior, history = gpx.fit(
 )
 
 # %% [markdown]
-# From which we can make predictions at novel inputs, as illustrated below.
+# From which we can [make predictions](#gpjax.gps.NonConjugatePosterior.predict) at
+# novel inputs, as illustrated in {numref}`fig-classification-map-predictive`.
 
-# %%
+# %% mystnb={"figure": {"caption": "The MAP predictive mean and its one-sigma band over the binary observations.", "name": "fig-classification-map-predictive"}}
 map_latent_dist = opt_posterior.predict(xtest, train_data=D)
 predictive_dist = opt_posterior.likelihood(map_latent_dist)
 
@@ -176,6 +181,7 @@ ax.plot(
 )
 
 ax.legend()
+plt.show()
 # %% [markdown]
 # Here we projected the map estimates $\hat{\boldsymbol{f}}$ for the function values
 # $\boldsymbol{f}$ at the data points $\boldsymbol{x}$ to get predictions over the
@@ -298,7 +304,7 @@ def construct_laplace(test_inputs: Float[Array, "N D"]) -> npd.MultivariateNorma
 
 # %% [markdown]
 # From this we can construct the predictive distribution at the test points.
-# %%
+# %% mystnb={"figure": {"caption": "The Laplace predictive mean and its one-sigma band, whose covariance carries the extra curvature term added to the MAP approximation.", "name": "fig-classification-laplace-predictive"}}
 laplace_latent_dist = construct_laplace(xtest)
 predictive_dist = opt_posterior.likelihood(laplace_latent_dist)
 
@@ -331,6 +337,7 @@ ax.plot(
     linewidth=1,
 )
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## System configuration

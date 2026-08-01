@@ -9,7 +9,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -17,6 +17,7 @@
 # %% [markdown]
 # # New to Gaussian Processes?
 #
+# Download this notebook: {nb-download}`intro_to_gps.ipynb`
 #
 # Fantastic that you're here! This notebook is designed to be a gentle
 # introduction to the mathematics of Gaussian processes (GPs). No prior
@@ -185,10 +186,11 @@ ax.legend(loc="best")
 #     \mathcal{N}(\mathbf{y}\,|\, \boldsymbol{\mu}, \boldsymbol{\Sigma}) = \frac{1}{\sqrt{2\pi}^{D/2} \lvert\boldsymbol{\Sigma}\rvert^{1/2}} \exp\left(-\frac{1}{2} \left(\mathbf{y} - \boldsymbol{\mu}\right)^T \boldsymbol{\Sigma}^{-1} \left(\mathbf{y}-\boldsymbol{\mu}\right) \right) \,.
 # $$ (eq-intro-gps-multivariate-gaussian-density)
 #
-# Three example parameterisations of this can be visualised below where $\rho$
+# Three example parameterisations of this can be visualised in
+# {numref}`fig-intro-gps-bivariate-densities` where $\rho$
 # determines the correlation of the multivariate Gaussian.
 
-# %%
+# %% mystnb={"figure": {"caption": "Density contours of three bivariate Gaussian distributions with correlations of 0, 0.9 and -0.5, each overlaid with the one and two standard deviation confidence ellipses of 5000 samples.", "name": "fig-intro-gps-bivariate-densities"}}
 key = jr.key(123)
 
 d1 = npd.MultivariateNormal(loc=jnp.zeros(2), covariance_matrix=jnp.diag(jnp.ones(2)))
@@ -279,9 +281,10 @@ for a, t, d in zip([ax0, ax1, ax2], titles, dists, strict=False):
 # same support, the distribution over them both is known as the _joint
 # distribution_. The joint distribution $p(\mathbf{x}, \mathbf{y})$ quantifies
 # the probability of two events, one from $p(\mathbf{x})$ and another from
-# $p(\mathbf{y})$, occurring at the same time. We visualise this idea below.
+# $p(\mathbf{y})$, occurring at the same time. We visualise this idea in
+# {numref}`fig-intro-gps-joint-distribution`.
 
-# %%
+# %% mystnb={"figure": {"caption": "Samples from the joint distribution of two Gaussian random variables, with the marginal density of each variable shown along its axis and the one, two and three standard deviation ellipses overlaid.", "name": "fig-intro-gps-joint-distribution"}}
 n = 1000
 x = npd.Normal(loc=0.0, scale=1.0).sample(key, sample_shape=(n,))
 key, subkey = jr.split(key)
@@ -437,8 +440,9 @@ with warnings.catch_warnings():
 # as this, all under a Bayesian framework.
 #
 # We write a GP $f(\cdot) \sim \mathcal{GP}(\mu(\cdot), k(\cdot, \cdot))$ with
-# mean function $\mu: \mathcal{X} \rightarrow \mathbb{R}$ and
-# $\boldsymbol{\theta}$-parameterised kernel
+# [mean function](#gpjax.mean_functions.AbstractMeanFunction)
+# $\mu: \mathcal{X} \rightarrow \mathbb{R}$ and
+# $\boldsymbol{\theta}$-parameterised [kernel](#gpjax.kernels.AbstractKernel)
 # $k: \mathcal{X} \times \mathcal{X}\rightarrow \mathbb{R}$.
 # When evaluating the GP on a finite set of points
 # $\mathbf{X}\subset\mathcal{X}$, $k$ gives rise to the Gram matrix
@@ -449,7 +453,7 @@ with warnings.catch_warnings():
 # dependency on $\boldsymbol{\theta}$ and $\mathbf{X}$ for notational
 # convenience in the remainder of this article.
 #
-# We define a joint GP prior over the latent function
+# We define a joint [GP prior](#gpjax.gps.Prior) over the latent function
 #
 # $$
 #     p(\mathbf{f}, \mathbf{f}^{\star}) = \mathcal{N}\left(\mathbf{0}, \begin{bmatrix}
@@ -468,8 +472,9 @@ with warnings.catch_warnings():
 # Strictly speaking, the likelihood function is
 # $p(\mathbf{y}\,|\,\phi(\mathbf{f}))$ where $\phi$ is the likelihood function's
 # associated link function. Example link functions include the probit or
-# logistic functions for a Bernoulli likelihood and the identity function for a
-# Gaussian likelihood. We eschew this notation for now as this section primarily
+# logistic functions for a [Bernoulli](#gpjax.likelihoods.Bernoulli) likelihood
+# and the identity function for a [Gaussian](#gpjax.likelihoods.Gaussian)
+# likelihood. We eschew this notation for now as this section primarily
 # considers Gaussian likelihood functions where the role of $\phi$ is
 # superfluous. However, this intuition will be helpful for models with a
 # non-Gaussian likelihood, such as those encountered in
@@ -512,7 +517,8 @@ with warnings.catch_warnings():
 # \end{aligned}
 # $$ (eq-intro-gps-conjugate-predictive-moments)
 #
-# Further, the log of the  marginal likelihood of the GP can
+# Further, the log of the
+# [marginal likelihood](#gpjax.objectives.conjugate_mll) of the GP can
 # be analytically expressed as
 #
 # $$

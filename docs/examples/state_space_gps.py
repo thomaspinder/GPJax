@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # State-Space (Markovian) Gaussian Processes
+#
+# Download this notebook: {nb-download}`state_space_gps.ipynb`
 #
 # A Gaussian process whose inputs lie on the real line e.g., a time axis, can often
 # be rewritten as the solution of a linear stochastic differential equation
@@ -110,7 +112,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # has no exact finite-dimensional state (its SDE is infinite order), and kernel
 # *products* would multiply state dimensions in a way `gpjax.state_space` does
 # not currently support. The expressible building blocks are, therefore, Matérn-1/2,
-# 3/2, 5/2, `TruncatedPeriodic`, and sums of these.
+# 3/2, 5/2, [`TruncatedPeriodic`](#gpjax.state_space.TruncatedPeriodic), and sums of
+# these.
 
 # %% [markdown]
 # ## The Mauna Loa CO$_2$ record
@@ -124,7 +127,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # may be found in our [Introduction to Kernels](intro_to_kernels.py#putting-it-all-together-on-a-real-world-dataset)
 # notebook.
 
-# %%
+# %% mystnb={"figure": {"caption": "Monthly mean atmospheric CO2 concentration recorded at the Mauna Loa Observatory, showing a steady upward trend overlaid with a strong annual cycle.", "name": "fig-state-space-gps-mauna-loa"}}
 csv_candidates = [
     Path("docs/examples/data/mauna_loa_co2.csv"),
     Path("data/mauna_loa_co2.csv"),
@@ -147,18 +150,20 @@ D = gpx.Dataset(X=x, y=y)
 fig, ax = plt.subplots(figsize=(7.5, 2.5))
 ax.plot(x + t0, y + y_mean, color=cols[0], linewidth=1)
 ax.set(xlabel="Year", ylabel="CO$_2$ (ppm)", title="Mauna Loa CO$_2$ record")
+plt.show()
 
 # %% [markdown]
 # ## Building the model
 #
 # We compose three kernels by summation:
 #
-# - a long-lengthscale `Matern52` for the slow upward trend,
+# - a long-lengthscale [`Matern52`](#gpjax.kernels.Matern52) for the slow upward trend,
 # - a `TruncatedPeriodic` with a one-year period for the seasonal cycle, and
-# - a short-lengthscale `Matern32` for medium-scale wiggles.
+# - a short-lengthscale [`Matern32`](#gpjax.kernels.Matern32) for medium-scale wiggles.
 #
 # The only structural difference from a dense GPJax model is the prior where we
-# replace `gpx.gps.Prior` with  `StateSpacePrior`. Everything else is the
+# replace [`gpx.gps.Prior`](#gpjax.gps.Prior) with
+# [`StateSpacePrior`](#gpjax.state_space.StateSpacePrior). Everything else is the
 # usual GPJax API.
 
 # %%
@@ -180,7 +185,7 @@ posterior = prior * likelihood
 # ## Fitting
 #
 # The `gpjax.state_space` module exposes fitting wrappers that mirror the dense
-# API. We use `fit_scipy`, which optimises the state-space marginal
+# API. We use [`fit_scipy`](#gpjax.state_space.fit_scipy), which optimises the state-space marginal
 # log-likelihood with SciPy's L-BFGS-B; it validates and sorts the inputs and
 # threads the (here trivial) observation mask through the objective for us. For
 # large or mini-batched problems the module also provides an Optax-based `fit`.
@@ -200,7 +205,7 @@ opt_posterior, history = fit_scipy(
 # variances are exact. We predict on a dense grid spanning the data and a short
 # extrapolation beyond it.
 
-# %%
+# %% mystnb={"figure": {"caption": "RTS-smoothed posterior mean and two-sigma interval over the full record, with an inset zoom on the final five years and the three-year extrapolation beyond the data.", "name": "fig-state-space-gps-smoothed-posterior"}}
 xtest = jnp.linspace(0.0, float(x.max()) + 3.0, 600).reshape(-1, 1)
 
 smoothed = opt_posterior.predict(xtest, D)
@@ -243,6 +248,7 @@ axins.set(
 axins.tick_params(labelsize=7)
 axins.set_xticklabels([])
 ax.indicate_inset_zoom(axins, edgecolor="grey")
+plt.show()
 
 # %% [markdown]
 # ## Gap-filling with an observation mask
@@ -342,7 +348,7 @@ print(
 # by the data on *both* sides — stays tight. We reuse the same mask and overlay
 # the two predictives.
 
-# %%
+# %% mystnb={"figure": {"caption": "Smoothed and filtered predictives across the masked window, where the causal filter drifts and widens over the gap whilst the smoother stays tight.", "name": "fig-state-space-gps-filter-vs-smoother"}}
 filtered_gap = opt_posterior.predict_filter(xgap, D, observation_mask=observation_mask)
 filtered_mean = filtered_gap.mean + y_mean
 filtered_std = jnp.sqrt(filtered_gap.variance)
@@ -387,6 +393,7 @@ axins.set(
 axins.tick_params(labelsize=7)
 axins.set_xticklabels([])
 ax.indicate_inset_zoom(axins, edgecolor="grey")
+plt.show()
 
 # %% [markdown]
 # ## Scalability
@@ -468,7 +475,7 @@ for n in N_VALUES:
         results["dense"]["forward"][n] = time_function(dense_forward)
         results["dense"]["grad"][n] = time_function(dense_grad)
 
-# %%
+# %% mystnb={"figure": {"caption": "Log-log runtime of the forward marginal log-likelihood and its gradient against the number of observations, for the dense and state-space paths.", "name": "fig-state-space-gps-scaling"}}
 fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharex=True)
 for ax, op, op_title in zip(
     axes, ["forward", "grad"], ["Forward MLL", "MLL gradient"], strict=True

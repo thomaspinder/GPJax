@@ -10,13 +10,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Spatial Modelling with Composable Gaussian Processes
+#
+# Download this notebook: {nb-download}`spatial_linear_gp.ipynb`
 #
 # This notebook shows how to construct a semiparametric linear model by composing a linear model
 # in NumPyro with a GPJax Gaussian Process (GP).
@@ -107,7 +109,8 @@ y = latent_signal + noise_stddev * jr.normal(keys[1], shape=latent_signal.shape)
 # \end{aligned}
 # $$ (eq-spatial-linear-priors)
 #
-# We use the No-U-Turn Sampler (NUTS) to draw samples from the posterior distributions of the slope
+# We use the No-U-Turn Sampler ([NUTS](inv:numpyro#numpyro.infer.hmc.NUTS)) to draw
+# samples from the posterior distributions of the slope
 # $\mathbf{w}$, intercept $b$, and noise $\sigma$.
 
 
@@ -144,13 +147,16 @@ mcmc_lin.print_summary()
 #
 # ### GPJax and NumPyro Integration
 #
-# We define the GP prior in `GPJax` using a second-order Matérn kernel and a constant mean
-# function (since the linear trend is handled explicitly). The
+# We define the [GP prior](#gpjax.gps.Prior) in `GPJax` using a second-order
+# [Matérn](#gpjax.kernels.Matern32) kernel and a
+# [constant mean function](#gpjax.mean_functions.Constant)
+# (since the linear trend is handled explicitly). The
 # [introduction to kernels](intro_to_kernels.py) describes the Matérn family and the
 # smoothness each member assumes. Hyperparameters are sampled
 # directly with ``numpyro.sample`` and passed to the GPJax constructors as raw JAX arrays.
 # We then compute the exact marginal log-likelihood (MLL) of the residuals under the GP
-# prior using `gpx.objectives.conjugate_mll` — the same objective optimised in the
+# prior using [`gpx.objectives.conjugate_mll`](#gpjax.objectives.conjugate_mll) — the
+# same objective optimised in the
 # [regression notebook](regression.py), here contributed to a NumPyro model instead.
 # This term is added to the potential function using `numpyro.factor`, guiding the sampler.
 
@@ -236,9 +242,10 @@ print(f"Linear Model: {rmse_lin:.4f}")
 print(f"Joint Model:  {rmse_joint:.4f}")
 
 # %% [markdown]
-# Let's now plot the predicted profiles from both models.
+# Let's now plot the predicted profiles from both models
+# ({numref}`fig-spatial-linear-gp-surfaces`).
 
-# %%
+# %% mystnb={"figure": {"caption": "The true signal alongside the posterior mean surface of the linear model and of the joint linear-plus-GP model, with the observation locations overlaid.", "name": "fig-spatial-linear-gp-surfaces"}}
 n_grid = 30
 x1 = jnp.linspace(0, 5, n_grid)
 x2 = jnp.linspace(0, 5, n_grid)

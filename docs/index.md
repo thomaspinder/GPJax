@@ -38,15 +38,59 @@ $$ (eq-index-conjugate-gp)
 
 ## Learn more
 
-- [Installation](installation.md) — install the stable or development version
-- [New to Gaussian Processes?](examples/intro_to_gps.py) — priors, posteriors and the marginal likelihood from first principles
-- [Regression](examples/regression.py) — the canonical end-to-end workflow
-- [API Reference](reference/index.md) — complete module documentation
-- [Sharp bits](sharp_bits.md) — the numerical pitfalls worth knowing about before you hit them
-<!-- The ASV dashboard is copied into the built site by .github/workflows/build_docs.yml,
-     so it is not a Sphinx document and cannot be referenced as one. A raw href keeps the
-     link relative (it works in a local build too) without MyST trying to resolve it. -->
-- <a href="benchmarks/index.html">Benchmarks</a> — the ASV dashboard tracking GPJax's performance commit by commit
+<!-- Every direct child of a `{grid}` must be a `{grid-item-card}` — anything else,
+     including an HTML comment, emits `design.grid` and is fatal under `-W`. Hence the
+     note about the benchmarks card living out here rather than beside it: that card
+     deliberately has no `:link-type:`, because the ASV dashboard is copied into the
+     built site by .github/workflows/build_docs.yml and is not a Sphinx document, so
+     it cannot be resolved as one. sphinx-design emits a bare `:link:` verbatim, which
+     keeps it relative and working in a local build too. -->
+
+::::{grid} 1 2 2 3
+:gutter: 3
+
+:::{grid-item-card} {octicon}`download` Installation
+:link: installation
+:link-type: doc
+
+Install the stable or development version.
+:::
+
+:::{grid-item-card} {octicon}`mortar-board` New to Gaussian processes?
+:link: examples/intro_to_gps
+:link-type: doc
+
+Priors, posteriors and the marginal likelihood from first principles.
+:::
+
+:::{grid-item-card} {octicon}`graph` Regression
+:link: examples/regression
+:link-type: doc
+
+The canonical end-to-end workflow, start to finish.
+:::
+
+:::{grid-item-card} {octicon}`book` API reference
+:link: reference/index
+:link-type: doc
+
+Every public class and function, with source links.
+:::
+
+:::{grid-item-card} {octicon}`alert` Sharp bits
+:link: sharp_bits
+:link-type: doc
+
+The numerical pitfalls worth knowing about before you hit them.
+:::
+
+:::{grid-item-card} {octicon}`pulse` Benchmarks
+:link: benchmarks/index.html
+
+The ASV dashboard tracking GPJax's performance commit by commit.
+:::
+
+::::
 
 ## Citing GPJax
 
@@ -140,6 +184,7 @@ examples/backend
 :maxdepth: 2
 
 reference/index
+glossary
 ```
 
 ```{toctree}

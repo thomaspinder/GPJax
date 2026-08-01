@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Backend Module Design
+#
+# Download this notebook: {nb-download}`backend.ipynb`
 #
 # GPJax is built upon [Equinox](https://docs.kidger.site/equinox/) and
 # [Paramax](https://github.com/danielward27/paramax). Equinox provides a lightweight
@@ -54,6 +56,11 @@ from jaxtyping import (
 )
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+try:
+    from myst_nb import glue
+except ImportError:  # notebook downloaded and run outside the docs build
+    def glue(*args, **kwargs):
+        """No-op stand-in: gluing only matters when Sphinx renders this page."""
 import paramax
 from paramax import AbstractUnwrappable
 
@@ -77,7 +84,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Bijectors Doc](../sharp_bits.md#bijectors), GPJax
 # uses bijectors to transform constrained parameters to unconstrained parameters during
 # optimisation. You may register the support of a parameter using our parameter types.
-# To see this, consider the constant mean function which contains a single constant
+# To see this, consider the [`Constant`](#gpjax.mean_functions.Constant) mean function which
+# contains a single constant
 # parameter whose value ordinarily exists on the real line. We can register this
 # parameter as follows:
 
@@ -89,8 +97,10 @@ print(meanf)
 # %% [markdown]
 # However, suppose you wish your mean function's constant parameter to be strictly
 # positive. This is easy to achieve by using the correct parameter type which, in this
-# case, will be the `PositiveReal`. All parameter types are subclasses of Paramax's
-# `AbstractUnwrappable`, which means they will be automatically transformed by GPJax
+# case, will be the [`PositiveReal`](#gpjax.parameters.PositiveReal). All parameter types are
+# subclasses of Paramax's
+# [`AbstractUnwrappable`](inv:paramax#paramax.wrappers.AbstractUnwrappable), which means they
+# will be automatically transformed by GPJax
 # during optimisation.
 
 # %%
@@ -116,10 +126,12 @@ print(meanf)
 # %%
 print("Constrained value:", constant_param.unwrap())
 print("Unconstrained (internal) value:", constant_param._unconstrained)
+glue("backend-inv-softplus-one", f"{constant_param._unconstrained:.2f}", display=False)
 
 # %% [markdown]
 # We see here that the Softplus bijector is applied by the `PositiveReal` parameter type.
-# Internally, the value 1.0 is stored as its inverse-softplus (~0.54), and calling
+# Internally, the value 1.0 is stored as its inverse-softplus
+# (~{glue:text}`backend-inv-softplus-one`), and calling
 # `unwrap()` applies softplus to recover the original constrained value.
 #
 # For a value closer to 0, the transformation is more pronounced.
@@ -154,7 +166,8 @@ print(posterior)
 #
 # The `print(posterior)` output above is Equinox's representation: it exposes each
 # parameter's *unconstrained* internal storage and conveys nothing about bijectors or
-# trainability. For a human-readable overview, use `gpx.summarise`, which renders a flat
+# trainability. For a human-readable overview, use
+# [`gpx.summarise`](#gpjax.summary.summarise), which renders a flat
 # table — one row per parameter — showing the constrained value, the bijector, whether
 # the parameter is trainable, and its shape and dtype. It works on any GPJax model: a
 # kernel, prior, posterior, likelihood, or variational family.
@@ -278,21 +291,23 @@ class LinearMeanFunction(AbstractMeanFunction):
 
 # %% [markdown]
 # As we can see, the implementation is straightforward and concise. The
-# `AbstractMeanFunction` is a subclass of `eqx.Module` and may, therefore, be
+# [`AbstractMeanFunction`](#gpjax.mean_functions.AbstractMeanFunction) is a subclass of
+# [`eqx.Module`](inv:equinox#equinox.Module) and may, therefore, be
 # used in any `partition` or `combine` call. Further, we have registered the intercept
-# and slope parameters as `Real` parameter types. This registers their value in the
-# PyTree and means that they will be part of any operation applied to the model e.g.,
-# unwrapping and differentiation.
+# and slope parameters as [`Real`](#gpjax.parameters.Real) parameter types. This registers
+# their value in the PyTree and means that they will be part of any operation applied to
+# the model e.g., unwrapping and differentiation.
 #
 # To check our implementation worked, let's now plot the value of our mean function for
-# a linearly spaced set of inputs.
+# a linearly spaced set of inputs ({numref}`fig-backend-linear-mean-function`).
 
-# %%
+# %% mystnb={"figure": {"caption": "The custom linear mean function evaluated on a linearly spaced grid of inputs, recovering the expected straight line.", "name": "fig-backend-linear-mean-function"}}
 N = 100
 X = jnp.linspace(-5.0, 5.0, N)[:, None]
 
 meanf = LinearMeanFunction(intercept=1.0, slope=2.0)
 plt.plot(X, meanf(X))
+plt.show()
 
 # %% [markdown]
 # Looks good! To conclude this section, let's now parameterise a GP with our new mean
@@ -307,7 +322,8 @@ likelihood = gpx.likelihoods.Gaussian(D.n)
 posterior = likelihood * prior
 
 # %% [markdown]
-# We'll compute derivatives of the conjugate marginal log-likelihood. With Equinox and
+# We'll compute derivatives of the conjugate marginal log-likelihood
+# ([`conjugate_mll`](#gpjax.objectives.conjugate_mll)). With Equinox and
 # Paramax, this is straightforward: `paramax.unwrap` resolves all constrained parameters
 # inside the loss function, and `eqx.filter_value_and_grad` computes gradients with
 # respect to the array leaves of the model.
@@ -333,15 +349,17 @@ scaled_grads = jtu.tree_map(lambda g: LEARNING_RATE * g, param_grads)
 optimised_posterior = eqx.apply_updates(posterior, scaled_grads)
 
 # %% [markdown]
-# Now we will plot the updated mean function alongside its initial form. Since the model
+# Now we will plot the updated mean function alongside its initial form
+# ({numref}`fig-backend-updated-mean-function`). Since the model
 # is updated in-place via `eqx.apply_updates`, we can simply invoke it as normal.
 
-# %%
+# %% mystnb={"figure": {"caption": "The linear mean function before and after a single gradient step applied with eqx.apply_updates.", "name": "fig-backend-updated-mean-function"}}
 fig, ax = plt.subplots()
 ax.plot(X, optimised_posterior.prior.mean_function(X), label="Updated mean function")
 ax.plot(X, meanf(X), label="Initial mean function")
 ax.legend()
 ax.set(xlabel="x", ylabel="m(x)")
+plt.show()
 
 # %% [markdown]
 # ## Conclusions

@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Kernel Guide
+#
+# Download this notebook: {nb-download}`constructing_new_kernels.ipynb`
 #
 # In this guide, we introduce the kernels available in GPJax and demonstrate how to
 # create custom kernels. We assume you already know what a kernel is and what it does
@@ -69,10 +71,11 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # * [Graph kernels](graph_kernels.py).
 #
 # Whilst the syntax is consistent, each kernel's type influences the
-# characteristics of the sample paths drawn. We visualise this below with 10
+# characteristics of the sample paths drawn. We visualise this in
+# {numref}`fig-constructing-new-kernels-sample-paths` with 10
 # function draws per kernel.
 
-# %%
+# %% mystnb={"figure": {"caption": "Ten prior function draws for each of six natively supported kernels, showing how the choice of kernel controls the smoothness and shape of the sample paths.", "name": "fig-constructing-new-kernels-sample-paths"}}
 kernels = [
     gpx.kernels.Matern12(),
     gpx.kernels.Matern32(),
@@ -103,7 +106,8 @@ for k, ax, c in zip(kernels, axes.ravel(), cols, strict=False):
 # determines which input index values the kernel evaluates.
 #
 # To see this, consider the following 5-dimensional dataset for which we would
-# like our RBF kernel to act on the first, second and fourth dimensions.
+# like our [`RBF`](#gpjax.kernels.RBF) kernel to act on the first, second and
+# fourth dimensions.
 
 # %%
 slice_kernel = gpx.kernels.RBF(active_dims=[0, 1, 3], lengthscale=jnp.ones((3,)))
@@ -133,7 +137,7 @@ print(K.shape)
 # The product or sum of two positive definite matrices yields a positive
 # definite matrix. Consequently, summing or multiplying sets of kernels is a
 # valid operation that can give rich kernel functions. In GPJax, functionality for
-# a sum kernel is provided by the `SumKernel` class.
+# a sum kernel is provided by the [`SumKernel`](#gpjax.kernels.SumKernel) class.
 
 # %%
 k1 = gpx.kernels.RBF()
@@ -150,7 +154,8 @@ fig.colorbar(im1, ax=ax[1], fraction=0.05)
 fig.colorbar(im2, ax=ax[2], fraction=0.05)
 
 # %% [markdown]
-# Similarly, products of kernels can be created through the `ProductKernel` class.
+# Similarly, products of kernels can be created through the
+# [`ProductKernel`](#gpjax.kernels.ProductKernel) class.
 
 # %%
 k3 = gpx.kernels.Matern32()
@@ -253,8 +258,10 @@ class Polar(gpx.kernels.AbstractKernel):
 # {eq}`eq-new-kernels-polar-warping` where we define `c` as half the value of
 # `period`.
 #
-# To constrain $\tau \geq 4$, we store $\tau - 4$ as a `PositiveReal` (which
-# applies softplus internally) and add 4 back in `__call__`. The
+# To constrain $\tau \geq 4$, we store $\tau - 4$ as a
+# [`PositiveReal`](#gpjax.parameters.PositiveReal) (which
+# applies [`softplus`](inv:jax#jax.nn.softplus) internally) and add 4 back in
+# `__call__`. The
 # [backend guide](backend.py#parameters) covers the parameter types available for
 # declaring a parameter's support in this way.
 

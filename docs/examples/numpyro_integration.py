@@ -10,13 +10,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: python3
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Joint Inference with Numpyro
+#
+# Download this notebook: {nb-download}`numpyro_integration.ipynb`
 #
 # In this notebook, we demonstrate how to use [Numpyro](https://num.pyro.ai/) to perform fully
 # Bayesian inference over the hyperparameters of a Gaussian process model.  We will look at a
@@ -58,11 +60,11 @@ keys = jr.split(key, 4)
 #
 # We generate a synthetic dataset that consists of a linear trend together with a locally periodic
 # residual signal whose amplitude varies over time, an additional high-frequency component, and a
-# local bump. This data generating process is purposefully designed to illustrate the benefit of
-# incorporating a Gaussian process into a larger Bayesian model; however, such structures are
-# common.
+# local bump ({numref}`fig-numpyro-integration-data`). This data generating process is
+# purposefully designed to illustrate the benefit of incorporating a Gaussian process into a
+# larger Bayesian model; however, such structures are common.
 
-# %%
+# %% mystnb={"figure": {"caption": "Synthetic observations drawn around a true signal that combines a linear trend with a locally periodic residual, a high-frequency component and a localised bump.", "name": "fig-numpyro-integration-data"}}
 N = 200
 
 x = jnp.sort(jr.uniform(keys[0], shape=(N, 1), minval=0.0, maxval=10.0), axis=0)
@@ -93,6 +95,7 @@ fig, ax = plt.subplots()
 ax.plot(x, y, "o", label="Observations", color=cols[0])
 ax.plot(x, signal, "--", label="True Signal", color=cols[1])
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## Model Definition
@@ -100,7 +103,8 @@ ax.legend()
 # We define a GP model with a zero mean function, as we will handle the linear
 # trend explicitly in the Numpyro model. Naturally, one could parameterise the GP with a
 # linear mean function; however, this design is purely pedagogical. For the kernel, we specify a
-# product of a periodic kernel and an RBF kernel. This choice reflects our prior knowledge that
+# product of a [`Periodic`](#gpjax.kernels.Periodic) kernel and an
+# [`RBF`](#gpjax.kernels.RBF) kernel. This choice reflects our prior knowledge that
 # the signal is locally periodic. For a more in-depth look at how complex kernels can be designed,
 # see our
 # [Introduction to Kernels](intro_to_kernels.py)
@@ -126,8 +130,10 @@ ax.legend()
 # ## Joint Inference Loop
 #
 # We define a NumPyro model that samples all parameters directly using
-# ``numpyro.sample``, builds the GPJax posterior from those samples, and
-# scores it with the conjugate marginal log-likelihood via ``numpyro.factor``.
+# ``numpyro.sample``, builds the GPJax
+# [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) from those samples, and
+# scores it with the conjugate marginal log-likelihood
+# ([`conjugate_mll`](#gpjax.objectives.conjugate_mll)) via ``numpyro.factor``.
 # No special registration step is needed -- GPJax constructors accept raw
 # JAX arrays returned by ``numpyro.sample``.
 
@@ -180,9 +186,10 @@ def model(X, Y, X_new=None):
 # Before running inference it is helpful to lay out the model's parameters alongside the
 # priors we placed on them. Because the priors are sampled *by name* inside ``model`` and
 # passed into the GPJax constructors, they are not stored on the parameter objects -- so
-# `gpx.summarise` cannot infer them automatically. We can still display them by passing a
-# ``priors`` mapping keyed by each parameter's name (the entries in the *Parameter*
-# column; call ``gpx.summarise(example_posterior)`` without the mapping to discover them).
+# [`gpx.summarise`](#gpjax.summary.summarise) cannot infer them automatically. We can still
+# display them by passing a ``priors`` mapping keyed by each parameter's name (the entries in
+# the *Parameter* column; call ``gpx.summarise(example_posterior)`` without the mapping to
+# discover them).
 # The parameter *values* shown are placeholders -- they are resampled from these priors at
 # every step of MCMC.
 
@@ -208,7 +215,8 @@ gpx.summarise(example_posterior, priors=parameter_priors)
 # %% [markdown]
 # ## Running MCMC
 #
-# Using Numpyro's NUTS sampler, we can now draw samples from the posterior. To ensure
+# Using Numpyro's [`NUTS`](inv:numpyro#numpyro.infer.hmc.NUTS) sampler, we can now draw samples
+# from the posterior. To ensure
 # our documentation can be quickly built, we limit the number of samples and the length
 # of the burn-in phase below. However, in practice, one should draw more samples from
 # multiple chains using the `num_chains` argument in the `MCMC` constructor.
@@ -231,11 +239,13 @@ mcmc.print_summary()
 # at the test sites. In our
 # [Poisson Regression](poisson.py), this
 # process is done manually. However, by virtue of using Numpyro here, we may instead
-# use Numpyro's `Predictive` object to handle this process for us. Once samples are
+# use Numpyro's [`Predictive`](inv:numpyro#numpyro.infer.util.Predictive) object to handle this
+# process for us. Once samples are
 # drawn from the predictive posterior distribution, we may evaluate the mean and 95%
-# credible interval and compare our model's predictions to the underlying data.
+# credible interval and compare our model's predictions to the underlying data
+# ({numref}`fig-numpyro-integration-predictive`).
 
-# %%
+# %% mystnb={"figure": {"caption": "Posterior predictive mean and 95% credible interval obtained from the NUTS samples, shown against the observations and the true signal.", "name": "fig-numpyro-integration-predictive"}}
 samples = mcmc.get_samples()
 predictive = Predictive(
     model,
@@ -264,6 +274,7 @@ ax.fill_between(
     label="95% Credible Interval",
 )
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## Conclusions

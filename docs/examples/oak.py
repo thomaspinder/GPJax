@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Orthogonal Additive Kernels
+#
+# Download this notebook: {nb-download}`oak.ipynb`
 #
 # In this notebook we demonstrate the Orthogonal Additive Kernel (OAK) of
 # {cite:t}`lu2022additive`.
@@ -252,14 +254,17 @@ test_data = gpx.Dataset(X=X_test, y=y_test)
 # %% [markdown]
 # ## Fitting an OAK GP
 #
-# We create $D$ independent RBF base kernels, one per input dimension, each
+# We create $D$ independent [`RBF`](#gpjax.kernels.RBF) base kernels, one per
+# input dimension, each
 # operating on a single dimension via `active_dims=[i]` (the
 # [kernel guide](constructing_new_kernels.py#active-dimensions) explains this
 # argument).  These are wrapped inside
 # [`OrthogonalAdditiveKernel`](../reference/kernels.md) with `max_order=D`
 # (i.e. we allow all interaction orders).  The kernel is then used in a standard conjugate GP
-# workflow: define a prior and Gaussian likelihood, form the posterior, and
-# optimise hyperparameters by maximising the marginal log-likelihood, exactly as
+# workflow: define a [`Prior`](#gpjax.gps.Prior) and
+# [`Gaussian`](#gpjax.likelihoods.Gaussian) likelihood, form the posterior, and
+# optimise hyperparameters by maximising the
+# [marginal log-likelihood](#gpjax.objectives.conjugate_mll), exactly as
 # in the [regression notebook](regression.py).
 
 # %%
@@ -293,7 +298,7 @@ predictive_mean = predictive_dist.mean
 # These indicate what fraction of the posterior variance is explained by
 # first-order (main) effects, second-order interactions, and so on.
 
-# %%
+# %% mystnb={"figure": {"caption": "Analytic Sobol indices for each interaction order of the fitted OAK model, showing the fraction of posterior variance attributed to main effects and to progressively higher-order interactions.", "name": "fig-oak-sobol-indices"}}
 noise_variance = float(jnp.square(opt_posterior.likelihood.obs_stddev.unwrap()))
 fitted_kernel = opt_posterior.prior.kernel
 
@@ -306,6 +311,7 @@ ax.set_xlabel("Interaction order")
 ax.set_ylabel("Sobol index")
 ax.set_title("Sobol indices by interaction order")
 ax.set_xticks(np.arange(1, len(sobol_values) + 1))
+plt.show()
 
 # %% [markdown]
 # Typically the first-order (main) effects dominate, with higher-order
@@ -317,7 +323,7 @@ ax.set_xticks(np.arange(1, len(sobol_values) + 1))
 #
 # One of the key advantages of the OAK model is the ability to visualise
 # each feature's individual contribution to the prediction.  We extract the
-# top 4 first-order main effects and plot the posterior mean and a
+# top 3 first-order main effects and plot the posterior mean and a
 # $\pm 2\sigma$ credible band for each, alongside a histogram of the
 # training inputs.
 #
@@ -326,7 +332,7 @@ ax.set_xticks(np.arange(1, len(sobol_values) + 1))
 # training points, then form the conditional mean and variance in the usual
 # GP way.
 
-# %%
+# %% mystnb={"figure": {"caption": "Posterior mean and two-standard-deviation credible band for the highest-ranked first-order main effects, each drawn on its original feature scale above a histogram of the training inputs for that feature.", "name": "fig-oak-first-order-effects"}}
 num_top_features = 3
 num_grid_points = 300
 
@@ -381,10 +387,12 @@ for plot_idx, ax in enumerate(axes.flat):
     ax.legend(loc="best", fontsize=8)
 
 fig.suptitle(f"Top {num_top_features} first-order main effects", fontsize=14, y=1.05)
+plt.show()
 
 # %% [markdown]
-# Each panel shows how the OAK model attributes predictive variation to
-# individual features.  Features with large, clearly non-zero effects are
+# Each panel of {numref}`fig-oak-first-order-effects` shows how the OAK model
+# attributes predictive variation to individual features.  Features with
+# large, clearly non-zero effects are
 # those that the model identifies as important for predicting fuel
 # consumption.  The uncertainty bands widen in regions where training data
 # are sparse, reflecting the GP's epistemic uncertainty.

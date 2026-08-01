@@ -68,13 +68,27 @@ jobs:
             jupyter-cache-
 
       - name: Build documentation (full-fidelity render, resilient)
-        # Not -W here: the deploy must not be blocked by a warning or a single
-        # slow/failed notebook. Cached notebooks render real figures; anything
-        # that fails execution renders an error cell but the site still deploys.
-        # The PR build in test_docs.yml stays strict.
+        # `-W` IS used here, unlike before. GPJAX_DOCS_RESILIENT=1 makes conf.py
+        # suppress exactly the two notebook-execution warning subtypes, so a
+        # slow or broken notebook still renders an error cell and the site still
+        # deploys — but a broken xref, bad anchor or malformed directive now
+        # fails the deploy instead of shipping silently, which is what this
+        # build did when it ran with no `-W` at all.
         env:
           GPJAX_DOCS_RESILIENT: "1"
-        run: uv run --extra docs sphinx-build --keep-going -b html docs docs/_build/html
+        run: uv run --extra docs sphinx-build -W --keep-going -b html docs docs/_build/html
+
+      - name: Upload notebook execution tracebacks
+        # `nb_execution_raise_on_error` is off, so MyST-NB writes the full
+        # traceback of any failed notebook to <outdir>/reports/<docname>.err.log
+        # rather than aborting. Nothing else in the deploy log carries it.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: notebook-error-logs
+          path: docs/_build/html/reports
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Checkout benchmark results
         uses: actions/checkout@v7

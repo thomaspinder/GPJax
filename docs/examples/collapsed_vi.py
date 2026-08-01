@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Sparse Gaussian Process Regression
+#
+# Download this notebook: {nb-download}`collapsed_vi.ipynb`
 #
 # In this notebook we consider sparse Gaussian process regression (SGPR)
 # {cite:p}`titsias2009`. This is a solution for
@@ -70,8 +72,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # \boldsymbol{y} \sim \mathcal{N} \left(\sin(7\boldsymbol{x}) + x \cos(2 \boldsymbol{x}), \textbf{I} * 0.5^2 \right).
 # $$ (eq-collapsed-vi-data-generating)
 #
-# We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs and
-# labels for later.
+# We store our data $\mathcal{D}$ as a GPJax [`Dataset`](#gpjax.dataset.Dataset) and
+# create test inputs and labels for later.
 
 # %%
 n = 2500
@@ -93,7 +95,7 @@ ytest = f(xtest)
 # function and the observed data that is subject to Gaussian noise. We also plot an
 # initial set of inducing points over the space.
 
-# %%
+# %% mystnb={"figure": {"caption": "The simulated observations, the latent function that generated them, and the evenly spaced inducing points used to initialise the sparse model.", "name": "fig-collapsed-vi-simulated-data"}}
 n_inducing = 50
 z = jnp.linspace(-3.0, 3.0, n_inducing).reshape(-1, 1)
 
@@ -124,7 +126,9 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 posterior = prior * likelihood
 
 # %% [markdown]
-# We now define the SGPR model through `CollapsedVariationalGaussian`. Through a
+# We now define the SGPR model through
+# [`CollapsedVariationalGaussian`](#gpjax.variational_families.CollapsedVariationalGaussian).
+# Through a
 # set of inducing points $\boldsymbol{z}$ this object builds an approximation to the
 # true posterior distribution. Consequently, we pass the true posterior and initial
 # inducing points into the constructor as arguments.
@@ -135,7 +139,8 @@ q = gpx.variational_families.CollapsedVariationalGaussian(
 )
 
 # %% [markdown]
-# We now train our model akin to a Gaussian process regression model via the `fit`
+# We now train our model akin to a Gaussian process regression model via the
+# [`fit`](#gpjax.fit.fit)
 # abstraction. Unlike the regression example given in the
 # [conjugate regression notebook](regression.py),
 # the inducing locations that induce our variational posterior distribution are now
@@ -160,9 +165,10 @@ ax.plot(history, color=cols[1])
 ax.set(xlabel="Training iterate", ylabel="ELBO")
 
 # %% [markdown]
-# We show predictions of our model with the learned inducing points overlaid in grey.
+# {numref}`fig-collapsed-vi-predictions` shows predictions of our model with the
+# learned inducing points overlaid in grey.
 
-# %%
+# %% mystnb={"figure": {"caption": "Predictive mean and two-standard-deviation band of the sparse posterior, shown against the observations and the latent function, with the optimised inducing point locations overlaid.", "name": "fig-collapsed-vi-predictions"}}
 latent_dist = opt_posterior(xtest, train_data=D)
 predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
 

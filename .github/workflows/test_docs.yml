@@ -51,6 +51,29 @@ jobs:
       - name: Register Jupyter kernel
         run: uv run python -m ipykernel install --user --name python3 --display-name "Python 3"
 
+      - name: Check the example kernelspecs are normalised
+        # jupyter-cache keys on the whole `kernelspec` dict, `display_name`
+        # included. Opening an example in Jupyter and re-saving rewrites that
+        # field to the local venv's name, silently invalidating the notebook's
+        # cache entry and forcing a re-execution against a 1800s timeout — from
+        # a purely cosmetic header change. These are the values the "Register
+        # Jupyter kernel" step above installs.
+        # Both fields are checked: jupyter-cache hashes the whole kernelspec dict,
+        # so a re-save that flips only `name` invalidates the cache just as surely
+        # as one that flips only `display_name`.
+        run: |
+          bad=$(
+            { grep -L '^#     display_name: Python 3$' docs/examples/*.py
+              grep -L '^#     name: python3$'          docs/examples/*.py
+            } | grep -v 'docs/examples/utils.py' | sort -u
+          )
+          if [ -n "$bad" ]; then
+            echo "$bad"
+            echo "::error::The files above have a non-canonical kernelspec." \
+                 "Set 'display_name: Python 3' and 'name: python3' in the jupytext header."
+            exit 1
+          fi
+
       - name: Restore notebook execution cache
         # Same accumulate-always cache as build_docs.yml: a unique key per run so
         # actions/cache always re-saves, with restore-keys picking up the newest

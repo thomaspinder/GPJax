@@ -32,7 +32,7 @@ python -c 'import gpjax; print(gpjax.__version__)'
 
 Fancy using GPJax on GPU/TPU? Then you'll need to install JAX with the relevant
 hardware acceleration support as detailed in the
-[JAX installation guide](https://github.com/google/jax#installation).
+[JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
 
 
 ## Development version

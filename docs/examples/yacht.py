@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # UCI Data Benchmarking
+#
+# Download this notebook: {nb-download}`yacht.ipynb`
 #
 # In this notebook, we will show how to apply GPJax on a benchmark UCI regression
 # problem. These kind of tasks are often used in the research community to benchmark
@@ -32,11 +34,16 @@ import jax.random as jr
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+try:
+    from myst_nb import glue
+except ImportError:  # notebook downloaded and run outside the docs build
+    def glue(*args, **kwargs):
+        """No-op stand-in: gluing only matters when Sphinx renders this page."""
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
-    mean_squared_error,
     r2_score,
+    root_mean_squared_error,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -63,8 +70,9 @@ key = jr.key(42)
 # hydrodynamic performance of a yacht through its resistance. The dataset contains 6
 # covariates and a single positive, real valued response variable. There are 308
 # observations in the dataset, so we can comfortably use a conjugate regression
-# Gaussian process here (for more more details, checkout the
-# [Regression notebook](regression.py)).
+# Gaussian process here, namely a
+# [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) (for more more details,
+# checkout the [Regression notebook](regression.py)).
 
 # %%
 try:
@@ -97,7 +105,8 @@ Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=42)
 # %% [markdown]
 # ### Response Variable
 #
-# We'll now process our response variable $\mathbf{y}$. As the below plots show, the
+# We'll now process our response variable $\mathbf{y}$. As
+# {numref}`fig-yacht-response-transforms` shows, the
 # data has a very long tail and is certainly not Gaussian. However, we would like to
 # model a Gaussian response variable so that we can adopt a Gaussian likelihood
 # function and leverage the model's conjugacy. To achieve this, we'll first log-scale
@@ -120,9 +129,10 @@ scaled_ytr = y_scaler.transform(log_ytr)
 scaled_yte = y_scaler.transform(log_yte)
 
 # %% [markdown]
-# We can see the effect of these transformations in the below three panels.
+# We can see the effect of these transformations in
+# {numref}`fig-yacht-response-transforms`.
 
-# %%
+# %% mystnb={"figure": {"caption": "Histograms of the training response variable in its raw form, after log-scaling, and after standardising the log-scaled values, showing how the long right tail is drawn in towards a unit normal distribution.", "name": "fig-yacht-response-transforms"}}
 fig, ax = plt.subplots(ncols=3, figsize=(9, 2.5))
 ax[0].hist(ytr, bins=30, color=cols[1])
 ax[0].set_title("y")
@@ -130,6 +140,7 @@ ax[1].hist(log_ytr, bins=30, color=cols[1])
 ax[1].set_title("log(y)")
 ax[2].hist(scaled_ytr, bins=30, color=cols[1])
 ax[2].set_title("scaled log(y)")
+plt.show()
 
 # %% [markdown]
 # ### Input Variable
@@ -155,7 +166,8 @@ scaled_Xte = x_scaler.transform(Xte)
 #
 # ### Model specification
 #
-# We'll use a radial basis function kernel to parameterise the Gaussian process in this
+# We'll use a radial basis function ([`RBF`](#gpjax.kernels.RBF)) kernel to
+# parameterise the Gaussian process in this
 # notebook. As we have 5 covariates, we'll assign each covariate its own lengthscale
 # parameter. This form of kernel is commonly known as an automatic relevance
 # determination (ARD) kernel, set up through the `active_dims` argument described in
@@ -165,7 +177,7 @@ scaled_Xte = x_scaler.transform(Xte)
 # represents your understanding of the data. For example, if you were to model
 # temperature; a process that we know to be periodic, then you would likely wish to
 # select a periodic kernel. Having _Gaussian-ised_ our data somewhat, we'll also adopt
-# a Gaussian likelihood function.
+# a [`Gaussian`](#gpjax.likelihoods.Gaussian) likelihood function.
 
 # %%
 n_train, n_covariates = scaled_Xtr.shape
@@ -185,7 +197,7 @@ posterior = prior * likelihood
 # ### Model Optimisation
 #
 # With a model now defined, we can proceed to optimise the hyperparameters of our
-# model using Scipy.
+# model using Scipy, via [`fit_scipy`](#gpjax.fit.fit_scipy).
 
 # %%
 training_data = gpx.Dataset(X=scaled_Xtr, y=scaled_ytr)
@@ -233,12 +245,15 @@ predictive_stddev = jnp.sqrt(predictive_dist.variance)
 # can score less than 0.
 
 # %%
-rmse = mean_squared_error(y_true=scaled_yte.squeeze(), y_pred=predictive_mean)
+rmse = root_mean_squared_error(y_true=scaled_yte.squeeze(), y_pred=predictive_mean)
 r2 = r2_score(y_true=scaled_yte.squeeze(), y_pred=predictive_mean)
 print(f"Results:\n\tRMSE: {rmse: .4f}\n\tR2: {r2: .2f}")
+glue("yacht-rmse", f"{rmse:.4f}", display=False)
+glue("yacht-r2", f"{r2:.2f}", display=False)
 
 # %% [markdown]
-# Both of these metrics seem very promising, so, based off these, we can be quite
+# Both of these metrics (RMSE {glue:text}`yacht-rmse`, R2 {glue:text}`yacht-r2`) seem
+# very promising, so, based off these, we can be quite
 # happy that our first attempt at modelling the Yacht data is promising.
 #
 # ### Diagnostic plots
@@ -260,7 +275,7 @@ print(f"Results:\n\tRMSE: {rmse: .4f}\n\tR2: {r2: .2f}")
 # histogram of our residuals we can observe whether or not there is any skew to
 # our residuals.
 
-# %%
+# %% mystnb={"figure": {"caption": "Residual diagnostics on the held-out test set: predictions against actuals with the line y=x, predictions against residuals, and a histogram of the residual density.", "name": "fig-yacht-residual-diagnostics"}}
 residuals = scaled_yte.squeeze() - predictive_mean
 
 fig, ax = plt.subplots(ncols=3, figsize=(9, 2.5), tight_layout=True)
@@ -276,9 +291,11 @@ ax[1].set(xlabel="Predicted", ylabel="Residuals", title="Predicted vs Residuals"
 
 ax[2].hist(np.asarray(residuals), bins=30, color=cols[1])
 ax[2].set_title("Residuals")
+plt.show()
 
 # %% [markdown]
-# From this, we can see that our model is struggling to predict the smallest values
+# From {numref}`fig-yacht-residual-diagnostics`, we can see that our model is
+# struggling to predict the smallest values
 # of the Yacht's hydrodynamic and performs increasingly well as the Yacht's
 # hydrodynamic performance increases. This is likely due to the original data's heavy
 # right-skew, and successive modelling attempts may wish to introduce a

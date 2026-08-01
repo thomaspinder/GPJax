@@ -136,6 +136,11 @@ class OrthogonalAdditiveKernel(AbstractKernel):
             matches the reference (Lu et al. 2022, S3.2).
         compute_engine: Kernel computation engine. Defaults to
             DenseKernelComputation.
+
+    .. seealso::
+
+        :doc:`/examples/oak` decomposes a fitted model into its per-order and
+        per-dimension contributions.
     """
 
     name: str = "Orthogonal Additive"

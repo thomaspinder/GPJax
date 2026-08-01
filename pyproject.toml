@@ -60,6 +60,11 @@ docs = [
   "sphinx-math-dollar>=1.3",
   # ~79 published URLs move (/api/* -> /reference/*, /_examples/* -> /examples/*).
   "sphinx-reredirects>=0.1.4",
+  # og:/twitter: meta tags and generated PNG social cards. shibuya gates its own
+  # opengraph block on this extension being absent, so it is the theme-sanctioned
+  # way to fill in the per-page description and card image. Card generation uses
+  # matplotlib, already present further down this list.
+  "sphinxext-opengraph>=0.9",
   # docs/scripts/check_mathjax.py drives a headless browser over the built site
   # to catch MathJax errors, which are produced client-side and are therefore
   # invisible to sphinx-build. CI must also run
@@ -107,6 +112,10 @@ dev = [
   "poethepoet>=0.37.0",
   "twine>=6.2.0",
   "hypothesis>=6.148.2",
+  # Dev-only live-reload docs server (`poe docs-live`). Deliberately NOT in the
+  # `docs` extra: CI has no use for a watcher, and keeping it out means it can
+  # never affect a published build.
+  "sphinx-autobuild>=2024.10",
 ]
 
 
@@ -181,6 +190,19 @@ sequence = [
   { cmd = "uv run --extra docs python -m http.server 8000 --directory docs/_build/html" }
 ]
 help = "Serve the built docs locally on :8000"
+
+# `--ignore` is load-bearing, not tidiness: `autosummary_generate = True` writes
+# .rst stubs into docs/reference/generated/, which is inside the watched tree, so
+# without it every build triggers the next one forever. The notebook cache means
+# a prose or docstring edit rebuilds in seconds.
+[tool.poe.tasks.docs-live]
+cmd = """uv run --extra docs --group dev sphinx-autobuild
+  --ignore '*/reference/generated/*'
+  --ignore '*/_build/*'
+  --watch gpjax
+  --open-browser
+  docs docs/_build/html"""
+help = "Live-reloading docs server for local authoring (rebuilds on save)"
 
 [tool.poe.tasks.docs-check-math]
 cmd = "uv run --extra docs python docs/scripts/check_mathjax.py docs/_build/html"

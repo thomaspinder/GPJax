@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: gpjax
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Graph Kernels
+#
+# Download this notebook: {nb-download}`graph_kernels.ipynb`
 #
 # This notebook demonstrates how regression models can be constructed on the vertices
 # of a graph using a Gaussian process with a Matérn kernel presented in
@@ -35,6 +37,11 @@ import jax.random as jr
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+try:
+    from myst_nb import glue
+except ImportError:  # notebook downloaded and run outside the docs build
+    def glue(*args, **kwargs):
+        """No-op stand-in: gluing only matters when Sphinx renders this page."""
 import networkx as nx
 
 config.update("jax_enable_x64", True)
@@ -63,9 +70,10 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # Contrary to the typical barbell graph, we'll randomly remove a subset of 30 edges
 # within each of the two clusters. Given the 40 vertices within the graph, this results
-# in 351 edges as shown below.
+# in {glue:text}`graph-kernels-num-edges` edges as shown in
+# {numref}`fig-graph-kernels-barbell-graph`.
 
-# %%
+# %% mystnb={"figure": {"caption": "A barbell graph on 40 vertices, after 30 randomly chosen edges have been removed from within its two clusters.", "name": "fig-graph-kernels-barbell-graph"}}
 vertex_per_side = 20
 n_edges_to_remove = 30
 p = 0.8
@@ -80,6 +88,7 @@ pos = nx.spring_layout(G, seed=123)  # positions for all nodes
 nx.draw(
     G, pos, node_size=100, node_color=cols[1], edge_color="black", with_labels=False
 )
+plt.show()
 
 # %% [markdown]
 #
@@ -100,6 +109,8 @@ nx.draw(
 # %%
 L = nx.laplacian_matrix(G).toarray()
 
+glue("graph-kernels-num-edges", f"{G.number_of_edges()}", display=False)
+
 # %% [markdown]
 #
 # ## Simulating a signal on the graph
@@ -108,10 +119,10 @@ L = nx.laplacian_matrix(G).toarray()
 # vertex set $V$ onto the real line.
 # To that end, we begin by simulating a signal on the graph's vertices that we will go
 # on to try and predict.
-# We use a single draw from a Gaussian process prior to draw our response values
-# $\boldsymbol{y}$ where we hardcode parameter values. The prior's covariance is
-# supplied by [`GraphKernel`](../reference/kernels.md), which takes the graph
-# Laplacian in place of the usual Euclidean distance.
+# We use a single draw from a Gaussian process prior ([`Prior`](#gpjax.gps.Prior)) to
+# draw our response values $\boldsymbol{y}$ where we hardcode parameter values. The
+# prior's covariance is supplied by [`GraphKernel`](#gpjax.kernels.GraphKernel), which
+# takes the graph Laplacian in place of the usual Euclidean distance.
 # The corresponding input value set for this model, denoted $\boldsymbol{x}$, is the
 # index set of the graph's vertices.
 
@@ -133,9 +144,9 @@ D = gpx.Dataset(X=x, y=y)
 
 # %% [markdown]
 #
-# We can visualise this signal in the following cell.
+# We can visualise this signal in {numref}`fig-graph-kernels-simulated-signal`.
 
-# %%
+# %% mystnb={"figure": {"caption": "A single draw from the graph Matern prior, with each vertex coloured by its simulated response value.", "name": "fig-graph-kernels-simulated-signal"}}
 nx.draw(G, pos, node_color=y, with_labels=False, alpha=0.5)
 
 vmin, vmax = y.min(), y.max()
@@ -145,6 +156,7 @@ sm = plt.cm.ScalarMappable(
 sm.set_array([])
 ax = plt.gca()
 cbar = plt.colorbar(sm, ax=ax)
+plt.show()
 
 # %% [markdown]
 #
@@ -156,9 +168,10 @@ cbar = plt.colorbar(sm, ax=ax)
 # non-Euclidean, our likelihood is still Gaussian and the model is still
 # conjugate.
 # For this reason, we simply perform gradient descent on the GP's marginal
-# log-likelihood term as in the
+# log-likelihood term ([`conjugate_mll`](#gpjax.objectives.conjugate_mll)) as in the
 # [regression notebook](regression.py).
-# We do this using the BFGS optimiser.
+# We do this using the L-BFGS-B optimiser exposed by
+# [`fit_scipy`](#gpjax.fit.fit_scipy).
 
 # %%
 likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
@@ -169,7 +182,8 @@ posterior = prior * likelihood
 # %% [markdown]
 #
 # For researchers and the curious reader, GPJax provides the ability to print the
-# bibtex citation for objects such as the graph kernel through the `cite()` function.
+# bibtex citation for objects such as the graph kernel through the
+# [`cite()`](#gpjax.citation.cite) function.
 
 # %%
 print(gpx.cite(kernel))
@@ -212,10 +226,10 @@ print(
 
 # %% [markdown]
 #
-# We can also plot the source of error in our model's predictions on the graph by the
-# following.
+# We can also plot the source of error in our model's predictions on the graph in
+# {numref}`fig-graph-kernels-prediction-error`.
 
-# %%
+# %% mystnb={"figure": {"caption": "Absolute error between the optimised posterior mean and the simulated signal at each vertex of the graph.", "name": "fig-graph-kernels-prediction-error"}}
 error = jnp.abs(learned_mean - y.squeeze())
 
 nx.draw(G, pos, node_color=error, with_labels=False, alpha=0.5)
@@ -226,6 +240,7 @@ sm = plt.cm.ScalarMappable(
 )
 ax = plt.gca()
 cbar = plt.colorbar(sm, ax=ax)
+plt.show()
 
 # %% [markdown]
 #

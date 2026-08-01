@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Regression
+#
+# Download this notebook: {nb-download}`regression.ipynb`
 #
 # In this notebook we demonstrate how to fit a Gaussian process regression model. We
 # move quickly through the theory; if any of it is unfamiliar, our
@@ -61,8 +63,8 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # \boldsymbol{y} \sim \mathcal{N} \left(\sin(4\boldsymbol{x}) + \cos(2 \boldsymbol{x}), \textbf{I} * 0.3^2 \right).
 # $$ (eq-regression-data-generating)
 #
-# We store our data $\mathcal{D}$ as a GPJax `Dataset` and create test inputs and labels
-# for later.
+# We store our data $\mathcal{D}$ as a GPJax [`Dataset`](#gpjax.dataset.Dataset) and
+# create test inputs and labels for later.
 
 # %%
 n = 100
@@ -83,11 +85,12 @@ ytest = f(xtest)
 # To better understand what we have simulated, we plot both the underlying latent
 # function and the observed data that is subject to Gaussian noise.
 
-# %%
+# %% mystnb={"figure": {"caption": "The simulated dataset: 100 noisy observations scattered around the latent function that generated them.", "name": "fig-regression-simulated-data"}}
 fig, ax = plt.subplots()
 ax.plot(x, y, "o", label="Observations", color=cols[0])
 ax.plot(xtest, ytest, label="Latent function", color=cols[1])
 ax.legend(loc="best")
+plt.show()
 
 # %% [markdown]
 # Our aim in this tutorial will be to reconstruct the latent function from our noisy
@@ -116,8 +119,8 @@ ax.legend(loc="best")
 # $$ (eq-regression-rbf-kernel)
 #
 # On paper a GP is written as $f(\cdot) \sim \mathcal{GP}(\textbf{0}, k(\cdot, \cdot'))$,
-# we can reciprocate this process in GPJax via defining a `Prior` with our chosen `RBF`
-# kernel.
+# we can reciprocate this process in GPJax via defining a
+# [`Prior`](#gpjax.gps.Prior) with our chosen [`RBF`](#gpjax.kernels.RBF) kernel.
 
 # %%
 kernel = gpx.kernels.RBF()  # 1-dimensional input
@@ -136,7 +139,7 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 # We can enforce this by including the `return_covariance_type = "dense"` attribute when predicting.
 # Note this is what will be defaulted if left blank.
 
-# %%
+# %% mystnb={"figure": {"caption": "Twenty function samples drawn from the zero-mean RBF prior, shown alongside the prior mean and variance band.", "name": "fig-regression-prior-samples"}}
 prior_dist = prior.predict(xtest, return_covariance_type="dense")
 
 prior_mean = prior_dist.mean
@@ -157,6 +160,7 @@ ax.fill_between(
 )
 ax.legend(loc="best")
 clean_legend(ax)
+plt.show()
 
 # %% [markdown]
 # ## Constructing the posterior
@@ -171,7 +175,8 @@ clean_legend(ax)
 # p(\mathcal{D} | f(\cdot)) = \mathcal{N}(\boldsymbol{y}; f(\boldsymbol{x}), \textbf{I} \alpha^2).
 # $$ (eq-regression-gaussian-likelihood)
 #
-# This is defined in GPJax through calling a `Gaussian` instance. The
+# This is defined in GPJax through calling a
+# [`Gaussian`](#gpjax.likelihoods.Gaussian) instance. The
 # [likelihood guide](likelihoods_guide.py) covers the other likelihoods GPJax provides
 # and what each one assumes about the observations.
 
@@ -199,7 +204,7 @@ posterior = prior * likelihood
 #
 # ## Parameter state
 #
-# As outlined in the [PyTrees](https://jax.readthedocs.io/en/latest/pytrees.html)
+# As outlined in the [PyTrees](https://docs.jax.dev/en/latest/pytrees.html)
 # documentation, parameters are contained within the model and for the leaves of the
 # PyTree. Consequently, in this particular model, we have three parameters: the
 # kernel lengthscale, kernel variance and the observation noise variance. Whilst
@@ -224,8 +229,9 @@ print(-gpx.objectives.conjugate_mll(opt_posterior, D))
 
 # %% [markdown]
 # To inspect the learned hyperparameters, we can render a summary table of the optimised
-# posterior with `gpx.summarise`. This shows each parameter's constrained value, its
-# bijector, and whether it is trainable — a quick sanity check after optimisation.
+# posterior with [`gpx.summarise`](#gpjax.summary.summarise). This shows each
+# parameter's constrained value, its bijector, and whether it is trainable — a quick
+# sanity check after optimisation.
 
 # %%
 gpx.summarise(opt_posterior)
@@ -257,7 +263,7 @@ predictive_std = jnp.sqrt(predictive_dist.variance)
 # performance at explaining the data $\mathcal{D}$ and recovering the underlying
 # latent function of interest.
 
-# %%
+# %% mystnb={"figure": {"caption": "The optimised posterior predictive mean and its two-sigma band, plotted against the observations and the true latent function.", "name": "fig-regression-posterior-predictive"}}
 fig, ax = plt.subplots(figsize=(7.5, 2.5))
 ax.plot(x, y, "x", label="Observations", color=cols[0], alpha=0.5)
 ax.fill_between(
@@ -287,6 +293,7 @@ ax.plot(
 )
 ax.plot(xtest, predictive_mean, label="Predictive mean", color=cols[1])
 ax.legend(loc="center left", bbox_to_anchor=(0.975, 0.5))
+plt.show()
 
 # %% [markdown]
 # ## System configuration

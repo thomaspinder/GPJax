@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Multi-Output Gaussian Processes
+#
+# Download this notebook: {nb-download}`multioutput.ipynb`
 #
 # Standard Gaussian process models, such as the one built in the
 # [regression notebook](regression.py), map a $D$-dimensional input to a single scalar
@@ -134,9 +136,11 @@ axes[0].set_ylabel(r"$y$")
 # ## Model definition
 #
 # We construct the ICM model in three steps. First, we build a
-# `CoregionalizationMatrix` with $P = 2$ outputs and rank $R = 1$. Second, we wrap
-# an RBF base kernel together with the coregionalization matrix inside an
-# `ICMKernel`. Third, we pair a zero-mean GP prior with a `MultiOutputGaussian`
+# [`CoregionalizationMatrix`](#gpjax.parameters.CoregionalizationMatrix) with
+# $P = 2$ outputs and rank $R = 1$. Second, we wrap an RBF base kernel together
+# with the coregionalization matrix inside an
+# [`ICMKernel`](#gpjax.kernels.ICMKernel). Third, we pair a zero-mean GP prior
+# with a [`MultiOutputGaussian`](#gpjax.likelihoods.MultiOutputGaussian)
 # likelihood, which allows a separate noise variance for each output.
 
 # %%
@@ -166,7 +170,7 @@ print(f"Initial negative MLL: {-gpx.objectives.conjugate_mll(posterior, D):.3f}"
 #
 # We optimise the kernel hyperparameters, the coregionalization matrix entries, and
 # the per-output noise standard deviations by maximising the conjugate marginal
-# log-likelihood using L-BFGS via `fit_scipy`.
+# log-likelihood using L-BFGS via [`fit_scipy`](#gpjax.fit.fit_scipy).
 
 # %%
 opt_posterior, history = gpx.fit_scipy(
@@ -310,9 +314,11 @@ fig.colorbar(im, ax=ax, shrink=0.8)
 #
 # Setting $Q = 1$ recovers the ICM exactly: there is one kernel, one
 # coregionalization matrix, and the covariance has pure Kronecker structure. GPJax
-# exploits this: when an `LCMKernel` has a single component, the compute engine
-# returns a `Kronecker` operator, preserving the efficient $\mathcal{O}(N^3 + P^3)$
-# decomposition. For $Q > 1$ the sum of Kronecker products no longer admits a
+# exploits this: when an [`LCMKernel`](#gpjax.kernels.LCMKernel) has a single
+# component, the compute engine returns a
+# [`Kronecker`](#gpjax.linalg.Kronecker) operator, preserving the efficient
+# $\mathcal{O}(N^3 + P^3)$ decomposition. For $Q > 1$ the sum of Kronecker
+# products no longer admits a
 # closed-form Kronecker inverse, so GPJax materialises the full $NP \times NP$ dense
 # matrix and solves via a standard Cholesky factorisation in
 # $\mathcal{O}((NP)^3)$. When $P$ is large enough for that cost to bite, the
@@ -528,7 +534,7 @@ axes[0].set_ylabel(r"$y$")
 # strong coupling between outputs 1 and 2, since both contain $g_1$. The Matérn-3/2
 # component (higher frequency) should couple outputs 2 and 3, which share $g_2$.
 
-# %%
+# %% mystnb={"figure": {"caption": "Coregionalization matrices learned by the two LCM components, one paired with the RBF kernel and one with the Matérn-3/2 kernel.", "name": "fig-multioutput-lcm-coregionalization"}}
 kernel_names = ["RBF (component 1)", "Matérn-3/2 (component 2)"]
 fig, axes_B = plt.subplots(1, 2, figsize=(8, 3))
 
@@ -559,7 +565,9 @@ for idx, (cm, _k) in enumerate(opt_posterior_lcm.prior.kernel.components):
     fig.colorbar(im, ax=ax, shrink=0.8)
 
 # %% [markdown]
-# The two learned coregionalization matrices reveal the latent structure of the data.
+# The two learned coregionalization matrices in
+# {numref}`fig-multioutput-lcm-coregionalization` reveal the latent structure of
+# the data.
 # Each component has specialised: one captures the low-frequency correlations driven
 # by $g_1$, and the other captures the higher-frequency correlations driven by $g_2$.
 # Output 2, which depends on both latent functions, appears with non-negligible

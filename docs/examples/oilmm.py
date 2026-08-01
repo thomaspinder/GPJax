@@ -10,13 +10,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Scalable Multi-Output GPs with OILMM
+#
+# Download this notebook: {nb-download}`oilmm.ipynb`
 #
 # The [multi-output notebook](multioutput.py)
 # introduces the Intrinsic Coregionalisation Model (ICM) and the Linear Model of
@@ -324,7 +326,7 @@ def plot_wave_output_panel(
 # more independently. We fit two latent GPs so the mixing matrix can represent these
 # distinct physical drivers.
 
-# %%
+# %% mystnb={"figure": {"caption": "Hourly significant wave heights for December 2023 in the North Atlantic, where the total height tracks both the swell and wind-sea components whilst those two vary more independently of each other.", "name": "fig-oilmm-wave-components"}}
 fig, axes = plt.subplots(num_outputs, 1, figsize=(10, 6), sharex=True)
 
 for output_index in range(num_outputs):
@@ -340,11 +342,14 @@ for output_index in range(num_outputs):
 axes[-1].set_xlabel("time (hours)")
 axes[0].legend(loc="upper right", fontsize=7)
 plt.suptitle("North Atlantic Wave Components", fontsize=13)
+plt.show()
 
 # %% [markdown]
 # ## Constructing the OILMM
 #
-# GPJax provides `create_oilmm_from_data`, which initialises the mixing matrix
+# GPJax provides
+# [`create_oilmm_from_data`](#gpjax.models.create_oilmm_from_data), which
+# initialises the mixing matrix
 # using the empirical correlation structure of the outputs. Under the hood it
 # first computes the empirical covariance matrix
 #
@@ -374,7 +379,8 @@ model = gpx.models.create_oilmm_from_data(
 # %% [markdown]
 # ### Enforcing orthogonality via SVD
 #
-# The `OrthogonalMixingMatrix` parameter stores an unconstrained matrix
+# The [`OrthogonalMixingMatrix`](#gpjax.models.OrthogonalMixingMatrix) parameter
+# stores an unconstrained matrix
 # $\mathbf{U}_{\text{latent}} \in \mathbb{R}^{p \times m}$ and projects it onto
 # the Stiefel manifold (the set of matrices with orthonormal columns) at each
 # forward pass using SVD:
@@ -399,8 +405,9 @@ print(jnp.round(UtU, decimals=6))
 # ## Conditioning on observations
 #
 # Before optimising any parameters, we condition with the PCA-initialised
-# defaults to establish a baseline. Calling `condition_on_observations` executes
-# the OILMM inference algorithm:
+# defaults to establish a baseline. Calling
+# [`condition_on_observations`](#gpjax.models.OILMMModel.condition_on_observations)
+# executes the OILMM inference algorithm:
 #
 # 1. **Project**: compute
 #    $\tilde{\mathbf{Y}} = \mathbf{T}\,\mathbf{Y}^\top$ in
@@ -408,7 +415,8 @@ print(jnp.round(UtU, decimals=6))
 # 2. **Condition**: for each latent GP $i$, form a single-output dataset from
 #    $\tilde{\mathbf{y}}_i$ with noise variance $\sigma^2/s_i + d_i$, then
 #    condition using the standard conjugate formulae in $\mathcal{O}(n^3)$.
-# 3. **Return**: an `OILMMPosterior` wrapping the $m$ independent posteriors.
+# 3. **Return**: an [`OILMMPosterior`](#gpjax.models.OILMMPosterior) wrapping the
+#    $m$ independent posteriors.
 
 # %%
 posterior = model.condition_on_observations(train_data)
@@ -420,7 +428,7 @@ posterior = model.condition_on_observations(train_data)
 # PCA-initialised parameters. This serves as a baseline against which we can
 # later compare the optimised model.
 
-# %%
+# %% mystnb={"figure": {"caption": "Output-space predictions from the PCA-initialised OILMM before any optimisation, serving as the baseline for the fitted model.", "name": "fig-oilmm-baseline-predictions"}}
 N_test = 300
 test_time_hours = jnp.linspace(
     float(time_hours.min()), float(time_hours.max()), N_test
@@ -462,6 +470,7 @@ for output_index in range(num_outputs):
 axes[-1].set_xlabel("time (hours)")
 axes[0].legend(loc="upper right", fontsize=7)
 plt.suptitle("Before Optimisation", fontsize=13)
+plt.show()
 
 # %% [markdown]
 # ## OILMM log marginal likelihood
@@ -497,9 +506,11 @@ plt.suptitle("Before Optimisation", fontsize=13)
 # The final summation is simply the sum of $m$ standard single-output GP log
 # marginal likelihoods, each evaluated on the projected data.
 #
-# GPJax implements this in `oilmm_mll(model, data)`, which takes the
-# pre-conditioning `OILMMModel` (not a posterior) together with the training
-# `Dataset`. We negate it for minimisation with `fit_scipy`.
+# GPJax implements this in [`oilmm_mll(model, data)`](#gpjax.models.oilmm_mll),
+# which takes the pre-conditioning
+# [`OILMMModel`](#gpjax.models.OILMMModel) (not a posterior) together with the
+# training `Dataset`. We negate it for minimisation with
+# [`fit_scipy`](#gpjax.fit.fit_scipy).
 
 # %%
 initial_mll = gpx.models.oilmm_mll(model, train_data)
@@ -556,7 +567,7 @@ post_obs_std = post_obs_std_standardised * output_stds
 # We display the baseline (left) and optimised (right) predictions side by side
 # for each wave component.
 
-# %%
+# %% mystnb={"figure": {"caption": "Latent-function predictions for each wave component before optimisation (left) and after maximising the OILMM log marginal likelihood (right).", "name": "fig-oilmm-before-after"}}
 fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 6), sharex=True)
 
 for output_index in range(num_outputs):
@@ -587,11 +598,12 @@ for output_index in range(num_outputs):
 axes[-1, 0].set_xlabel("time (hours)")
 axes[-1, 1].set_xlabel("time (hours)")
 plt.suptitle("OILMM Wave Predictions: Default vs Optimised", fontsize=13, y=1.01)
+plt.show()
 
 # %% [markdown]
 # ## Predictive uncertainty: latent function vs noisy observations
 #
-# The previous figure shows uncertainty over the latent noise-free function
+# {numref}`fig-oilmm-before-after` shows uncertainty over the latent noise-free function
 # $\mathbf{f}(t) = \mathbf{H}\mathbf{x}(t)$. To visualise uncertainty over
 # observed outputs $\mathbf{y}(t)$, we add output-space noise:
 #
@@ -602,10 +614,11 @@ plt.suptitle("OILMM Wave Predictions: Default vs Optimised", fontsize=13, y=1.01
 # \end{aligned}
 # $$ (eq-oilmm-observation-variance)
 #
-# The wider band below is the predictive standard deviation of noisy observations,
-# whilst the narrower band is the latent function's standard deviation.
+# The wider band in {numref}`fig-oilmm-uncertainty-bands` is the predictive standard
+# deviation of noisy observations, whilst the narrower band is the latent function's
+# standard deviation.
 
-# %%
+# %% mystnb={"figure": {"caption": "Predictive intervals for each wave component, with the wider band covering noisy observations and the narrower band covering the latent function alone.", "name": "fig-oilmm-uncertainty-bands"}}
 fig, axes = plt.subplots(num_outputs, 2, figsize=(14, 6), sharex=True)
 
 for output_index in range(num_outputs):
@@ -641,6 +654,7 @@ plt.suptitle(
     fontsize=13,
     y=1.01,
 )
+plt.show()
 
 # %% [markdown]
 # ## Latent space after optimisation
@@ -655,7 +669,7 @@ plt.suptitle(
 # flipping the sign of a column of $\mathbf{U}$ and the corresponding latent GP
 # leaves the output-space predictions unchanged.
 
-# %%
+# %% mystnb={"figure": {"caption": "Projected training data and posterior predictive for each of the two latent GPs, which are inferred as entirely independent single-output regression problems.", "name": "fig-oilmm-latent-space"}}
 fig, axes = plt.subplots(1, num_latent, figsize=(5 * num_latent, 3), sharey=False)
 
 for i in range(num_latent):

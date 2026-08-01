@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Count data regression
+#
+# Download this notebook: {nb-download}`poisson.ipynb`
 #
 # In this notebook we demonstrate how to perform inference for Gaussian process models
 # with non-Gaussian likelihoods via Markov chain Monte
@@ -89,10 +91,10 @@ key = jr.key(42)
 #
 # We use the calendar `year` as our input $\mathbf{X}$ and the hot-day count as the output
 # $\mathbf{y}$. The input is standardised to make inference more reliable, and we store the data
-# $\mathcal{D}$ as a GPJax `Dataset` and retain the standardisation constants so predictions can
-# be mapped back to calendar years.
+# $\mathcal{D}$ as a GPJax [`Dataset`](#gpjax.dataset.Dataset) and retain the standardisation
+# constants so predictions can be mapped back to calendar years.
 
-# %%
+# %% mystnb={"figure": {"caption": "Annual number of hot days recorded in Madrid between 1960 and 2023, where a hot day is one whose maximum temperature reached 30°C or more.", "name": "fig-poisson-madrid-hot-days"}}
 csv_candidates = [
     Path("docs/examples/data/madrid_annual_extreme_days.csv"),
     Path("data/madrid_annual_extreme_days.csv"),
@@ -120,12 +122,14 @@ ax.plot(year, hot_days, "o", label="Observed counts", color=cols[1])
 ax.set_xlabel("Year")
 ax.set_ylabel("Num. hot days")
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # ## Gaussian Process definition
 #
-# We begin by defining a Gaussian process prior with a radial basis function (RBF)
-# kernel, chosen for the purpose of exposition. We adopt the Poisson likelihood available in GPJax.
+# We begin by defining a Gaussian process [prior](#gpjax.gps.Prior) with a radial basis function
+# ([`RBF`](#gpjax.kernels.RBF)) kernel, chosen for the purpose of exposition. We adopt the
+# [`Poisson`](#gpjax.likelihoods.Poisson) likelihood available in GPJax.
 
 # %%
 kernel = gpx.kernels.RBF()
@@ -134,7 +138,8 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 likelihood = gpx.likelihoods.Poisson(num_datapoints=D.n)
 
 # %% [markdown]
-# We construct the posterior through the product of our prior and likelihood.
+# We construct the [posterior](#gpjax.gps.NonConjugatePosterior) through the product of our
+# prior and likelihood.
 
 # %%
 posterior = prior * likelihood
@@ -169,9 +174,9 @@ print(type(posterior))
 # Rather than implementing a suite of MCMC samplers, GPJax relies on MCMC-specific
 # libraries for sampling functionality. We focus on
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) in this notebook, which we
-# recommend adopting for general applications. NumPyro is the other well-supported
-# option, and the [NumPyro integration notebook](numpyro_integration.py) samples the
-# kernel hyperparameters through it.
+# recommend adopting for general applications. [NumPyro](inv:numpyro#index) is the other
+# well-supported option, and the [NumPyro integration notebook](numpyro_integration.py)
+# samples the kernel hyperparameters through it.
 #
 # We begin with a warm-up phase, in which BlackJax's window adaptation tunes the
 # NUTS step size and mass matrix, before running the sampler for `num_samples` steps.
@@ -223,7 +228,7 @@ _, (states, infos) = jax.lax.scan(one_step, state, keys, unroll=10)
 acceptance_rate = jnp.mean(infos.acceptance_rate)
 print(f"Acceptance rate: {acceptance_rate:.2f}")
 
-# %%
+# %% mystnb={"figure": {"caption": "Trace plots of the sampled chain for the unconstrained kernel lengthscale, the unconstrained kernel variance, and the latent function value at index 1.", "name": "fig-poisson-trace-plots"}}
 fig, (ax0, ax1, ax2) = plt.subplots(ncols=3, figsize=(10, 3))
 ax0.plot(states.position.prior.kernel.lengthscale._unconstrained)
 ax1.plot(states.position.prior.kernel.variance._unconstrained)
@@ -231,6 +236,7 @@ ax2.plot(states.position.latent.value[:, 1, :])
 ax0.set_title("Kernel Lengthscale")
 ax1.set_title("Kernel Variance")
 ax2.set_title("Latent Function (index = 1)")
+plt.show()
 
 # %% [markdown]
 # ## Prediction
@@ -286,9 +292,9 @@ expected_rate = jnp.mean(rate_samples, axis=0)
 # %% [markdown]
 #
 # Finally, we end this tutorial by plotting the predictions obtained from our model
-# against the observed data.
+# against the observed data ({numref}`fig-poisson-posterior-predictive`).
 
-# %%
+# %% mystnb={"figure": {"caption": "Posterior rate and posterior predictive count intervals from the Poisson-likelihood Gaussian process, shown against the observed annual hot-day counts for Madrid.", "name": "fig-poisson-posterior-predictive"}}
 fig, ax = plt.subplots()
 ax.plot(
     year,
@@ -331,6 +337,7 @@ ax.fill_between(
 ax.set_xlabel("year")
 ax.set_ylabel("hot days (Tmax ≥ 30 °C) per year")
 ax.legend()
+plt.show()
 
 # %% [markdown]
 # The inferred rate $\lambda(\text{year})$ increases steadily across the record, tracking the rising

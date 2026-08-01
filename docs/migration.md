@@ -5,7 +5,7 @@ from whichever version you are on: each guide only describes the step it names,
 so upgrading across two releases means reading two sections.
 
 Releases not listed here made no breaking changes; see the
-[changelog](https://github.com/thomaspinder/GPJax/blob/main/CHANGELOG.md) for
+[changelog](gh:blob/main/CHANGELOG.md) for
 the full history.
 
 ## 0.14.x → 0.15.0
@@ -282,5 +282,5 @@ class MyParam(AbstractUnwrappable):
 ### Reporting issues
 
 Please file migration issues at
-<https://github.com/thomaspinder/GPJax/issues> with the `0.14-migration`
+[the issue tracker](gh:issues) with the `0.14-migration`
 label.

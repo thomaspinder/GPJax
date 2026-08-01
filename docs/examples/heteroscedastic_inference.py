@@ -10,13 +10,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Heteroscedastic Inference
+#
+# Download this notebook: {nb-download}`heteroscedastic_inference.ipynb`
 #
 # This notebook shows how to fit a heteroscedastic Gaussian processes (GPs) that
 # allows one to perform regression where there exists non-constant, or
@@ -106,7 +108,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # larger in the tails. We also create a dense test grid that we shall use later for
 # visualising posterior fits and predictive uncertainty.
 
-# %%
+# %% mystnb={"figure": {"caption": "Simulated heteroscedastic data, in which observations are drawn around a bowl-shaped latent signal whose noise scale grows in proportion to that signal.", "name": "fig-heteroscedastic-inference-simulated-data"}}
 # Create data with input-dependent variance.
 key, x_key, noise_key = jr.split(key, 3)
 n = 200
@@ -130,9 +132,11 @@ ax.plot(xtest, noise_scale_test, label="Noise scale", alpha=0.7, color=cols[2])
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
 ax.legend(loc="upper left")
+plt.show()
 
 # %% [markdown]
-# For a homoscedastic baseline, compare this figure with the
+# For a homoscedastic baseline, compare
+# {numref}`fig-heteroscedastic-inference-simulated-data` with the
 # [Gaussian process regression notebook](regression.py), where a single latent GP is
 # paired with constant observation noise.
 
@@ -149,7 +153,8 @@ ax.legend(loc="upper left")
 #
 # where $k_f$ and $k_g$ are stationary squared-exponential kernels with unit
 # variance and lengthscale of one. The noise process $g$ is mapped to the variance
-# via the logarithmic transform in `LogNormalTransform`, giving
+# via the logarithmic transform in
+# [`LogNormalTransform`](#gpjax.likelihoods.LogNormalTransform), giving
 # $\sigma^2(x) = \exp\big(g(x)\big)$. The joint prior over $(f, g)$ combines with
 # the heteroscedastic Gaussian likelihood,
 #
@@ -187,7 +192,9 @@ q = HeteroscedasticVariationalFamily(
 )
 
 # %% [markdown]
-# The variational family introduces inducing variables for both latent functions,
+# The variational family,
+# [`HeteroscedasticVariationalFamily`](#gpjax.variational_families.HeteroscedasticVariationalFamily),
+# introduces inducing variables for both latent functions,
 # located at the set $Z = \{z_m\}_{m=1}^M$. These inducing variables summarise the
 # infinite-dimensional GP priors in terms of multivariate Gaussian parameters.
 # Optimising the evidence lower bound (ELBO) corresponds to adjusting the means and
@@ -199,7 +206,8 @@ q = HeteroscedasticVariationalFamily(
 
 # %% [markdown]
 # ### Optimisation
-# With the model specified, we minimise the negative ELBO,
+# With the model specified, we minimise the negative ELBO
+# ([`heteroscedastic_elbo`](#gpjax.objectives.heteroscedastic_elbo)),
 #
 # $$
 # \begin{aligned}
@@ -209,7 +217,8 @@ q = HeteroscedasticVariationalFamily(
 # \end{aligned}
 # $$ (eq-heteroscedastic-elbo)
 #
-# using the Adam optimiser. GPJax automatically selects the tight bound of
+# using the Adam optimiser ([`optax.adam`](inv:optax#optax.adam)). GPJax
+# automatically selects the tight bound of
 # Lázaro-Gredilla & Titsias (2011) when the likelihood is Gaussian, yielding an
 # analytically tractable expectation over the latent noise process. The resulting
 # optimisation iteratively updates the inducing posteriors for both latent GPs.
@@ -238,9 +247,11 @@ print(f"Final regression ELBO: {-loss_trace[-1]:.3f}")
 #    in the latent function **prior** to observing noise.
 # 2. The marginal predictive over observations, which integrates out both $f$ and
 #    $g$ to provide predictive intervals for future noisy measurements.
-# The helper method `likelihood.predict` performs the second integration for us.
+# The helper method
+# [`likelihood.predict`](#gpjax.likelihoods.HeteroscedasticGaussian.predict) performs
+# the second integration for us.
 
-# %%
+# %% mystnb={"figure": {"caption": "Heteroscedastic posterior fit, contrasting the narrow latent interval for the signal process with the wider observed interval that also carries the input-dependent noise.", "name": "fig-heteroscedastic-inference-posterior-fit"}}
 # Predict on a dense grid.
 xtest = jnp.linspace(-0.1, 1.1, 200)[:, None]
 mf, vf, mg, vg = q_trained.predict(xtest)
@@ -271,6 +282,7 @@ ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
 ax.legend(loc="upper left")
 ax.set_title("Heteroscedastic regression")
+plt.show()
 
 # %% [markdown]
 # The latent intervals quantify epistemic uncertainty about $f$, whereas the broader
@@ -302,7 +314,8 @@ data_adv = gpx.Dataset(X=x, y=y)
 
 # %% [markdown]
 # ### Model components
-# We again adopt RBF priors for both processes but now apply a `SoftplusTransform`
+# We again adopt RBF priors for both processes but now apply a
+# [`SoftplusTransform`](#gpjax.likelihoods.SoftplusTransform)
 # to the noise GP. This alternative map enforces positivity whilst avoiding the
 # heavier tails induced by the log-normal transform. The `HeteroscedasticGaussian`
 # likelihood seamlessly accepts the new transform.
@@ -342,7 +355,9 @@ q_sparse = HeteroscedasticVariationalFamily(
 )
 
 # %% [markdown]
-# The initialisation objects `VariationalGaussianInit` allow us to prescribe
+# The initialisation objects
+# [`VariationalGaussianInit`](#gpjax.variational_families.VariationalGaussianInit)
+# allow us to prescribe
 # different inducing grids and initial covariance structures for $f$ and $g$. This
 # flexibility is invaluable when working with large datasets where the latent
 # functions have markedly different smoothness properties.
@@ -360,7 +375,7 @@ q_sparse_trained, _ = gpx.fit(
     verbose=False,
 )
 
-# %%
+# %% mystnb={"figure": {"caption": "Sparse heteroscedastic regression on a sinusoidal signal with a localised burst of noise, showing one and two standard deviation predictive bands from decoupled inducing grids.", "name": "fig-heteroscedastic-inference-sparse-fit"}}
 # Plotting
 xtest = jnp.linspace(-2.2, 2.2, 300)[:, None]
 pred = q_sparse_trained.predict(xtest)
@@ -438,6 +453,7 @@ ax.set_title("Sparse Heteroscedastic Regression")
 ax.legend(loc="best", fontsize="small")
 ax.set_xlabel("$x$")
 ax.set_ylabel("$y$")
+plt.show()
 
 # %% [markdown]
 # ## Takeaways

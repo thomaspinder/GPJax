@@ -79,6 +79,25 @@ jobs:
         # resilient by design and must never block a deploy.
         run: uv run poe docs-check-math
 
+      - name: Check external links
+        # The `docs-linkcheck` task existed but nothing invoked it. It runs with
+        # `nb_execution_mode=off`, so it costs no notebook time. Non-gating: link
+        # rot is somebody else's site changing, which must not retroactively fail
+        # a green release. `continue-on-error` alone is what we want: the step is
+        # annotated as failed in the UI so it is visible, but the job stays green.
+        # Do NOT also add `|| true` — that would make the step unconditionally
+        # succeed and the annotation would never appear.
+        run: uv run poe docs-linkcheck
+        continue-on-error: true
+
+      - name: Upload the link-check report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-linkcheck
+          path: docs/_build/linkcheck
+          retention-days: 30
+
   open-issue-on-failure:
     runs-on: ubuntu-latest
     needs: full-render

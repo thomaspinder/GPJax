@@ -834,6 +834,16 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
     Collapsed variational Gaussian family of probability distributions.
     The key reference is Titsias, (2009) - Variational Learning of Inducing Variables
     in Sparse Gaussian Processes.
+
+    The bound is *collapsed*: the variational parameters are solved for
+    analytically, which requires a Gaussian likelihood and a pass over the full
+    dataset. Lift either restriction and you need the uncollapsed bound of
+    :class:`VariationalGaussian` instead.
+
+    .. seealso::
+
+        :doc:`/examples/collapsed_vi` works through the sparse regression setting
+        this family is designed for.
     """
 
     def __init__(

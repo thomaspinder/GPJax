@@ -14,14 +14,14 @@ following the BDFL model of governance. We have since moved to the governance mo
 [Specialty
 Library](https://github.com/OpenTechStrategies/open-source-archetypes/blob/main/arch-specialty-library.ltx)
 and benefited from a community of
-[contributors](https://github.com/thomaspinder/GPJax/graphs/contributors). This
+[contributors](gh:graphs/contributors). This
 document outlines the governance structure for the current status.
 
 ## Roles
 * Contributors: Anyone who contributes to GPJAx is considered a contributor. This
   includes submitting code, filing issues, reviewing pull requests, and participating in
   discussions. They are listed under:
-   * [https://github.com/thomaspinder/GPJax/graphs/contributors](https://github.com/thomaspinder/GPJax/graphs/contributors)
+   * [The GPJax contributor list](gh:graphs/contributors)
 * Core contributors: Core contributors are contributors who have made significant
   contributions to the GPJax project, for example large modules or functionality.
 * GPJax gardeners: Gardeners are core contributor(s) who are responsible for maintaining
@@ -65,12 +65,12 @@ the project for core contributors.
 Anyone is welcome to contribute to the GPJax project. Contributions can be made in the
 form of code, documentation, or other forms of support. To learn more about how to
 contribute, please see the [contributing
-guide](https://github.com/thomaspinder/GPJax/blob/main/static/CONTRIBUTING.md).
+guide](contributing.md).
 
 
 ## Code of conduct
 All contributors to the GPJax project are expected to follow the project's [code of
-conduct](https://github.com/thomaspinder/GPJax/blob/main/.github/CODE_OF_CONDUCT.md).
+conduct](CODE_OF_CONDUCT.md).
 The code of conduct outlines the expected behavior of contributors and helps to ensure a
 welcoming and productive environment for all.
 

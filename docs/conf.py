@@ -36,6 +36,12 @@ extensions = [
     "sphinx_codeautolink",  # link API names in example code to the reference
     "sphinx_sitemap",  # emit sitemap.xml
     "sphinx_reredirects",  # meta-refresh stubs for the retired MkDocs URLs
+    # og:/twitter: meta tags. shibuya's components/meta-opengraph.html opens with
+    # `{%- if "sphinxext.opengraph" not in _sphinx_extensions -%}`, i.e. the theme
+    # stands down entirely when this is loaded, so there is no duplicate-tag or
+    # template-patching problem — it is the supported way to fill in the
+    # per-page description and card image the theme otherwise leaves empty.
+    "sphinxext.opengraph",
 ]
 
 # -- Bibliography (sphinxcontrib-bibtex) -------------------------------------
@@ -95,10 +101,47 @@ myst_enable_extensions = [
     "tasklist",
     "html_image",
     "attrs_inline",
-    "substitution",
+    # Block-level attributes: `{.glossary}` above a deflist compiles it to a real
+    # Sphinx glossary (so `{term}` resolves into it), and lets a plain ```python
+    # fence take `emphasize-lines` without becoming a `{code-block}` directive.
+    # Labelled beta upstream. It only fires on a line containing *nothing but*
+    # attribute tokens, so display maths such as `${\rm diag}(K)$` and a
+    # paragraph opening `{\rm ...}` are untouched — verified against this tree.
+    "attrs_block",
+    # `substitution` was enabled but `myst_substitutions` was never set and there
+    # is not one `{{ }}` in the tree. Removed rather than left as an attractive
+    # nuisance: the consulting CTA is the obvious thing someone would reach for it
+    # for, and a literal `{{ cta }}` would render unsubstituted to anyone reading
+    # or running the py:percent examples on GitHub or in Colab. Use `{include}`
+    # or a theme template for that instead.
 ]
 myst_dmath_double_inline = True
 myst_heading_anchors = 3  # auto-slug headings so in-page [](#anchor) links resolve
+
+# Custom URL schemes, so the repository base URL lives in exactly one place.
+# `contributing.md`, `GOVERNANCE.md` and `migration.md` between them carried 19
+# hand-written absolute GitHub URLs, several already stale (a dead `master`
+# branch, a `docs/nbs` path that no longer exists) precisely because nothing
+# centralised it. `{{path}}` is substituted from the part after the colon.
+#
+# The four stock schemes MUST be repeated: this option replaces rather than
+# extends its default, so omitting them would stop every http/https/mailto/ftp
+# link in the docs from resolving.
+myst_url_schemes = {
+    "http": None,
+    "https": None,
+    "mailto": None,
+    "ftp": None,
+    "gh": {"url": "https://github.com/thomaspinder/GPJax/{{path}}"},
+    "gh-issue": {
+        "url": "https://github.com/thomaspinder/GPJax/issues/{{path}}",
+        "title": "Issue #{{path}}",
+    },
+    "gh-pr": {
+        "url": "https://github.com/thomaspinder/GPJax/pull/{{path}}",
+        "title": "PR #{{path}}",
+    },
+}
 
 # Execute notebooks and cache results in a gitignored cache. Source .py carry
 # no outputs; a cell re-runs only when its code changes.
@@ -115,12 +158,49 @@ nb_execution_cache_path = os.path.join(
     ".jupyter_cache_ci" if _smoke_render else ".jupyter_cache",
 )
 nb_execution_timeout = 1800  # heavy MCMC / sparse-GP notebooks
-# Strict by default (PR gate + local): a failed cell fails the build. On the
-# deploy path (GPJAX_DOCS_RESILIENT=1) we do NOT raise, so one slow/broken
-# notebook cannot block the whole site — it renders an error cell while every
-# other page (and the last-good cached output) still deploys.
-nb_execution_raise_on_error = os.environ.get("GPJAX_DOCS_RESILIENT") != "1"
 nb_merge_streams = True
+# Put the traceback in the warning. Without it a failed notebook logs exactly
+# `Executing notebook failed: ValueError [mystnb.exec]` — no notebook, no cell,
+# no frame — which is unactionable from a CI log.
+nb_execution_show_tb = True
+# `nb_execution_raise_on_error` is deliberately NOT set, so it keeps its default
+# of False and a failed notebook never aborts the build. Every build is gated by
+# `-W --keep-going` instead, which is strictly better here:
+#
+#   * `execute/cache.py` logs `logger.warning(msg, subtype="exec")` BEFORE it
+#     would raise, so `-W` still fails the build on a broken notebook. (This
+#     ordering is specific to `cache` mode, which is the mode in use.)
+#   * Raising aborts on the first bad notebook, so `--keep-going` never gets to
+#     report the other 21. Warning instead surfaces all of them in one run.
+#   * The raise happens before `sphinx_.py` writes
+#     `<outdir>/reports/<docname>.err.log`, so raising also throws away the
+#     full traceback file that CI could otherwise upload as an artifact.
+#
+# On the deploy path a broken notebook must not block the whole site, so the two
+# execution-dependent warning subtypes are suppressed there — and only there.
+# Everything else (broken xrefs, bad anchors, malformed directives) stays fatal
+# on deploy, which it was not when that build ran without `-W` at all.
+# The PR gate suppresses nothing.
+if os.environ.get("GPJAX_DOCS_RESILIENT") == "1":
+    suppress_warnings = [
+        "mystnb.exec",  # execution failure + "traceback saved in:" follow-up
+        "mystnb.glue",  # a glue key that never got produced by a failed notebook
+        # A notebook that fails to execute renders with no outputs, and MyST-NB
+        # creates the `figure` node (and hence the `fig-...` target) per output —
+        # so every `{numref}` pointing into that notebook resolves to nothing.
+        # Sphinx logs that as `ref.numref`, NOT as a `mystnb.*` subtype, so
+        # without this line one failed notebook fails the whole deploy through
+        # its own figure references and the tolerance above buys nothing.
+        # 19 of the 22 notebooks `{numref}` their own figures.
+        #
+        # This stays safe only while figure resolution is render-mode independent,
+        # which it is today: no figure-annotated cell is tagged `remove-cell` or
+        # branches on GPJAX_DOCS_CI, so a genuinely broken `{numref}` always fails
+        # the strict smoke PR gate before it can reach here. Keep figure cells out
+        # of the smoke-gated shims, or a real typo could pass the gate and then be
+        # silently suppressed on deploy.
+        "ref.numref",
+    ]
 
 # -- Autodoc / autosummary ---------------------------------------------------
 autosummary_generate = True
@@ -129,6 +209,12 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 autodoc_typehints = "description"
+# Render default values as they are written in the source rather than as the
+# repr of the evaluated object. Without it `gpjax.fit.fit` advertises
+# `key=Array((), dtype=key<fry>) overlaying: [ 0 42]` instead of `key=jr.key(42)`,
+# and 22 further pages show `<gpjax.kernels.computations.dense.DenseKernelComputation
+# object>` where the source says `DenseKernelComputation()`.
+autodoc_preserve_defaults = True
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 
@@ -191,6 +277,19 @@ intersphinx_mapping = {
     "jax": ("https://docs.jax.dev/en/latest/", (None, f"{_INV}/jax.inv")),
     "optax": ("https://optax.readthedocs.io/en/latest/", (None, f"{_INV}/optax.inv")),
     "equinox": ("https://docs.kidger.site/equinox/", (None, f"{_INV}/equinox.inv")),
+    # These three are GPJax's public API surface, not incidental dependencies:
+    # every parameter is a `paramax.AbstractUnwrappable`, every `gram()` returns
+    # an `lx.AbstractLinearOperator`, and the NumPyro integration hands back
+    # NumPyro distributions. Without them ~64 type names in the reference render
+    # as dead text. Each inventory was checked to contain the private-module
+    # target autodoc actually emits (`lineax._operator.AbstractLinearOperator`,
+    # `paramax.wrappers.AbstractUnwrappable`), so no aliasing is needed.
+    "lineax": ("https://docs.kidger.site/lineax/", (None, f"{_INV}/lineax.inv")),
+    "paramax": (
+        "https://danielward27.github.io/paramax/",
+        (None, f"{_INV}/paramax.inv"),
+    ),
+    "numpyro": ("https://num.pyro.ai/en/stable/", (None, f"{_INV}/numpyro.inv")),
 }
 
 # -- HTML output -------------------------------------------------------------
@@ -246,6 +345,20 @@ html_theme_options = {
     # what `docs/migration.md` does with a `##` per release.
     "globaltoc_expand_depth": 1,
 }
+# -- Open Graph / social cards (sphinxext-opengraph) -------------------------
+# Must track html_baseurl: og:url has to be absolute, and a relative og:image
+# is ignored by every crawler.
+ogp_site_url = html_baseurl
+ogp_site_name = "GPJax"
+ogp_description_length = 200
+ogp_enable_meta_description = True
+# `ogp_image` is deliberately NOT set to one of the files in docs/static/: they
+# are all SVG or PDF, and every major crawler (X, Slack, Discord, LinkedIn)
+# ignores an SVG og:image. Generated social cards are PNG and are per-page, so a
+# shared link shows which page it points at. matplotlib — the only thing the
+# generator needs — is already in the docs extra, so this adds no dependency.
+ogp_social_cards = {"enable": True, "line_color": "#7a2e2a"}
+
 html_context = {
     "github_user": "thomaspinder",
     "github_repo": "GPJax",
