@@ -120,7 +120,7 @@ dev = [
 
 
 [project.urls]
-Documentation = "https://docs.jaxgaussianprocesses.com/"
+Documentation = "https://docs.quantclimate.com/"
 Issues = "https://github.com/thomaspinder/GPJax/issues"
 Source = "https://github.com/thomaspinder/GPJax"
 
