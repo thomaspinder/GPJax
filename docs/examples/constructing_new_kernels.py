@@ -18,7 +18,9 @@
 # # Kernel Guide
 #
 # In this guide, we introduce the kernels available in GPJax and demonstrate how to
-# create custom kernels.
+# create custom kernels. We assume you already know what a kernel is and what it does
+# to a GP prior; if not, our [introduction to kernels](intro_to_kernels.py) builds that
+# intuition first.
 
 # %%
 # Enable Float64 for more stable matrix inversions.
@@ -64,7 +66,7 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # * White noise
 # * Linear.
 # * Polynomial.
-# * [Graph kernels](https://docs.jaxgaussianprocesses.com/_examples/graph_kernels/).
+# * [Graph kernels](graph_kernels.py).
 #
 # Whilst the syntax is consistent, each kernel's type influences the
 # characteristics of the sample paths drawn. We visualise this below with 10
@@ -252,14 +254,16 @@ class Polar(gpx.kernels.AbstractKernel):
 # `period`.
 #
 # To constrain $\tau \geq 4$, we store $\tau - 4$ as a `PositiveReal` (which
-# applies softplus internally) and add 4 back in `__call__`.
+# applies softplus internally) and add 4 back in `__call__`. The
+# [backend guide](backend.py#parameters) covers the parameter types available for
+# declaring a parameter's support in this way.
 
 # %% [markdown]
 # ### Using our polar kernel
 #
 # We proceed to fit a GP with our custom circular kernel to a random sequence of
 # points on a circle (see the
-# [Regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# [Regression notebook](regression.py)
 # for further details on this process).
 
 # %%

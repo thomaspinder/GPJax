@@ -20,7 +20,9 @@
 # In this notebook we demonstrate how to perform inference for Gaussian process models
 # with non-Gaussian likelihoods via Markov chain Monte
 # Carlo (MCMC). We focus on a count data regression task here and use
-# [BlackJax](https://github.com/blackjax-devs/blackjax/) for sampling.
+# [BlackJax](https://github.com/blackjax-devs/blackjax/) for sampling. Where the
+# [classification notebook](classification.py) settles for a point estimate of the
+# latent function and a Gaussian approximation around it, we sample it here instead.
 
 # %% tags=["remove-cell"]
 import os
@@ -73,7 +75,9 @@ key = jr.key(42)
 #
 # We then set $\lambda = \exp(f)$ where $f$ is the latent Gaussian process. The exponential function
 # is the _link function_ for the Poisson distribution: it maps the output of a GP to the positive
-# real line, which is suitable for modeling count data.
+# real line, which is suitable for modeling count data. Our
+# [likelihood guide](likelihoods_guide.py#link-functions) covers link functions and the
+# role they play across GPJax's likelihoods.
 #
 # For this notebook, we use a real-world count dataset: the number of hot days
 # recorded each year in Madrid, Spain, where we define a _hot_ day as one where the maximum temperature reached
@@ -165,7 +169,9 @@ print(type(posterior))
 # Rather than implementing a suite of MCMC samplers, GPJax relies on MCMC-specific
 # libraries for sampling functionality. We focus on
 # [BlackJax](https://github.com/blackjax-devs/blackjax/) in this notebook, which we
-# recommend adopting for general applications.
+# recommend adopting for general applications. NumPyro is the other well-supported
+# option, and the [NumPyro integration notebook](numpyro_integration.py) samples the
+# kernel hyperparameters through it.
 #
 # We begin with a warm-up phase, in which BlackJax's window adaptation tunes the
 # NUTS step size and mass matrix, before running the sampler for `num_samples` steps.

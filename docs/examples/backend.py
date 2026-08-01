@@ -74,7 +74,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 #
 # GPJax uses [Paramax](https://github.com/danielward27/paramax) to handle constrained
 # parameters. As discussed in our [Sharp Bits -
-# Bijectors Doc](https://docs.jaxgaussianprocesses.com/sharp_bits/#bijectors), GPJax
+# Bijectors Doc](../sharp_bits.md#bijectors), GPJax
 # uses bijectors to transform constrained parameters to unconstrained parameters during
 # optimisation. You may register the support of a parameter using our parameter types.
 # To see this, consider the constant mean function which contains a single constant
@@ -136,7 +136,7 @@ print("Unconstrained (internal) value:", close_to_zero_param._unconstrained)
 # may be nested within several functions e.g., a kernel function within a GP model.
 # Fortunately, transforming several parameters is a simple operation that we here
 # demonstrate for a conjugate GP posterior (see our [Regression
-# Notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/) for detailed
+# Notebook](regression.py) for detailed
 # explanation of this model.).
 
 # %%
@@ -225,7 +225,7 @@ print(positive_reals)
 # useful as it allows us to efficiently operate on a subset of the parameters whilst
 # leaving the others untouched. Looking forward, we hope to use this functionality in
 # our [Variational Inference
-# Approximations](https://docs.jaxgaussianprocesses.com/_examples/uncollapsed_vi/) to
+# Approximations](uncollapsed_vi.py) to
 # perform more efficient updates of the variational parameters and then the model's
 # hyperparameters.
 
@@ -349,7 +349,7 @@ ax.set(xlabel="x", ylabel="m(x)")
 # In this notebook we have explored how GPJax's Equinox-based backend may be easily
 # manipulated and extended. For a more applied look at this, see how we construct a
 # kernel on polar coordinates in our [Kernel
-# Guide](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#custom-kernel)
+# Guide](constructing_new_kernels.py#custom-kernel)
 # notebook.
 #
 # ## System configuration

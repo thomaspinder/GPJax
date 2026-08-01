@@ -58,7 +58,9 @@
 #
 # ## Likelihoods in GPJax
 #
-# In GPJax, all likelihoods are a subclass of the `AbstractLikelihood` class. This base
+# In GPJax, all likelihoods are a subclass of the `AbstractLikelihood` class — the
+# [likelihoods reference](../reference/likelihoods.md) lists every implementation
+# shipped with the library. This base
 # abstract class contains the three core methods that all likelihoods must implement:
 # `predict`, `link_function`, and `expected_log_likelihood`. We will discuss each of
 # these methods in the forthcoming sections, but first, we will show how to instantiate

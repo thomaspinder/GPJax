@@ -18,7 +18,7 @@
 # %% [markdown]
 # # Scalable Multi-Output GPs with OILMM
 #
-# The [multi-output notebook](https://docs.jaxgaussianprocesses.com/_examples/multioutput/)
+# The [multi-output notebook](multioutput.py)
 # introduces the Intrinsic Coregionalisation Model (ICM) and the Linear Model of
 # Coregionalisation (LCM),
 # which capture cross-output correlations through coregionalisation matrices. Both
@@ -170,8 +170,9 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # Because the projected noise is diagonal, each projected observation
 # $\tilde{y}_i(t) = x_i(t) + \tilde{\varepsilon}_i(t)$ constitutes a standard
 # single-output GP regression problem with known noise variance
-# $\sigma^2/s_i + d_i$. We can therefore condition each latent GP independently
-# using the standard conjugate formulae.
+# $\sigma^2/s_i + d_i$ — precisely the model built in the
+# [regression notebook](regression.py). We can therefore condition each latent GP
+# independently using the standard conjugate formulae.
 #
 # The cost of conditioning one GP on $n$ observations is $\mathcal{O}(n^3)$
 # (dominated by the Cholesky factorisation), so conditioning all $m$ latent GPs
@@ -706,7 +707,9 @@ for i in range(num_latent):
 # ```
 #
 # The first latent GP would then use an infinitely differentiable RBF kernel
-# whilst the second uses the rougher Matern-5/2. This is analogous to the
+# whilst the second uses the rougher Matern-5/2; our
+# [introduction to kernels](intro_to_kernels.py) shows what that difference in
+# smoothness looks like in the sample paths. This is analogous to the
 # advantage of LCM over ICM in the multi-output setting, where different
 # components can capture different spectral characteristics.
 

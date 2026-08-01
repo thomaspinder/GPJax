@@ -21,7 +21,7 @@
 # of a graph using a Gaussian process with a Matérn kernel presented in
 # {cite:t}`borovitskiy2021matern`. For a general discussion of the
 # kernels supported within GPJax, see the
-# [kernels notebook](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels).
+# [kernels notebook](constructing_new_kernels.py).
 
 # %%
 import random
@@ -109,7 +109,9 @@ L = nx.laplacian_matrix(G).toarray()
 # To that end, we begin by simulating a signal on the graph's vertices that we will go
 # on to try and predict.
 # We use a single draw from a Gaussian process prior to draw our response values
-# $\boldsymbol{y}$ where we hardcode parameter values.
+# $\boldsymbol{y}$ where we hardcode parameter values. The prior's covariance is
+# supplied by [`GraphKernel`](../reference/kernels.md), which takes the graph
+# Laplacian in place of the usual Euclidean distance.
 # The corresponding input value set for this model, denoted $\boldsymbol{x}$, is the
 # index set of the graph's vertices.
 
@@ -151,10 +153,11 @@ cbar = plt.colorbar(sm, ax=ax)
 # With our dataset created, we proceed to define our posterior Gaussian process and
 # optimise the model's hyperparameters.
 # Whilst our underlying space is the graph's vertex set and is therefore
-# non-Euclidean, our likelihood is still Gaussian and the model is still conjugate.
+# non-Euclidean, our likelihood is still Gaussian and the model is still
+# conjugate.
 # For this reason, we simply perform gradient descent on the GP's marginal
 # log-likelihood term as in the
-# [regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/).
+# [regression notebook](regression.py).
 # We do this using the BFGS optimiser.
 
 # %%

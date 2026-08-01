@@ -87,6 +87,8 @@ If you use GPJax in your research, please cite our [JOSS paper](https://joss.the
 :maxdepth: 1
 
 installation
+design
+sharp_bits
 examples/intro_to_gps
 examples/intro_to_kernels
 examples/regression
@@ -130,15 +132,6 @@ examples/likelihoods_guide
 examples/deep_kernels
 examples/numpyro_integration
 examples/backend
-```
-
-```{toctree}
-:hidden:
-:caption: Background
-:maxdepth: 1
-
-design
-sharp_bits
 ```
 
 ```{toctree}

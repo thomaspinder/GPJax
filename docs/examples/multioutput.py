@@ -17,7 +17,8 @@
 # %% [markdown]
 # # Multi-Output Gaussian Processes
 #
-# Standard Gaussian process models map a $D$-dimensional input to a single scalar
+# Standard Gaussian process models, such as the one built in the
+# [regression notebook](regression.py), map a $D$-dimensional input to a single scalar
 # output. In many settings, however, we wish to model several correlated output
 # quantities simultaneously. A multi-output Gaussian process captures these
 # correlations so that observations of one output can inform predictions of another.
@@ -314,7 +315,9 @@ fig.colorbar(im, ax=ax, shrink=0.8)
 # decomposition. For $Q > 1$ the sum of Kronecker products no longer admits a
 # closed-form Kronecker inverse, so GPJax materialises the full $NP \times NP$ dense
 # matrix and solves via a standard Cholesky factorisation in
-# $\mathcal{O}((NP)^3)$.
+# $\mathcal{O}((NP)^3)$. When $P$ is large enough for that cost to bite, the
+# [OILMM notebook](oilmm.py) shows a mixing-matrix parameterisation whose cost is
+# independent of $P$ altogether.
 #
 # ### Per-component coregionalization
 #
@@ -412,7 +415,9 @@ axes[0].set_ylabel(r"$y$")
 # We build an LCM with $Q = 2$ components. The first component uses an RBF kernel,
 # which is well-suited to capture the smooth, low-frequency latent function $g_1$.
 # The second component uses a Matérn-3/2 kernel, whose shorter default length-scale
-# can adapt to the faster oscillation in $g_2$. Each component has its own
+# can adapt to the faster oscillation in $g_2$. Our
+# [introduction to kernels](intro_to_kernels.py) compares the two families and the
+# sample paths each admits. Each component has its own
 # `CoregionalizationMatrix` with $P = 3$ outputs and rank $R = 1$, so each component
 # captures one direction of inter-output correlation at its characteristic
 # length-scale.

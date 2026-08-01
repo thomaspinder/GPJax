@@ -106,7 +106,9 @@ ax.legend(loc="best")
 # straightforward as we now demonstrate. Inheriting from the base `AbstractKernel`
 # in GPJax, we create the `DeepKernelFunction` object that allows the
 # user to supply the neural network and base kernel of their choice. Kernel matrices
-# are then computed using the regular `gram` and `cross_covariance` functions.
+# are then computed using the regular `gram` and `cross_covariance` functions. The
+# subclassing pattern used below is the one set out in the
+# [kernel guide](constructing_new_kernels.py#custom-kernel).
 
 
 # %%
@@ -139,7 +141,7 @@ class DeepKernelFunction(AbstractKernel):
 # activation functions between the layers. The first hidden layer contains 64 units,
 # whilst the second layer contains 32 units. Finally, we'll make the output of our
 # network a three units wide. The corresponding kernel that we define will then be of
-# [ARD form](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#active-dimensions)
+# [ARD form](constructing_new_kernels.py#active-dimensions)
 # to allow for different lengthscales in each dimension of the feature space.
 # Users may wish to design more intricate network structures for more complex tasks,
 # which functionality is supported well in Equinox.
@@ -176,7 +178,9 @@ forward_linear = Network(
 #
 # Having characterised the feature extraction network, we move to define a Gaussian
 # process parameterised by this deep kernel. We consider a third-order Matérn base
-# kernel and assume a Gaussian likelihood.
+# kernel and assume a Gaussian likelihood. Our
+# [introduction to kernels](intro_to_kernels.py) discusses how the choice of base
+# kernel — and the smoothness it assumes — shapes the resulting fit.
 
 # %%
 base_kernel = gpx.kernels.Matern52(
@@ -191,7 +195,8 @@ posterior = prior * likelihood
 # %% [markdown]
 # ### Optimisation
 #
-# We train our model via maximum likelihood estimation of the marginal log-likelihood.
+# We train our model via maximum likelihood estimation of the marginal log-likelihood,
+# exactly as in the [regression notebook](regression.py).
 # The parameters of our neural network are learned jointly with the model's
 # hyperparameter set.
 #

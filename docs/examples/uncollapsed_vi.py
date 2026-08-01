@@ -24,9 +24,10 @@
 # non-conjugate Gaussian processes with more than ~5000 data points. However, for
 # conjugate models of less than 5000 data points, we recommend using the marginal
 # log-likelihood approach presented in the
-# [regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/).
+# [regression notebook](regression.py).
 # Though we illustrate SVGPs here with a conjugate regression example, the same GPJax
-# code works for general likelihoods, such as a Bernoulli for classification.
+# code works for general likelihoods, such as the Bernoulli used in the
+# [classification notebook](classification.py).
 
 
 # %%
@@ -118,7 +119,9 @@ xtest = jnp.linspace(-5.5, 5.5, 500).reshape(-1, 1)
 # descent {cite:p}`hensman2013gaussian` and address non-conjugacy
 # {cite:p}`hensman2015gaussian`.
 # We show a cost comparison between the approaches below, where $b$ is the mini-batch
-# size.
+# size. The middle column is the collapsed bound of the
+# [sparse regression notebook](collapsed_vi.py), which is cheaper still but requires a
+# conjugate likelihood and a pass over the whole dataset.
 #
 # |    | GPs | sparse GPs | SVGP |
 # | -- | -- | -- | -- |
@@ -269,7 +272,7 @@ opt_posterior, history = gpx.fit(
 # predictions at novel inputs akin
 # to all other models within GPJax on our variational process object $q(\cdot)$ (for
 # example, see the
-# [regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)).
+# [regression notebook](regression.py)).
 
 # %%
 latent_dist = opt_posterior(xtest)

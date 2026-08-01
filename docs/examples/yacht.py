@@ -64,7 +64,7 @@ key = jr.key(42)
 # covariates and a single positive, real valued response variable. There are 308
 # observations in the dataset, so we can comfortably use a conjugate regression
 # Gaussian process here (for more more details, checkout the
-# [Regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)).
+# [Regression notebook](regression.py)).
 
 # %%
 try:
@@ -148,9 +148,9 @@ scaled_Xte = x_scaler.transform(Xte)
 # With data now loaded and preprocessed, we'll proceed to defining a Gaussian process
 # model and optimising its parameters. This notebook purposefully does not go into
 # great detail on this process, so please see notebooks such as the
-# [Regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# [Regression notebook](regression.py)
 # and
-# [Classification notebook](https://docs.jaxgaussianprocesses.com/_examples/classification)
+# [Classification notebook](classification.py)
 # for further information.
 #
 # ### Model specification
@@ -158,7 +158,8 @@ scaled_Xte = x_scaler.transform(Xte)
 # We'll use a radial basis function kernel to parameterise the Gaussian process in this
 # notebook. As we have 5 covariates, we'll assign each covariate its own lengthscale
 # parameter. This form of kernel is commonly known as an automatic relevance
-# determination (ARD) kernel.
+# determination (ARD) kernel, set up through the `active_dims` argument described in
+# the [kernel guide](constructing_new_kernels.py#active-dimensions).
 #
 # In practice, the exact form of kernel used should be selected such that it
 # represents your understanding of the data. For example, if you were to model
@@ -281,8 +282,8 @@ ax[2].set_title("Residuals")
 # of the Yacht's hydrodynamic and performs increasingly well as the Yacht's
 # hydrodynamic performance increases. This is likely due to the original data's heavy
 # right-skew, and successive modelling attempts may wish to introduce a
-# heteroscedastic likelihood function that would enable more flexible modelling of
-# the smaller response values.
+# [heteroscedastic likelihood function](heteroscedastic_inference.py) that would enable
+# more flexible modelling of the smaller response values.
 #
 # ## System configuration
 

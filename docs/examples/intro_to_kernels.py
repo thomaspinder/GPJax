@@ -120,7 +120,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # The second necessary condition is that the covariance function must be *positive
 # semi-definite* (PSD). In order to understand this condition, it is useful to first
 # introduce the concept of a *Gram matrix*. We'll use the same notation as the [GP introduction
-# notebook](https://docs.jaxgaussianprocesses.com/_examples/intro_to_gps/), and denote
+# notebook](intro_to_gps.py), and denote
 # $n$ input points as $\mathbf{X} = \{\mathbf{x}_1, \ldots, \mathbf{x}_n\}$. Given these
 # input points and a kernel function $k$ the *Gram matrix* stores the pairwise kernel
 # evaluations between all input points. Mathematically, this leads to the Gram matrix being defined as:
@@ -244,7 +244,7 @@ for k, ax in zip(kernels, axes.ravel(), strict=False):
 # gradient-based approach such as Adam or L-BFGS. Note that we may choose to fix some
 # hyperparameters, and in GPJax the parameter $\nu$ is set by the user, and not
 # inferred though optimisation. For more details on using the log marginal likelihood to
-# optimise kernel hyperparameters, see our [GP introduction notebook](https://docs.jaxgaussianprocesses.com/_examples/intro_to_gps/#gaussian-process-regression).
+# optimise kernel hyperparameters, see our [GP introduction notebook](intro_to_gps.py#gaussian-process-regression).
 #
 # We'll demonstrate the advantages of being able to infer kernel parameters from the training data by fitting a GP to the widely used [Forrester function](https://www.sfu.ca/~ssurjano/forretal08.html):
 #
@@ -694,7 +694,7 @@ print(
 # %% [markdown]
 # ## Defining Kernels on Non-Euclidean Spaces
 #
-# In this notebook, we have focused solely on kernels whose domain resides in Euclidean space. However, what if one wished to work with data whose domain is non-Euclidean? For instance, one may wish to work with graph-structured data, or data which lies on a manifold, or even strings. Fortunately, kernels exist for a wide variety of domains. Whilst this is beyond the scope of this notebook, feel free to checkout out our [notebook on graph kernels](https://docs.jaxgaussianprocesses.com/_examples/graph_kernels/) for an introduction on how to define the Matérn kernel on graph-structured data, and there are a wide variety of resources online for learning about defining kernels in other domains. In terms of open-source libraries, the [Geometric Kernels](https://github.com/GPflow/GeometricKernels) library could be a good place to start if you're interested in looking at how these kernels may be implemented, with the additional benefit that it is compatible with GPJax.
+# In this notebook, we have focused solely on kernels whose domain resides in Euclidean space. However, what if one wished to work with data whose domain is non-Euclidean? For instance, one may wish to work with graph-structured data, or data which lies on a manifold, or even strings. Fortunately, kernels exist for a wide variety of domains. Whilst this is beyond the scope of this notebook, feel free to checkout out our [notebook on graph kernels](graph_kernels.py) for an introduction on how to define the Matérn kernel on graph-structured data, and there are a wide variety of resources online for learning about defining kernels in other domains. In terms of open-source libraries, the [Geometric Kernels](https://github.com/GPflow/GeometricKernels) library could be a good place to start if you're interested in looking at how these kernels may be implemented, with the additional benefit that it is compatible with GPJax.
 
 # %% [markdown]
 # ## Further Reading
@@ -703,7 +703,7 @@ print(
 #
 # - *Gaussian Processes for Machine Learning* {cite:p}`rasmussen2006gaussian` - Chapter 4 provides a comprehensive overview of kernels, diving deep into some of the technical details and also providing some kernels defined on non-Euclidean spaces such as strings.
 # - David Duvenaud's [Kernel Cookbook](https://www.cs.toronto.edu/~duvenaud/cookbook/) is a great resource for learning about kernels, and also provides some information about some of the pitfalls people commonly encounter when using the Matérn family of kernels. His PhD thesis, *Automatic Model Construction with Gaussian Processes* {cite:p}`duvenaud2014automatic`, also provides some in-depth recipes for how one may incorporate their prior knowledge when constructing kernels.
-# - Finally, please check out our [more advanced kernel guide](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/), which details some more kernels available in GPJax as well as how one may combine kernels together to form more complex kernels.
+# - Finally, please check out our [more advanced kernel guide](constructing_new_kernels.py), which details some more kernels available in GPJax as well as how one may combine kernels together to form more complex kernels.
 #
 # ## System Configuration
 

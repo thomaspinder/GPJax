@@ -21,7 +21,7 @@
 # be rewritten as the solution of a linear stochastic differential equation
 # (SDE). When that rearrangement exists, inference no longer needs the dense
 # $\mathcal{O}(N^3)$ Cholesky factorisation of the Gram matrix, as seen in
-# our [Regression Notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# our [Regression Notebook](regression.py)
 # Instead a forward Kalman filter and backward smoother can be used to estimate an
 # identical posterior in $\mathcal{O}(N)$ time. For long, one-dimensional temporal
 # data this turns a cubic problem into a linear one.
@@ -121,7 +121,7 @@ cols = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # describe. We shift the time axis to start at zero (so lengthscales read in
 # years) and centre the targets (so a constant mean function suffices). A
 # comparative approach to modelling this data using traditional GP models
-# may be found in our [Introduction to Kernels](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/#putting-it-all-together-on-a-real-world-dataset)
+# may be found in our [Introduction to Kernels](intro_to_kernels.py#putting-it-all-together-on-a-real-world-dataset)
 # notebook.
 
 # %%
@@ -399,7 +399,7 @@ ax.indicate_inset_zoom(axins, edgecolor="grey")
 #
 # This in-notebook sweep is deliberately small and only illustrates the slopes;
 # the maintained, rigorous benchmarks live in our
-# [Benchmarks](https://docs.jaxgaussianprocesses.com/benchmarks/)
+# <a href="../benchmarks/index.html">benchmark dashboard</a>.
 
 # %%
 import time
@@ -515,6 +515,9 @@ for ax, op, op_title in zip(
 #   gap-filling.
 # - Dense inference is preferable for small $N$; state-space inference wins
 #   decisively once $N$ grows into the thousands and beyond.
+# - The rewrite is only available for one-dimensional inputs. Where the inputs are
+#   multi-dimensional, the sparse approximations of the
+#   [sparse regression notebook](collapsed_vi.py) are the route to the same scale.
 
 # %% [markdown]
 # ## System configuration

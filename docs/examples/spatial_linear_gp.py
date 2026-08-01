@@ -27,7 +27,9 @@
 # The example highlights the interplay between **GPJax** and **NumPyro**: `GPJax` provides the GP
 # prior and likelihood definitions, whilst `NumPyro` performs Hamiltonian Monte Carlo (HMC)
 # inference across all parameters in a unified model and allows us to draw upon a broader set of
-# modelling components.
+# modelling components. If you have not seen the two libraries used together before, the
+# [NumPyro integration notebook](numpyro_integration.py) sets out the mechanics on a
+# simpler model than this one.
 
 # %% [markdown]
 # ## Data Simulation
@@ -143,11 +145,14 @@ mcmc_lin.print_summary()
 # ### GPJax and NumPyro Integration
 #
 # We define the GP prior in `GPJax` using a second-order Matérn kernel and a constant mean
-# function (since the linear trend is handled explicitly). Hyperparameters are sampled
+# function (since the linear trend is handled explicitly). The
+# [introduction to kernels](intro_to_kernels.py) describes the Matérn family and the
+# smoothness each member assumes. Hyperparameters are sampled
 # directly with ``numpyro.sample`` and passed to the GPJax constructors as raw JAX arrays.
 # We then compute the exact marginal log-likelihood (MLL) of the residuals under the GP
-# prior using `gpx.objectives.conjugate_mll`. This term is added to the potential function
-# using `numpyro.factor`, guiding the sampler.
+# prior using `gpx.objectives.conjugate_mll` — the same objective optimised in the
+# [regression notebook](regression.py), here contributed to a NumPyro model instead.
+# This term is added to the potential function using `numpyro.factor`, guiding the sampler.
 
 
 # %%

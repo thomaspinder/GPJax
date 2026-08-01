@@ -17,7 +17,10 @@
 # %% [markdown]
 # # Regression
 #
-# In this notebook we demonstrate how to fit a Gaussian process regression model.
+# In this notebook we demonstrate how to fit a Gaussian process regression model. We
+# move quickly through the theory; if any of it is unfamiliar, our
+# [introduction to Gaussian processes](intro_to_gps.py) derives the same model from
+# Bayes' theorem.
 
 # %%
 # Enable Float64 for more stable matrix inversions.
@@ -102,7 +105,9 @@ ax.legend(loc="best")
 # user-specified symmetric, non-negative definite kernel function $k(\cdot, \cdot')$
 # with $[\mathbf{K}_{\boldsymbol{x}\boldsymbol{x}}]_{i, j} = k(x_i, x_j)$.
 # The choice of kernel function is critical as, among other things, it governs the
-# smoothness of the outputs that our GP can generate.
+# smoothness of the outputs that our GP can generate. Our
+# [introduction to kernels](intro_to_kernels.py) works through what each kernel assumes
+# and how to pick between them.
 #
 # For simplicity, we consider a radial basis function (RBF) kernel:
 #
@@ -166,7 +171,9 @@ clean_legend(ax)
 # p(\mathcal{D} | f(\cdot)) = \mathcal{N}(\boldsymbol{y}; f(\boldsymbol{x}), \textbf{I} \alpha^2).
 # $$ (eq-regression-gaussian-likelihood)
 #
-# This is defined in GPJax through calling a `Gaussian` instance.
+# This is defined in GPJax through calling a `Gaussian` instance. The
+# [likelihood guide](likelihoods_guide.py) covers the other likelihoods GPJax provides
+# and what each one assumes about the observations.
 
 # %%
 likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)

@@ -31,7 +31,7 @@
 #   ${\rm exp}$ or ${\rm softplus}$). Intuitively, we are introducing a pair of GPs;
 # one to model the latent mean, and a second that models the log-noise variance. This
 # is in direct contrast a
-# [homoscedastic GP](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# [homoscedastic GP](regression.py)
 # where we learn a constant value for the noise.
 #
 # In the Gaussian case, the observed response follows
@@ -133,9 +133,8 @@ ax.legend(loc="upper left")
 
 # %% [markdown]
 # For a homoscedastic baseline, compare this figure with the
-# [Gaussian process regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
-# (`examples/regression.py`), where a single latent GP is paired with constant
-# observation noise.
+# [Gaussian process regression notebook](regression.py), where a single latent GP is
+# paired with constant observation noise.
 
 # %% [markdown]
 # ## Prior specification
@@ -195,10 +194,8 @@ q = HeteroscedasticVariationalFamily(
 # covariances of the variational posteriors $q(f)$ and $q(g)$ so that they best
 # explain the observed data whilst remaining close to the prior. For a deeper look at
 # these constructions in the homoscedastic setting, refer to the
-# [Sparse Gaussian Process Regression](https://docs.jaxgaussianprocesses.com/_examples/collapsed_vi/)
-# (`examples/collapsed_vi.py`) and
-# [Sparse Stochastic Variational Inference](https://docs.jaxgaussianprocesses.com/_examples/uncollapsed_vi/)
-# (`examples/uncollapsed_vi.py`) notebooks.
+# [Sparse Gaussian Process Regression](collapsed_vi.py) and
+# [Sparse Stochastic Variational Inference](uncollapsed_vi.py) notebooks.
 
 # %% [markdown]
 # ### Optimisation

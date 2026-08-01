@@ -157,11 +157,14 @@ plt.show()
 # ## Learning a posterior distribution
 #
 # We'll now independently learn Gaussian process posterior distributions for each
-# dataset. We won't spend any time here discussing how GP hyperparameters are
+# dataset. Each fit returns a
+# [`GaussianDistribution`](../reference/distributions.md), and it is the mean vector
+# and covariance matrix of these that the barycentre is computed from below. We won't
+# spend any time here discussing how GP hyperparameters are
 # optimised. For advice on achieving this, see the
-# [Regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/)
+# [Regression notebook](regression.py)
 # for advice on optimisation and the
-# [Kernels notebook](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/) for
+# [Kernels notebook](constructing_new_kernels.py) for
 # advice on selecting an appropriate kernel.
 
 

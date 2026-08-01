@@ -103,7 +103,7 @@ ax.legend()
 # product of a periodic kernel and an RBF kernel. This choice reflects our prior knowledge that
 # the signal is locally periodic. For a more in-depth look at how complex kernels can be designed,
 # see our
-# [Introduction to Kernels](https://docs.jaxgaussianprocesses.com/_examples/intro_to_kernels/)
+# [Introduction to Kernels](intro_to_kernels.py)
 # notebook.
 #
 # We see in the below that priors are specified on the parameters' constrained space. For
@@ -120,7 +120,7 @@ ax.legend()
 # We'll construct the Gaussian process inside the NumPyro model function, passing
 # sampled hyperparameters directly to the GPJax constructors. For a deeper look at
 # how GP construction works, see our
-# [Regression](https://docs.jaxgaussianprocesses.com/_examples/regression/) notebook.
+# [Regression](regression.py) notebook.
 
 # %% [markdown]
 # ## Joint Inference Loop
@@ -229,7 +229,7 @@ mcmc.print_summary()
 #
 # Having obtained samples from the posterior, we now evaluate the predictive posterior
 # at the test sites. In our
-# [Poisson Regression](https://docs.jaxgaussianprocesses.com/_examples/poisson/), this
+# [Poisson Regression](poisson.py), this
 # process is done manually. However, by virtue of using Numpyro here, we may instead
 # use Numpyro's `Predictive` object to handle this process for us. Once samples are
 # drawn from the predictive posterior distribution, we may evaluate the mean and 95%
@@ -271,7 +271,7 @@ ax.legend()
 # presentation given here is designed to best illustrate *how* the two libraries
 # integrate. For a closer look at the more complex models that one may build by
 # integrating Numpyro and GPJax, see our
-# [Spatial Semi-Linear Model](https://docs.jaxgaussianprocesses.com/_examples/spatial_linear_gp)
+# [Spatial Semi-Linear Model](spatial_linear_gp.py)
 # notebook.
 
 

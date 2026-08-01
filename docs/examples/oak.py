@@ -67,8 +67,9 @@ colours = mpl.rcParams["axes.prop_cycle"].by_key()["color"]
 # ### Additive GP decomposition
 #
 # A standard GP with a single kernel $k(\mathbf{x}, \mathbf{x}')$ treats all
-# input dimensions jointly.  An additive GP instead decomposes the latent
-# function as
+# input dimensions jointly, and the resulting fit tells you little about which
+# dimension did what.  An additive GP instead decomposes
+# the latent function as
 #
 # $$
 # \begin{aligned}
@@ -252,11 +253,14 @@ test_data = gpx.Dataset(X=X_test, y=y_test)
 # ## Fitting an OAK GP
 #
 # We create $D$ independent RBF base kernels, one per input dimension, each
-# operating on a single dimension via `active_dims=[i]`.  These are wrapped
-# inside `OrthogonalAdditiveKernel` with `max_order=D` (i.e. we allow all
-# interaction orders).  The kernel is then used in a standard conjugate GP
+# operating on a single dimension via `active_dims=[i]` (the
+# [kernel guide](constructing_new_kernels.py#active-dimensions) explains this
+# argument).  These are wrapped inside
+# [`OrthogonalAdditiveKernel`](../reference/kernels.md) with `max_order=D`
+# (i.e. we allow all interaction orders).  The kernel is then used in a standard conjugate GP
 # workflow: define a prior and Gaussian likelihood, form the posterior, and
-# optimise hyperparameters by maximising the marginal log-likelihood.
+# optimise hyperparameters by maximising the marginal log-likelihood, exactly as
+# in the [regression notebook](regression.py).
 
 # %%
 base_kernels = [gpx.kernels.RBF(active_dims=[i]) for i in range(num_features)]

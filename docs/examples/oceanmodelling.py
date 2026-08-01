@@ -268,11 +268,14 @@ dataset_ground_truth = dataset_3d(pos_test, vel_test)
 # kernels for each dimension. What this means is that there are no correlations between
 # the $x^{(0)}$ and $x^{(1)}$ dimensions for all choices $\mathbf{X}$ and
 # $\mathbf{X}^{\prime}$, since there are no off-diagonal elements in the Gram matrix
-# populated by this choice.
+# populated by this choice. Where those off-diagonal blocks are wanted, the
+# coregionalisation models of the
+# [multi-output notebook](multioutput.py) learn them from the data; here we instead
+# obtain cross-dimension structure from physics, via the Helmholtz decomposition below.
 #
 # To implement this approach in GPJax, we define `VelocityKernel` in the following cell,
 # following the steps outlined in the [custom kernels
-# notebook](https://docs.jaxgaussianprocesses.com/_examples/constructing_new_kernels/#custom-kernel).
+# notebook](constructing_new_kernels.py#custom-kernel).
 # This modular implementation takes the choice of user kernels as its class attributes:
 # `kernel0` and `kernel1`. We must additionally pass the argument `active_dims = [0,1]`,
 # which is an attribute of the base class `AbstractKernel`, into the chosen kernels.
@@ -339,7 +342,7 @@ velocity_posterior = initialise_gp(kernel, mean, dataset_train)
 # of our likelihood over $D_0$. This is done by minimising the MLL using `BFGS`. We also
 # plot its value at each step to visually confirm that we have found the minimum. See
 # the  [introduction to Gaussian
-# Processes](https://docs.jaxgaussianprocesses.com/_examples/intro_to_gps/) notebook for
+# Processes](intro_to_gps.py) notebook for
 # more information on optimising the MLL.
 
 

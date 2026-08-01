@@ -19,6 +19,9 @@
 #
 # In this notebook we demonstrate how to perform inference for Gaussian process models
 # with non-Gaussian likelihoods via maximum a posteriori (MAP). We focus on a classification task here.
+# The conjugate case, where a Gaussian likelihood leaves the posterior available in
+# closed form, is covered in the [regression notebook](regression.py); everything that
+# follows is a consequence of losing that closed form.
 
 # %%
 import equinox as eqx
@@ -91,7 +94,9 @@ ax.scatter(x, y)
 #
 # We begin by defining a Gaussian process prior with a radial basis function (RBF)
 # kernel, chosen for the purpose of exposition. Since our observations are binary, we
-# choose a Bernoulli likelihood with a probit link function.
+# choose a Bernoulli likelihood with a probit link function. Our
+# [likelihood guide](likelihoods_guide.py#link-functions) shows what that link function
+# does to the latent distribution.
 
 # %%
 kernel = gpx.kernels.RBF()
@@ -114,7 +119,9 @@ print(type(posterior))
 # posterior, and we must instead adopt alternative inference techniques. We begin with
 # maximum a posteriori (MAP) estimation, a fast inference procedure to obtain point
 # estimates for the latent function and the kernel's hyperparameters by maximising the
-# marginal log-likelihood.
+# marginal log-likelihood. Sampling the latent function instead of optimising it is the
+# other route out of this problem, and we take it in the
+# [count data regression notebook](poisson.py).
 
 # %% [markdown]
 # We can obtain a MAP estimate by optimising the log-posterior density with

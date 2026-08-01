@@ -23,7 +23,12 @@
 # In order to arrive at a computationally tractable method, the approximate posterior
 # is parameterized via a set of $m$ pseudo-points $\boldsymbol{z}$. Critically, the
 # approach leads to $\mathcal{O}(nm^2)$ complexity for approximate maximum likelihood
-# learning and $O(m^2)$ per test point for prediction.
+# learning and $O(m^2)$ per test point for prediction. The bound used here is
+# _collapsed_: the variational parameters are solved for analytically, which requires a
+# conjugate (Gaussian) likelihood and a pass over the full dataset. Lifting either
+# restriction — a non-Gaussian likelihood, or mini-batched optimisation — calls for
+# the uncollapsed bound of the
+# [sparse stochastic variational inference notebook](uncollapsed_vi.py).
 
 # %%
 # Enable Float64 for more stable matrix inversions.
@@ -132,7 +137,7 @@ q = gpx.variational_families.CollapsedVariationalGaussian(
 # %% [markdown]
 # We now train our model akin to a Gaussian process regression model via the `fit`
 # abstraction. Unlike the regression example given in the
-# [conjugate regression notebook](https://docs.jaxgaussianprocesses.com/_examples/regression/),
+# [conjugate regression notebook](regression.py),
 # the inducing locations that induce our variational posterior distribution are now
 # part of the model's parameters. Using a gradient-based optimiser, we can then
 # _optimise_ their location such that the evidence lower bound is maximised.
@@ -222,7 +227,8 @@ plt.show()
 # ## Runtime comparison
 #
 # Given the size of the data being considered here, inference in a GP with a full-rank
-# covariance matrix is possible, albeit quite slow. We can therefore compare the
+# covariance matrix is possible, albeit quite slow — the cubic cost described in
+# [the sharp bits](../sharp_bits.md#slow-to-evaluate). We can therefore compare the
 # speedup that we get from using the above sparse approximation with corresponding
 # bound on the marginal log-likelihood against the marginal log-likelihood in the
 # full model.
