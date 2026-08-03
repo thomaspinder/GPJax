@@ -152,7 +152,7 @@ jobs:
 
       - name: Comment the preview URL on the PR
         if: steps.netlify.outputs.url != ''
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: docs-preview
           message: |
