@@ -19,6 +19,17 @@ def add_jitter(matrix: Array, jitter: float | Array = 1e-6) -> Array:
     return matrix + jnp.eye(matrix.shape[0]) * jitter
 
 
+def stabilised_cholesky(matrix: Array, jitter: float | Array) -> Array:
+    """Lower Cholesky factor of ``matrix + jitter * I``.
+
+    The single stabilise-and-factor entry point for GP conditioning: the
+    jitter policy is applied here and nowhere else. Structure-aware
+    dispatch over lineax operators arrives with the linalg deepening; the
+    interface will not change.
+    """
+    return jnp.linalg.cholesky(add_jitter(matrix, jitter))
+
+
 @functools.singledispatch
 def cholesky_factor(op: lx.AbstractLinearOperator) -> lx.AbstractLinearOperator:
     """Cholesky factor of a PSD operator. Returns lower-triangular L s.t. A = L L^T."""
