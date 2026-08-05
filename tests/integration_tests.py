@@ -46,6 +46,7 @@ class Result:
 
     def __post_init__(self):
         self.name: str = self.path.split("/")[-1].split(".")[0].replace("_", "-")
+        self.failures: list = []
 
     def _compare(
         self,
@@ -56,11 +57,14 @@ class Result:
     ):
         if variable_name == "history" and not self.compare_history:
             return
-        try:
-            value = operation(observed_variables[variable_name])
-            assert abs(true_value - value) < self.precision
-        except AssertionError as e:
-            print(e)
+        value = operation(observed_variables[variable_name])
+        if not abs(true_value - value) < self.precision:
+            message = (
+                f"{self.name}: {variable_name} drifted from golden value "
+                f"{true_value} (got {value}, precision {self.precision})"
+            )
+            print(message)
+            self.failures.append(message)
 
     def test(self):
         notebook = jupytext.read(self.path)
@@ -100,6 +104,11 @@ class Result:
             truth, op = v
             self._compare(
                 observed_variables=loc, variable_name=k, true_value=truth, operation=op
+            )
+        if self.failures:
+            raise AssertionError(
+                f"{self.name}: golden-value drift detected:\n"
+                + "\n".join(self.failures)
             )
 
 
