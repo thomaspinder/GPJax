@@ -31,10 +31,14 @@ class Dataset:
     Args:
         X: input data.
         y: output data.
+        n_total: full-dataset size when this object is a minibatch view of a
+            larger dataset (stamped by ``gpjax.fit.get_batch``); ``None`` means
+            the dataset is self-describing (``n_total == n``).
     """
 
     X: Optional[Num[Array, "N D"]] = None
     y: Optional[Num[Array, "N Q"]] = None
+    n_total: Optional[int] = None
 
     def __post_init__(self) -> None:
         r"""Checks that the shapes of $X$ and $y$ are compatible,
@@ -93,11 +97,11 @@ class Dataset:
         return self.y.shape[1]
 
     def tree_flatten(self):
-        return (self.X, self.y), None
+        return (self.X, self.y), self.n_total
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
-        return cls(*children)
+        return cls(*children, n_total=aux_data)
 
 
 def _check_shape(

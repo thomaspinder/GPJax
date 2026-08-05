@@ -388,7 +388,8 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
     # Subsample mini-batch indices with replacement.
     indices = jr.choice(key, n, (batch_size,), replace=True)
 
-    return Dataset(X=x[indices], y=y[indices])
+    full_size = train_data.n_total if train_data.n_total is not None else n
+    return Dataset(X=x[indices], y=y[indices], n_total=full_size)
 
 
 def _check_model(model: tp.Any) -> None:
