@@ -323,12 +323,8 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     var_exp = variational_expectation(variational_family, data)
 
     # For batch size b, we compute  n/b * sum_i[ int log(p(y|f(xi))) q(f(xi)) df(xi)] - KL[q(f(.)) || p(f(.))]
-    return (
-        jnp.sum(var_exp)
-        * variational_family.posterior.likelihood.num_datapoints
-        / data.n
-        - kl
-    )
+    full_size = data.n_total if data.n_total is not None else data.n
+    return jnp.sum(var_exp) * full_size / data.n - kl
 
 
 def variational_expectation(
@@ -529,7 +525,8 @@ def heteroscedastic_elbo_conjugate(
         return_parts=True,
     )
 
-    scale = likelihood.num_datapoints / data.n
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 
@@ -550,7 +547,8 @@ def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> Scal
         noise_stats=noise_stats,
     )
 
-    scale = likelihood.num_datapoints / data.n
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 

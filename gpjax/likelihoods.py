@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import beartype.typing as tp
 import equinox as eqx
@@ -43,9 +42,6 @@ from gpjax.typing import (
     Array,
     ScalarFloat,
 )
-
-if TYPE_CHECKING:
-    from gpjax.gps import Prior
 
 
 def _diagonal_scale(op):
@@ -85,22 +81,18 @@ class AbstractLikelihood(_SummaryMixin, eqx.Module):
     `link_function` methods.
     """
 
-    num_datapoints: int = eqx.field(static=True)
     integrator: AbstractIntegrator = eqx.field(static=True)
 
     def __init__(
         self,
-        num_datapoints: int,
         integrator: AbstractIntegrator = GHQuadratureIntegrator(),
     ):
         """Initializes the likelihood.
 
         Args:
-            num_datapoints (int): the number of data points.
             integrator (AbstractIntegrator): The integrator to be used for computing expected log
                 likelihoods. Must be an instance of `AbstractIntegrator`.
         """
-        self.num_datapoints = num_datapoints
         self.integrator = integrator
 
     def __call__(
@@ -254,21 +246,16 @@ class SoftplusTransform(AbstractNoiseTransform):
 class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
     r"""Base class for heteroscedastic likelihoods with latent noise processes."""
 
-    noise_prior: tp.Any
     noise_transform: AbstractNoiseTransform
 
     def __init__(
         self,
-        num_datapoints: int,
-        noise_prior: Prior,
         noise_transform: tp.Union[
             AbstractNoiseTransform,
             tp.Callable[[Float[Array, ...]], Float[Array, ...]],
         ] = SoftplusTransform(),
         integrator: AbstractIntegrator = GHQuadratureIntegrator(),
     ):
-        self.noise_prior = noise_prior
-
         if isinstance(noise_transform, AbstractNoiseTransform):
             self.noise_transform = noise_transform
         else:
@@ -281,7 +268,7 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
                 # Users should implement AbstractNoiseTransform for custom transforms.
                 self.noise_transform = SoftplusTransform()
 
-        super().__init__(num_datapoints=num_datapoints, integrator=integrator)
+        super().__init__(integrator=integrator)
 
     def __call__(
         self,
@@ -331,14 +318,12 @@ class Gaussian(AbstractLikelihood):
 
     def __init__(
         self,
-        num_datapoints: int,
         obs_stddev: tp.Union[ScalarFloat, Float[Array, "#N"], NonNegativeReal] = 1.0,
         integrator: AbstractIntegrator = AnalyticalGaussianIntegrator(),
     ):
         r"""Initializes the Gaussian likelihood.
 
         Args:
-            num_datapoints (int): the number of data points.
             obs_stddev (Union[ScalarFloat, Float[Array, "#N"]]): the standard deviation
                 of the Gaussian observation noise.
             integrator (AbstractIntegrator): The integrator to be used for computing expected log
@@ -350,7 +335,7 @@ class Gaussian(AbstractLikelihood):
         self.obs_stddev = obs_stddev
         self.num_outputs = 1
 
-        super().__init__(num_datapoints, integrator)
+        super().__init__(integrator)
 
     def link_function(self, f: Float[Array, ...]) -> npd.Normal:
         r"""The link function of the Gaussian likelihood.
@@ -412,21 +397,18 @@ class MultiOutputGaussian(Gaussian):
     """Gaussian likelihood with per-output noise variance.
 
     Args:
-        num_datapoints: Total number of observations (N, not N*P).
         num_outputs: Number of output dimensions (P).
         obs_stddev: Per-output noise standard deviation. Scalar broadcasts to [P].
     """
 
     def __init__(
         self,
-        num_datapoints: int,
         num_outputs: int,
         obs_stddev: tp.Union[float, Float[Array, " P"]] = 1.0,
     ):
         if isinstance(obs_stddev, (int, float)):
             obs_stddev = jnp.full(num_outputs, float(obs_stddev))
         super().__init__(
-            num_datapoints=num_datapoints,
             obs_stddev=NonNegativeReal(jnp.asarray(obs_stddev)),
         )
         self.num_outputs = num_outputs
