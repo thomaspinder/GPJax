@@ -1,0 +1,417 @@
+# Copyright 2026 The GPJax Contributors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+r"""The deep conditioning module.
+
+Conditioning a Gaussian process on data is one computation: stabilise and
+factor the training covariance once, then derive every downstream quantity —
+the predictive distribution, the log marginal likelihood (evidence),
+leave-one-out densities, and pathwise samples — as views of that single
+factorisation. This module is the one home of that algebra.
+
+A :class:`Posterior` is an immutable pytree produced by
+``model.condition(train_data)`` (equivalently ``model | train_data``). It
+caches the Cholesky factor and representer weights, so repeated queries never
+re-factorise.
+"""
+
+from abc import abstractmethod
+from typing import Literal
+import warnings
+
+import beartype.typing as tp
+import equinox as eqx
+import jax.numpy as jnp
+import jax.random as jr
+import jax.scipy as jsp
+from jaxtyping import (
+    Float,
+    Num,
+)
+import lineax as lx
+import numpyro.distributions as npd
+
+from gpjax.dataset import Dataset
+from gpjax.distributions import GaussianDistribution
+from gpjax.kernels import RFF
+from gpjax.linalg.utils import stabilised_cholesky
+from gpjax.parameters import _val
+from gpjax.typing import (
+    Array,
+    FunctionalSample,
+    KeyArray,
+    ScalarFloat,
+)
+
+
+class Posterior(eqx.Module):
+    r"""A conditioned Gaussian process, :math:`p(f \mid \mathcal{D})`.
+
+    The result of conditioning a joint model on data. Immutable: the
+    factorisation of the training covariance is computed once at
+    ``condition`` time and cached on this object; every query is a view of
+    it. Query the process at test inputs by calling it::
+
+        posterior = model.condition(train_data)   # or: model | train_data
+        predictive = posterior(test_inputs)
+    """
+
+    @abstractmethod
+    def __call__(
+        self,
+        test_inputs: Num[Array, "N D"],
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        r"""Evaluate the conditioned process at the given test inputs.
+
+        Args:
+            test_inputs: Input locations at which to query the process.
+            covariance: Whether to return the dense joint covariance over the
+                test inputs or only the marginal (diagonal) variances.
+
+        Returns:
+            GaussianDistribution: The predictive distribution at the inputs.
+        """
+        raise NotImplementedError
+
+    def predict(
+        self,
+        test_inputs: Num[Array, "N D"],
+        train_data: tp.Optional[Dataset] = None,
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        r"""Sugar for calling the posterior: ``predict(t) == self(t)``.
+
+        Retained for signature compatibility with the pre-v1.0 API;
+        ``train_data`` is accepted and ignored — this process is already
+        conditioned on its training set.
+        """
+        del train_data
+        return self(test_inputs, covariance=covariance)
+
+
+class ExactPosterior(Posterior):
+    r"""Exactly conditioned GP: a Gaussian likelihood integrated analytically.
+
+    Caches the lower Cholesky factor of
+    :math:`\Sigma = K_{xx} + \texttt{jitter}\,\mathbf{I} + \mathrm{diag}(\sigma^2)`
+    and the representer weights :math:`\alpha = \Sigma^{-1}(y - m(x))`. The
+    predictive moments, the evidence, LOO densities, and pathwise samples are
+    all views of these two objects.
+    """
+
+    prior: tp.Any
+    likelihood: tp.Any
+    train_data: Dataset
+    cholesky_factor: Float[Array, "NP NP"]
+    representer_weights: Float[Array, "NP 1"]
+    residual: Float[Array, "NP 1"]
+    log_marginal_likelihood: ScalarFloat
+
+    def __init__(self, prior: tp.Any, likelihood: tp.Any, train_data: Dataset):
+        from gpjax.kernels.multioutput.base import MultiOutputKernel
+
+        kernel = prior.kernel
+        if isinstance(kernel, MultiOutputKernel):
+            if not train_data.multi_output:
+                raise ValueError("MultiOutputKernel requires multi-output data.")
+            if train_data.num_outputs != kernel.num_outputs:
+                raise ValueError(
+                    f"Dataset has {train_data.num_outputs} outputs "
+                    f"but kernel expects {kernel.num_outputs}."
+                )
+
+        x, y = train_data.X, train_data.y
+        mean_x = prior.mean_function(x)
+        y_flat, mean_flat = likelihood.prepare_targets(y, mean_x)
+        noise = likelihood.noise_vector(train_data.n)
+
+        gram_plus_noise = kernel.gram(x).as_matrix() + jnp.diag(noise)
+        factor = stabilised_cholesky(gram_plus_noise, prior.jitter)
+        residual = (y_flat - mean_flat).reshape(-1, 1)
+        weights = jsp.linalg.cho_solve((factor, True), residual)
+
+        num_scalars = residual.shape[0]
+        half_logdet = jnp.sum(jnp.log(jnp.diagonal(factor)))
+        evidence = (
+            -0.5
+            * (
+                jnp.sum(residual * weights)
+                + num_scalars * jnp.log(2.0 * jnp.pi)
+            )
+            - half_logdet
+        )
+
+        self.prior = prior
+        self.likelihood = likelihood
+        self.train_data = train_data
+        self.cholesky_factor = factor
+        self.representer_weights = weights
+        self.residual = residual
+        self.log_marginal_likelihood = jnp.squeeze(evidence)
+
+    def __call__(
+        self,
+        test_inputs: Num[Array, "N D"],
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        kernel = self.prior.kernel
+        x = self.train_data.X
+        num_outputs = self.likelihood.num_outputs
+
+        cross_cov = kernel.cross_covariance(x, test_inputs)
+        solved_cross = jsp.linalg.solve_triangular(
+            self.cholesky_factor, cross_cov, lower=True
+        )
+
+        mean_test_raw = self.prior.mean_function(test_inputs)
+        mean_test = (
+            jnp.tile(mean_test_raw, (num_outputs, 1))
+            if num_outputs > 1
+            else mean_test_raw
+        )
+        mean = mean_test + jnp.matmul(cross_cov.T, self.representer_weights)
+
+        if covariance == "diagonal" and num_outputs > 1:
+            warnings.warn(
+                "Diagonal covariance is not yet supported for multi-output GPs. "
+                "Returning full covariance.",
+                stacklevel=2,
+            )
+            covariance = "dense"
+
+        if covariance == "dense":
+            test_gram = kernel.gram(test_inputs).as_matrix()
+            predictive_cov = test_gram - jnp.matmul(solved_cross.T, solved_cross)
+            predictive_cov = predictive_cov + self.prior.jitter * jnp.eye(
+                predictive_cov.shape[0]
+            )
+            scale = lx.MatrixLinearOperator(predictive_cov)
+        else:
+            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            marginal_var = (
+                test_var_diag
+                - jnp.einsum("ij,ji->i", solved_cross.T, solved_cross)
+                + self.prior.jitter
+            )
+            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
+
+        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+
+    def loo(self) -> Float[Array, " NP"]:
+        r"""Per-point leave-one-out predictive log-densities.
+
+        Computed from the cached factor via Rasmussen & Williams eq. 5.12 —
+        no model is refit. Sum the result for the LOOCV objective.
+        """
+        factor = self.cholesky_factor
+        num_scalars = factor.shape[0]
+        factor_inv = jsp.linalg.solve_triangular(
+            factor, jnp.eye(num_scalars), lower=True
+        )
+        precision_diag = jnp.sum(factor_inv**2, axis=0).reshape(-1, 1)
+
+        loo_means = (
+            self.residual - self.representer_weights / precision_diag
+        )
+        loo_vars = 1.0 / precision_diag
+        loo_dist = npd.Normal(loc=loo_means, scale=jnp.sqrt(loo_vars))
+        return loo_dist.log_prob(self.residual).squeeze(-1)
+
+    def sample_approx(
+        self,
+        num_samples: int,
+        key: KeyArray,
+        num_features: int | None = 100,
+    ) -> FunctionalSample:
+        r"""Draw approximate posterior samples via pathwise conditioning.
+
+        Decomposes each sample into Fourier features of the prior plus
+        canonical features weighted through the cached training factor
+        (Wilson et al., 2020).
+
+        Args:
+            num_samples: The desired number of samples.
+            key: The random seed used for the sample(s).
+            num_features: The number of Fourier features used to approximate
+                the prior component of each sample.
+
+        Returns:
+            FunctionalSample: A function evaluating the sample draws at any
+                inputs; the same draw is returned for all queries.
+        """
+        if (not isinstance(num_samples, int)) or num_samples <= 0:
+            raise ValueError("num_samples must be a positive integer")
+        if self.likelihood.num_outputs > 1:
+            raise ValueError(
+                "sample_approx does not support multi-output likelihoods yet."
+            )
+
+        freq_key, weight_key, noise_key = jr.split(key, 3)
+        fourier_feature_fn = _build_fourier_features_fn(
+            self.prior, num_features, freq_key
+        )
+        fourier_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
+
+        x = self.train_data.X
+        obs_var = _val(self.likelihood.obs_stddev) ** 2
+        observation_noise = jnp.sqrt(obs_var) * jr.normal(
+            noise_key, [self.train_data.n, num_samples]
+        )
+        prior_features = fourier_feature_fn(x)
+        perturbed_residual = (
+            self.residual
+            + observation_noise
+            - jnp.inner(prior_features, fourier_weights)
+        )
+        canonical_weights = jsp.linalg.cho_solve(
+            (self.cholesky_factor, True), perturbed_residual
+        )
+
+        def sample_fn(test_inputs: Float[Array, "n D"]) -> Float[Array, "n B"]:
+            fourier_features = fourier_feature_fn(test_inputs)
+            weight_space_contribution = jnp.inner(fourier_features, fourier_weights)
+            canonical_features = self.prior.kernel.cross_covariance(test_inputs, x)
+            function_space_contribution = jnp.matmul(
+                canonical_features, canonical_weights
+            )
+            return (
+                self.prior.mean_function(test_inputs)
+                + weight_space_contribution
+                + function_space_contribution
+            )
+
+        return sample_fn
+
+
+class LatentPosterior(Posterior):
+    r"""Approximately conditioned GP for non-Gaussian likelihoods.
+
+    Conditioning is on the model's whitened latent vector rather than on the
+    observations directly: the cached factor is the prior gram's Cholesky, and
+    the latent plays the role of the representer weights. The joint
+    log-density (``log_posterior_density``) is the quantity MCMC or MAP
+    optimisation targets.
+    """
+
+    prior: tp.Any
+    likelihood: tp.Any
+    train_data: Dataset
+    cholesky_factor: Float[Array, "N N"]
+    latent: Float[Array, "N 1"]
+
+    def __init__(
+        self,
+        prior: tp.Any,
+        likelihood: tp.Any,
+        latent: tp.Any,
+        train_data: Dataset,
+    ):
+        self.prior = prior
+        self.likelihood = likelihood
+        self.train_data = train_data
+        self.cholesky_factor = stabilised_cholesky(
+            prior.kernel.gram(train_data.X).as_matrix(), prior.jitter
+        )
+        self.latent = _val(latent)
+
+    def __call__(
+        self,
+        test_inputs: Num[Array, "N D"],
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        kernel = self.prior.kernel
+        x = self.train_data.X
+
+        cross_cov = kernel.cross_covariance(x, test_inputs)
+        solved_cross = jsp.linalg.solve_triangular(
+            self.cholesky_factor, cross_cov, lower=True
+        )
+
+        mean_test = self.prior.mean_function(test_inputs)
+        mean = mean_test + jnp.matmul(solved_cross.T, self.latent)
+
+        if covariance == "dense":
+            test_gram = kernel.gram(test_inputs).as_matrix()
+            predictive_cov = test_gram - jnp.matmul(solved_cross.T, solved_cross)
+            predictive_cov = predictive_cov + self.prior.jitter * jnp.eye(
+                predictive_cov.shape[0]
+            )
+            scale = lx.MatrixLinearOperator(predictive_cov)
+        else:
+            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            marginal_var = (
+                test_var_diag
+                - jnp.einsum("ij,ji->i", solved_cross.T, solved_cross)
+                + self.prior.jitter
+            )
+            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
+
+        return GaussianDistribution(jnp.atleast_1d(mean.squeeze()), scale)
+
+    @property
+    def log_posterior_density(self) -> ScalarFloat:
+        r"""Unnormalised log-posterior density of the whitened latent model.
+
+        :math:`\log p(y \mid f(x)) + \log \mathcal{N}(w_x \mid 0, I)` where
+        :math:`f(x) = m(x) + L_x w_x`.
+        """
+        mean_x = self.prior.mean_function(self.train_data.X)
+        latent_function = mean_x + self.cholesky_factor @ self.latent
+        observation_density = self.likelihood.link_function(latent_function)
+        whitened_prior = npd.Normal(loc=0.0, scale=1.0)
+        return (
+            observation_density.log_prob(self.train_data.y).sum()
+            + whitened_prior.log_prob(self.latent).sum()
+        )
+
+
+def _build_fourier_features_fn(
+    prior: tp.Any, num_features: int, key: KeyArray
+) -> tp.Callable[[Float[Array, "N D"]], Float[Array, "N L"]]:
+    r"""Return a function evaluating features sampled from the Fourier feature
+    decomposition of the prior's kernel.
+
+    Args:
+        prior (Prior): The Prior distribution.
+        num_features (int): The number of feature functions to be sampled.
+        key (KeyArray): The random seed used.
+
+    Returns:
+        Callable: A callable function evaluating the sampled feature functions.
+    """
+    if (not isinstance(num_features, int)) or num_features <= 0:
+        raise ValueError("num_features must be a positive integer")
+
+    approximate_kernel = RFF(
+        base_kernel=prior.kernel, num_basis_fns=num_features, key=key
+    )
+
+    def eval_fourier_features(test_inputs: Float[Array, "N D"]) -> Float[Array, "N L"]:
+        feature_matrix = approximate_kernel.compute_features(x=test_inputs)
+        feature_matrix *= jnp.sqrt(_val(prior.kernel.variance) / num_features)
+        return feature_matrix
+
+    return eval_fourier_features
+
+
+__all__ = [
+    "ExactPosterior",
+    "LatentPosterior",
+    "Posterior",
+]

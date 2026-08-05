@@ -10,7 +10,7 @@ import lineax as lx
 import paramax
 
 from gpjax.distributions import GaussianDistribution
-from gpjax.gps import ConjugatePosterior, Prior
+from gpjax.gps import ConjugateModel, Prior
 from gpjax.likelihoods import Gaussian, MultiOutputGaussian
 
 
@@ -25,7 +25,7 @@ class StateSpacePrior(Prior):
     covariance only; the marginals are exact. A dense joint predictive is not
     implemented in v1 and is tracked as a follow-up. This predictive is
     therefore not Liskov-substitutable for a dense
-    ``gpjax.gps.ConjugatePosterior`` predictive.
+    dense ``gpjax.gps.ConjugateModel`` predictive.
 
     Example:
         >>> import gpjax as gpx
@@ -38,16 +38,16 @@ class StateSpacePrior(Prior):
         True
     """
 
-    def __call__(self, test_inputs, *, return_covariance_type="diagonal"):
-        return self.predict(test_inputs, return_covariance_type=return_covariance_type)
+    def __call__(self, test_inputs, *, covariance="diagonal"):
+        return self.predict(test_inputs, covariance=covariance)
 
-    def predict(self, test_inputs, *, return_covariance_type="diagonal"):
-        if return_covariance_type != "diagonal":
+    def predict(self, test_inputs, *, covariance="diagonal"):
+        if covariance != "diagonal":
             raise NotImplementedError(
                 "State-space prior prediction returns diagonal (marginal) covariance "
                 "only; a dense joint predictive is not implemented in v1 and is "
                 "tracked as a follow-up. The marginal variances returned are exact, "
-                "so for diagonal-only use pass return_covariance_type='diagonal'."
+                "so for diagonal-only use pass covariance='diagonal'."
             )
         from gpjax.state_space.kernels import to_sde
 
@@ -68,7 +68,7 @@ class StateSpacePrior(Prior):
         return StateSpaceConjugatePosterior(prior=self, likelihood=other)
 
 
-class StateSpaceConjugatePosterior(ConjugatePosterior):
+class StateSpaceConjugatePosterior(ConjugateModel):
     """Conjugate posterior for a state-space (Markovian) GP.
 
     v1 prediction surface:
@@ -76,14 +76,14 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
       - ``predict_filter`` : causal filtered prediction (Phase 10)
       - ``__call__``       : delegates to ``predict``
 
-    Both ``predict`` and ``predict_filter`` reject ``return_covariance_type="dense"``
+    Both ``predict`` and ``predict_filter`` reject ``covariance="dense"``
     in favour of v1's diagonal-only contract before any further dispatch.
 
     **Predictive contract (v1):** prediction returns diagonal (marginal)
     covariance only; the marginals are exact. A dense joint predictive is not
     implemented in v1 and is tracked as a follow-up. This predictive is
     therefore not Liskov-substitutable for a dense
-    ``gpjax.gps.ConjugatePosterior`` predictive.
+    dense ``gpjax.gps.ConjugateModel`` predictive.
 
     Example:
         >>> import gpjax as gpx
@@ -92,7 +92,7 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> posterior.__class__.__name__
         'StateSpaceConjugatePosterior'
@@ -103,13 +103,13 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
         test_inputs,
         train_data,
         *,
-        return_covariance_type="diagonal",
+        covariance="diagonal",
         observation_mask=None,
     ):
         return self.predict(
             test_inputs,
             train_data,
-            return_covariance_type=return_covariance_type,
+            covariance=covariance,
             observation_mask=observation_mask,
         )
 
@@ -118,16 +118,16 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
         test_inputs,
         train_data,
         *,
-        return_covariance_type="diagonal",
+        covariance="diagonal",
         observation_mask=None,
     ):
-        if return_covariance_type != "diagonal":
+        if covariance != "diagonal":
             raise NotImplementedError(
                 "State-space posterior predict returns diagonal (marginal) "
                 "covariance only; a dense joint predictive is not implemented in v1 "
                 "and is tracked as a follow-up. The marginal variances returned are "
                 "exact, so for diagonal-only use pass "
-                "return_covariance_type='diagonal'."
+                "covariance='diagonal'."
             )
         from gpjax.state_space.prediction import predict_smoothed
 
@@ -140,16 +140,16 @@ class StateSpaceConjugatePosterior(ConjugatePosterior):
         test_inputs,
         train_data,
         *,
-        return_covariance_type="diagonal",
+        covariance="diagonal",
         observation_mask=None,
     ):
-        if return_covariance_type != "diagonal":
+        if covariance != "diagonal":
             raise NotImplementedError(
                 "State-space posterior predict_filter returns diagonal (marginal) "
                 "covariance only; a dense joint predictive is not implemented in v1 "
                 "and is tracked as a follow-up. The marginal variances returned are "
                 "exact, so for diagonal-only use pass "
-                "return_covariance_type='diagonal'."
+                "covariance='diagonal'."
             )
         from gpjax.state_space.prediction import predict_filtered
 

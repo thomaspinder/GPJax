@@ -66,7 +66,7 @@ def fit(
         >>>
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
         >>>
@@ -108,6 +108,8 @@ def fit(
         _check_batch_size(batch_size)
         _check_log_rate(log_rate)
         _check_verbose(verbose)
+
+    model = _prepare_model(model, train_data)
 
     # Use paramax.unwrap for the constrained -> unconstrained -> constrained cycle.
     # paramax handles the bijection automatically via AbstractUnwrappable subclasses.
@@ -192,7 +194,7 @@ def fit_scipy(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
@@ -207,6 +209,8 @@ def fit_scipy(
         _check_train_data(train_data)
         _check_num_iters(max_iters)
         _check_verbose(verbose)
+
+    model = _prepare_model(model, train_data)
 
     # Split model into trainable arrays and static parts
     params, static = eqx.partition(model, eqx.is_array)
@@ -287,7 +291,7 @@ def fit_lbfgs(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
@@ -301,6 +305,8 @@ def fit_lbfgs(
         _check_model(model)
         _check_train_data(train_data)
         _check_num_iters(max_iters)
+
+    model = _prepare_model(model, train_data)
 
     # Split model into trainable arrays and static parts
     params, static = eqx.partition(model, eqx.is_array)
@@ -390,6 +396,19 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
 
     full_size = train_data.n_total if train_data.n_total is not None else n
     return Dataset(X=x[indices], y=y[indices], n_total=full_size)
+
+
+def _prepare_model(model: Model, train_data: Dataset) -> Model:
+    """Run any data-dependent initialisation the model defines.
+
+    JointModels use this to size lazily-initialised state (e.g. the
+    non-conjugate latent vector) from the training data.
+    """
+    from gpjax.gps import JointModel
+
+    if isinstance(model, JointModel):
+        return model._prepare(train_data)
+    return model
 
 
 def _check_model(model: tp.Any) -> None:

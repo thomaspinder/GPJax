@@ -45,7 +45,7 @@ def state_space_mll(
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> train_data = gpx.Dataset(X=X, y=y)
         >>> mll = state_space_mll(posterior, train_data)

@@ -298,11 +298,10 @@ class OILMMModel(eqx.Module):
 
             # Create likelihood with projected noise
             likelihood = Gaussian(
-                num_datapoints=dataset.n,
                 obs_stddev=jnp.sqrt(projected_noise_vars[i]),
             )
 
-            # Standard GPJax conditioning: Prior * Likelihood -> ConjugatePosterior
+            # Standard GPJax conditioning: Prior * Likelihood -> ConjugateModel
             latent_posteriors.append(self.latent_priors[i] * likelihood)
 
         return OILMMPosterior(
@@ -315,7 +314,7 @@ class OILMMModel(eqx.Module):
 class OILMMPosterior:
     """Posterior distribution for OILMM.
 
-    Wraps M independent ConjugatePosterior objects and provides a unified
+    Wraps M independent ConjugateModel objects and provides a unified
     predict() interface that reconstructs predictions in output space.
 
     This is a plain class (not eqx.Module) because it holds Dataset objects
@@ -323,7 +322,7 @@ class OILMMPosterior:
     are still eqx.Modules and participate in JAX transformations when accessed.
 
     Attributes:
-        latent_posteriors: Tuple of M independent ConjugatePosterior objects
+        latent_posteriors: Tuple of M independent ConjugateModel objects
         latent_datasets: Tuple of M projected training Datasets (one per latent GP)
         mixing_matrix: OrthogonalMixingMatrix for reconstruction
         num_latent_gps: Number of latent GPs (m)
@@ -338,7 +337,7 @@ class OILMMPosterior:
         """Initialize OILMM posterior.
 
         Args:
-            latent_posteriors: Tuple of M ConjugatePosterior objects
+            latent_posteriors: Tuple of M ConjugateModel objects
             latent_datasets: Tuple of M Dataset objects (projected training data)
             mixing_matrix: OrthogonalMixingMatrix containing H, T
         """
@@ -432,8 +431,6 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
     Returns:
         Scalar log marginal likelihood.
     """
-    from gpjax.linalg.utils import add_jitter
-
     n = data.n
     p = model.num_outputs
     m = model.num_latent_gps
@@ -461,23 +458,22 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
 
     correction = term_log_S + term_noise + term_residual
 
-    # --- Latent GP log-likelihoods computed directly ---
-    # We compute each latent GP's MLL inline to avoid constructing Gaussian
-    # likelihood objects, which would trigger parameter validation checks
-    # that are incompatible with JAX's JIT tracing.
+    # --- Latent GP log-likelihoods via the conditioning module ---
+    from gpjax.conditioning import ExactPosterior
+    from gpjax.dataset import Dataset
+    from gpjax.likelihoods import Gaussian
+
     X, y_projected = model._project_observations(data)  # [N, D], [M, N]
     projected_noise_vars = mix.projected_noise_variance  # [M]
 
     latent_lls = []
     for i in range(m):
-        yi = y_projected[i]  # [N]
-        prior_i = model.latent_priors[i]
-        mx = prior_i.mean_function(X).squeeze()  # [N]
-        Kxx = prior_i.kernel.gram(X).as_matrix()  # [N, N]
-        Kxx = add_jitter(Kxx, prior_i.jitter)
-        Sigma = Kxx + projected_noise_vars[i] * jnp.eye(n)
-        dist = GaussianDistribution(jnp.atleast_1d(mx), lx.MatrixLinearOperator(Sigma))
-        latent_lls.append(dist.log_prob(jnp.atleast_1d(yi)))
+        latent_dataset = Dataset(X=X, y=y_projected[i][:, None])
+        likelihood = Gaussian(obs_stddev=jnp.sqrt(projected_noise_vars[i]))
+        conditioned = ExactPosterior(
+            model.latent_priors[i], likelihood, latent_dataset
+        )
+        latent_lls.append(conditioned.log_marginal_likelihood)
 
     return correction + jnp.sum(jnp.array(latent_lls))
 

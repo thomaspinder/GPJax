@@ -60,7 +60,7 @@ def fit_scipy(
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> fitted, history = fit_scipy(
         ...     model=posterior,
@@ -105,7 +105,7 @@ def fit_lbfgs(
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> fitted, history = fit_lbfgs(
         ...     model=posterior,
@@ -158,7 +158,7 @@ def fit(
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> fitted, history = fit(
         ...     model=posterior,

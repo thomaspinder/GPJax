@@ -5,15 +5,12 @@ from jax import vmap
 import jax.numpy as jnp
 import jax.scipy as jsp
 from jaxtyping import Float
-import lineax as lx
-import numpyro.distributions as npd
 import typing_extensions as tpe
 
 from gpjax.dataset import Dataset
-from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
-    ConjugatePosterior,
-    NonConjugatePosterior,
+    ConjugateModel,
+    NonConjugateModel,
 )
 from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
@@ -36,7 +33,7 @@ HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
 
 
-def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
+def conjugate_mll(model: ConjugateModel, data: Dataset) -> ScalarFloat:
     r"""Evaluate the marginal log-likelihood of the Gaussian process.
 
     Compute the marginal log-likelihood function of the Gaussian process.
@@ -70,11 +67,11 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function = meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = prior * likelihood
 
-        >>> gpx.objectives.conjugate_mll(posterior, D)
+        >>> gpx.objectives.conjugate_mll(model, D)
 
         Our goal is to maximise the marginal log-likelihood. Therefore, when optimising
         the model's parameters with respect to the parameters, we use the negative
@@ -83,46 +80,18 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
         >>> nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
 
     Args:
-        posterior (ConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (ConjugateModel): The joint model for which we want to compute
+            the marginal log-likelihood.
         data: The training dataset used to compute the
             marginal log-likelihood.
 
     Returns:
         ScalarFloat: The marginal log-likelihood of the Gaussian process.
     """
-
-    from gpjax.kernels.multioutput.base import MultiOutputKernel
-
-    x, y = data.X, data.y
-    kernel = posterior.prior.kernel
-    mx = posterior.prior.mean_function(x)
-
-    # Validation for multi-output models (user-facing error messages)
-    if isinstance(kernel, MultiOutputKernel):
-        if not data.multi_output:
-            raise ValueError("MultiOutputKernel requires multi-output data.")
-        if data.num_outputs != kernel.num_outputs:
-            raise ValueError(
-                f"Dataset has {data.num_outputs} outputs "
-                f"but kernel expects {kernel.num_outputs}."
-            )
-
-    # Unified path -- prepare_targets is identity for single-output,
-    # output-major reshape for multi-output
-    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
-    noise = posterior.likelihood.noise_vector(data.n)
-
-    Kxx = kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
-    Sigma_dense = Kxx_dense + jnp.diag(noise)
-    Sigma = lx.MatrixLinearOperator(Sigma_dense)
-
-    mll = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
-    return mll.log_prob(jnp.atleast_1d(y_flat.squeeze())).squeeze()
+    return model.condition(data).log_marginal_likelihood
 
 
-def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
+def conjugate_loocv(model: ConjugateModel, data: Dataset) -> ScalarFloat:
     r"""Evaluate the leave-one-out log predictive probability of the Gaussian process following
     section 5.4.2 of Rasmussen et al. 2006 - Gaussian Processes for Machine Learning. This metric
     calculates the average performance of all models that can be obtained by training on all but one
@@ -150,11 +119,11 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
         ...
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function = meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = prior * likelihood
         ...
-        >>> gpx.objectives.conjugate_loocv(posterior, D)
+        >>> gpx.objectives.conjugate_loocv(model, D)
 
         Our goal is to maximise the leave-one-out log predictive probability. Therefore, when
         optimising the model's parameters with respect to the parameters, we use the negative
@@ -163,48 +132,18 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
         >>> nloocv = lambda p, d: -gpx.objectives.conjugate_loocv(p, d)
 
     Args:
-        posterior (ConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (ConjugateModel): The joint model for which we want to compute
+            the leave-one-out predictive probability.
         data: The training dataset used to compute the
-            marginal log-likelihood.
+            leave-one-out predictive probability.
 
     Returns:
-        ScalarFloat: The marginal log-likelihood of the Gaussian process.
+        ScalarFloat: The leave-one-out log predictive probability.
     """
-
-    x, y = data.X, data.y
-
-    mx = posterior.prior.mean_function(x)
-    # Likelihood protocol: identity for single-output, output-major flatten +
-    # per-output noise for multi-output (mirrors conjugate_mll).
-    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
-    noise = posterior.likelihood.noise_vector(data.n)
-
-    # Sigma = Kxx + diag(noise) (+ jitter)
-    Kxx_dense = add_jitter(
-        posterior.prior.kernel.gram(x).as_matrix(), posterior.prior.jitter
-    )
-    Sigma_dense = Kxx_dense + jnp.diag(noise)
-    L = jnp.linalg.cholesky(Sigma_dense)
-
-    # diag(Sigma^-1) straight from L (R&W eq. 5.12) — no separate jnp.linalg.inv
-    # (folds in audit #662).
-    Linv = jsp.linalg.solve_triangular(L, jnp.eye(Sigma_dense.shape[0]), lower=True)
-    Sigma_inv_diag = jnp.sum(Linv**2, axis=0).reshape(-1, 1)  # [NP, 1]
-
-    resid = (y_flat - mx_flat).reshape(-1, 1)
-    Sigma_inv_y = jsp.linalg.cho_solve((L, True), resid)  # [NP, 1]
-
-    loocv_means = mx_flat.reshape(-1, 1) + resid - Sigma_inv_y / Sigma_inv_diag
-    loocv_stds = jnp.sqrt(1.0 / Sigma_inv_diag)
-
-    loocv_posterior = npd.Normal(loc=loocv_means, scale=loocv_stds)
-    return jnp.sum(loocv_posterior.log_prob(y_flat.reshape(-1, 1)))
+    return jnp.sum(model.condition(data).loo())
 
 
-def log_posterior_density(
-    posterior: NonConjugatePosterior, data: Dataset
-) -> ScalarFloat:
+def log_posterior_density(model: NonConjugateModel, data: Dataset) -> ScalarFloat:
     r"""The log-posterior density of a non-conjugate Gaussian process. This is
     sometimes referred to as the marginal log-likelihood.
 
@@ -233,44 +172,27 @@ def log_posterior_density(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = (prior * likelihood).init_latent(D.n)
 
-        >>> gpx.objectives.log_posterior_density(posterior, D)
+        >>> gpx.objectives.log_posterior_density(model, D)
 
     Args:
-        posterior (NonConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (NonConjugateModel): The joint model for which we want to
+            compute the log-posterior density.
         data: The training dataset used to compute the
-            marginal log-likelihood.
+            log-posterior density.
 
     Returns:
         ScalarFloat: The log-posterior density of the Gaussian process.
     """
-
-    x, y = data.X, data.y
-
-    # Gram matrix
-    Kxx = posterior.prior.kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
-    Lx = jnp.linalg.cholesky(Kxx_dense)
-
-    # Compute the prior mean function
-    mx = posterior.prior.mean_function(x)
-
-    # Whitened function values, wx, corresponding to the inputs, x
-    wx = _val(posterior.latent)
-
-    # f(x) = mx + Lx wx
-    fx = mx + Lx @ wx
-
-    # p(y | f(x), theta), where theta are the model hyperparameters
-    likelihood = posterior.likelihood.link_function(fx)
-
-    # Whitened latent function values prior, p(wx | theta) = N(0, I)
-    latent_prior = npd.Normal(loc=0.0, scale=1.0)
-    return likelihood.log_prob(y).sum() + latent_prior.log_prob(wx).sum()
+    if model.latent is None:
+        raise ValueError(
+            "NonConjugateModel.latent is uninitialised: fit the model or call "
+            "model.init_latent(data.n) first."
+        )
+    return model.condition(data).log_posterior_density
 
 
 non_conjugate_mll = log_posterior_density
@@ -295,7 +217,7 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
@@ -346,7 +268,7 @@ def variational_expectation(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
@@ -411,7 +333,7 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
