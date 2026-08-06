@@ -2,7 +2,6 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-import gpjax as gpx
 from gpjax.citation import (
     AbstractCitation,
     NullCitation,
@@ -21,7 +20,6 @@ from gpjax.kernels import (
     Matern52,
 )
 from gpjax.likelihoods import HeteroscedasticGaussian
-from gpjax.mean_functions import Zero
 import jax.numpy as jnp
 import pytest
 
@@ -99,7 +97,6 @@ def test_missing_citation(kernel):
 
 
 def test_heteroscedastic_citation():
-    noise_prior = gpx.gps.Prior(mean_function=Zero(), kernel=RBF())
     likelihood = HeteroscedasticGaussian()
     citation = cite(likelihood)
 

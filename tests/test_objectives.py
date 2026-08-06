@@ -214,10 +214,7 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
         kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
         mean_function=gpx.mean_functions.Constant(),
     )
-    if binary:
-        likelihood = gpx.likelihoods.Bernoulli()
-    else:
-        likelihood = gpx.likelihoods.Gaussian()
+    likelihood = gpx.likelihoods.Bernoulli() if binary else gpx.likelihoods.Gaussian()
     post = p * likelihood
 
     q = gpx.variational_families.VariationalGaussian(posterior=post, inducing_inputs=z)

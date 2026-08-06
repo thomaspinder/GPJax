@@ -54,7 +54,7 @@ def test_collapsed_elbo_equals_mll_when_z_is_x_nondefault_jitter():
 
 
 def test_whitened_matches_unwhitened_at_matched_parameters():
-    posterior, data = _make()
+    posterior, _ = _make()
     z = jnp.linspace(0.0, 1.0, 5).reshape(-1, 1)
     q_white = gpx.variational_families.WhitenedVariationalGaussian(
         posterior=posterior, inducing_inputs=z

@@ -337,7 +337,6 @@ def test_state_space_predict_filter_uses_only_past_observations():
     X_prefix = X_train[prefix_mask].reshape(-1, 1)
     y_prefix = y_train[prefix_mask].reshape(-1, 1)
     prefix_data = gpx.Dataset(X=X_prefix, y=y_prefix)
-    n_prefix = X_prefix.shape[0]
     likelihood_prefix = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     dense_prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(),

@@ -2,15 +2,12 @@
 
 import gpjax as gpx
 from gpjax.distributions import GaussianDistribution
-from gpjax.gps import Prior
-from gpjax.kernels import RBF
 from gpjax.likelihoods import (
     Gaussian,
     HeteroscedasticGaussian,
     MultiOutputGaussian,
     _diagonal_scale,
 )
-from gpjax.mean_functions import Zero
 import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
@@ -125,7 +122,6 @@ def test_gaussian_family_predict_returns_gaussian_distribution(likelihood_cls):
 
 def test_heteroscedastic_predict_returns_gaussian_distribution():
     """Lock the return-type contract for HeteroscedasticGaussian.predict."""
-    noise_prior = Prior(kernel=RBF(), mean_function=Zero())
     likelihood = HeteroscedasticGaussian()
 
     signal_dist = GaussianDistribution(
