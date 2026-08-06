@@ -17,6 +17,7 @@ import jax.random as jr
 
 # Well below the 1e-6 default: the dual/moment equivalence assertions compare two
 # routes to the same q, and a large jitter is a large common-mode offset on both.
+# Since v1.0 the knob lives on the model: build the Prior with `jitter=DUAL_JITTER`.
 DUAL_JITTER = 1e-8
 
 
@@ -35,13 +36,13 @@ def random_dual_sites(seed: int, num_inducing: int):
     return jr.normal(key_vector, (num_inducing, 1)), raw @ raw.T / num_inducing
 
 
-def build_dual(posterior, inducing_inputs, jitter=DUAL_JITTER, seed=None):
+def build_dual(model, inducing_inputs, seed=None):
     """Build a dual family, optionally started at random positive semi-definite sites.
 
     Args:
-        posterior: The posterior the family approximates.
+        model: The joint model the family approximates the posterior of. Its
+            ``Prior.jitter`` is the single stabilisation knob.
         inducing_inputs: The inducing inputs, shape ``(M, D)``.
-        jitter (float): The family's jitter.
         seed (int | None): When given, seeds a random site draw; otherwise the sites
             are left at their zero defaults, where ``q(u) = p(u)``.
 
@@ -52,11 +53,10 @@ def build_dual(posterior, inducing_inputs, jitter=DUAL_JITTER, seed=None):
     if seed is not None:
         dual_vector, dual_matrix = random_dual_sites(seed, inducing_inputs.shape[0])
     return DualVariationalGaussian(
-        posterior=posterior,
+        model=model,
         inducing_inputs=inducing_inputs,
         dual_vector=dual_vector,
         dual_matrix=dual_matrix,
-        jitter=jitter,
     )
 
 
@@ -71,9 +71,8 @@ def matched_variational_gaussian(q_dual: DualVariationalGaussian):
     """
     mean, covariance = q_dual.moments()
     return VariationalGaussian(
-        posterior=q_dual.posterior,
+        model=q_dual.model,
         inducing_inputs=_val(q_dual.inducing_inputs),
         variational_mean=mean,
         variational_root_covariance=jnp.linalg.cholesky(covariance),
-        jitter=q_dual.jitter,
     )

@@ -43,16 +43,16 @@ def conjugate_optimum(variational_family, data, scale=None):
     """
     unwrapped = paramax.unwrap(variational_family)
     inducing_inputs = _val(unwrapped.inducing_inputs)
-    kernel = unwrapped.posterior.prior.kernel
-    mean_function = unwrapped.posterior.prior.mean_function
+    kernel = unwrapped.model.prior.kernel
+    mean_function = unwrapped.model.prior.mean_function
 
     gram = add_jitter(
-        kernel.gram(inducing_inputs).as_matrix(), variational_family.jitter
+        kernel.gram(inducing_inputs).as_matrix(), unwrapped.model.prior.jitter
     )
     cross = kernel.cross_covariance(data.X, inducing_inputs)
     inducing_mean = mean_function(inducing_inputs)
     input_mean = mean_function(data.X)
-    noise_variance = _val(unwrapped.posterior.likelihood.obs_stddev) ** 2
+    noise_variance = _val(unwrapped.model.likelihood.obs_stddev) ** 2
     if scale is None:
         full_size = data.n_total if data.n_total is not None else data.n
         scale = full_size / data.n

@@ -202,7 +202,7 @@ def test_collapsed_elbo(n_points, n_dims, key_val):
     )
     likelihood = gpx.likelihoods.Gaussian()
     q = gpx.variational_families.CollapsedVariationalGaussian(
-        posterior=p * likelihood, inducing_inputs=z
+        model=p * likelihood, inducing_inputs=z
     )
 
     # test simple call
@@ -212,7 +212,7 @@ def test_collapsed_elbo(n_points, n_dims, key_val):
 
     # Data on the full dataset should be the same as the marginal likelihood
     q = gpx.variational_families.CollapsedVariationalGaussian(
-        posterior=p * likelihood, inducing_inputs=D.X
+        model=p * likelihood, inducing_inputs=D.X
     )
     expected_value = -conjugate_mll(p * likelihood, D)
     actual_value = -collapsed_elbo(q, D)
@@ -236,7 +236,7 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
     likelihood = gpx.likelihoods.Bernoulli() if binary else gpx.likelihoods.Gaussian()
     post = p * likelihood
 
-    q = gpx.variational_families.VariationalGaussian(posterior=post, inducing_inputs=z)
+    q = gpx.variational_families.VariationalGaussian(model=post, inducing_inputs=z)
 
     # test simple call
     res_simple = -elbo(q, D)
@@ -399,7 +399,10 @@ def _dual_setup(
 
     kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3))
     mean_function = gpx.mean_functions.Constant(jnp.array(0.4))
-    posterior = gpx.gps.Prior(mean_function=mean_function, kernel=kernel) * likelihood
+    posterior = (
+        gpx.gps.Prior(mean_function=mean_function, kernel=kernel, jitter=jitter)
+        * likelihood
+    )
 
     inducing_inputs = (
         inputs
@@ -429,16 +432,14 @@ def _kernel_hyper_gradient(objective_fn, family, data):
         return objective_fn(paramax.unwrap(eqx.combine(trainable, static)), data)
 
     grads = jax.grad(loss)(params)
-    leaves = jtu.tree_leaves(grads.posterior.prior.kernel)
+    leaves = jtu.tree_leaves(grads.model.prior.kernel)
     return jnp.concatenate([jnp.ravel(leaf) for leaf in leaves])
 
 
 @pytest.mark.parametrize("binary", [True, False])
 def test_dual_elbo(binary: bool):
-    posterior, data, inducing_inputs, jitter = _dual_setup(binary=binary)
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    posterior, data, inducing_inputs, _ = _dual_setup(binary=binary)
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
 
     res_simple = -dual_elbo(q, data)
     assert isinstance(res_simple, jax.Array)
@@ -473,10 +474,8 @@ def test_dual_elbo_equals_elbo_at_matched_moments(sites: str, batch: str):
     ``N / B == 1`` and a mutation dropping the factor from ``dual_elbo`` would
     survive.
     """
-    posterior, data, inducing_inputs, jitter = _dual_setup()
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    posterior, data, inducing_inputs, _ = _dual_setup()
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
 
     if sites == "optimal":
         q = _dual_natgrad_step(q, data, 1.0)
@@ -506,10 +505,8 @@ def test_dual_elbo_applies_the_minibatch_scale():
     Pinned directly rather than through the ``elbo`` comparison above, which would
     stay green if *both* bounds dropped the factor.
     """
-    posterior, data, inducing_inputs, jitter = _dual_setup()
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    posterior, data, inducing_inputs, _ = _dual_setup()
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
     dual_vector, dual_matrix = _random_dual_sites(7, q.num_inducing)
     q = eqx.tree_at(
         lambda t: (t.dual_vector, t.dual_matrix),
@@ -537,15 +534,14 @@ def test_dual_elbo_applies_the_minibatch_scale():
 def test_dual_elbo_equals_titsias_collapsed_bound():
     """One rho = 1 step on a conjugate model reproduces the Titsias bound.
 
-    The family jitter is pushed to 1e-12 because ``marginals`` adds it to every
-    marginal variance, which biases the bound by ``N * jitter / (2 sigma^2)`` -- at the
-    usual 1e-8 that is 1.1e-6, four orders of magnitude outside the tolerance here.
+    The model's ``Prior.jitter`` is pushed to 1e-12 because ``marginals`` adds it to
+    every marginal variance, which biases the bound by ``N * jitter / (2 sigma^2)`` --
+    at the usual 1e-8 that is 1.1e-6, four orders of magnitude outside the tolerance
+    here.
     """
     jitter = 1e-12
     posterior, data, inducing_inputs, _ = _dual_setup(jitter=jitter)
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
     q = _dual_natgrad_step(q, data, 1.0)
 
     kernel = posterior.prior.kernel
@@ -587,14 +583,13 @@ def test_dual_elbo_hyper_gradients_differ_away_from_optimum():
     implementation reproduces every *value* assertion in this module and only fails
     here.
     """
-    posterior, data, inducing_inputs, jitter = _dual_setup()
+    posterior, data, inducing_inputs, _ = _dual_setup()
     dual_vector, dual_matrix = _random_dual_sites(3, inducing_inputs.shape[0])
     q = DualVariationalGaussian(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=inducing_inputs,
         dual_vector=dual_vector,
         dual_matrix=dual_matrix,
-        jitter=jitter,
     )
 
     dual_gradient = _kernel_hyper_gradient(dual_elbo, q, data)
@@ -615,10 +610,8 @@ def test_dual_elbo_hyper_gradients_agree_at_converged_estep():
     The E-step really does have to be run to convergence: at 66 steps the two
     gradients agree to 1.5e-14, but at 6 steps they still differ by 1.6e-4.
     """
-    posterior, data, inducing_inputs, jitter = _dual_setup(binary=True)
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    posterior, data, inducing_inputs, _ = _dual_setup(binary=True)
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
     for _ in range(66):
         q = _dual_natgrad_step(q, data, 0.8)
 
@@ -638,19 +631,17 @@ def test_dual_elbo_dominates_when_inducing_equal_inputs():
     dense conjugate limit. No dominance is asserted in the sparse case, where the
     flanked sites still move with theta through K_zx.
     """
-    posterior, data, inducing_inputs, jitter = _dual_setup(
+    posterior, data, inducing_inputs, _ = _dual_setup(
         num_data=12, jitter=1e-6, inducing_at_inputs=True
     )
-    q = DualVariationalGaussian(
-        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
-    )
+    q = DualVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
     q = _dual_natgrad_step(q, data, 1.0)
     q_moment = _matched_variational_gaussian(q)
 
     base_lengthscale = _val(posterior.prior.kernel.lengthscale)
     for shift in (-0.6, -0.3, 0.0, 0.3, 0.6):
         lengthscale = PositiveReal(base_lengthscale * jnp.exp(shift))
-        where = lambda t: t.posterior.prior.kernel.lengthscale
+        where = lambda t: t.model.prior.kernel.lengthscale
         dual_value = dual_elbo(eqx.tree_at(where, q, lengthscale), data)
         moment_value = elbo(eqx.tree_at(where, q_moment, lengthscale), data)
         assert dual_value >= moment_value - 1e-5
