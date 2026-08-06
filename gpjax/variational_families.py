@@ -26,6 +26,10 @@ from jaxtyping import (
 )
 import lineax as lx
 
+from gpjax.conditioning import (
+    CollapsedPosterior,
+    SparsePosterior,
+)
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
@@ -84,12 +88,17 @@ class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
     r"""
     Abstract base class used to represent families of distributions that can be
     used within variational inference.
+
+    A variational family is a trainable approximate posterior over inducing
+    values: it is to sparse GPs what :class:`~gpjax.gps.JointModel` is to
+    exact ones. Conditioning an already-fit family yields a
+    :class:`~gpjax.conditioning.Posterior` like any other.
     """
 
-    posterior: JointModel
+    model: JointModel
 
-    def __init__(self, posterior: JointModel):
-        self.posterior = posterior
+    def __init__(self, model: JointModel):
+        self.model = model
 
     def __call__(self, *args: tp.Any, **kwargs: tp.Any) -> GaussianDistribution:
         r"""Evaluate the variational family's density.
@@ -122,30 +131,39 @@ class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def prior_kl(self, *args: tp.Any, **kwargs: tp.Any) -> ScalarFloat:
+        r"""The KL divergence from the variational distribution to the prior.
+
+        Every ELBO-style objective subtracts this term, so each concrete
+        family must provide it.
+
+        Returns:
+            ScalarFloat: The KL divergence.
+        """
+        raise NotImplementedError
+
 
 class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
     r"""The variational Gaussian family of probability distributions."""
 
     inducing_inputs: tp.Any
-    jitter: float = eqx.field(static=True, default=1e-6)
 
     def __init__(
         self,
-        posterior: JointModel,
+        model: JointModel,
         inducing_inputs: tp.Union[
             Int[Array, "N D"],
             Float[Array, "N D"],
             Real,
         ],
-        jitter: ScalarFloat = 1e-6,
     ):
         if not isinstance(inducing_inputs, Real):
             inducing_inputs = Real(inducing_inputs)
 
         self.inducing_inputs = inducing_inputs
-        self.jitter = jitter
 
-        super().__init__(posterior)
+        super().__init__(model)
 
     @property
     def num_inducing(self) -> int:
@@ -186,13 +204,12 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: JointModel,
+        model: JointModel,
         inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
         variational_mean: tp.Union[Float[Array, "N 1"], None] = None,
         variational_root_covariance: tp.Union[Float[Array, "N N"], None] = None,
-        jitter: ScalarFloat = 1e-6,
     ):
-        super().__init__(posterior, inducing_inputs, jitter)
+        super().__init__(model, inducing_inputs)
 
         if variational_mean is None:
             variational_mean = jnp.zeros((self.num_inducing, 1))
@@ -247,12 +264,12 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         num_inducing = self.num_inducing
 
         # Unpack mean function and kernel
-        mean_function = self.posterior.prior.mean_function
-        kernel = self.posterior.prior.kernel
+        mean_function = self.model.prior.mean_function
+        kernel = self.model.prior.kernel
 
         inducing_mean = mean_function(inducing_inputs)
         Kzz = kernel.gram(inducing_inputs)
-        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
+        Kzz_dense = add_jitter(Kzz.as_matrix(), self.model.prior.jitter)
 
         # Lz Lz^T = Kzz. The single unavoidable factorisation.
         Lz = jnp.linalg.cholesky(Kzz_dense)
@@ -277,6 +294,25 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
             mahalanobis - num_inducing + log_det_prior - log_det_variational + trace
         )
 
+    def condition(self) -> SparsePosterior:
+        r"""Condition the family, yielding its posterior process.
+
+        The family already carries everything conditioning needs — the joint
+        model and the variational moments — so no data is required. The
+        returned :class:`~gpjax.conditioning.SparsePosterior` caches the
+        factorisation of $\mathbf{K}_{zz}$ and is queried directly:
+        ``q.condition()(test_inputs)``.
+
+        Returns:
+            SparsePosterior: The conditioned sparse posterior process.
+        """
+        return SparsePosterior(
+            self,
+            _val(self.variational_mean),
+            _val(self.variational_root_covariance),
+            whitened=False,
+        )
+
     def predict(
         self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
     ) -> GaussianDistribution:
@@ -289,6 +325,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
             \mathcal{N}\left(f(t); \mu t + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} (\mu - \mu z),  \mathbf{K}_{tt} - \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} S \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt}\right).
 
+        Sugar for ``self.condition()(test_inputs)``.
+
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
                 make a prediction.
@@ -297,54 +335,7 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
             GaussianDistribution: The predictive distribution of the low-rank GP at
                 the test inputs.
         """
-        # Unpack variational parameters
-        variational_mean = _val(self.variational_mean)
-        variational_sqrt = _val(self.variational_root_covariance)
-        inducing_inputs = self._fmt_inducing_inputs()
-
-        # Unpack mean function and kernel
-        mean_function = self.posterior.prior.mean_function
-        kernel = self.posterior.prior.kernel
-
-        Kzz = kernel.gram(inducing_inputs)
-        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
-        Lz = jnp.linalg.cholesky(Kzz_dense)
-        inducing_mean = mean_function(inducing_inputs)
-
-        # Unpack test inputs
-        test_points = test_inputs
-
-        Ktt = kernel.gram(test_points).as_matrix()
-        Kzt = kernel.cross_covariance(inducing_inputs, test_points)
-        test_mean = mean_function(test_points)
-
-        Kzt, Ktt = self._fmt_Kzt_Ktt(Kzt, Ktt)
-
-        # Lz^{-1} Kzt
-        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
-
-        # Kzz^{-1} Kzt
-        Kzz_inv_Kzt = jsp.linalg.solve_triangular(Lz.T, Lz_inv_Kzt, lower=False)
-
-        # Ktz Kzz^{-1} sqrt
-        Ktz_Kzz_inv_sqrt = jnp.matmul(Kzz_inv_Kzt.T, variational_sqrt)
-
-        # mut + Ktz Kzz^{-1} (mu - muz)
-        mean = test_mean + jnp.matmul(Kzz_inv_Kzt.T, variational_mean - inducing_mean)
-
-        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Kzz^{-1} S Kzz^{-1} Kzt  [recall S = sqrt sqrt^T]
-        covariance = (
-            Ktt
-            - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
-            + jnp.matmul(Ktz_Kzz_inv_sqrt, Ktz_Kzz_inv_sqrt.T)
-        )
-
-        covariance = add_jitter(covariance, self.jitter)
-        covariance_op = lx.MatrixLinearOperator(covariance)
-
-        return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
-        )
+        return self.condition()(test_inputs)
 
 
 class GraphVariationalGaussian(VariationalGaussian[L]):
@@ -361,18 +352,16 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: JointModel,
+        model: JointModel,
         inducing_inputs: Int[Array, "N D"],
         variational_mean: tp.Union[Float[Array, "N 1"], None] = None,
         variational_root_covariance: tp.Union[Float[Array, "N N"], None] = None,
-        jitter: ScalarFloat = 1e-6,
     ):
         super().__init__(
-            posterior,
+            model,
             inducing_inputs,
             variational_mean,
             variational_root_covariance,
-            jitter,
         )
         self.inducing_inputs = _val(self.inducing_inputs).astype(jnp.int64)
 
@@ -450,64 +439,23 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
 
         return 0.5 * (mahalanobis + trace - self.num_inducing - log_det_variational)
 
-    def predict(self, test_inputs: Float[Array, "N D"]) -> GaussianDistribution:
-        r"""Compute the predictive distribution of the GP at the test inputs t.
+    def condition(self) -> SparsePosterior:
+        r"""Condition the family, yielding its posterior process.
 
-        This is the integral q(f(t)) = \int p(f(t)\midu) q(u) du, which can be computed in
-        closed form as
-
-        .. math::
-
-            \mathcal{N}\left(f(t); \mu t  +  \mathbf{K}_{tz} \mathbf{L}z^{\top} \mu  ,  \mathbf{K}_{tt}  -  \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt}  +  \mathbf{K}_{tz} \mathbf{L}z^{\top} S \mathbf{L}z^{-1} \mathbf{K}_{zt} \right).
-
-        Args:
-            test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
-                make a prediction.
+        Identical to :meth:`VariationalGaussian.condition` except that the
+        stored moments parameterise the whitened distribution
+        $q(u) = \mathcal{N}(\mathbf{L}_z\mu + \mu_z, \mathbf{L}_z S
+        \mathbf{L}_z^{\top})$, which the returned posterior de-whitens at
+        query time.
 
         Returns:
-            GaussianDistribution: The predictive distribution of the low-rank GP at
-                the test inputs.
+            SparsePosterior: The conditioned sparse posterior process.
         """
-        # Unpack variational parameters
-        mu = _val(self.variational_mean)
-        sqrt = _val(self.variational_root_covariance)
-        z = _val(self.inducing_inputs)
-
-        # Unpack mean function and kernel
-        mean_function = self.posterior.prior.mean_function
-        kernel = self.posterior.prior.kernel
-
-        Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
-        Lz = jnp.linalg.cholesky(Kzz_dense)
-
-        # Unpack test inputs
-        t = test_inputs
-
-        Ktt = kernel.gram(t).as_matrix()
-        Kzt = kernel.cross_covariance(z, t)
-        mut = mean_function(t)
-
-        # Lz^{-1} Kzt
-        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
-
-        # Ktz Lz^{-T} sqrt
-        Ktz_Lz_invT_sqrt = jnp.matmul(Lz_inv_Kzt.T, sqrt)
-
-        # mut + Ktz Lz^{-T} mu
-        mean = mut + jnp.matmul(Lz_inv_Kzt.T, mu)
-
-        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-T} S Lz^{-1} Kzt  [recall S = sqrt sqrt^T]
-        covariance = (
-            Ktt
-            - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
-            + jnp.matmul(Ktz_Lz_invT_sqrt, Ktz_Lz_invT_sqrt.T)
-        )
-        covariance = add_jitter(covariance, self.jitter)
-        covariance_op = lx.MatrixLinearOperator(covariance)
-
-        return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
+        return SparsePosterior(
+            self,
+            _val(self.variational_mean),
+            _val(self.variational_root_covariance),
+            whitened=True,
         )
 
 
@@ -554,7 +502,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         ... )
         >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.DualVariationalGaussian(
-        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 4).reshape(-1, 1)
+        ...     model=model, inducing_inputs=jnp.linspace(0, 1, 4).reshape(-1, 1)
         ... )
         >>> bool(abs(q.prior_kl()) < 1e-10)
         True
@@ -566,13 +514,12 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: JointModel,
+        model: JointModel,
         inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
         dual_vector: tp.Union[Float[Array, "N 1"], None] = None,
         dual_matrix: tp.Union[Float[Array, "N N"], None] = None,
-        jitter: ScalarFloat = 1e-6,
     ):
-        super().__init__(posterior, inducing_inputs, jitter)
+        super().__init__(model, inducing_inputs)
 
         if dual_vector is None:
             dual_vector = jnp.zeros((self.num_inducing, 1))
@@ -599,9 +546,11 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
                 $\mathbf{L}_K$.
         """
         inducing_inputs = self._fmt_inducing_inputs()
-        kernel = self.posterior.prior.kernel
+        kernel = self.model.prior.kernel
 
-        Kzz = add_jitter(kernel.gram(inducing_inputs).as_matrix(), self.jitter)
+        Kzz = add_jitter(
+            kernel.gram(inducing_inputs).as_matrix(), self.model.prior.jitter
+        )
         return Kzz, jnp.linalg.cholesky(Kzz)
 
     def _working_matrices(
@@ -660,9 +609,10 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
             + \mathbf{K}_{zz}\mathbf{R}^{-1}\left(\mathbf{K}_{zz}\lambda_1\right).
         ```
 
-        For reporting and for interoperating with :class:`VariationalGaussian`; the
-        training path never needs it. Nothing here is cached on the module: caching
-        would silently turn :func:`~gpjax.objectives.dual_elbo` back into
+        For reporting, for interoperating with :class:`VariationalGaussian`, and for
+        :meth:`condition`; the :func:`~gpjax.objectives.dual_elbo` training path
+        never needs it. Nothing here is cached on the module: caching would silently
+        turn :func:`~gpjax.objectives.dual_elbo` back into
         :func:`~gpjax.objectives.elbo` under differentiation.
 
         Returns:
@@ -671,7 +621,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         """
         Kzz, _, Lr = self._working_matrices()
         dual_vector = _val(self.dual_vector)
-        inducing_mean = self.posterior.prior.mean_function(self._fmt_inducing_inputs())
+        inducing_mean = self.model.prior.mean_function(self._fmt_inducing_inputs())
 
         covariance = _symmetrise(Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz))
         centred_mean = Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
@@ -699,12 +649,12 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         $M\times P$ right-hand side, instead of $P$ rank-one solves and $P$
         ``GaussianDistribution`` constructions whose covariance is $1\times1$.
 
-        The trailing ``+ self.jitter`` on the variance is load-bearing, not a numerical
-        nicety. :meth:`VariationalGaussian.predict` runs ``add_jitter`` on its output
-        covariance, so the per-point marginals that :func:`~gpjax.objectives.elbo` sees
-        are inflated by exactly ``self.jitter``. Dropping it here makes
-        :func:`~gpjax.objectives.dual_elbo` disagree with
-        :func:`~gpjax.objectives.elbo` at matched moments by
+        The trailing ``+ jitter`` on the variance is load-bearing, not a numerical
+        nicety. The conditioned :class:`~gpjax.conditioning.SparsePosterior` adds
+        the model's ``Prior.jitter`` to its output covariance, so the per-point
+        marginals that :func:`~gpjax.objectives.elbo` sees are inflated by exactly
+        that amount. Dropping it here makes :func:`~gpjax.objectives.dual_elbo`
+        disagree with :func:`~gpjax.objectives.elbo` at matched moments by
         $N\varepsilon/(2\sigma^2)$ -- a discrepancy that reads like a KL bug.
 
         Unlike :meth:`predict`, this routine does not route its kernel matrices through
@@ -721,8 +671,8 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         """
         Kzz, Lk, Lr = self._working_matrices()
         dual_vector = _val(self.dual_vector)
-        kernel = self.posterior.prior.kernel
-        mean_function = self.posterior.prior.mean_function
+        kernel = self.model.prior.kernel
+        mean_function = self.model.prior.mean_function
         inducing_inputs = self._fmt_inducing_inputs()
 
         Kzs = kernel.cross_covariance(inducing_inputs, inputs)
@@ -738,7 +688,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
             Kss_diagonal
             - jnp.sum(jnp.square(prior_projection), axis=0)
             + jnp.sum(jnp.square(site_projection), axis=0)
-            + self.jitter
+            + self.model.prior.jitter
         )
         return mean, variance
 
@@ -784,6 +734,28 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         )
         return 0.5 * (trace - self.num_inducing + mahalanobis + log_det_ratio)
 
+    def condition(self) -> SparsePosterior:
+        r"""Condition the family, yielding its posterior process.
+
+        The stored sites are first converted to the implied moments
+        $(\mathbf{m}, \mathbf{S})$ via :meth:`moments`, and the Cholesky root
+        of $\mathbf{S}$ is handed to the shared sparse conditioning
+        derivation. The conversion happens afresh on every call -- nothing is
+        cached on the family -- so the implicit dependence of $q$ on the
+        kernel hyperparameters through $\mathbf{K}_{zz}$ is preserved under
+        differentiation.
+
+        Returns:
+            SparsePosterior: The conditioned sparse posterior process.
+        """
+        variational_mean, variational_covariance = self.moments()
+        return SparsePosterior(
+            self,
+            variational_mean,
+            jnp.linalg.cholesky(variational_covariance),
+            whitened=False,
+        )
+
     def predict(
         self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
     ) -> GaussianDistribution:
@@ -796,10 +768,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
             + \mathbf{K}_{tz}\mathbf{R}^{-1}\mathbf{K}_{zt}\right).
         ```
 
-        Because $\mathbf{R}\succeq\mathbf{K}_{zz}$ implies
-        $\mathbf{R}^{-1}\preceq\mathbf{K}_{zz}^{-1}$, the predictive covariance can
-        never exceed the prior covariance -- that is structural here, not something the
-        jitter has to enforce.
+        Sugar for ``self.condition()(test_inputs)``.
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
@@ -809,36 +778,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
             GaussianDistribution: The predictive distribution of the low-rank GP at
                 the test inputs.
         """
-        Kzz, Lk, Lr = self._working_matrices()
-        dual_vector = _val(self.dual_vector)
-        kernel = self.posterior.prior.kernel
-        mean_function = self.posterior.prior.mean_function
-        inducing_inputs = self._fmt_inducing_inputs()
-
-        t = test_inputs
-        Ktt = kernel.gram(t).as_matrix()
-        Kzt = kernel.cross_covariance(inducing_inputs, t)
-        mut = mean_function(t)
-
-        Kzt, Ktt = self._fmt_Kzt_Ktt(Kzt, Ktt)
-
-        # Lk^{-1} Kzt and Lr^{-1} Kzt
-        prior_projection = _tri_solve(Lk, Kzt)
-        site_projection = _tri_solve(Lr, Kzt)
-
-        mean = mut + Kzt.T @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
-
-        covariance = (
-            Ktt
-            - jnp.matmul(prior_projection.T, prior_projection)
-            + jnp.matmul(site_projection.T, site_projection)
-        )
-        covariance = add_jitter(covariance, self.jitter)
-        covariance_op = lx.MatrixLinearOperator(covariance)
-
-        return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
-        )
+        return self.condition()(test_inputs)
 
 
 class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
@@ -861,19 +801,39 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
 
     def __init__(
         self,
-        posterior: JointModel,
+        model: JointModel,
         inducing_inputs: Float[Array, "N D"],
-        jitter: ScalarFloat = 1e-6,
     ):
-        super().__init__(posterior, inducing_inputs, jitter)
+        super().__init__(model, inducing_inputs)
 
-        if not isinstance(posterior.likelihood, Gaussian):
+        if not isinstance(model.likelihood, Gaussian):
             raise TypeError("Likelihood must be Gaussian.")
+
+    def condition(self, train_data: Dataset) -> CollapsedPosterior:
+        r"""Condition the family on data, yielding its posterior process.
+
+        Unlike the uncollapsed families, the optimal variational distribution
+        here is a function of the data, so conditioning takes the training
+        set — exactly as ``model.condition(train_data)`` does for a joint
+        model. The returned :class:`~gpjax.conditioning.CollapsedPosterior`
+        caches its factorisations; the predictive and the Titsias bound
+        (``elbo_bound``) are views of them.
+
+        Args:
+            train_data (Dataset): The training data the optimal variational
+                distribution is solved against.
+
+        Returns:
+            CollapsedPosterior: The conditioned collapsed posterior process.
+        """
+        return CollapsedPosterior(self, train_data)
 
     def predict(
         self, test_inputs: Float[Array, "N D"], train_data: Dataset
     ) -> GaussianDistribution:
         r"""Compute the predictive distribution of the GP at the test inputs.
+
+        Sugar for ``self.condition(train_data)(test_inputs)``.
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs $t$ at which to make
@@ -884,76 +844,25 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
             GaussianDistribution: The predictive distribution of the collapsed
                 variational Gaussian process at the test inputs $t$.
         """
-        # Unpack test inputs
-        t = test_inputs
+        return self.condition(train_data)(test_inputs)
 
-        # Unpack training data
-        x, y = train_data.X, train_data.y
+    def prior_kl(self, train_data: Dataset) -> ScalarFloat:
+        r"""KL divergence from the optimal collapsed $q^{\star}(u)$ to the prior.
 
-        # Unpack variational parameters
-        noise_var = _val(self.posterior.likelihood.obs_stddev) ** 2
-        z = _val(self.inducing_inputs)
-        m = self.num_inducing
+        The collapsed family's variational distribution is solved
+        analytically from the data, so — unlike the uncollapsed families —
+        its KL is a function of the training set. Sugar for
+        ``self.condition(train_data).prior_kl``.
 
-        # Unpack mean function and kernel
-        mean_function = self.posterior.prior.mean_function
-        kernel = self.posterior.prior.kernel
+        Args:
+            train_data (Dataset): The training data the optimal variational
+                distribution is solved against.
 
-        Kzx = kernel.cross_covariance(z, x)
-        Kzz = kernel.gram(z)
-        Kzz_dense = add_jitter(Kzz.as_matrix(), self.jitter)
-
-        # Lz Lz^T = Kzz
-        Lz = jnp.linalg.cholesky(Kzz_dense)
-
-        # Lz^{-1} Kzx
-        Lz_inv_Kzx = _tri_solve(Lz, Kzx)
-
-        # A = Lz^{-1} Kzt / o
-        A = Lz_inv_Kzx / _val(self.posterior.likelihood.obs_stddev)
-
-        # AA^T
-        AAT = jnp.matmul(A, A.T)
-
-        # LL^T = I + AA^T
-        L = jnp.linalg.cholesky(jnp.eye(m) + AAT)
-
-        mux = mean_function(x)
-        diff = y - mux
-
-        # Lz^{-1} Kzx (y - mux)
-        Lz_inv_Kzx_diff = jsp.linalg.cho_solve((L, True), jnp.matmul(Lz_inv_Kzx, diff))
-
-        # Kzz^{-1} Kzx (y - mux)
-        Kzz_inv_Kzx_diff = jsp.linalg.solve_triangular(
-            Lz.T, Lz_inv_Kzx_diff, lower=False
-        )
-
-        Ktt = kernel.gram(t).as_matrix()
-        Kzt = kernel.cross_covariance(z, t)
-        mut = mean_function(t)
-
-        # Lz^{-1} Kzt
-        Lz_inv_Kzt = _tri_solve(Lz, Kzt)
-
-        # L^{-1} Lz^{-1} Kzt
-        L_inv_Lz_inv_Kzt = jsp.linalg.solve_triangular(L, Lz_inv_Kzt, lower=True)
-
-        # mut + 1/o^2 Ktz Kzz^{-1} Kzx (y - mux)
-        mean = mut + jnp.matmul(Kzt.T / noise_var, Kzz_inv_Kzx_diff)
-
-        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-1} (I + AA^T)^{-1} Lz^{-1} Kzt
-        covariance = (
-            Ktt
-            - jnp.matmul(Lz_inv_Kzt.T, Lz_inv_Kzt)
-            + jnp.matmul(L_inv_Lz_inv_Kzt.T, L_inv_Lz_inv_Kzt)
-        )
-        covariance = add_jitter(covariance, self.jitter)
-        covariance_op = lx.MatrixLinearOperator(covariance)
-
-        return GaussianDistribution(
-            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
-        )
+        Returns:
+            ScalarFloat: The KL divergence of the optimal collapsed
+                variational distribution from the prior.
+        """
+        return self.condition(train_data).prior_kl
 
 
 @dataclass(slots=True)
@@ -979,11 +888,10 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
 
     signal_variational: tp.Any
     noise_variational: tp.Any
-    jitter: float = eqx.field(static=True, default=1e-6)
 
     def __init__(
         self,
-        posterior: HP,
+        model: HP,
         inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]] = None,
         inducing_inputs_g: tp.Union[
             Int[Array, "M D"], Float[Array, "M D"], None
@@ -992,38 +900,32 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
         variational_root_covariance_f: tp.Union[Float[Array, "N N"], None] = None,
         variational_mean_g: tp.Union[Float[Array, "M 1"], None] = None,
         variational_root_covariance_g: tp.Union[Float[Array, "M M"], None] = None,
-        jitter: ScalarFloat = 1e-6,
         signal_init: tp.Optional[VariationalGaussianInit] = None,
         noise_init: tp.Optional[VariationalGaussianInit] = None,
     ):
-        self.jitter = jitter
-
         if signal_init is not None:
             self.signal_variational = VariationalGaussian(
-                posterior=posterior,
+                model=model,
                 inducing_inputs=signal_init.inducing_inputs,
                 variational_mean=signal_init.variational_mean,
                 variational_root_covariance=signal_init.variational_root_covariance,
-                jitter=jitter,
             )
         elif inducing_inputs is not None:
             self.signal_variational = VariationalGaussian(
-                posterior=posterior,
+                model=model,
                 inducing_inputs=inducing_inputs,
                 variational_mean=variational_mean_f,
                 variational_root_covariance=variational_root_covariance_f,
-                jitter=jitter,
             )
         else:
             raise ValueError("Either signal_init or inducing_inputs must be provided.")
 
         if noise_init is not None:
             self.noise_variational = VariationalGaussian(
-                posterior=posterior.noise_model,
+                model=model.noise_model,
                 inducing_inputs=noise_init.inducing_inputs,
                 variational_mean=noise_init.variational_mean,
                 variational_root_covariance=noise_init.variational_root_covariance,
-                jitter=jitter,
             )
         else:
             noise_inducing = (
@@ -1038,13 +940,12 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
                 )
 
             self.noise_variational = VariationalGaussian(
-                posterior=posterior.noise_model,
+                model=model.noise_model,
                 inducing_inputs=noise_inducing,
                 variational_mean=variational_mean_g,
                 variational_root_covariance=variational_root_covariance_g,
-                jitter=jitter,
             )
-        super().__init__(posterior)
+        super().__init__(model)
 
     def prior_kl(self) -> ScalarFloat:
         return self.signal_variational.prior_kl() + self.noise_variational.prior_kl()

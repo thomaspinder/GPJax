@@ -428,7 +428,7 @@ def fit_natgrads(
         >>>
         >>> z = jnp.linspace(0, 1, 5).reshape(-1, 1)
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
         >>>
         >>> negative_elbo = lambda p, d: -gpx.objectives.elbo(p, d)
@@ -470,8 +470,8 @@ def fit_natgrads(
         batch feeds both sub-steps of an iteration.
     map_jitter : float
         Jitter added inside the $\boldsymbol\theta\leftrightarrow\boldsymbol\xi$ maps.
-        Defaults to ``0.0`` and is deliberately **not** inherited from the family's
-        ``jitter``: a non-zero value biases the recovered covariance by
+        Defaults to ``0.0`` and is deliberately **not** inherited from the model's
+        ``Prior.jitter``: a non-zero value biases the recovered covariance by
         $\approx\varepsilon\lVert\mathbf S\rVert^2$ regardless of conditioning, which
         destroys the exactness of the conjugate one-step solution. Raise it to
         $10^{-12}$--$10^{-10}$ only when fighting an ill-conditioned $\mathbf S$, and
