@@ -378,9 +378,9 @@ def variational_coordinates(
         >>> prior = gpx.gps.Prior(
         ...     mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
         ... )
-        >>> posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=5)
+        >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
+        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
         ... )
         >>>
         >>> where = variational_coordinates(q)
@@ -452,9 +452,9 @@ def partition_variational(variational_family: VF) -> tuple[VF, VF]:
         >>> prior = gpx.gps.Prior(
         ...     mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
         ... )
-        >>> posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=5)
+        >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
+        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
         ... )
         >>>
         >>> variational, hyper = partition_variational(q)
@@ -691,9 +691,9 @@ def natural_gradient_step(
         >>> prior = gpx.gps.Prior(
         ...     mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
         ... )
-        >>> posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=jnp.linspace(0, 1, 3).reshape(-1, 1)
+        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 3).reshape(-1, 1)
         ... )
         >>>
         >>> variational, hyper = partition_variational(q)

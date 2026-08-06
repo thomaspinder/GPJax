@@ -422,7 +422,7 @@ def fit_natgrads(
         >>>
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
         >>>
@@ -529,6 +529,8 @@ def fit_natgrads(
         # opens a progress bar and buries the traceback in the scan trace. The step
         # itself repeats the check unconditionally as a backstop.
         _reject_frozen_coordinates(model)
+
+    model = _prepare_model(model, train_data)
 
     # Split once, before the scan: the exponential-family coordinates are driven by
     # the natural-gradient rule and everything else by `optim`.

@@ -344,7 +344,7 @@ def _svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
     D = Dataset(X=x, y=y)
 
     prior = Prior(kernel=RBF(), mean_function=Constant())
-    likelihood = Gaussian(num_datapoints=n_data)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     z = jnp.linspace(-2.0, 2.0, n_inducing).reshape(-1, 1)

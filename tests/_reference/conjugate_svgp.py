@@ -32,8 +32,9 @@ def conjugate_optimum(variational_family, data, scale=None):
         The batch the optimum is computed on.
     scale
         The mini-batch correction $s$ that ``elbo`` applies. Defaults to
-        ``likelihood.num_datapoints / data.n``, which is what ``elbo`` uses; pass
-        ``1.0`` to compare against a bound written without the correction.
+        ``full_size / data.n`` with ``full_size = data.n_total if data.n_total is
+        not None else data.n``, which is what ``elbo`` uses; pass ``1.0`` to
+        compare against a bound written without the correction.
 
     Returns
     -------
@@ -53,7 +54,8 @@ def conjugate_optimum(variational_family, data, scale=None):
     input_mean = mean_function(data.X)
     noise_variance = _val(unwrapped.posterior.likelihood.obs_stddev) ** 2
     if scale is None:
-        scale = unwrapped.posterior.likelihood.num_datapoints / data.n
+        full_size = data.n_total if data.n_total is not None else data.n
+        scale = full_size / data.n
     num_inducing = gram.shape[0]
 
     if isinstance(variational_family, WhitenedVariationalGaussian):

@@ -95,9 +95,7 @@ def _conjugate_setup(
     kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3))
     mean_function = gpjax.mean_functions.Constant(jnp.array(0.4))
     noise_stddev = 0.37
-    likelihood = gpjax.likelihoods.Gaussian(
-        num_datapoints=num_data, obs_stddev=jnp.array(noise_stddev)
-    )
+    likelihood = gpjax.likelihoods.Gaussian(obs_stddev=jnp.array(noise_stddev))
     posterior = gpjax.gps.Prior(mean_function=mean_function, kernel=kernel) * likelihood
     inducing_inputs = jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
     return posterior, dataset, inducing_inputs, jitter
@@ -116,7 +114,7 @@ def _bernoulli_setup(
 
     kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.9), variance=jnp.array(1.1))
     mean_function = gpjax.mean_functions.Constant(jnp.array(0.2))
-    likelihood = gpjax.likelihoods.Bernoulli(num_datapoints=num_data)
+    likelihood = gpjax.likelihoods.Bernoulli()
     posterior = gpjax.gps.Prior(mean_function=mean_function, kernel=kernel) * likelihood
     inducing_inputs = jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
     return posterior, dataset, inducing_inputs, jitter
@@ -544,7 +542,8 @@ def _data_term_covariance_gradient(family, data):
             (Real(trial_mean), LowerTriangular(trial_root)),
         )
         trial = paramax.unwrap(trial)
-        scale = trial.posterior.likelihood.num_datapoints / data.n
+        full_size = data.n_total if data.n_total is not None else data.n
+        scale = full_size / data.n
         return jnp.sum(variational_expectation(trial, data)) * scale
 
     return _symmetrise(jax.grad(data_term)(expectation)[1])
@@ -841,9 +840,10 @@ def test_natgrad_step_supports_graph_variational_gaussian() -> None:
     kernel = gpjax.kernels.GraphKernel(
         laplacian=laplacian, lengthscale=2.3, variance=3.2, smoothness=6.1
     )
-    posterior = gpjax.gps.Prior(
-        mean_function=gpjax.mean_functions.Constant(), kernel=kernel
-    ) * gpjax.likelihoods.Bernoulli(num_datapoints=num_nodes)
+    posterior = (
+        gpjax.gps.Prior(mean_function=gpjax.mean_functions.Constant(), kernel=kernel)
+        * gpjax.likelihoods.Bernoulli()
+    )
 
     inducing_inputs = jnp.arange(0, num_nodes, 4).reshape(-1, 1).astype(jnp.int64)
     inputs = jnp.arange(num_nodes).reshape(-1, 1).astype(jnp.int64)
