@@ -8,56 +8,55 @@
 # Headless:
 #   uv run --with marimo --with xlrd marimo export html notebooks/soft_noncrossing_panel_qr.py -o /tmp/sncpqr.html
 # ///
+
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.23.15"
 app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        # Soft-Noncrossing Bayesian Panel Quantile Regression for Climate Tail Risk
+    mo.md(r"""
+    # Soft-Noncrossing Bayesian Panel Quantile Regression for Climate Tail Risk
 
-        A didactic recreation of **Huber, Poon & Zhu (2026)**
-        ([arXiv:2608.04664](https://arxiv.org/abs/2608.04664)) with
-        **GPJax (v1.0 branch)** + **NumPyro**. Spec: repo issue #746.
+    A didactic recreation of **Huber, Poon & Zhu (2026)**
+    ([arXiv:2608.04664](https://arxiv.org/abs/2608.04664)) with
+    **GPJax (v1.0 branch)** + **NumPyro**. Spec: repo issue #746.
 
-        | Decision | Value |
-        |---|---|
-        | Quantile grid | paper's full 99 nodes, $\tau = 0.01, \dots, 0.99$ |
-        | Bernstein degree | $M = 10$ |
-        | Monotone cone | all 8 coefficient rows (intercept, 4 climate, 3 macro) |
-        | Macro covariate scaling | per-country empirical rank transform |
-        | Temperature data | ERA5, unweighted, country-level (gadm0), monthly |
-        | Horizons | $h \in \{1, 4\}$ (paper: 1–10) |
-        | Sampler | NUTS, 4 parallel chains × (2500 warmup + 1500 draws) |
-        | Countries | all 33 GVAR economies |
-        | Common-time-effect drivers $w_t$ | Δlog oil price, PPP-GDP-weighted global short rate |
+    | Decision | Value |
+    |---|---|
+    | Quantile grid | paper's full 99 nodes, $\tau = 0.01, \dots, 0.99$ |
+    | Bernstein degree | $M = 10$ |
+    | Monotone cone | all 8 coefficient rows (intercept, 4 climate, 3 macro) |
+    | Macro covariate scaling | per-country empirical rank transform |
+    | Temperature data | ERA5, unweighted, country-level (gadm0), monthly |
+    | Horizons | $h \in \{1, 4\}$ (paper: 1–10) |
+    | Sampler | NUTS, 4 parallel chains × (2500 warmup + 1500 draws) |
+    | Countries | all 33 GVAR economies |
+    | Common-time-effect drivers $w_t$ | Δlog oil price, PPP-GDP-weighted global short rate |
 
-        **Deviations from the paper, by decision** (details in `notebooks/docs/adr/`):
+    **Deviations from the paper, by decision** (details in `notebooks/docs/adr/`):
 
-        - *Sampler* — NUTS on the joint posterior instead of the paper's bespoke
-          Gibbs (Kozumi–Kobayashi augmentation, Botev truncated-MVN, precision
-          sampler). Same model, different algorithm (ADR-0001).
-        - *Prior measure on the monotone cone* — ordered-transformed Gaussian
-          instead of a truncated MVN: identical support, different density
-          (ADR-0002).
-        - *Sample end* — the Figshare archive vintage of the climate data ends
-          **2022Q4** (both ERA5 and CRU); the paper's sample runs to 2023Q3 via
-          the live dashboard, which has no public programmatic access.
+    - *Sampler* — NUTS on the joint posterior instead of the paper's bespoke
+      Gibbs (Kozumi–Kobayashi augmentation, Botev truncated-MVN, precision
+      sampler). Same model, different algorithm (ADR-0001).
+    - *Prior measure on the monotone cone* — ordered-transformed Gaussian
+      instead of a truncated MVN: identical support, different density
+      (ADR-0002).
+    - *Sample end* — the Figshare archive vintage of the climate data ends
+      **2022Q4** (both ERA5 and CRU); the paper's sample runs to 2023Q3 via
+      the live dashboard, which has no public programmatic access.
 
-        **Caveats to keep in mind when comparing to the paper**: the working
-        likelihood multiplies one asymmetric-Laplace term per (country, quarter,
-        quantile node), so each observation is counted $L$ times — nominal
-        credible bands are not calibrated frequentist intervals at *any* grid
-        size (the paper's included). The Lemma-1 noncrossing guarantee covers
-        the box of rank-transformed macro covariates at climate-zero (exactly
-        the baseline scenario of the growth-at-risk exercise); where the signed
-        climate shocks are negative, noncrossing is soft, not guaranteed.
-        """
-    )
+    **Caveats to keep in mind when comparing to the paper**: the working
+    likelihood multiplies one asymmetric-Laplace term per (country, quarter,
+    quantile node), so each observation is counted $L$ times — nominal
+    credible bands are not calibrated frequentist intervals at *any* grid
+    size (the paper's included). The Lemma-1 noncrossing guarantee covers
+    the box of rank-transformed macro covariates at climate-zero (exactly
+    the baseline scenario of the growth-at-risk exercise); where the signed
+    climate shocks are negative, noncrossing is soft, not guaranteed.
+    """)
     return
 
 
@@ -98,9 +97,31 @@ def _():
     from numpyro.infer import MCMC, NUTS
 
     return (
-        MCMC, NUTS, OrderedTransform, dist, gammaln, gpx, hashlib, io, jax,
-        jnp, jr, json, mo, np, npscan, numpyro, os, pd, plt, requests,
-        struct, time, zipfile, zlib, NUM_CHAINS,
+        MCMC,
+        NUM_CHAINS,
+        NUTS,
+        OrderedTransform,
+        dist,
+        gammaln,
+        gpx,
+        hashlib,
+        io,
+        jax,
+        jnp,
+        jr,
+        json,
+        mo,
+        np,
+        npscan,
+        numpyro,
+        os,
+        pd,
+        plt,
+        requests,
+        struct,
+        time,
+        zipfile,
+        zlib,
     )
 
 
@@ -150,31 +171,44 @@ def _(np, os):
                 "PER", "PHL", "SAU", "THA", "TUR", "ZAF"}
     SHOCK_NAMES = ("local temp", "global temp", "local temp vol", "global temp vol")
     return (
-        CLIMATE_MEMBER, COUNTRIES, DATA_DIR, EMERGING, GVAR_URL, HORIZONS,
-        ISO3, M_BERN, NUM_SAMPLES, NUM_WARMUP, RUNTIME_CAP_HOURS, SEED,
-        SHOCK_NAMES, TARGET_ACCEPT, TAUS, THIN_STORE, UA, WCD_URL,
+        CLIMATE_MEMBER,
+        COUNTRIES,
+        DATA_DIR,
+        EMERGING,
+        GVAR_URL,
+        HORIZONS,
+        ISO3,
+        M_BERN,
+        NUM_SAMPLES,
+        NUM_WARMUP,
+        RUNTIME_CAP_HOURS,
+        SEED,
+        SHOCK_NAMES,
+        TARGET_ACCEPT,
+        TAUS,
+        THIN_STORE,
+        UA,
+        WCD_URL,
     )
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## 1. Data
+    mo.md(r"""
+    ## 1. Data
 
-        Two public sources, downloaded and cached on first run:
+    Two public sources, downloaded and cached on first run:
 
-        - **GVAR 2023 vintage** (Mohaddes & Raissi 2024, Mendeley,
-          DOI [10.17632/kfp5fhgkvf.1](https://doi.org/10.17632/kfp5fhgkvf.1),
-          CC BY 4.0): log real GDP `y`, inflation `Dp`, short rate `r`, real
-          exchange rate `ep`, oil price `poil`, and PPP-GDP for the weights.
-        - **Weighted Climate Dataset** (Gortan, Testa, Fagiolo & Lamperti 2024,
-          *Scientific Data* 11:533): monthly country temperatures. The archive
-          is 2.7 GB, so the single needed CSV is extracted by **HTTP-Range
-          requests** — end-of-central-directory → central directory → one
-          member — a ~0.5 MB transfer.
-        """
-    )
+    - **GVAR 2023 vintage** (Mohaddes & Raissi 2024, Mendeley,
+      DOI [10.17632/kfp5fhgkvf.1](https://doi.org/10.17632/kfp5fhgkvf.1),
+      CC BY 4.0): log real GDP `y`, inflation `Dp`, short rate `r`, real
+      exchange rate `ep`, oil price `poil`, and PPP-GDP for the weights.
+    - **Weighted Climate Dataset** (Gortan, Testa, Fagiolo & Lamperti 2024,
+      *Scientific Data* 11:533): monthly country temperatures. The archive
+      is 2.7 GB, so the single needed CSV is extracted by **HTTP-Range
+      requests** — end-of-central-directory → central directory → one
+      member — a ~0.5 MB transfer.
+    """)
     return
 
 
@@ -198,7 +232,18 @@ def _(DATA_DIR, GVAR_URL, UA, os, pd, zipfile):
 
 
 @app.cell
-def _(CLIMATE_MEMBER, DATA_DIR, UA, WCD_URL, io, os, pd, requests, struct, zlib):
+def _(
+    CLIMATE_MEMBER,
+    DATA_DIR,
+    UA,
+    WCD_URL,
+    io,
+    os,
+    pd,
+    requests,
+    struct,
+    zlib,
+):
     def _ranged(sess, url, start, end):
         r = sess.get(url, headers={"Range": f"bytes={start}-{end}", **UA}, timeout=120)
         r.raise_for_status()
@@ -352,7 +397,7 @@ def _(COUNTRIES, HORIZONS, ISO3, gvar_book, np, pd, ppp_book, temp_monthly):
     sample_note = {
         h: f"{d['t'][0]}..{d['t'][-1]} (T={len(d['t'])})" for h, d in datasets.items()
     }
-    return TG, RVG, datasets, sample_note, w_ppp
+    return RVG, TG, datasets, sample_note
 
 
 @app.cell(hide_code=True)
@@ -372,30 +417,28 @@ def _(RVG, TG, mo, plt, sample_note):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## 2. Model
+    mo.md(r"""
+    ## 2. Model
 
-        For each horizon $h$, the panel quantile local projection (eq. 9):
+    For each horizon $h$, the panel quantile local projection (eq. 9):
 
-        $$Q_\tau(y_{i,t+h} \mid \mathcal{F}_t) = \underbrace{\alpha_{i,h}(\tau)}_{\Theta \text{ col } 0}
-        + \underbrace{f_{t,h}}_{\text{common time effect}}
-        + \sum_{s} \text{shock}^s_{it}\, \underbrace{\theta^s_{i,h}(\tau)}_{\Theta \text{ cols } 1\text{–}4}
-        + \bm{z}_{it}'\, \underbrace{\bm{\beta}_{i,h}(\tau)}_{\Theta \text{ cols } 5\text{–}7}$$
+    $$Q_\tau(y_{i,t+h} \mid \mathcal{F}_t) = \underbrace{\alpha_{i,h}(\tau)}_{\Theta \text{ col } 0}
+    + \underbrace{f_{t,h}}_{\text{common time effect}}
+    + \sum_{s} \text{shock}^s_{it}\, \underbrace{\theta^s_{i,h}(\tau)}_{\Theta \text{ cols } 1\text{–}4}
+    + \bm{z}_{it}'\, \underbrace{\bm{\beta}_{i,h}(\tau)}_{\Theta \text{ cols } 5\text{–}7}$$
 
-        Each country's stacked **coefficient path** $\Theta_i \in \mathbb{R}^{pL}$ has the
-        separable prior $\mathcal{N}\!\big(\text{vec}\,\mu,\; K_\lambda \otimes \Sigma\big)$:
-        the **population path** $\mu(\tau) = \Gamma \Phi(\tau)$ is a Bernstein
-        polynomial with every row nondecreasing (the monotone cone, via an
-        ordered transform), $K_\lambda$ is the paper's exponential kernel —
-        **GPJax `Matern12`** evaluated on the quantile grid — and $\Sigma$
-        (LKJ) couples the $p$ coefficients within a node. **Unit deviations**
-        around $\mu$ are small (HalfNormal(0.25) scales): that is what makes
-        noncrossing *soft*. The **common time effect** is a sum-to-zero AR(1)
-        driven by $w_t$. The **working likelihood** places one
-        `AsymmetricLaplaceQuantile` term at every (country, quarter, node).
-        """
-    )
+    Each country's stacked **coefficient path** $\Theta_i \in \mathbb{R}^{pL}$ has the
+    separable prior $\mathcal{N}\!\big(\text{vec}\,\mu,\; K_\lambda \otimes \Sigma\big)$:
+    the **population path** $\mu(\tau) = \Gamma \Phi(\tau)$ is a Bernstein
+    polynomial with every row nondecreasing (the monotone cone, via an
+    ordered transform), $K_\lambda$ is the paper's exponential kernel —
+    **GPJax `Matern12`** evaluated on the quantile grid — and $\Sigma$
+    (LKJ) couples the $p$ coefficients within a node. **Unit deviations**
+    around $\mu$ are small (HalfNormal(0.25) scales): that is what makes
+    noncrossing *soft*. The **common time effect** is a sum-to-zero AR(1)
+    driven by $w_t$. The **working likelihood** places one
+    `AsymmetricLaplaceQuantile` term at every (country, quarter, node).
+    """)
     return
 
 
@@ -458,27 +501,25 @@ def _(OrderedTransform, dist, gammaln, gpx, jnp, npscan, numpyro):
             obs=jnp.broadcast_to(y[:, :, None], q.shape),
         )
 
-    return bernstein_basis, panel_qr_model
+    return (panel_qr_model,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## 3. Synthetic validation (the seam)
+    mo.md(r"""
+    ## 3. Synthetic validation (the seam)
 
-        Before touching real data, the *identical* model code is fit to a small
-        simulated panel whose true quantile surface is known analytically
-        ($y = a_i + f_t + \bm{c}'\bm{b}^c_i + \bm{z}'\bm{b}^m_i + (0.5 + 0.9 z_0)\,\varepsilon$,
-        so true coefficient paths are $b + 0.9 z_0 \Phi^{-1}(\tau)$-shaped).
-        Checks: NUTS divergences, population-path monotonicity in **every**
-        draw, common-factor recovery, and per-node PIT calibration of the
-        fitted quantile surface. At this panel size the hierarchical prior
-        pools hard, so *unit-level* coefficients shrink toward the population
-        path by design — the certifiable quantities are the surface and the
-        population path, not per-unit coefficients.
-        """
-    )
+    Before touching real data, the *identical* model code is fit to a small
+    simulated panel whose true quantile surface is known analytically
+    ($y = a_i + f_t + \bm{c}'\bm{b}^c_i + \bm{z}'\bm{b}^m_i + (0.5 + 0.9 z_0)\,\varepsilon$,
+    so true coefficient paths are $b + 0.9 z_0 \Phi^{-1}(\tau)$-shaped).
+    Checks: NUTS divergences, population-path monotonicity in **every**
+    draw, common-factor recovery, and per-node PIT calibration of the
+    fitted quantile surface. At this panel size the hierarchical prior
+    pools hard, so *unit-level* coefficients shrink toward the population
+    path by design — the certifiable quantities are the surface and the
+    population path, not per-unit coefficients.
+    """)
     return
 
 
@@ -496,33 +537,52 @@ def _(DATA_DIR, MCMC, NUTS, SEED, jnp, jr, json, np, os, panel_qr_model):
         bc = jnp.array([-0.15, -0.30, -0.05, 0.10]) + 0.05 * jr.normal(kk[5], (Ns, Kc))
         bm = jnp.array([1.0, -0.6, 0.3]) + 0.2 * jr.normal(kk[6], (Ns, Km))
         het = 0.5 + 0.9 * Zs[..., 0]
-        y = (a_true[:, None] + f_true[None, :]
-             + jnp.einsum("ntk,nk->nt", Cs, bc) + jnp.einsum("ntk,nk->nt", Zs, bm)
-             + het * jr.normal(kk[7], (Ns, Ts)))
+        y = (
+            a_true[:, None]
+            + f_true[None, :]
+            + jnp.einsum("ntk,nk->nt", Cs, bc)
+            + jnp.einsum("ntk,nk->nt", Zs, bm)
+            + het * jr.normal(kk[7], (Ns, Ts))
+        )
         Rm = jnp.concatenate([jnp.ones((Ns, Ts, 1)), Cs, Zs], -1)
         taus_s = jnp.concatenate([jnp.arange(1, 6) / 100, jnp.arange(2, 20) / 20])
 
-        mc = MCMC(NUTS(panel_qr_model, target_accept_prob=0.9), num_warmup=warmup,
-                  num_samples=samples, progress_bar=False)
-        mc.run(jr.PRNGKey(seed + 1), Rm, y, Ws, taus_s, 10,
-               extra_fields=("diverging",))
+        mc = MCMC(
+            NUTS(panel_qr_model, target_accept_prob=0.9),
+            num_warmup=warmup,
+            num_samples=samples,
+            progress_bar=False,
+        )
+        mc.run(jr.PRNGKey(seed + 1), Rm, y, Ws, taus_s, 10, extra_fields=("diverging",))
         s = mc.get_samples()
         div = int(np.asarray(mc.get_extra_fields()["diverging"]).sum())
         mono = bool(jnp.all(jnp.diff(s["mu_path"], axis=1) >= -1e-12))
         fcorr = float(jnp.corrcoef(s["f"].mean(0), f_true)[0, 1])
         Th = np.asarray(s["Theta"]).reshape(-1, Ns, taus_s.shape[0], 8).mean(0)
-        qf = (np.einsum("ntp,nlp->ntl", np.asarray(Rm), Th)
-              + np.asarray(s["f"].mean(0))[None, :, None])
-        pit = {round(float(taus_s[l]), 2):
-               round(float(np.mean(np.asarray(y)[:, :, None] <= qf[:, :, l:l+1])), 3)
-               for l in (0, 4, 11, 22)}
-        return dict(divergences=div, mu_monotone_all_draws=mono,
-                    factor_corr=round(fcorr, 3), pit_by_node=pit)
+        qf = (
+            np.einsum("ntp,nlp->ntl", np.asarray(Rm), Th)
+            + np.asarray(s["f"].mean(0))[None, :, None]
+        )
+        pit = {
+            round(float(taus_s[l]), 2): round(
+                float(np.mean(np.asarray(y)[:, :, None] <= qf[:, :, l : l + 1])), 3
+            )
+            for l in (0, 4, 11, 22)
+        }
+        return dict(
+            divergences=div,
+            mu_monotone_all_draws=mono,
+            factor_corr=round(fcorr, 3),
+            pit_by_node=pit,
+        )
 
     _seam_path = os.path.join(DATA_DIR, f"seam_{SEED}_300_300.json")
     if os.path.exists(_seam_path):
         with open(_seam_path) as _fh:
-            seam = json.load(_fh)          # replay: reopening never silently refits
+            seam = json.load(_fh)  # replay: reopening never silently refits
+            seam["pit_by_node"] = {
+                float(k): v for k, v in seam["pit_by_node"].items()
+            }  # JSON stringifies keys
     else:
         seam = run_synthetic_seam()
         with open(_seam_path, "w") as _fh:
@@ -531,7 +591,7 @@ def _(DATA_DIR, MCMC, NUTS, SEED, jnp, jr, json, np, os, panel_qr_model):
     assert seam["mu_monotone_all_draws"], seam
     assert seam["factor_corr"] > 0.8, seam
     for _tau, _pit in seam["pit_by_node"].items():
-        assert abs(_pit - _tau) < 0.05, seam       # binomial tolerance at 480 obs
+        assert abs(_pit - _tau) < 0.05, seam  # binomial tolerance at 480 obs
     seam
     return (seam,)
 
@@ -568,18 +628,16 @@ def _(jnp, jr, mo, np, plt):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## 4. Pilot, then the real fits
+    mo.md(r"""
+    ## 4. Pilot, then the real fits
 
-        The pilot runs a **truncated warmup in the exact production
-        configuration** (4 parallel chains, full grid) and extrapolates the
-        marginal late-warmup cost per draw. The projection is a **lower
-        bound** — NUTS tree depth can still deepen after warmup. If it
-        exceeds the runtime cap, the fit cells stop and ask (override
-        checkbox below).
-        """
-    )
+    The pilot runs a **truncated warmup in the exact production
+    configuration** (4 parallel chains, full grid) and extrapolates the
+    marginal late-warmup cost per draw. The projection is a **lower
+    bound** — NUTS tree depth can still deepen after warmup. If it
+    exceeds the runtime cap, the fit cells stop and ask (override
+    checkbox below).
+    """)
     return
 
 
@@ -593,9 +651,25 @@ def _(mo):
 
 
 @app.cell
-def _(MCMC, NUTS, NUM_CHAINS, NUM_SAMPLES, NUM_WARMUP, RUNTIME_CAP_HOURS, TAUS,
-      TARGET_ACCEPT, M_BERN, datasets, jax, jnp, jr, mo, panel_qr_model,
-      pilot_button, time):
+def _(
+    MCMC,
+    M_BERN,
+    NUM_CHAINS,
+    NUM_SAMPLES,
+    NUM_WARMUP,
+    NUTS,
+    RUNTIME_CAP_HOURS,
+    TARGET_ACCEPT,
+    TAUS,
+    datasets,
+    jax,
+    jnp,
+    jr,
+    mo,
+    panel_qr_model,
+    pilot_button,
+    time,
+):
     mo.stop(not pilot_button.value, mo.md("*Pilot not yet run — press the button above.*"))
 
     def _timed(warmup):
@@ -625,10 +699,33 @@ def _(MCMC, NUTS, NUM_CHAINS, NUM_SAMPLES, NUM_WARMUP, RUNTIME_CAP_HOURS, TAUS,
 
 
 @app.cell
-def _(MCMC, NUTS, NUM_CHAINS, NUM_SAMPLES, NUM_WARMUP, RUNTIME_CAP_HOURS,
-      SEED, TARGET_ACCEPT, TAUS, THIN_STORE, DATA_DIR, M_BERN, cap_override,
-      datasets, fit_button, hashlib, jnp, jr, json, mo, np, os,
-      panel_qr_model, pilot_projection_hours):
+def _(
+    DATA_DIR,
+    MCMC,
+    M_BERN,
+    NUM_CHAINS,
+    NUM_SAMPLES,
+    NUM_WARMUP,
+    NUTS,
+    RUNTIME_CAP_HOURS,
+    SEED,
+    TARGET_ACCEPT,
+    TAUS,
+    THIN_STORE,
+    cap_override,
+    datasets,
+    fit_button,
+    hashlib,
+    jnp,
+    jr,
+    json,
+    mo,
+    np,
+    os,
+    panel_qr_model,
+    pilot_projection_hours,
+    time,
+):
     mo.stop(not fit_button.value, mo.md("*Production fits not started.*"))
     mo.stop(
         pilot_projection_hours > RUNTIME_CAP_HOURS and not cap_override.value,
@@ -700,17 +797,15 @@ def _(MCMC, NUTS, NUM_CHAINS, NUM_SAMPLES, NUM_WARMUP, RUNTIME_CAP_HOURS,
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        ## 5. Results — distributional impulse responses, growth-at-risk
+    mo.md(r"""
+    ## 5. Results — distributional impulse responses, growth-at-risk
 
-        The **DIRF** is the climate coefficient path itself (eq. 11); the
-        panel average (eq. 12) recreates the paper's Figure 4. **ΔGaR** at a
-        node is the coefficient path evaluated there (one-s.d. shock, eq. 15);
-        **ΔES(0.05)** averages the five tail nodes (eq. 17–18). The country
-        selector below only re-indexes stored posterior draws.
-        """
-    )
+    The **DIRF** is the climate coefficient path itself (eq. 11); the
+    panel average (eq. 12) recreates the paper's Figure 4. **ΔGaR** at a
+    node is the coefficient path evaluated there (one-s.d. shock, eq. 15);
+    **ΔES(0.05)** averages the five tail nodes (eq. 17–18). The country
+    selector below only re-indexes stored posterior draws.
+    """)
     return
 
 
@@ -724,8 +819,16 @@ def _(COUNTRIES, mo, posteriors):
 
 
 @app.cell(hide_code=True)
-def _(SHOCK_NAMES, TAUS, country_pick, horizon_pick, mo, np, plt, posteriors,
-      COUNTRIES):
+def _(
+    COUNTRIES,
+    SHOCK_NAMES,
+    TAUS,
+    country_pick,
+    horizon_pick,
+    np,
+    plt,
+    posteriors,
+):
     _h = int(horizon_pick.value)
     _P = posteriors[_h]
     _Theta = _P["Theta"]                                   # (draws, N, L*p) -> reshape
@@ -806,7 +909,7 @@ def _(COUNTRIES, EMERGING, TAUS, mo, np, pd, posteriors):
 
 
 @app.cell(hide_code=True)
-def _(mo, np, posteriors, COUNTRIES, TAUS):
+def _(COUNTRIES, TAUS, mo, np, posteriors):
     # -------- diagnostics: realized crossing rate on the Lemma-1 domain --------
     _L = len(TAUS)
     _msgs = []
