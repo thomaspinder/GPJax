@@ -99,9 +99,7 @@ def test_gaussian_predict_is_numpyro_compatible():
     latent = GaussianDistribution(
         loc=jnp.zeros(4), scale=lx.DiagonalLinearOperator(jnp.ones(4))
     )
-    predictive = gpx.likelihoods.Gaussian(obs_stddev=0.1).predict(
-        latent
-    )
+    predictive = gpx.likelihoods.Gaussian(obs_stddev=0.1).predict(latent)
     assert predictive.mean.shape == (4,)
     assert bool(jnp.all(predictive.variance > 0))
     sample = predictive.sample(jr.key(0))
@@ -118,9 +116,7 @@ def test_gaussian_family_predict_returns_gaussian_distribution(likelihood_cls):
         scale=lx.DiagonalLinearOperator(jnp.ones(n_points)),
     )
     if likelihood_cls is MultiOutputGaussian:
-        likelihood = likelihood_cls(
-            num_outputs=1, obs_stddev=0.5
-        )
+        likelihood = likelihood_cls(num_outputs=1, obs_stddev=0.5)
     else:
         likelihood = likelihood_cls(obs_stddev=0.5)
     predictive = likelihood.predict(latent)

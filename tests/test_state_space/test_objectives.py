@@ -187,9 +187,7 @@ def test_state_space_mll_gradient_through_obs_stddev_is_finite():
             mean_function=gpx.mean_functions.Zero(),
             kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         )
-        likelihood = gpx.likelihoods.Gaussian(
-            obs_stddev=obs_stddev_value
-        )
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev_value)
         posterior = prior * likelihood
         return -state_space_mll(posterior, train_data)
 

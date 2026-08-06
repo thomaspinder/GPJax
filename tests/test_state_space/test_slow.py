@@ -54,9 +54,7 @@ def test_state_space_mll_forward_finite_at_N_100k():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern52(lengthscale=lengthscale, variance=variance),
     )
-    likelihood_subset = gpx.likelihoods.Gaussian(
-        obs_stddev=obs_stddev
-    )
+    likelihood_subset = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior_subset = prior_subset * likelihood_subset
 
     mll_ss_subset = state_space_mll(posterior_subset, train_subset)

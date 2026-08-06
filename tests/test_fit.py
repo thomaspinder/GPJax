@@ -537,10 +537,13 @@ def test_fit_zero_mean_function_is_frozen_by_default() -> None:
     y = jnp.full_like(X, 25.0)  # data with a large non-zero mean
     D = Dataset(X, y)
 
-    posterior = gpx.gps.Prior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
-    ) * gpx.likelihoods.Gaussian()
+    posterior = (
+        gpx.gps.Prior(
+            mean_function=gpx.mean_functions.Zero(),
+            kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
+        )
+        * gpx.likelihoods.Gaussian()
+    )
 
     trained_posterior, _ = fit(
         model=posterior,

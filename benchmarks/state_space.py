@@ -36,9 +36,7 @@ class StateSpaceMllSuite:
             kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         )
         likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
-        self.posterior = StateSpaceConjugateModel(
-            prior=prior, likelihood=likelihood
-        )
+        self.posterior = StateSpaceConjugateModel(prior=prior, likelihood=likelihood)
         self.data = _temporal_dataset(n)
         realise(state_space_mll(self.posterior, self.data))
 

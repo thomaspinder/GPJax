@@ -6,10 +6,9 @@ These tests pin the mathematical identities that must hold across them, so
 that consolidating the derivations cannot silently change behaviour.
 """
 
+import gpjax as gpx
 import jax.numpy as jnp
 import pytest
-
-import gpjax as gpx
 
 
 def _make(jitter=1e-6):

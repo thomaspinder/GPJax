@@ -470,9 +470,7 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
     for i in range(m):
         latent_dataset = Dataset(X=X, y=y_projected[i][:, None])
         likelihood = Gaussian(obs_stddev=jnp.sqrt(projected_noise_vars[i]))
-        conditioned = ExactPosterior(
-            model.latent_priors[i], likelihood, latent_dataset
-        )
+        conditioned = ExactPosterior(model.latent_priors[i], likelihood, latent_dataset)
         latent_lls.append(conditioned.log_marginal_likelihood)
 
     return correction + jnp.sum(jnp.array(latent_lls))

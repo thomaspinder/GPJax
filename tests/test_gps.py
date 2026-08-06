@@ -26,9 +26,8 @@ from collections.abc import Callable
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
-    JointModel,
-    Prior,
     ConjugateModel,
+    JointModel,
     NonConjugateModel,
     Prior,
     construct_model,
@@ -437,9 +436,7 @@ def test_prior_sample_approx(num_datapoints, kernel, mean_function):
 @pytest.mark.parametrize("mean_function", [Zero, Constant])
 def test_conjugate_posterior_sample_approx(num_datapoints, kernel, mean_function):
     kern = kernel(lengthscale=jnp.array([5.0, 1.0]), variance=0.1)
-    p = Prior(kernel=kern, mean_function=mean_function()) * Gaussian(
-        
-    )
+    p = Prior(kernel=kern, mean_function=mean_function()) * Gaussian()
     key = jr.key(123)
 
     x = jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(num_datapoints, 2))

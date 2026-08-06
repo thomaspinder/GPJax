@@ -135,9 +135,7 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp(kernel_class, j
         jitter=jitter,
     )
     dense_posterior = dense_prior * likelihood
-    dense_dist = dense_posterior.predict(
-        Xtest, train_data, covariance="diagonal"
-    )
+    dense_dist = dense_posterior.predict(Xtest, train_data, covariance="diagonal")
     dense_means = np.asarray(dense_dist.mean)
     dense_variances = np.asarray(dense_dist.variance)
 
@@ -278,9 +276,7 @@ def test_state_space_posterior_predict_filter_dense_raises():
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X.reshape(-1, 1), y=y.reshape(-1, 1))
     with pytest.raises(NotImplementedError, match=r"diagonal|dense"):
-        posterior.predict_filter(
-            jnp.array([[0.5]]), train_data, covariance="dense"
-        )
+        posterior.predict_filter(jnp.array([[0.5]]), train_data, covariance="dense")
 
 
 def test_state_space_posterior_predict_filter_runs_and_returns_diagonal():
@@ -342,17 +338,13 @@ def test_state_space_predict_filter_uses_only_past_observations():
     y_prefix = y_train[prefix_mask].reshape(-1, 1)
     prefix_data = gpx.Dataset(X=X_prefix, y=y_prefix)
     n_prefix = X_prefix.shape[0]
-    likelihood_prefix = gpx.likelihoods.Gaussian(
-        obs_stddev=obs_stddev
-    )
+    likelihood_prefix = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     dense_prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
     dense_posterior = dense_prior * likelihood_prefix
-    dense_dist = dense_posterior.predict(
-        Xtest, prefix_data, covariance="diagonal"
-    )
+    dense_dist = dense_posterior.predict(Xtest, prefix_data, covariance="diagonal")
 
     np.testing.assert_allclose(
         np.asarray(filtered_dist.mean), np.asarray(dense_dist.mean), atol=1e-5
@@ -391,9 +383,7 @@ def test_state_space_predict_smoothed_with_constant_mean_function():
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
     dense_posterior = dense_prior * likelihood
-    dense_dist = dense_posterior.predict(
-        Xtest, train_data, covariance="diagonal"
-    )
+    dense_dist = dense_posterior.predict(Xtest, train_data, covariance="diagonal")
     dense_means = np.asarray(dense_dist.mean)
 
     np.testing.assert_allclose(ss_means, dense_means, atol=1e-5, rtol=1e-6)

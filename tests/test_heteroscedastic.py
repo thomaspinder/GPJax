@@ -95,18 +95,14 @@ def test_construct_model_routing(prior, noise_prior):
 
 def test_likelihood_callable_compatibility(noise_prior):
     # Test that passing jnp.exp uses LogNormalTransform
-    lik_exp = HeteroscedasticGaussian(
-        noise_transform=jnp.exp
-    )
+    lik_exp = HeteroscedasticGaussian(noise_transform=jnp.exp)
     assert isinstance(lik_exp.noise_transform, LogNormalTransform)
 
     # Test that passing a custom callable uses SoftplusTransform (default fallback logic)
     def custom_transform(x):
         return jnp.square(x)
 
-    lik_custom = HeteroscedasticGaussian(
-        noise_transform=custom_transform
-    )
+    lik_custom = HeteroscedasticGaussian(noise_transform=custom_transform)
     assert isinstance(lik_custom.noise_transform, SoftplusTransform)
 
 

@@ -442,9 +442,7 @@ class ConjugateModel(JointModel[M, K, GL]):
         Draw approximate posterior samples via pathwise conditioning
         (Wilson et al., 2020).
         """
-        return self.condition(train_data).sample_approx(
-            num_samples, key, num_features
-        )
+        return self.condition(train_data).sample_approx(num_samples, key, num_features)
 
 
 class NonConjugateModel(JointModel[M, K, NGL]):
@@ -578,9 +576,7 @@ def construct_model(prior: Prior, likelihood: GL) -> ConjugateModel: ...
 def construct_model(prior: Prior, likelihood: NGL) -> NonConjugateModel: ...
 
 
-def construct_model(
-    prior: Prior, likelihood: AbstractLikelihood
-) -> "JointModel":
+def construct_model(prior: Prior, likelihood: AbstractLikelihood) -> "JointModel":
     r"""Construct the joint model for a prior/likelihood pair.
 
     Selects the concrete :class:`JointModel` subclass from the likelihood's

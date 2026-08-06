@@ -8,9 +8,8 @@ MLL, ``collapsed_elbo`` — is validated against ``conjugate_mll``, so these
 oracles are the ground truth the rest of the suite stands on.
 """
 
-import jax.numpy as jnp
-
 import gpjax as gpx
+import jax.numpy as jnp
 
 JITTER = 1e-6
 OBS_STDDEV = 0.3
@@ -32,9 +31,7 @@ def _posterior():
     prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(), kernel=kernel, jitter=JITTER
     )
-    likelihood = gpx.likelihoods.Gaussian(
-        obs_stddev=OBS_STDDEV
-    )
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=OBS_STDDEV)
     return prior * likelihood
 
 

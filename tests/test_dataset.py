@@ -207,10 +207,9 @@ def test_n_total_defaults_to_none():
 
 
 def test_get_batch_stamps_n_total():
+    from gpjax.fit import get_batch
     import jax
     import jax.random as jr
-
-    from gpjax.fit import get_batch
 
     x = jnp.linspace(0.0, 1.0, 25).reshape(-1, 1)
     dataset = Dataset(X=x, y=jnp.sin(x))

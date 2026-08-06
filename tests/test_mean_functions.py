@@ -99,9 +99,7 @@ def test_zero_mean_remains_zero() -> None:
     y = jnp.full((20, 1), 50.0, dtype=jnp.float64)  # dataset with a non-zero mean
     train_data = Dataset(X=x, y=y)
 
-    posterior = Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(
-        
-    )
+    posterior = Prior(mean_function=Zero(), kernel=RBF()) * Gaussian()
 
     optimised, _ = fit(
         model=posterior,

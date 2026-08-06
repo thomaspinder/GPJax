@@ -147,11 +147,7 @@ class ExactPosterior(Posterior):
         num_scalars = residual.shape[0]
         half_logdet = jnp.sum(jnp.log(jnp.diagonal(factor)))
         evidence = (
-            -0.5
-            * (
-                jnp.sum(residual * weights)
-                + num_scalars * jnp.log(2.0 * jnp.pi)
-            )
+            -0.5 * (jnp.sum(residual * weights) + num_scalars * jnp.log(2.0 * jnp.pi))
             - half_logdet
         )
 
@@ -225,9 +221,7 @@ class ExactPosterior(Posterior):
         )
         precision_diag = jnp.sum(factor_inv**2, axis=0).reshape(-1, 1)
 
-        loo_means = (
-            self.residual - self.representer_weights / precision_diag
-        )
+        loo_means = self.residual - self.representer_weights / precision_diag
         loo_vars = 1.0 / precision_diag
         loo_dist = npd.Normal(loc=loo_means, scale=jnp.sqrt(loo_vars))
         return loo_dist.log_prob(self.residual).squeeze(-1)
