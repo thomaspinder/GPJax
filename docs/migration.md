@@ -23,8 +23,17 @@ object `gpx.fit` trains. Conditioning it on data yields the posterior
 process, which caches its factorisation and is queried directly:
 
 ```python
-model = prior * likelihood          # JointModel (was: ConjugatePosterior)
-model, history = gpx.fit_scipy(model=model, objective=nmll, train_data=D)
+import gpjax as gpx
+import jax.numpy as jnp
+
+xtrain = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
+D = gpx.Dataset(X=xtrain, y=jnp.sin(xtrain))
+xtest = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)
+prior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
+)
+
+model = prior * gpx.likelihoods.Gaussian()  # JointModel (was: ConjugatePosterior)
 posterior = model.condition(D)      # Posterior — equivalently: model | D
 predictive = posterior(xtest)       # was: posterior.predict(xtest, D)
 evidence = posterior.log_marginal_likelihood
@@ -66,8 +75,11 @@ lives on the model, which is constructed directly because it holds two
 priors:
 
 ```python
-model = gpx.gps.HeteroscedasticModel(
-    prior=signal_prior,
+noise_prior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
+)
+het_model = gpx.gps.HeteroscedasticModel(
+    prior=prior,
     likelihood=gpx.likelihoods.HeteroscedasticGaussian(),
     noise_prior=noise_prior,
 )
