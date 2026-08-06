@@ -9,13 +9,15 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
 
 # %% [markdown]
 # # Natural Gradients
+#
+# Download this notebook: {nb-download}`natgrads.ipynb`
 #
 # Variational inference in a sparse Gaussian process asks us to optimise a
 # probability distribution $q(\mathbf{u})$, not a point in $\mathbb{R}^P$. Gradient
@@ -27,7 +29,7 @@
 # parameterisation.
 #
 # This notebook implements the recipe of
-# <strong data-cite="salimbeni2018">Salimbeni et al. (2018)</strong>, which is what
+# {cite:t}`salimbeni2018`, which is what
 # `gpjax.fit_natgrads` runs. The remarkable practical point is that for a Gaussian
 # process the natural gradient costs *no* Fisher matrix at all: the Fisher information
 # turns out to be the Jacobian $\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta}$
@@ -52,7 +54,7 @@
 #    backoff behaves.
 #
 # If you have not met sparse variational GPs before, read the
-# [stochastic sparse GP notebook](https://docs.jaxgaussianprocesses.com/_examples/uncollapsed_vi/)
+# [stochastic sparse GP notebook](uncollapsed_vi.py)
 # first — everything below assumes the SVGP evidence lower bound.
 
 # %%
@@ -60,7 +62,6 @@
 import time
 
 import equinox as eqx
-from examples.utils import clean_legend, use_mpl_style
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -70,6 +71,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import optax as ox
 import paramax
+from utils import clean_legend, use_mpl_style
 
 config.update("jax_enable_x64", True)
 
@@ -191,9 +193,10 @@ check_labels = (
 ).astype(jnp.float64)
 check_data = gpx.Dataset(X=check_inputs, y=check_labels)
 
-check_posterior = gpx.gps.Prior(
-    mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF()
-) * gpx.likelihoods.Bernoulli(num_datapoints=check_data.n)
+check_model = (
+    gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF())
+    * gpx.likelihoods.Bernoulli()
+)
 
 num_check_inducing = 3
 check_mean = 0.5 * jr.normal(mean_key, (num_check_inducing, 1))
@@ -202,7 +205,7 @@ check_root = jnp.linalg.cholesky(
     check_factor @ check_factor.T + jnp.eye(num_check_inducing)
 )
 check_family = gpx.variational_families.VariationalGaussian(
-    posterior=check_posterior,
+    posterior=check_model,
     inducing_inputs=jnp.linspace(-2.0, 2.0, num_check_inducing).reshape(-1, 1),
     variational_mean=check_mean,
     variational_root_covariance=check_root,
@@ -319,7 +322,7 @@ print(
 # and $\gamma = 1$ gives $\boldsymbol{\theta}_{\text{new}} = \boldsymbol{\lambda} = \boldsymbol{\theta}^\star$
 # **in one step, from any starting point**. This is Sato's (2001) observation that
 # natural-gradient ascent at unit step size *is* the classical variational
-# fixed-point update; for the SVGP it recovers the Titsias (2009) optimum.
+# fixed-point update; for the SVGP it recovers the {cite:t}`titsias2009` optimum.
 #
 # Let us watch it happen.
 
@@ -341,10 +344,11 @@ regression_inducing = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 test_inputs = jnp.linspace(-3.2, 3.2, 300).reshape(-1, 1)
 
 # %%
-# A conjugate SVGP, deliberately initialised a long way from its optimum.
-regression_posterior = gpx.gps.Prior(
+# A conjugate SVGP, deliberately initialised a long way from its optimum. The joint
+# model is prior * likelihood; the variational family approximates its posterior.
+regression_model = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Constant(), kernel=jk.RBF(lengthscale=0.5)
-) * gpx.likelihoods.Gaussian(num_datapoints=num_data, obs_stddev=noise_stddev)
+) * gpx.likelihoods.Gaussian(obs_stddev=noise_stddev)
 
 key, bad_mean_key, bad_root_key = jr.split(key, 3)
 bad_mean = jr.normal(bad_mean_key, (num_inducing, 1))
@@ -352,7 +356,7 @@ bad_factor = 0.3 * jr.normal(bad_root_key, (num_inducing, num_inducing))
 bad_root = jnp.linalg.cholesky(bad_factor @ bad_factor.T + 0.5 * jnp.eye(num_inducing))
 
 initial_family = gpx.variational_families.WhitenedVariationalGaussian(
-    posterior=regression_posterior,
+    posterior=regression_model,
     inducing_inputs=regression_inducing,
     variational_mean=bad_mean,
     variational_root_covariance=bad_root,
@@ -474,12 +478,12 @@ print(
 # $\mathbf{K}_{zz}$.
 #
 # Because this model is conjugate, we can also compare the one-step posterior against
-# the exact GP posterior computed without any inducing-point approximation.
+# the exact GP posterior, obtained by conditioning the joint model on the data with no
+# inducing-point approximation.
 
 # %%
-exact_predictive = paramax.unwrap(regression_posterior).predict(
-    test_inputs, train_data=regression_data
-)
+exact_posterior = paramax.unwrap(regression_model).condition(regression_data)
+exact_predictive = exact_posterior(test_inputs)
 exact_mean = exact_predictive.mean
 exact_stddev = jnp.sqrt(exact_predictive.variance)
 
@@ -720,15 +724,18 @@ num_banana_inducing = 50
 inducing_grid = jnp.meshgrid(jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8, 5))
 banana_inducing = jnp.stack([axis.ravel() for axis in inducing_grid], axis=1)
 
-banana_posterior = gpx.gps.Prior(
-    mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF(active_dims=[0, 1])
-) * gpx.likelihoods.Bernoulli(num_datapoints=num_train)
+banana_model = (
+    gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF(active_dims=[0, 1])
+    )
+    * gpx.likelihoods.Bernoulli()
+)
 
 
 def make_banana_family():
     """A fresh SVGP over the banana data, at the default m = 0, S = I."""
     return gpx.variational_families.VariationalGaussian(
-        posterior=banana_posterior, inducing_inputs=banana_inducing
+        posterior=banana_model, inducing_inputs=banana_inducing
     )
 
 
@@ -1018,7 +1025,7 @@ colourbar = fig.colorbar(contours, ax=axes, label=r"$q(y=1 \mid x)$")
 
 # %%
 overconfident_family = gpx.variational_families.VariationalGaussian(
-    posterior=banana_posterior,
+    posterior=banana_model,
     inducing_inputs=banana_inducing,
     variational_mean=jnp.zeros((num_banana_inducing, 1)),
     variational_root_covariance=0.1 * jnp.eye(num_banana_inducing),
@@ -1127,10 +1134,9 @@ for max_backoff in [0, 3, 5, 7, 10]:
 #   likelihood with gross outliers the target $\boldsymbol{\Theta}_2^{\text{tgt}}$ can
 #   itself be outside the cone, so no positive $\gamma$ is provably safe.
 #
-# The companion
-# [dual sparse GP notebook](https://docs.jaxgaussianprocesses.com/_examples/dual_svgp/)
-# takes the same geometry in a different direction, storing the site parameters of the
-# variational distribution rather than its moments.
+# The companion dual sparse GP notebook takes the same geometry in a different
+# direction, storing the site parameters of the variational distribution rather than
+# its moments.
 
 # %% [markdown]
 # ## System configuration
