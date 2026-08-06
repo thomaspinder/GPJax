@@ -30,7 +30,7 @@ Cholesky factor
 conjugate
 : A prior and likelihood pair for which the posterior has the same form as the
   prior, so it is available in closed form. For Gaussian processes this means a
-  Gaussian likelihood, giving a [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior)
+  Gaussian likelihood, giving a [`ConjugateModel`](#gpjax.gps.ConjugateModel)
   whose [`conjugate_mll`](#gpjax.objectives.conjugate_mll) needs no approximation.
   Anything else — Bernoulli, Poisson — is non-conjugate, and the latent function
   values must be approximated: by MAP or a Laplace approximation, by

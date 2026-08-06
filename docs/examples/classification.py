@@ -144,7 +144,7 @@ opt_posterior, history = gpx.fit(
 )
 
 # %% [markdown]
-# From which we can [make predictions](#gpjax.gps.NonConjugateModel.predict) at
+# From which we can [make predictions](#gpjax.gps.JointModel.predict) at
 # novel inputs, as illustrated in {numref}`fig-classification-map-predictive`.
 
 # %% mystnb={"figure": {"caption": "The MAP predictive mean and its one-sigma band over the binary observations.", "name": "fig-classification-map-predictive"}}
