@@ -129,17 +129,18 @@ def _():
 def _(np, os):
     # ---------------- configuration: every knob in one place ----------------
     SEED = 20260806
-    TAUS = np.arange(1, 100) / 100.0          # paper's grid, L = 99
-    M_BERN = 10                               # Bernstein degree (paper: unstated)
-    HORIZONS = (1, 4)                         # paper: 1..10; default per spec
+    TAUS = np.arange(1, 100) / 100.0  # paper's grid, L = 99
+    M_BERN = 10  # Bernstein degree (paper: unstated)
+    HORIZONS = (1, 4)  # paper: 1..10; default per spec
     NUM_WARMUP, NUM_SAMPLES = 2500, 1500
     TARGET_ACCEPT = 0.9
-    RUNTIME_CAP_HOURS = 2.0                   # pilot stops-and-asks beyond this
-    THIN_STORE = 4                            # cache thinning for posterior draws
+    RUN_FITS = False  # flip to True to launch the production fits (hours-scale)
+    RUNTIME_CAP_HOURS = 2.0  # pilot's advisory runtime threshold
+    THIN_STORE = 4  # cache thinning for posterior draws
     # NUM_CHAINS lives in the imports cell: XLA_FLAGS must be set before jax loads.
 
     CLIMATE_MEMBER = "WCD_CSV/gadm0/temperature/gadm0_era_tmp_un__monthly.csv"
-    WCD_URL = "https://ndownloader.figshare.com/files/45222226"   # 2.7 GB archive (never fully downloaded)
+    WCD_URL = "https://ndownloader.figshare.com/files/45222226"  # 2.7 GB archive (never fully downloaded)
     GVAR_URL = (
         "https://data.mendeley.com/public-files/datasets/kfp5fhgkvf/files/"
         "6a67972a-4dc1-46a4-8c15-e15550f05b5f/file_downloaded"
@@ -155,20 +156,60 @@ def _(np, os):
 
     # GVAR sheet code -> ISO3
     ISO3 = {
-        "arg": "ARG", "austlia": "AUS", "austria": "AUT", "bel": "BEL",
-        "bra": "BRA", "can": "CAN", "china": "CHN", "chl": "CHL", "fin": "FIN",
-        "france": "FRA", "germ": "DEU", "india": "IND", "indns": "IDN",
-        "italy": "ITA", "japan": "JPN", "kor": "KOR", "mal": "MYS",
-        "mex": "MEX", "neth": "NLD", "nor": "NOR", "nzld": "NZL", "per": "PER",
-        "phlp": "PHL", "safrc": "ZAF", "sarbia": "SAU", "sing": "SGP",
-        "spain": "ESP", "swe": "SWE", "switz": "CHE", "thai": "THA",
-        "turk": "TUR", "uk": "GBR", "usa": "USA",
+        "arg": "ARG",
+        "austlia": "AUS",
+        "austria": "AUT",
+        "bel": "BEL",
+        "bra": "BRA",
+        "can": "CAN",
+        "china": "CHN",
+        "chl": "CHL",
+        "fin": "FIN",
+        "france": "FRA",
+        "germ": "DEU",
+        "india": "IND",
+        "indns": "IDN",
+        "italy": "ITA",
+        "japan": "JPN",
+        "kor": "KOR",
+        "mal": "MYS",
+        "mex": "MEX",
+        "neth": "NLD",
+        "nor": "NOR",
+        "nzld": "NZL",
+        "per": "PER",
+        "phlp": "PHL",
+        "safrc": "ZAF",
+        "sarbia": "SAU",
+        "sing": "SGP",
+        "spain": "ESP",
+        "swe": "SWE",
+        "switz": "CHE",
+        "thai": "THA",
+        "turk": "TUR",
+        "uk": "GBR",
+        "usa": "USA",
     }
     COUNTRIES = sorted(ISO3.values())
     # EM membership per Sec 3.4's EM sample, extended to the full panel
     # ([INFERENCE] the paper's Table 3 partition did not render in any source).
-    EMERGING = {"ARG", "BRA", "CHL", "CHN", "IDN", "IND", "KOR", "MEX", "MYS",
-                "PER", "PHL", "SAU", "THA", "TUR", "ZAF"}
+    EMERGING = {
+        "ARG",
+        "BRA",
+        "CHL",
+        "CHN",
+        "IDN",
+        "IND",
+        "KOR",
+        "MEX",
+        "MYS",
+        "PER",
+        "PHL",
+        "SAU",
+        "THA",
+        "TUR",
+        "ZAF",
+    }
     SHOCK_NAMES = ("local temp", "global temp", "local temp vol", "global temp vol")
     return (
         CLIMATE_MEMBER,
@@ -182,6 +223,7 @@ def _(np, os):
         NUM_SAMPLES,
         NUM_WARMUP,
         RUNTIME_CAP_HOURS,
+        RUN_FITS,
         SEED,
         SHOCK_NAMES,
         TARGET_ACCEPT,
@@ -634,9 +676,8 @@ def _(mo):
     The pilot runs a **truncated warmup in the exact production
     configuration** (4 parallel chains, full grid) and extrapolates the
     marginal late-warmup cost per draw. The projection is a **lower
-    bound** — NUTS tree depth can still deepen after warmup. If it
-    exceeds the runtime cap, the fit cells stop and ask (override
-    checkbox below).
+    bound** — NUTS tree depth can still deepen after warmup. The production fits are launched by setting `RUN_FITS = True` in
+    the config cell; the pilot is advisory.
     """)
     return
 
@@ -644,10 +685,8 @@ def _(mo):
 @app.cell
 def _(mo):
     pilot_button = mo.ui.run_button(label="Run pilot timing (~30-45 min)")
-    fit_button = mo.ui.run_button(label="Run production fits (hours-scale)")
-    cap_override = mo.ui.checkbox(label="I accept a projection above the runtime cap")
-    mo.hstack([pilot_button, fit_button, cap_override], justify="start")
-    return cap_override, fit_button, pilot_button
+    mo.hstack([pilot_button], justify="start")
+    return (pilot_button,)
 
 
 @app.cell
@@ -670,16 +709,29 @@ def _(
     pilot_button,
     time,
 ):
-    mo.stop(not pilot_button.value, mo.md("*Pilot not yet run — press the button above.*"))
+    mo.stop(
+        not pilot_button.value, mo.md("*Pilot not yet run — press the button above.*")
+    )
 
     def _timed(warmup):
         d1 = datasets[1]
         t0 = time.time()
-        mc = MCMC(NUTS(panel_qr_model, target_accept_prob=TARGET_ACCEPT),
-                  num_warmup=warmup, num_samples=1, num_chains=NUM_CHAINS,
-                  chain_method="parallel", progress_bar=False)
-        mc.run(jr.PRNGKey(0), jnp.asarray(d1["Rmat"]), jnp.asarray(d1["y"]),
-               jnp.asarray(d1["W"]), jnp.asarray(TAUS), M_BERN)
+        mc = MCMC(
+            NUTS(panel_qr_model, target_accept_prob=TARGET_ACCEPT),
+            num_warmup=warmup,
+            num_samples=1,
+            num_chains=NUM_CHAINS,
+            chain_method="parallel",
+            progress_bar=False,
+        )
+        mc.run(
+            jr.PRNGKey(0),
+            jnp.asarray(d1["Rmat"]),
+            jnp.asarray(d1["y"]),
+            jnp.asarray(d1["W"]),
+            jnp.asarray(TAUS),
+            M_BERN,
+        )
         # parallel chains dispatch asynchronously: block, or the clock lies
         jax.block_until_ready(mc.get_samples()["lambda_gp"])
         return time.time() - t0
@@ -687,15 +739,18 @@ def _(
     _ta = _timed(100)
     _tb = _timed(300)
     _per_draw = (_tb - _ta) / 200.0
-    _proj_h = (_ta + _per_draw * (NUM_WARMUP + NUM_SAMPLES - 101)) * len(datasets) / 3600.0
+    _proj_h = (
+        (_ta + _per_draw * (NUM_WARMUP + NUM_SAMPLES - 101)) * len(datasets) / 3600.0
+    )
     pilot_projection_hours = round(_proj_h, 2)
     mo.md(
         f"**Pilot**: late-warmup marginal cost ≈ `{_per_draw:.2f}` s/draw "
         f"(4 parallel chains, contention included). Projected total for "
         f"{len(datasets)} horizon fits: **≥ {pilot_projection_hours} h** "
-        f"(lower bound; cap = {RUNTIME_CAP_HOURS} h)."
+        f"(lower bound; advisory threshold = {RUNTIME_CAP_HOURS} h — "
+        f"fits are gated by the RUN_FITS constant)."
     )
-    return (pilot_projection_hours,)
+    return
 
 
 @app.cell
@@ -707,14 +762,12 @@ def _(
     NUM_SAMPLES,
     NUM_WARMUP,
     NUTS,
-    RUNTIME_CAP_HOURS,
+    RUN_FITS,
     SEED,
     TARGET_ACCEPT,
     TAUS,
     THIN_STORE,
-    cap_override,
     datasets,
-    fit_button,
     hashlib,
     jnp,
     jr,
@@ -723,21 +776,32 @@ def _(
     np,
     os,
     panel_qr_model,
-    pilot_projection_hours,
     time,
 ):
-    mo.stop(not fit_button.value, mo.md("*Production fits not started.*"))
     mo.stop(
-        pilot_projection_hours > RUNTIME_CAP_HOURS and not cap_override.value,
-        mo.md(f"**Stopped**: projection {pilot_projection_hours} h exceeds the "
-              f"{RUNTIME_CAP_HOURS} h cap. Tick the override to proceed anyway."),
+        not RUN_FITS,
+        mo.md(
+            "*Production fits off — set `RUN_FITS = True` in the config cell "
+            "(hours-scale; run the pilot first for a runtime projection).*"
+        ),
     )
 
     def _fit_cached(h):
         d = datasets[h]
         key = hashlib.sha1(
-            json.dumps([h, list(map(float, TAUS)), M_BERN, NUM_WARMUP, NUM_SAMPLES,
-                        NUM_CHAINS, SEED, TARGET_ACCEPT, THIN_STORE]).encode()
+            json.dumps(
+                [
+                    h,
+                    list(map(float, TAUS)),
+                    M_BERN,
+                    NUM_WARMUP,
+                    NUM_SAMPLES,
+                    NUM_CHAINS,
+                    SEED,
+                    TARGET_ACCEPT,
+                    THIN_STORE,
+                ]
+            ).encode()
             + np.ascontiguousarray(d["y"]).tobytes()
             + np.ascontiguousarray(d["Rmat"]).tobytes()
             + np.ascontiguousarray(d["W"]).tobytes()
@@ -747,24 +811,38 @@ def _(
             z = np.load(path)
             return {k: z[k] for k in z.files}
         _t0 = time.time()
-        mc = MCMC(NUTS(panel_qr_model, target_accept_prob=TARGET_ACCEPT),
-                  num_warmup=NUM_WARMUP, num_samples=NUM_SAMPLES,
-                  num_chains=NUM_CHAINS, chain_method="parallel",
-                  progress_bar=False)
-        mc.run(jr.PRNGKey(SEED + h), jnp.asarray(d["Rmat"]), jnp.asarray(d["y"]),
-               jnp.asarray(d["W"]), jnp.asarray(TAUS), M_BERN,
-               extra_fields=("diverging",))
+        mc = MCMC(
+            NUTS(panel_qr_model, target_accept_prob=TARGET_ACCEPT),
+            num_warmup=NUM_WARMUP,
+            num_samples=NUM_SAMPLES,
+            num_chains=NUM_CHAINS,
+            chain_method="parallel",
+            progress_bar=False,
+        )
+        mc.run(
+            jr.PRNGKey(SEED + h),
+            jnp.asarray(d["Rmat"]),
+            jnp.asarray(d["y"]),
+            jnp.asarray(d["W"]),
+            jnp.asarray(TAUS),
+            M_BERN,
+            extra_fields=("diverging",),
+        )
         s = mc.get_samples(group_by_chain=True)
         _rhat_max, _ess_min = _diag_extremes(s)
         out = {
             "Theta": np.asarray(s["Theta"], np.float32)[:, ::THIN_STORE].reshape(
-                -1, *s["Theta"].shape[2:]),
+                -1, *s["Theta"].shape[2:]
+            ),
             "mu_path": np.asarray(s["mu_path"], np.float32)[:, ::THIN_STORE].reshape(
-                -1, *s["mu_path"].shape[2:]),
+                -1, *s["mu_path"].shape[2:]
+            ),
             "f": np.asarray(s["f"], np.float32)[:, ::THIN_STORE].reshape(
-                -1, *s["f"].shape[2:]),
+                -1, *s["f"].shape[2:]
+            ),
             "divergences": np.array(
-                int(np.asarray(mc.get_extra_fields()["diverging"]).sum())),
+                int(np.asarray(mc.get_extra_fields()["diverging"]).sum())
+            ),
             "rhat_max": np.array(_rhat_max),
             "ess_min": np.array(_ess_min),
             "wall_s": np.array(round(time.time() - _t0, 1)),
@@ -775,6 +853,7 @@ def _(
     def _diag_extremes(s):
         # finite-filtered: at degenerate draw counts these emit NaN/inf noise
         from numpyro.diagnostics import effective_sample_size, gelman_rubin
+
         rmax, emin = 0.0, np.inf
         for k in ("mu_path", "f", "lambda_gp", "gamma_f"):
             if k in s:
@@ -788,10 +867,14 @@ def _(
         return rmax, emin
 
     posteriors = {h: _fit_cached(h) for h in datasets}
-    mo.md("**Fits complete.** " + " · ".join(
-        f"h={h}: div={int(p['divergences'])}, max R̂={float(p['rhat_max']):.3f}, "
-        f"min ESS={float(p['ess_min']):.0f}, wall={float(p['wall_s'])/3600:.2f} h"
-        for h, p in posteriors.items()))
+    mo.md(
+        "**Fits complete.** "
+        + " · ".join(
+            f"h={h}: div={int(p['divergences'])}, max R̂={float(p['rhat_max']):.3f}, "
+            f"min ESS={float(p['ess_min']):.0f}, wall={float(p['wall_s']) / 3600:.2f} h"
+            for h, p in posteriors.items()
+        )
+    )
     return (posteriors,)
 
 
