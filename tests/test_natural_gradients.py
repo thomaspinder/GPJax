@@ -1116,7 +1116,8 @@ def _uncentred_dual_step(family, data, rate):
         _val(family.inducing_inputs), data.X
     )
     design = jsp.linalg.cho_solve((root_gram, True), cross)
-    scale = family.posterior.likelihood.num_datapoints / data.n
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
     target_vector = (design @ uncentred)[:, None]
     target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
 
@@ -1272,7 +1273,7 @@ def test_dual_natgrad_preserves_psd():
     for _ in range(50):
         key, batch_key = jr.split(key)
         indices = jr.choice(batch_key, dataset.n, (8,), replace=False)
-        batch = Dataset(X=dataset.X[indices], y=dataset.y[indices])
+        batch = Dataset(X=dataset.X[indices], y=dataset.y[indices], n_total=dataset.n)
         family, _ = _take_step(family, batch, 0.8, objective=_negative_dual_elbo)
         assert jnp.linalg.eigvalsh(_val(family.dual_matrix)).min() >= -1e-10
 
@@ -1315,7 +1316,7 @@ def test_dual_natgrad_beta_floor_is_trace_safe():
     concave = eqx.tree_at(
         lambda tree: tree.posterior.likelihood,
         family,
-        _NegativeCurvatureLikelihood(num_datapoints=dataset.n),
+        _NegativeCurvatureLikelihood(),
     )
     unfloored, _ = _take_step(
         concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=-jnp.inf
@@ -1360,8 +1361,8 @@ def test_dual_natgrad_minibatch_is_unbiased():
     family = _build_dual(posterior, inducing_inputs, jitter)
 
     half = dataset.n // 2
-    first_half = Dataset(X=dataset.X[:half], y=dataset.y[:half])
-    second_half = Dataset(X=dataset.X[half:], y=dataset.y[half:])
+    first_half = Dataset(X=dataset.X[:half], y=dataset.y[:half], n_total=dataset.n)
+    second_half = Dataset(X=dataset.X[half:], y=dataset.y[half:], n_total=dataset.n)
 
     full, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
     left, _ = _take_step(family, first_half, 1.0, objective=_negative_dual_elbo)

@@ -341,7 +341,7 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
@@ -401,7 +401,8 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
     )
 
     # For batch size b, n/b * sum_i E_q[log p(y_i | f(x_i))] - KL[q(u) || p(u)].
-    return jnp.sum(expectation) * likelihood.num_datapoints / data.n - kl
+    full_size = data.n_total if data.n_total is not None else data.n
+    return jnp.sum(expectation) * full_size / data.n - kl
 
 
 # TODO: Replace code within CollapsedELBO to using (low rank structure of) LinOps and the GaussianDistribution object to be as succinct as e.g., the `ConjugateMLL`.

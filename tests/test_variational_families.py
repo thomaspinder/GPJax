@@ -677,7 +677,7 @@ def _build_dual_family(
     )
     mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
-    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
+    posterior = prior * gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 
     return build_dual(posterior, inducing_inputs, jitter=jitter, seed=seed)

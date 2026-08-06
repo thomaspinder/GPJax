@@ -998,8 +998,10 @@ def _dual_variational_gaussian_step(
     design = jsp.linalg.cho_solve((root_gram, True), cross_covariance)
 
     # N / B. The paper prints the mini-batch update with no such factor; taken
-    # literally the sites converge to B/N of their correct value.
-    scale = family.posterior.likelihood.num_datapoints / data.n
+    # literally the sites converge to B/N of their correct value. `get_batch` stamps
+    # the full-dataset size onto each minibatch as `Dataset.n_total`.
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
     target_vector = (design @ natural_gradient_vector)[:, None]
     target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
 

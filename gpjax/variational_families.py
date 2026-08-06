@@ -552,9 +552,9 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         >>> prior = gpx.gps.Prior(
         ...     mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
         ... )
-        >>> posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=10)
+        >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.DualVariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=jnp.linspace(0, 1, 4).reshape(-1, 1)
+        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 4).reshape(-1, 1)
         ... )
         >>> bool(abs(q.prior_kl()) < 1e-10)
         True
@@ -566,7 +566,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
         dual_vector: tp.Union[Float[Array, "N 1"], None] = None,
         dual_matrix: tp.Union[Float[Array, "N N"], None] = None,

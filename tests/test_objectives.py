@@ -391,12 +391,10 @@ def _dual_setup(
     )
     if binary:
         outputs = jr.bernoulli(key_noise, 0.5, (num_data, 1)).astype(jnp.float64)
-        likelihood = gpx.likelihoods.Bernoulli(num_datapoints=num_data)
+        likelihood = gpx.likelihoods.Bernoulli()
     else:
         outputs = jnp.sin(3.0 * inputs) + 0.1 * jr.normal(key_noise, (num_data, 1))
-        likelihood = gpx.likelihoods.Gaussian(
-            num_datapoints=num_data, obs_stddev=jnp.array(0.37)
-        )
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=jnp.array(0.37))
     data = Dataset(X=inputs, y=outputs)
 
     kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3))
@@ -469,10 +467,11 @@ def test_dual_elbo(binary: bool):
 def test_dual_elbo_equals_elbo_at_matched_moments(sites: str, batch: str):
     """The two bounds are the same functional, so their values must coincide.
 
-    The ``half`` arm evaluates both bounds on half the rows while the likelihood still
-    declares the full ``num_datapoints``, so the mini-batch factor ``N / B`` is 2 on
-    both sides. Without it the arm would only ever exercise ``N / B == 1`` and a
-    mutation dropping the factor from ``dual_elbo`` would survive.
+    The ``half`` arm evaluates both bounds on half the rows while the batch still
+    declares the full size through ``Dataset.n_total``, so the mini-batch factor
+    ``N / B`` is 2 on both sides. Without it the arm would only ever exercise
+    ``N / B == 1`` and a mutation dropping the factor from ``dual_elbo`` would
+    survive.
     """
     posterior, data, inducing_inputs, jitter = _dual_setup()
     q = DualVariationalGaussian(
@@ -491,8 +490,8 @@ def test_dual_elbo_equals_elbo_at_matched_moments(sites: str, batch: str):
 
     if batch == "half":
         half = data.n // 2
-        data = Dataset(X=data.X[:half], y=data.y[:half])
-        assert posterior.likelihood.num_datapoints / data.n == 2.0
+        data = Dataset(X=data.X[:half], y=data.y[:half], n_total=data.n)
+        assert data.n_total / data.n == 2.0
 
     np.testing.assert_allclose(
         np.float64(dual_elbo(q, data)),
@@ -519,8 +518,8 @@ def test_dual_elbo_applies_the_minibatch_scale():
     )
 
     half = data.n // 2
-    batch = Dataset(X=data.X[:half], y=data.y[:half])
-    scale = posterior.likelihood.num_datapoints / batch.n
+    batch = Dataset(X=data.X[:half], y=data.y[:half], n_total=data.n)
+    scale = batch.n_total / batch.n
 
     mean, variance = q.marginals(batch.X)
     expectation = jnp.sum(
