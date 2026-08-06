@@ -409,7 +409,6 @@ def fit_natgrads(
     reaches the exact optimal $q$ in a single iteration.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -436,7 +435,6 @@ def fit_natgrads(
         ...     model=q, objective=negative_elbo, train_data=D,
         ...     optim=ox.adam(0.01), natgrad_lr=1.0, num_iters=10, verbose=False,
         ... )
-    ```
 
     Parameters
     ----------
