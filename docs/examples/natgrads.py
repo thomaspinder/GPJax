@@ -1139,9 +1139,9 @@ for max_backoff in [0, 3, 5, 7, 10]:
 #   likelihood with gross outliers the target $\boldsymbol{\Theta}_2^{\text{tgt}}$ can
 #   itself be outside the cone, so no positive $\gamma$ is provably safe.
 #
-# The companion dual sparse GP notebook takes the same geometry in a different
-# direction, storing the site parameters of the variational distribution rather than
-# its moments.
+# The companion [dual sparse GP notebook](dual_svgp.py) takes the same geometry in a
+# different direction, storing the site parameters of the variational distribution
+# rather than its moments.
 
 # %% [markdown]
 # ## System configuration

@@ -1489,9 +1489,10 @@ def _mislabelled_bernoulli_setup(flip: bool):
         labels = labels.at[30].set(0.0).at[9].set(1.0)
 
     kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(4.0))
-    posterior = gpjax.gps.Prior(
-        mean_function=gpjax.mean_functions.Zero(), kernel=kernel
-    ) * gpjax.likelihoods.Bernoulli(num_datapoints=inputs.shape[0])
+    posterior = (
+        gpjax.gps.Prior(mean_function=gpjax.mean_functions.Zero(), kernel=kernel)
+        * gpjax.likelihoods.Bernoulli()
+    )
     return (
         posterior,
         Dataset(X=inputs, y=labels[:, None]),

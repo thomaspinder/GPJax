@@ -9,7 +9,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -17,9 +17,11 @@
 # %% [markdown]
 # # Dual Parameterisation of Sparse GPs (t-SVGP)
 #
+# Download this notebook: {nb-download}`dual_svgp.ipynb`
+#
 # A sparse variational GP stores its approximate posterior $q(\mathbf{u})$ as a mean
 # and a Cholesky factor. That is a choice, not a law. The
-# <strong data-cite="adam2021dual">Adam et al. (2021)</strong> *dual*
+# {cite:t}`adam2021dual` *dual*
 # parameterisation stores something else: the **likelihood sites**, one per data
 # point, tied down to the inducing points. The distribution is the same object; what
 # changes is which numbers are held in memory, and therefore what the optimiser is
@@ -31,7 +33,7 @@
 # 1. **The natural-gradient step becomes an explicit convex combination of the stored
 #    parameters.** No conversion to natural parameters, no conversion back, and the
 #    KL term is never differentiated. The step is the same *iteration* as the one in
-#    the [natural gradients notebook](https://docs.jaxgaussianprocesses.com/_examples/natgrads/) —
+#    the [natural gradients notebook](natgrads.py) —
 #    we check that below to $10^{-15}$ — **provided the computed per-point curvature
 #    $\beta_i$ stays non-negative**. That holds for a genuinely log-concave
 #    likelihood. GPJax's probit link clips its probabilities, which breaks
@@ -76,7 +78,6 @@
 import time
 
 import equinox as eqx
-from examples.utils import clean_legend, use_mpl_style
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -87,6 +88,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import optax as ox
 import paramax
+from utils import clean_legend, use_mpl_style
 
 config.update("jax_enable_x64", True)
 
@@ -293,7 +295,7 @@ check_response = jr.normal(alpha_beta_key, (5, 1))
 check_mean = jnp.linspace(-1.0, 1.0, 5)
 check_variance = jnp.linspace(0.2, 0.9, 5)
 check_stddev = 0.37
-check_likelihood = gpx.likelihoods.Gaussian(num_datapoints=5, obs_stddev=check_stddev)
+check_likelihood = gpx.likelihoods.Gaussian(obs_stddev=check_stddev)
 
 
 def total_expected_log_likelihood(mean, variance):
@@ -378,7 +380,7 @@ print(f"beta                            : {price_beta[0]:.6f} (= 1 / {check_stdd
 #
 # $$\mathbf{m}^\star = \boldsymbol{\mu}_z + \frac{1}{\sigma^2}\mathbf{K}_{zz}\boldsymbol{\Sigma}\mathbf{K}_{zx}(\mathbf{y}-\boldsymbol{\mu}_x), \qquad \mathbf{S}^\star = \mathbf{K}_{zz}\boldsymbol{\Sigma}\mathbf{K}_{zz}, \qquad \boldsymbol{\Sigma} = \left(\mathbf{K}_{zz} + \sigma^{-2}\mathbf{K}_{zx}\mathbf{K}_{xz}\right)^{-1},$$
 #
-# the Titsias (2009) optimal $q(\mathbf{u})$ verbatim. The mean function below is
+# the {cite:t}`titsias2009` optimal $q(\mathbf{u})$ verbatim. The mean function below is
 # deliberately non-zero: the sites act on the *centred* process, and the
 # $\mathbf{y}-\boldsymbol{\mu}_x$ above is where that shows up.
 
@@ -401,21 +403,19 @@ num_inducing = 20
 regression_inducing = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 
 
-def conjugate_posterior(lengthscale, num_datapoints):
-    """A conjugate GP posterior at a given RBF lengthscale."""
+def conjugate_model(lengthscale):
+    """The conjugate joint model (prior * likelihood) at a given RBF lengthscale."""
     prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Constant(jnp.array(prior_constant)),
         kernel=jk.RBF(lengthscale=lengthscale),
     )
-    return prior * gpx.likelihoods.Gaussian(
-        num_datapoints=num_datapoints, obs_stddev=noise_stddev
-    )
+    return prior * gpx.likelihoods.Gaussian(obs_stddev=noise_stddev)
 
 
-def site_family(lengthscale, inducing_inputs, num_datapoints, sites=None):
+def site_family(lengthscale, inducing_inputs, sites=None):
     """A dual family, optionally carrying a frozen pair of sites."""
     family = DualVariationalGaussian(
-        posterior=conjugate_posterior(lengthscale, num_datapoints),
+        posterior=conjugate_model(lengthscale),
         inducing_inputs=inducing_inputs,
         jitter=regression_jitter,
     )
@@ -428,11 +428,11 @@ def site_family(lengthscale, inducing_inputs, num_datapoints, sites=None):
     )
 
 
-def moment_family(lengthscale, inducing_inputs, num_datapoints, moments):
+def moment_family(lengthscale, inducing_inputs, moments):
     """A moment family carrying a frozen $(m, S)$."""
     mean, covariance = moments
     return VariationalGaussian(
-        posterior=conjugate_posterior(lengthscale, num_datapoints),
+        posterior=conjugate_model(lengthscale),
         inducing_inputs=inducing_inputs,
         variational_mean=mean,
         variational_root_covariance=jnp.linalg.cholesky(covariance),
@@ -443,7 +443,7 @@ def moment_family(lengthscale, inducing_inputs, num_datapoints, moments):
 def exact_sites(lengthscale, inducing_inputs, dataset):
     """One rho = 1 conjugate step from lambda = 0: the exactly optimal sites."""
     variational, hyper = partition_variational(
-        site_family(lengthscale, inducing_inputs, dataset.n)
+        site_family(lengthscale, inducing_inputs)
     )
     variational, _ = natural_gradient_step(
         variational, hyper, dataset, negative_dual_elbo, 1.0
@@ -454,7 +454,7 @@ def exact_sites(lengthscale, inducing_inputs, dataset):
 
 # %%
 # The Titsias optimum in closed form, against the same jittered K_zz the family uses.
-initial_dual = site_family(regression_lengthscale, regression_inducing, num_data)
+initial_dual = site_family(regression_lengthscale, regression_inducing)
 regression_prior = paramax.unwrap(initial_dual).posterior.prior
 regression_kernel = regression_prior.kernel
 regression_mean_function = regression_prior.mean_function
@@ -597,19 +597,22 @@ logit_labels = (
 logit_data = gpx.Dataset(X=logit_inputs, y=logit_labels)
 logit_inducing = jnp.linspace(-2.0, 2.0, num_logit_inducing).reshape(-1, 1)
 
-logit_posterior = gpx.gps.Prior(
-    mean_function=gpx.mean_functions.Zero(),
-    kernel=jk.RBF(lengthscale=0.5, variance=1.7),
-) * gpx.likelihoods.Bernoulli(num_datapoints=num_logit_data)
+logit_model = (
+    gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=jk.RBF(lengthscale=0.5, variance=1.7),
+    )
+    * gpx.likelihoods.Bernoulli()
+)
 
 logit_dual = DualVariationalGaussian(
-    posterior=logit_posterior, inducing_inputs=logit_inducing, jitter=logit_jitter
+    posterior=logit_model, inducing_inputs=logit_inducing, jitter=logit_jitter
 )
-logit_gram = paramax.unwrap(logit_posterior).prior.kernel.gram(
+logit_gram = paramax.unwrap(logit_model).prior.kernel.gram(
     logit_inducing
 ).as_matrix() + logit_jitter * jnp.eye(num_logit_inducing)
 logit_moments = VariationalGaussian(
-    posterior=logit_posterior,
+    posterior=logit_model,
     inducing_inputs=logit_inducing,
     variational_mean=jnp.zeros((num_logit_inducing, 1)),
     variational_root_covariance=jnp.linalg.cholesky(logit_gram),
@@ -697,7 +700,7 @@ print(
 # ## The banana, again
 #
 # The next cell is the data-generating function from the
-# [natural gradients notebook](https://docs.jaxgaussianprocesses.com/_examples/natgrads/),
+# [natural gradients notebook](natgrads.py),
 # reproduced character for character — same function body, same `jr.key(42)`, same
 # 2000 points — so the problem here is the same problem, point for point, as the one
 # there. The initialisation of $q$ differs, for a reason given below.
@@ -733,11 +736,14 @@ inducing_grid = jnp.meshgrid(jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8
 banana_inducing = jnp.stack([axis.ravel() for axis in inducing_grid], axis=1)
 banana_jitter = 1e-6
 
-banana_posterior = gpx.gps.Prior(
-    mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF(active_dims=[0, 1])
-) * gpx.likelihoods.Bernoulli(num_datapoints=num_train)
+banana_model = (
+    gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF(active_dims=[0, 1])
+    )
+    * gpx.likelihoods.Bernoulli()
+)
 
-banana_gram = paramax.unwrap(banana_posterior).prior.kernel.gram(
+banana_gram = paramax.unwrap(banana_model).prior.kernel.gram(
     banana_inducing
 ).as_matrix() + banana_jitter * jnp.eye(num_banana_inducing)
 banana_prior_root = jnp.linalg.cholesky(banana_gram)
@@ -746,7 +752,7 @@ banana_prior_root = jnp.linalg.cholesky(banana_gram)
 def make_banana_moment_family():
     """A fresh SVGP over the banana data, at q = p."""
     return VariationalGaussian(
-        posterior=banana_posterior,
+        posterior=banana_model,
         inducing_inputs=banana_inducing,
         variational_mean=jnp.zeros((num_banana_inducing, 1)),
         variational_root_covariance=banana_prior_root,
@@ -755,7 +761,7 @@ def make_banana_moment_family():
 
 
 banana_dual_family = DualVariationalGaussian(
-    posterior=banana_posterior,
+    posterior=banana_model,
     inducing_inputs=banana_inducing,
     jitter=banana_jitter,
 )
@@ -796,7 +802,7 @@ def six_matched_steps(beta_floor):
     """Six rho = 0.8 steps in both branches, from the shared q = p start."""
     site_partition, site_hyper = partition_variational(
         DualVariationalGaussian(
-            posterior=banana_posterior,
+            posterior=banana_model,
             inducing_inputs=banana_inducing,
             jitter=banana_jitter,
         )
@@ -1157,17 +1163,13 @@ def bound_slice(inducing_inputs, dataset, sites, moments, offsets):
         lengthscale = regression_lengthscale * jnp.exp(offset)
         dual_values.append(
             dual_elbo(
-                paramax.unwrap(
-                    site_family(lengthscale, inducing_inputs, dataset.n, sites)
-                ),
+                paramax.unwrap(site_family(lengthscale, inducing_inputs, sites)),
                 dataset,
             )
         )
         moment_values.append(
             elbo(
-                paramax.unwrap(
-                    moment_family(lengthscale, inducing_inputs, dataset.n, moments)
-                ),
+                paramax.unwrap(moment_family(lengthscale, inducing_inputs, moments)),
                 dataset,
             )
         )
@@ -1277,7 +1279,7 @@ dense_sites, dense_moments = exact_sites(
     regression_lengthscale, dense_inputs, dense_data
 )
 dense_prior = paramax.unwrap(
-    site_family(regression_lengthscale, dense_inputs, dense_count)
+    site_family(regression_lengthscale, dense_inputs)
 ).posterior.prior
 dense_gram = dense_prior.kernel.gram(
     dense_inputs
@@ -1366,27 +1368,30 @@ def freeze_inducing(model):
     )
 
 
-def vem_posterior(lengthscale):
-    return gpx.gps.Prior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=jk.RBF(active_dims=[0, 1], lengthscale=lengthscale),
-    ) * gpx.likelihoods.Bernoulli(num_datapoints=num_train)
+def vem_joint_model(lengthscale):
+    return (
+        gpx.gps.Prior(
+            mean_function=gpx.mean_functions.Zero(),
+            kernel=jk.RBF(active_dims=[0, 1], lengthscale=lengthscale),
+        )
+        * gpx.likelihoods.Bernoulli()
+    )
 
 
-vem_gram = paramax.unwrap(vem_posterior(initial_lengthscale)).prior.kernel.gram(
+vem_gram = paramax.unwrap(vem_joint_model(initial_lengthscale)).prior.kernel.gram(
     banana_inducing
 ).as_matrix() + banana_jitter * jnp.eye(num_banana_inducing)
 
 vem_dual = freeze_inducing(
     DualVariationalGaussian(
-        posterior=vem_posterior(initial_lengthscale),
+        posterior=vem_joint_model(initial_lengthscale),
         inducing_inputs=banana_inducing,
         jitter=banana_jitter,
     )
 )
 vem_moments = freeze_inducing(
     VariationalGaussian(
-        posterior=vem_posterior(initial_lengthscale),
+        posterior=vem_joint_model(initial_lengthscale),
         inducing_inputs=banana_inducing,
         variational_mean=jnp.zeros((num_banana_inducing, 1)),
         variational_root_covariance=jnp.linalg.cholesky(vem_gram),
@@ -1567,7 +1572,7 @@ else:
 #
 # For the geometry the E-step is built on — the Fisher identity, mirror descent, the
 # negative-definite cone and the step-size backoff — see the
-# [natural gradients notebook](https://docs.jaxgaussianprocesses.com/_examples/natgrads/).
+# [natural gradients notebook](natgrads.py).
 
 # %% [markdown]
 # ## System configuration
