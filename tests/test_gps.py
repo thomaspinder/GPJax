@@ -26,12 +26,12 @@ from collections.abc import Callable
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
-    AbstractPosterior,
-    AbstractPrior,
-    ConjugatePosterior,
-    NonConjugatePosterior,
+    JointModel,
     Prior,
-    construct_posterior,
+    ConjugateModel,
+    NonConjugateModel,
+    Prior,
+    construct_model,
 )
 from gpjax.kernels import (
     RBF,
@@ -63,13 +63,13 @@ config.update("jax_enable_x64", True)
 def test_abstract_prior():
     # Abstract prior should not be able to be instantiated.
     with pytest.raises(TypeError):
-        AbstractPrior()
+        Prior()
 
 
 def test_abstract_posterior():
     # Abstract posterior should not be able to be instantiated.
     with pytest.raises(TypeError):
-        AbstractPosterior()
+        JointModel()
 
 
 @pytest.mark.parametrize("num_datapoints", [1, 10])
@@ -85,12 +85,12 @@ def test_prior_with_diag(
 
     # Check types.
     assert isinstance(prior, Prior)
-    assert isinstance(prior, AbstractPrior)
+    assert isinstance(prior, Prior)
 
     # Query a marginal distribution at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_datapoints).reshape(-1, 1)
-    marginal_distribution_diag = prior(inputs, return_covariance_type="diagonal")
-    marginal_distribution_full = prior(inputs, return_covariance_type="dense")
+    marginal_distribution_diag = prior(inputs, covariance="diagonal")
+    marginal_distribution_full = prior(inputs, covariance="dense")
 
     # Ensure that the marginal distribution is a Gaussian.
     assert isinstance(marginal_distribution_diag, GaussianDistribution)
@@ -122,7 +122,7 @@ def test_prior(
 
     # Check types.
     assert isinstance(prior, Prior)
-    assert isinstance(prior, AbstractPrior)
+    assert isinstance(prior, Prior)
 
     # Query a marginal distribution at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_datapoints).reshape(-1, 1)
@@ -159,18 +159,18 @@ def test_conjugate_posterior_with_diag(
     prior = Prior(mean_function=mean_function(), kernel=kernel())
 
     # Define a likelihood.
-    likelihood = Gaussian(num_datapoints=num_datapoints)
+    likelihood = Gaussian()
 
     # Construct the posterior via the class.
-    posterior = ConjugatePosterior(prior=prior, likelihood=likelihood)
+    posterior = ConjugateModel(prior=prior, likelihood=likelihood)
 
     # Check types.
-    assert isinstance(posterior, ConjugatePosterior)
+    assert isinstance(posterior, ConjugateModel)
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
-    marginal_distribution_diag = posterior(inputs, D, return_covariance_type="diagonal")
-    marginal_distribution_full = posterior(inputs, D, return_covariance_type="dense")
+    marginal_distribution_diag = posterior(inputs, D, covariance="diagonal")
+    marginal_distribution_full = posterior(inputs, D, covariance="dense")
 
     # Ensure that the marginal distribution is a Gaussian.
     assert isinstance(marginal_distribution_diag, GaussianDistribution)
@@ -209,13 +209,13 @@ def test_conjugate_posterior(
     prior = Prior(mean_function=mean_function(), kernel=kernel())
 
     # Define a likelihood.
-    likelihood = Gaussian(num_datapoints=num_datapoints)
+    likelihood = Gaussian()
 
     # Construct the posterior via the class.
-    posterior = ConjugatePosterior(prior=prior, likelihood=likelihood)
+    posterior = ConjugateModel(prior=prior, likelihood=likelihood)
 
     # Check types.
-    assert isinstance(posterior, ConjugatePosterior)
+    assert isinstance(posterior, ConjugateModel)
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
@@ -253,13 +253,16 @@ def test_nonconjugate_posterior_with_diag(
     prior = Prior(mean_function=mean_function(), kernel=kernel())
 
     # Define a likelihood.
-    likelihood = Bernoulli(num_datapoints=num_datapoints)
+    likelihood = Bernoulli()
 
-    # Construct the posterior via the class.
-    posterior = NonConjugatePosterior(prior=prior, likelihood=likelihood)
+    # Construct the model via the class; the latent is sized on first data
+    # contact.
+    posterior = NonConjugateModel(prior=prior, likelihood=likelihood)
+    assert posterior.latent is None
+    posterior = posterior.init_latent(num_datapoints)
 
     # Check types.
-    assert isinstance(posterior, NonConjugatePosterior)
+    assert isinstance(posterior, NonConjugateModel)
 
     # Check latent values (default key is jr.key(42)).
     latent_values = jr.normal(jr.key(42), (num_datapoints, 1))
@@ -267,8 +270,8 @@ def test_nonconjugate_posterior_with_diag(
 
     # Query a marginal distribution of the posterior at some inputs.
     inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
-    marginal_distribution_diag = posterior(inputs, D, return_covariance_type="diagonal")
-    marginal_distribution_full = posterior(inputs, D, return_covariance_type="dense")
+    marginal_distribution_diag = posterior(inputs, D, covariance="diagonal")
+    marginal_distribution_full = posterior(inputs, D, covariance="dense")
 
     # Ensure that the marginal distribution is a Gaussian.
     assert isinstance(marginal_distribution_diag, GaussianDistribution)
@@ -309,13 +312,16 @@ def test_nonconjugate_posterior(
     prior = Prior(mean_function=mean_function(), kernel=kernel())
 
     # Define a likelihood.
-    likelihood = Bernoulli(num_datapoints=num_datapoints)
+    likelihood = Bernoulli()
 
-    # Construct the posterior via the class.
-    posterior = NonConjugatePosterior(prior=prior, likelihood=likelihood)
+    # Construct the model via the class; the latent is sized on first data
+    # contact.
+    posterior = NonConjugateModel(prior=prior, likelihood=likelihood)
+    assert posterior.latent is None
+    posterior = posterior.init_latent(num_datapoints)
 
     # Check types.
-    assert isinstance(posterior, NonConjugatePosterior)
+    assert isinstance(posterior, NonConjugateModel)
 
     # Check latent values (default key is jr.key(42)).
     latent_values = jr.normal(jr.key(42), (num_datapoints, 1))
@@ -351,10 +357,10 @@ def test_posterior_construct(
     prior = Prior(mean_function=mean_function(), kernel=kernel())
 
     # Construct the posterior via the three methods.
-    likelihood: AbstractLikelihood = likelihood(num_datapoints=num_datapoints)
+    likelihood: AbstractLikelihood = likelihood()
     posterior_mul = prior * likelihood
     posterior_rmul = likelihood * prior
-    posterior_manual = construct_posterior(prior=prior, likelihood=likelihood)
+    posterior_manual = construct_model(prior=prior, likelihood=likelihood)
 
     # Ensure that the posterior is the same type in all three cases.
     assert type(posterior_mul) is type(posterior_rmul)
@@ -366,11 +372,11 @@ def test_posterior_construct(
 
     # If the likelihood is Gaussian, then the posterior should be conjugate.
     if isinstance(likelihood, Gaussian):
-        assert isinstance(posterior_mul, ConjugatePosterior)
+        assert isinstance(posterior_mul, ConjugateModel)
 
     # If the likelihood is Bernoulli or Poisson, then the posterior should be non-conjugate.
     if isinstance(likelihood, (Bernoulli, Poisson)):
-        assert isinstance(posterior_mul, NonConjugatePosterior)
+        assert isinstance(posterior_mul, NonConjugateModel)
 
 
 @pytest.mark.parametrize("num_datapoints", [1, 5])
@@ -432,7 +438,7 @@ def test_prior_sample_approx(num_datapoints, kernel, mean_function):
 def test_conjugate_posterior_sample_approx(num_datapoints, kernel, mean_function):
     kern = kernel(lengthscale=jnp.array([5.0, 1.0]), variance=0.1)
     p = Prior(kernel=kern, mean_function=mean_function()) * Gaussian(
-        num_datapoints=num_datapoints
+        
     )
     key = jr.key(123)
 
@@ -517,7 +523,7 @@ def test_conjugate_posterior_sample_approx_covariance_structure():
     x = jnp.linspace(0.0, 1.0, 12).reshape(-1, 1)
     y = jnp.sin(3.0 * x)
     D = Dataset(X=x, y=y)
-    posterior = prior * Gaussian(num_datapoints=D.n)
+    posterior = prior * Gaussian()
 
     grid = jnp.linspace(0.0, 1.0, 8).reshape(-1, 1)
     sample_fn = posterior.sample_approx(
@@ -526,7 +532,7 @@ def test_conjugate_posterior_sample_approx_covariance_structure():
     draws = sample_fn(grid)  # [8, 4000]
 
     empirical_cov = jnp.cov(draws)
-    exact_cov = posterior(grid, D, return_covariance_type="dense").covariance()
+    exact_cov = posterior(grid, D, covariance="dense").covariance()
 
     rel_frobenius = jnp.linalg.norm(empirical_cov - exact_cov) / jnp.linalg.norm(
         exact_cov
@@ -549,7 +555,7 @@ class TestMultiOutputPosteriorPredict:
         coreg = CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         prior = Prior(mean_function=Zero(), kernel=kernel)
-        lik = MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
         return posterior, data, N, P
 
@@ -601,7 +607,7 @@ class TestMultiOutputValidation:
 
         kernel = RBF()
         prior = Prior(mean_function=Zero(), kernel=kernel)
-        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=2)
+        lik = MultiOutputGaussian(num_outputs=2)
         with pytest.raises(ValueError, match="multi-output kernel"):
             prior * lik
 
@@ -614,7 +620,7 @@ class TestMultiOutputValidation:
         coreg = CoregionalizationMatrix(num_outputs=2, rank=1, key=key)
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         prior = Prior(mean_function=Zero(), kernel=kernel)
-        lik = Gaussian(num_datapoints=10)
+        lik = Gaussian()
         with pytest.raises(ValueError, match="MultiOutputGaussian"):
             prior * lik
 
@@ -628,8 +634,8 @@ def test_predict_diagonal_returns_diagonal_operator():
     xtest = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
 
     # Prior
-    diag = prior(xtest, return_covariance_type="diagonal")
-    dense = prior(xtest, return_covariance_type="dense")
+    diag = prior(xtest, covariance="diagonal")
+    dense = prior(xtest, covariance="dense")
     assert isinstance(diag.scale, lx.DiagonalLinearOperator)
     assert jnp.allclose(
         diag.scale.as_matrix().diagonal(), dense.covariance().diagonal()
@@ -638,9 +644,9 @@ def test_predict_diagonal_returns_diagonal_operator():
     # Conjugate posterior (single-output)
     x = jnp.linspace(0.0, 1.0, 15).reshape(-1, 1)
     D = Dataset(X=x, y=jnp.sin(3.0 * x))
-    posterior = prior * Gaussian(num_datapoints=D.n)
-    pdiag = posterior(xtest, D, return_covariance_type="diagonal")
-    pdense = posterior(xtest, D, return_covariance_type="dense")
+    posterior = prior * Gaussian()
+    pdiag = posterior(xtest, D, covariance="diagonal")
+    pdense = posterior(xtest, D, covariance="dense")
     assert isinstance(pdiag.scale, lx.DiagonalLinearOperator)
     assert jnp.allclose(
         pdiag.scale.as_matrix().diagonal(), pdense.covariance().diagonal()
@@ -655,7 +661,7 @@ def test_predict_diagonal_jit_smoke():
     prior = Prior(mean_function=Zero(), kernel=kernel)
     xtest = jnp.linspace(0.0, 1.0, 6).reshape(-1, 1)
     for cov_type in ("dense", "diagonal"):
-        fn = jax.jit(lambda t, c=cov_type: prior(t, return_covariance_type=c).mean)
+        fn = jax.jit(lambda t, c=cov_type: prior(t, covariance=c).mean)
         _ = fn(xtest)
 
 

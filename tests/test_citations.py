@@ -100,7 +100,7 @@ def test_missing_citation(kernel):
 
 def test_heteroscedastic_citation():
     noise_prior = gpx.gps.Prior(mean_function=Zero(), kernel=RBF())
-    likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
     citation = cite(likelihood)
 
     assert isinstance(citation, PaperCitation)

@@ -21,7 +21,7 @@ def _make(jitter=1e-6):
         kernel=gpx.kernels.RBF(),
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=data.n, obs_stddev=0.2)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.2)
     return prior * likelihood, data
 
 

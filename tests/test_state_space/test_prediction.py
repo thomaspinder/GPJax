@@ -97,7 +97,7 @@ def test_merge_grids_train_observation_mask_propagates():
 )
 @pytest.mark.parametrize("jitter", [0.0, 1e-6])
 def test_state_space_posterior_predict_smoothed_matches_dense_gp(kernel_class, jitter):
-    """StateSpaceConjugatePosterior.predict matches dense GP at training-and-test."""
+    """StateSpaceConjugateModel.predict matches dense GP at training-and-test."""
     lengthscale = 1.5
     variance = 0.8
     obs_stddev = 0.2
@@ -119,7 +119,7 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp(kernel_class, j
         kernel=kernel,
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     ss_posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
 
@@ -136,7 +136,7 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp(kernel_class, j
     )
     dense_posterior = dense_prior * likelihood
     dense_dist = dense_posterior.predict(
-        Xtest, train_data, return_covariance_type="diagonal"
+        Xtest, train_data, covariance="diagonal"
     )
     dense_means = np.asarray(dense_dist.mean)
     dense_variances = np.asarray(dense_dist.variance)
@@ -153,7 +153,7 @@ def test_state_space_posterior_predict_smoothed_returns_diagonal_distribution():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.2)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.2)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X.reshape(-1, 1), y=y.reshape(-1, 1))
     Xtest = jnp.linspace(0.0, 10.0, 5).reshape(-1, 1)
@@ -184,7 +184,7 @@ def test_state_space_posterior_predict_observation_mask_equivalent_to_dropping()
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior_with_mask = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
     masked_dist = posterior_with_mask.predict(
@@ -196,9 +196,7 @@ def test_state_space_posterior_predict_observation_mask_equivalent_to_dropping()
     X_kept = X_train[keep]
     y_kept = y_train[keep]
     train_data_kept = gpx.Dataset(X=X_kept.reshape(-1, 1), y=y_kept.reshape(-1, 1))
-    likelihood_kept = gpx.likelihoods.Gaussian(
-        num_datapoints=int(keep.sum()), obs_stddev=obs_stddev
-    )
+    likelihood_kept = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior_kept = ss_prior * likelihood_kept
     dropped_dist = posterior_kept.predict(Xtest, train_data_kept)
 
@@ -228,7 +226,7 @@ def test_state_space_posterior_predict_preserves_caller_order_unsorted_test_inpu
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
 
@@ -260,7 +258,7 @@ def test_state_space_posterior_predict_handles_test_at_train_timestamp():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.1)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train, y=y_train)
     dist = posterior.predict(Xtest, train_data)
@@ -276,12 +274,12 @@ def test_state_space_posterior_predict_filter_dense_raises():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.2)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.2)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X.reshape(-1, 1), y=y.reshape(-1, 1))
     with pytest.raises(NotImplementedError, match=r"diagonal|dense"):
         posterior.predict_filter(
-            jnp.array([[0.5]]), train_data, return_covariance_type="dense"
+            jnp.array([[0.5]]), train_data, covariance="dense"
         )
 
 
@@ -299,7 +297,7 @@ def test_state_space_posterior_predict_filter_runs_and_returns_diagonal():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
     dist = posterior.predict_filter(Xtest, train_data)
@@ -333,7 +331,7 @@ def test_state_space_predict_filter_uses_only_past_observations():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
     filtered_dist = posterior.predict_filter(Xtest, train_data)
@@ -345,7 +343,7 @@ def test_state_space_predict_filter_uses_only_past_observations():
     prefix_data = gpx.Dataset(X=X_prefix, y=y_prefix)
     n_prefix = X_prefix.shape[0]
     likelihood_prefix = gpx.likelihoods.Gaussian(
-        num_datapoints=n_prefix, obs_stddev=obs_stddev
+        obs_stddev=obs_stddev
     )
     dense_prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(),
@@ -353,7 +351,7 @@ def test_state_space_predict_filter_uses_only_past_observations():
     )
     dense_posterior = dense_prior * likelihood_prefix
     dense_dist = dense_posterior.predict(
-        Xtest, prefix_data, return_covariance_type="diagonal"
+        Xtest, prefix_data, covariance="diagonal"
     )
 
     np.testing.assert_allclose(
@@ -381,7 +379,7 @@ def test_state_space_predict_smoothed_with_constant_mean_function():
         mean_function=gpx.mean_functions.Constant(constant=jnp.array(constant_offset)),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train_offset.reshape(-1, 1))
     ss_dist = posterior.predict(Xtest, train_data)
@@ -394,7 +392,7 @@ def test_state_space_predict_smoothed_with_constant_mean_function():
     )
     dense_posterior = dense_prior * likelihood
     dense_dist = dense_posterior.predict(
-        Xtest, train_data, return_covariance_type="diagonal"
+        Xtest, train_data, covariance="diagonal"
     )
     dense_means = np.asarray(dense_dist.mean)
 
@@ -418,7 +416,7 @@ def test_state_space_predict_filter_with_constant_mean_function():
         mean_function=gpx.mean_functions.Constant(constant=jnp.array(constant_offset)),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train_offset.reshape(-1, 1))
     dist = posterior.predict_filter(Xtest, train_data)

@@ -27,7 +27,7 @@ def test_full_gp_training_roundtrip():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -58,7 +58,7 @@ def test_parameter_freezing_with_non_trainable():
 
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=frozen_kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=10)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     X = jnp.linspace(0, 1, 10)[:, None]
@@ -89,7 +89,7 @@ def test_non_conjugate_gp_training():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Bernoulli()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.non_conjugate_mll(p, d)
@@ -114,7 +114,7 @@ def test_lbfgs_training():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -132,7 +132,7 @@ def test_kernel_composition():
     kernel = gpx.kernels.RBF() + gpx.kernels.Matern32()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -158,7 +158,7 @@ def test_jit_prediction():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     @jax.jit
@@ -180,7 +180,7 @@ def test_grad_through_model():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     params, static = eqx.partition(posterior, eqx.is_array)

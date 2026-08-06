@@ -18,7 +18,7 @@ from collections.abc import Callable
 import equinox as eqx
 import gpjax as gpx
 import gpjax.distributions
-from gpjax.gps import AbstractPosterior
+from gpjax.gps import JointModel
 import gpjax.linalg.utils
 from gpjax.parameters import (
     LowerTriangular,
@@ -66,7 +66,7 @@ def test_abstract_variational_family():
     class DummyPosterior:
         @property
         def __class__(self) -> type:
-            return AbstractPosterior
+            return JointModel
 
     class DummyVariationalFamily(AbstractVariationalFamily):
         def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
@@ -129,7 +129,7 @@ def test_variational_gaussians(
     prior = gpx.gps.Prior(
         kernel=gpx.kernels.RBF(), mean_function=gpx.mean_functions.Constant()
     )
-    likelihood = gpx.likelihoods.Gaussian(123)
+    likelihood = gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-5.0, 5.0, n_inducing).reshape(-1, 1)
 
     test_inputs = jnp.linspace(-5.0, 5.0, n_test).reshape(-1, 1)
@@ -204,7 +204,7 @@ def test_graph_variational_gaussian(
     )
     meanf = gpx.mean_functions.Constant()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Bernoulli(num_datapoints=G.number_of_nodes())
+    likelihood = gpx.likelihoods.Bernoulli()
 
     inducing_inputs = jnp.array(
         np.random.randint(low=1, high=100, size=(n_inducing, 1))
@@ -256,7 +256,7 @@ def test_collapsed_variational_gaussian(
     test_inputs = jnp.linspace(-5.0, 5.0, n_test).reshape(-1, 1)
     test_inputs = jnp.hstack([test_inputs] * point_dim)
 
-    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    posterior = prior * gpx.likelihoods.Gaussian()
 
     variational_family = CollapsedVariationalGaussian(
         posterior=posterior,
@@ -266,7 +266,7 @@ def test_collapsed_variational_gaussian(
     # We should raise an error for non-Gaussian likelihoods:
     with pytest.raises(TypeError):
         CollapsedVariationalGaussian(
-            posterior=prior * gpx.likelihoods.Bernoulli(num_datapoints=D.n),
+            posterior=prior * gpx.likelihoods.Bernoulli(),
             inducing_inputs=inducing_inputs,
         )
 
@@ -322,7 +322,7 @@ def _build_kl_family(
     kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.3))
     mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
-    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
+    posterior = prior * gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
     return family(
         posterior=posterior,

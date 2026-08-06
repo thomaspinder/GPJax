@@ -1,4 +1,4 @@
-"""StateSpacePrior and StateSpaceConjugatePosterior classes.
+"""StateSpacePrior and StateSpaceConjugateModel classes.
 
 See plans/2026-04-21-state-space-gps-design.md.
 """
@@ -65,10 +65,10 @@ class StateSpacePrior(Prior):
 
     def __mul__(self, other):
         _require_scalar_gaussian_likelihood(other)
-        return StateSpaceConjugatePosterior(prior=self, likelihood=other)
+        return StateSpaceConjugateModel(prior=self, likelihood=other)
 
 
-class StateSpaceConjugatePosterior(ConjugateModel):
+class StateSpaceConjugateModel(ConjugateModel):
     """Conjugate posterior for a state-space (Markovian) GP.
 
     v1 prediction surface:
@@ -95,7 +95,7 @@ class StateSpaceConjugatePosterior(ConjugateModel):
         >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> posterior.__class__.__name__
-        'StateSpaceConjugatePosterior'
+        'StateSpaceConjugateModel'
     """
 
     def __call__(

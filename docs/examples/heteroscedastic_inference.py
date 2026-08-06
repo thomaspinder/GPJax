@@ -163,8 +163,9 @@ plt.show()
 # \mathcal{N}\!\big(y_i \mid f(x_i), \exp(g(x_i))\big),
 # $$ (eq-heteroscedastic-likelihood)
 #
-# to form the posterior target that we shall approximate variationally. The product
-# syntax `signal_prior * likelihood` used below constructs this augmented GP model.
+# to form the posterior target that we shall approximate variationally. Because the
+# joint model holds *two* priors — one per latent process — it is constructed
+# directly as a `HeteroscedasticModel` rather than via the two-operand product.
 
 # %%
 # Signal and noise priors.
@@ -176,12 +177,10 @@ noise_prior = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(),
     kernel=gpx.kernels.RBF(),
 )
-likelihood = HeteroscedasticGaussian(
-    num_datapoints=train.n,
-    noise_prior=noise_prior,
-    noise_transform=LogNormalTransform(),
+likelihood = HeteroscedasticGaussian(noise_transform=LogNormalTransform())
+posterior = gpx.gps.HeteroscedasticModel(
+    prior=signal_prior, likelihood=likelihood, noise_prior=noise_prior
 )
-posterior = signal_prior * likelihood
 
 # Variational family over both processes.
 z = jnp.linspace(-3.2, 3.2, 25)[:, None]
@@ -330,12 +329,10 @@ noise_prior_adv = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(),
     kernel=gpx.kernels.RBF(),
 )
-likelihood_adv = HeteroscedasticGaussian(
-    num_datapoints=data_adv.n,
-    noise_prior=noise_prior_adv,
-    noise_transform=SoftplusTransform(),
+likelihood_adv = HeteroscedasticGaussian(noise_transform=SoftplusTransform())
+posterior_adv = gpx.gps.HeteroscedasticModel(
+    prior=mean_prior, likelihood=likelihood_adv, noise_prior=noise_prior_adv
 )
-posterior_adv = mean_prior * likelihood_adv
 
 # %%
 # Configure variational family

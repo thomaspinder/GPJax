@@ -56,7 +56,7 @@ def test_rts_smoother_marginals_match_dense_gp_posterior(jitter):
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = prior * likelihood
     latent_dist = posterior.predict(X.reshape(-1, 1), train_data=train_data)
     dense_means = np.asarray(latent_dist.mean)
@@ -182,7 +182,7 @@ def test_smoother_is_finite_under_near_noiseless_dense_sampling():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern52(lengthscale=0.05, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=200, obs_stddev=1e-4)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=1e-4)
     posterior = prior * likelihood
 
     test_times = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)

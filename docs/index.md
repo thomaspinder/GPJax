@@ -18,9 +18,23 @@ import gpjax as gpx
 mean = gpx.mean_functions.Zero()
 kernel = gpx.kernels.RBF()
 prior = gpx.gps.Prior(mean_function=mean, kernel=kernel)
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=123)
+likelihood = gpx.likelihoods.Gaussian()
 
-posterior = prior * likelihood
+model = prior * likelihood  # the joint p(f, y)
+```
+
+Conditioning the model on data yields the posterior process, which can then
+be queried at any test inputs:
+
+```python
+import jax.numpy as jnp
+
+xtrain = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
+D = gpx.Dataset(X=xtrain, y=jnp.sin(xtrain))
+xtest = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)
+
+posterior = model.condition(D)  # p(f | D) — equivalently: model | D
+predictive = posterior(xtest)
 ```
 
 $$

@@ -100,7 +100,7 @@ def test_zero_mean_remains_zero() -> None:
     train_data = Dataset(X=x, y=y)
 
     posterior = Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(
-        num_datapoints=train_data.n
+        
     )
 
     optimised, _ = fit(

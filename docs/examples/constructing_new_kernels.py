@@ -287,7 +287,7 @@ D = gpx.Dataset(X=X, y=y)
 # Define polar Gaussian process
 PKern = Polar()
 meanf = gpx.mean_functions.Zero()
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+likelihood = gpx.likelihoods.Gaussian()
 circular_posterior = gpx.gps.Prior(mean_function=meanf, kernel=PKern) * likelihood
 
 # Optimise GP's marginal log-likelihood using BFGS

@@ -30,7 +30,7 @@ from gpjax.fit import (
     get_batch,
 )
 from gpjax.gps import (
-    ConjugatePosterior,
+    ConjugateModel,
     Prior,
 )
 from gpjax.kernels import RBF
@@ -187,7 +187,7 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
 
     # Define GP model:
     prior = Prior(kernel=RBF(), mean_function=Constant())
-    likelihood = Gaussian(num_datapoints=n_data)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     # Train!
@@ -202,7 +202,7 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
     )
 
     # Ensure the trained model is a Gaussian process posterior
-    assert isinstance(trained_model, ConjugatePosterior)
+    assert isinstance(trained_model, ConjugateModel)
 
     # Ensure we return a history of the correct length
     assert len(history) == 15
@@ -223,7 +223,7 @@ def test_fit_lbfgs_gp_regression(n_data: int) -> None:
 
     # Define GP model:
     prior = Prior(kernel=RBF(), mean_function=Constant())
-    likelihood = Gaussian(num_datapoints=n_data)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     # Train with BFGS!
@@ -235,7 +235,7 @@ def test_fit_lbfgs_gp_regression(n_data: int) -> None:
     )
 
     # Ensure the trained model is a Gaussian process posterior
-    assert isinstance(trained_model_bfgs, ConjugatePosterior)
+    assert isinstance(trained_model_bfgs, ConjugateModel)
 
     # Ensure we reduce the loss
     assert conjugate_mll(trained_model_bfgs, D) < conjugate_mll(posterior, D)
@@ -254,7 +254,7 @@ def test_fit_scipy_error_raises() -> None:
 
     # Define GP model with crazy mean function:
     prior = Prior(kernel=RBF(), mean_function=CrazyMean())
-    likelihood = Gaussian(num_datapoints=2)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     with pytest.raises(scipy.optimize.OptimizeWarning):
@@ -267,7 +267,7 @@ def test_fit_scipy_error_raises() -> None:
 
     # also check fails if no given enough steps
     prior = Prior(kernel=RBF(), mean_function=Constant())
-    likelihood = Gaussian(num_datapoints=2)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     with pytest.raises(scipy.optimize.OptimizeWarning):
@@ -294,7 +294,7 @@ def test_fit_batch(num_iters: int, batch_size: int, n_data: int, verbose: bool) 
 
     # Define GP model:
     prior = Prior(kernel=RBF(), mean_function=Constant())
-    likelihood = Gaussian(num_datapoints=n_data)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     # Define variational family:
@@ -495,7 +495,7 @@ def test_fit_freeze_kernel_variance() -> None:
     meanf = gpx.mean_functions.Zero()
     kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0)
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     # Record initial variance value
@@ -540,7 +540,7 @@ def test_fit_zero_mean_function_is_frozen_by_default() -> None:
     posterior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.RBF(lengthscale=1.0, variance=1.0),
-    ) * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    ) * gpx.likelihoods.Gaussian()
 
     trained_posterior, _ = fit(
         model=posterior,
@@ -568,7 +568,7 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     meanf = gpx.mean_functions.Constant(constant=Real(1.0))  # Start with mean 1.0
     kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0)
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.1)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
     posterior = prior * likelihood
 
     # Record initial mean function constant
@@ -606,7 +606,7 @@ def test_fit_constant_mean_function_frozen_with_non_trainable() -> None:
     meanf = gpx.mean_functions.Constant(constant=1.0)  # Fixed mean 1.0
     kernel = gpx.kernels.RBF(lengthscale=1.0, variance=0.1)
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.1)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
     posterior = prior * likelihood
 
     # Record initial mean function constant
@@ -645,7 +645,7 @@ def test_fit_freeze_by_non_trainable() -> None:
     meanf = gpx.mean_functions.Zero()
     kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0)
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     # Record initial values

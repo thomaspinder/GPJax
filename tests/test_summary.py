@@ -172,7 +172,7 @@ def test_collect_marks_and_unwraps_frozen_parameter():
 
 def test_collect_variational_family_lower_cholesky():
     prior = Prior(mean_function=Zero(), kernel=RBF())
-    posterior = prior * Gaussian(num_datapoints=5)
+    posterior = prior * Gaussian()
     q = gpx.variational_families.VariationalGaussian(
         posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
     )
@@ -318,9 +318,9 @@ def test_summary_mixin_mimebundle_has_text_and_html():
     [
         lambda: RBF(),
         lambda: Zero(),
-        lambda: Gaussian(num_datapoints=5),
+        lambda: Gaussian(),
         lambda: Prior(mean_function=Zero(), kernel=RBF()),
-        lambda: Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(num_datapoints=5),
+        lambda: Prior(mean_function=Zero(), kernel=RBF()) * Gaussian(),
     ],
 )
 def test_abstract_bases_have_rich_protocol(model_fn):
@@ -331,7 +331,7 @@ def test_abstract_bases_have_rich_protocol(model_fn):
 
 def test_variational_family_has_rich_protocol():
     prior = Prior(mean_function=Zero(), kernel=RBF())
-    posterior = prior * Gaussian(num_datapoints=5)
+    posterior = prior * Gaussian()
     q = gpx.variational_families.VariationalGaussian(
         posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
     )

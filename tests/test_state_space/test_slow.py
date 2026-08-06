@@ -37,7 +37,7 @@ def test_state_space_mll_forward_finite_at_N_100k():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern52(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = prior * likelihood
 
     mll_full = state_space_mll(posterior, train_data)
@@ -55,7 +55,7 @@ def test_state_space_mll_forward_finite_at_N_100k():
         kernel=gpx.kernels.Matern52(lengthscale=lengthscale, variance=variance),
     )
     likelihood_subset = gpx.likelihoods.Gaussian(
-        num_datapoints=n_subset, obs_stddev=obs_stddev
+        obs_stddev=obs_stddev
     )
     posterior_subset = prior_subset * likelihood_subset
 
@@ -97,7 +97,7 @@ def test_state_space_mll_reverse_mode_grad_at_N_100k_with_truncated_periodic():
             truncation_order=10,
         )
         prior = StateSpacePrior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.2)
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.2)
         posterior = prior * likelihood
         return -state_space_mll(posterior, train_data)
 
@@ -257,7 +257,7 @@ def test_state_space_mll_extreme_regimes_finite(obs_stddev, lengthscale, time_ra
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern32(lengthscale=lengthscale, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = prior * likelihood
 
     mll = state_space_mll(posterior, train_data)
@@ -297,7 +297,7 @@ def test_state_space_mll_finite_with_float32_inputs():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
 
     train_data_64 = gpx.Dataset(X=X64, y=y64)

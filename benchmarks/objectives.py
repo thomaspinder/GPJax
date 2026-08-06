@@ -50,7 +50,7 @@ def _conjugate_posterior(n: int):
     kernel = gpx.kernels.RBF()
     mean = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+    likelihood = gpx.likelihoods.Gaussian()
     return prior * likelihood, data
 
 
@@ -157,7 +157,7 @@ class HeteroscedasticElboSuite:
         noise_prior = gpx.gps.Prior(
             kernel=noise_kernel, mean_function=gpx.mean_functions.Zero()
         )
-        likelihood = HeteroscedasticGaussian(num_datapoints=n, noise_prior=noise_prior)
+        likelihood = HeteroscedasticGaussian(noise_prior=noise_prior)
         posterior = signal_prior * likelihood
         Z = data.X[:M_INDUCING]
         self.q = HeteroscedasticVariationalFamily(

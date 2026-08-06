@@ -60,7 +60,7 @@ def test_conjugate_mll(n_points: int, n_dims: int, key_val: int):
         kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
         mean_function=gpx.mean_functions.Constant(),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_points)
+    likelihood = gpx.likelihoods.Gaussian()
     post = p * likelihood
 
     # test simple call
@@ -100,7 +100,7 @@ def test_conjugate_loocv(n_points, n_dims, key_val):
         kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
         mean_function=gpx.mean_functions.Constant(),
     )
-    likelihood = Gaussian(num_datapoints=n_points)
+    likelihood = Gaussian()
     post = p * likelihood
 
     # test simple call
@@ -140,8 +140,8 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
         kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
         mean_function=gpx.mean_functions.Constant(),
     )
-    likelihood = gpx.likelihoods.Bernoulli(num_datapoints=n_points)
-    post = p * likelihood
+    likelihood = gpx.likelihoods.Bernoulli()
+    post = (p * likelihood).init_latent(D.n)
 
     # test simple call
     res_simple = -non_conjugate_mll(post, D)
@@ -181,7 +181,7 @@ def test_collapsed_elbo(n_points, n_dims, key_val):
         kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
         mean_function=gpx.mean_functions.Constant(),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_points)
+    likelihood = gpx.likelihoods.Gaussian()
     q = gpx.variational_families.CollapsedVariationalGaussian(
         posterior=p * likelihood, inducing_inputs=z
     )
@@ -215,9 +215,9 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
         mean_function=gpx.mean_functions.Constant(),
     )
     if binary:
-        likelihood = gpx.likelihoods.Bernoulli(num_datapoints=n_points)
+        likelihood = gpx.likelihoods.Bernoulli()
     else:
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_points)
+        likelihood = gpx.likelihoods.Gaussian()
     post = p * likelihood
 
     q = gpx.variational_families.VariationalGaussian(posterior=post, inducing_inputs=z)
@@ -265,7 +265,7 @@ class TestMultiOutputConjugateMLL:
         kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
         meanf = Zero()
         prior = Prior(mean_function=meanf, kernel=kernel)
-        lik = MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
         return posterior, data
 
@@ -295,7 +295,7 @@ class TestMultiOutputConjugateMLL:
 
         kernel = RBF()
         prior = Prior(mean_function=Zero(), kernel=kernel)
-        lik = Gaussian(num_datapoints=20)
+        lik = Gaussian()
         posterior = prior * lik
         mll = conjugate_mll(posterior, data)
         assert jnp.isfinite(mll)
@@ -321,7 +321,7 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
     coreg = CoregionalizationMatrix(num_outputs=P, rank=1, key=key)
     kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
     prior = Prior(mean_function=Zero(), kernel=kernel)
-    lik = MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+    lik = MultiOutputGaussian(num_outputs=P)
     posterior = paramax.unwrap(prior * lik)
 
     # --- Independent brute-force reference on the full [NP, NP] system ---

@@ -135,10 +135,10 @@ plt.show()
 kernel = gpx.kernels.RBF()
 meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-likelihood = gpx.likelihoods.Poisson(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Poisson()
 
 # %% [markdown]
-# We construct the [posterior](#gpjax.gps.NonConjugatePosterior) through the product of our
+# We construct the [posterior](#gpjax.gps.NonConjugateModel) through the product of our
 # prior and likelihood.
 
 # %%
