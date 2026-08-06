@@ -134,6 +134,7 @@ def _(np, os):
     HORIZONS = (1, 4)  # paper: 1..10; default per spec
     NUM_WARMUP, NUM_SAMPLES = 2500, 1500
     TARGET_ACCEPT = 0.9
+    RUN_PILOT = False  # flip to True to run the advisory pilot timing (~30-45 min)
     RUN_FITS = False  # flip to True to launch the production fits (hours-scale)
     RUNTIME_CAP_HOURS = 2.0  # pilot's advisory runtime threshold
     THIN_STORE = 4  # cache thinning for posterior draws
@@ -224,6 +225,7 @@ def _(np, os):
         NUM_WARMUP,
         RUNTIME_CAP_HOURS,
         RUN_FITS,
+        RUN_PILOT,
         SEED,
         SHOCK_NAMES,
         TARGET_ACCEPT,
@@ -683,13 +685,6 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
-    pilot_button = mo.ui.run_button(label="Run pilot timing (~30-45 min)")
-    mo.hstack([pilot_button], justify="start")
-    return (pilot_button,)
-
-
-@app.cell
 def _(
     MCMC,
     M_BERN,
@@ -698,6 +693,7 @@ def _(
     NUM_WARMUP,
     NUTS,
     RUNTIME_CAP_HOURS,
+    RUN_PILOT,
     TARGET_ACCEPT,
     TAUS,
     datasets,
@@ -706,11 +702,13 @@ def _(
     jr,
     mo,
     panel_qr_model,
-    pilot_button,
     time,
 ):
     mo.stop(
-        not pilot_button.value, mo.md("*Pilot not yet run — press the button above.*")
+        not RUN_PILOT,
+        mo.md(
+            "*Pilot off — set `RUN_PILOT = True` in the config cell for a runtime projection.*"
+        ),
     )
 
     def _timed(warmup):
