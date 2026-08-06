@@ -34,7 +34,8 @@ cannot.
 **condition** — the operation p(f, y) + 𝒟 → p(f | 𝒟), spelled
 `model.condition(D)` or the operator form `model | D` (read: "f given D").
 Signatures follow the maths: models take data; already-fit variational
-families will condition without arguments (post-natgrads stack PR).
+families condition without arguments (`q.condition()`), except the collapsed
+family, whose optimal q is solved from the data (`q.condition(D)`).
 
 **Posterior** — the conditioned process p(f | 𝒟) returned by `condition`. An
 *immutable* pytree: the training-covariance factorisation is computed once and
@@ -43,6 +44,13 @@ cached; every query is a view of it. The uniform query surface:
 `log_marginal_likelihood` / `loo` / `sample_approx` on the exact mode,
 `log_posterior_density` on the latent mode. Users never name the concrete
 implementations behind the interface.
+
+**variational family** — a trainable approximate posterior over inducing
+values: to sparse GPs what JointModel is to exact ones. It carries the joint
+model in its `model` field, and `.condition()` yields a Posterior like any
+other; `elbo`-style objectives are its training criteria. The model's
+`Prior.jitter` is the only stabilisation knob — families carry none of their
+own.
 
 **evidence / log marginal likelihood** — p(𝒟), the normalising constant of
 conditioning, exposed as `posterior.log_marginal_likelihood`. "Evidence" and
