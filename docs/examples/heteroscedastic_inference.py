@@ -185,7 +185,7 @@ posterior = gpx.gps.HeteroscedasticModel(
 # Variational family over both processes.
 z = jnp.linspace(-3.2, 3.2, 25)[:, None]
 q = HeteroscedasticVariationalFamily(
-    posterior=posterior,
+    model=posterior,
     inducing_inputs=z,
     inducing_inputs_g=z,
 )
@@ -346,7 +346,7 @@ q_init_f = VariationalGaussianInit(inducing_inputs=z_signal)
 q_init_g = VariationalGaussianInit(inducing_inputs=z_noise)
 
 q_sparse = HeteroscedasticVariationalFamily(
-    posterior=posterior_adv,
+    model=posterior_adv,
     signal_init=q_init_f,
     noise_init=q_init_g,
 )

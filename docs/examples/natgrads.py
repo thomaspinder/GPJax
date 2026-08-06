@@ -205,7 +205,7 @@ check_root = jnp.linalg.cholesky(
     check_factor @ check_factor.T + jnp.eye(num_check_inducing)
 )
 check_family = gpx.variational_families.VariationalGaussian(
-    posterior=check_model,
+    model=check_model,
     inducing_inputs=jnp.linspace(-2.0, 2.0, num_check_inducing).reshape(-1, 1),
     variational_mean=check_mean,
     variational_root_covariance=check_root,
@@ -347,7 +347,9 @@ test_inputs = jnp.linspace(-3.2, 3.2, 300).reshape(-1, 1)
 # A conjugate SVGP, deliberately initialised a long way from its optimum. The joint
 # model is prior * likelihood; the variational family approximates its posterior.
 regression_model = gpx.gps.Prior(
-    mean_function=gpx.mean_functions.Constant(), kernel=jk.RBF(lengthscale=0.5)
+    mean_function=gpx.mean_functions.Constant(),
+    kernel=jk.RBF(lengthscale=0.5),
+    jitter=1e-8,
 ) * gpx.likelihoods.Gaussian(obs_stddev=noise_stddev)
 
 key, bad_mean_key, bad_root_key = jr.split(key, 3)
@@ -356,11 +358,10 @@ bad_factor = 0.3 * jr.normal(bad_root_key, (num_inducing, num_inducing))
 bad_root = jnp.linalg.cholesky(bad_factor @ bad_factor.T + 0.5 * jnp.eye(num_inducing))
 
 initial_family = gpx.variational_families.WhitenedVariationalGaussian(
-    posterior=regression_model,
+    model=regression_model,
     inducing_inputs=regression_inducing,
     variational_mean=bad_mean,
     variational_root_covariance=bad_root,
-    jitter=1e-8,
 )
 
 # %% [markdown]
@@ -384,11 +385,11 @@ initial_family = gpx.variational_families.WhitenedVariationalGaussian(
 
 # %%
 unwrapped_initial = paramax.unwrap(initial_family)
-kernel = unwrapped_initial.posterior.prior.kernel
-mean_function = unwrapped_initial.posterior.prior.mean_function
+kernel = unwrapped_initial.model.prior.kernel
+mean_function = unwrapped_initial.model.prior.mean_function
 
 Kzz = kernel.gram(regression_inducing).as_matrix()
-Kzz = Kzz + initial_family.jitter * jnp.eye(num_inducing)
+Kzz = Kzz + initial_family.model.prior.jitter * jnp.eye(num_inducing)
 Lz = jnp.linalg.cholesky(Kzz)
 Kzx = kernel.cross_covariance(regression_inducing, regression_inputs)
 whitened_design = jax.scipy.linalg.solve_triangular(Lz, Kzx, lower=True).T
@@ -474,7 +475,7 @@ print(
 # rounding effect, since
 # $(\mathbf{S}^{-1}+\varepsilon\mathbf{I})^{-1} = \mathbf{S} - \varepsilon\mathbf{S}^2 + \mathcal{O}(\varepsilon^2)$.
 # It defaults to zero in `fit_natgrads` for that reason, and is deliberately *not*
-# inherited from the family's `jitter`, which is a different quantity applied to
+# inherited from the model's `Prior.jitter`, which is a different quantity applied to
 # $\mathbf{K}_{zz}$.
 #
 # Because this model is conjugate, we can also compare the one-step posterior against
@@ -735,7 +736,7 @@ banana_model = (
 def make_banana_family():
     """A fresh SVGP over the banana data, at the default m = 0, S = I."""
     return gpx.variational_families.VariationalGaussian(
-        posterior=banana_model, inducing_inputs=banana_inducing
+        model=banana_model, inducing_inputs=banana_inducing
     )
 
 
@@ -902,7 +903,7 @@ grid_points = jnp.stack([grid_x.ravel(), grid_y.ravel()], axis=1)
 def predictive_probability(model, inputs, num_chunks=8):
     """Bernoulli success probability, evaluated in chunks to bound memory."""
     unwrapped = paramax.unwrap(model)
-    likelihood = unwrapped.posterior.likelihood
+    likelihood = unwrapped.model.likelihood
     return jnp.concatenate(
         [likelihood(unwrapped(chunk)).mean for chunk in jnp.split(inputs, num_chunks)]
     )
@@ -1030,7 +1031,7 @@ colourbar = fig.colorbar(contours, ax=axes, label=r"$q(y=1 \mid x)$")
 
 # %%
 overconfident_family = gpx.variational_families.VariationalGaussian(
-    posterior=banana_model,
+    model=banana_model,
     inducing_inputs=banana_inducing,
     variational_mean=jnp.zeros((num_banana_inducing, 1)),
     variational_root_covariance=0.1 * jnp.eye(num_banana_inducing),

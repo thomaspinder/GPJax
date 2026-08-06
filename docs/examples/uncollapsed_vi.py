@@ -224,7 +224,7 @@ likelihood = gpx.likelihoods.Gaussian()
 kernel = jk.RBF()  # 1-dimensional inputs
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 p = prior * likelihood
-q = gpx.variational_families.VariationalGaussian(posterior=p, inducing_inputs=z)
+q = gpx.variational_families.VariationalGaussian(model=p, inducing_inputs=z)
 
 # %% [markdown]
 # Here, the variational process $q(\cdot)$ depends on the prior through
@@ -284,7 +284,7 @@ opt_posterior, history = gpx.fit(
 
 # %% mystnb={"figure": {"caption": "Posterior mean and two-standard-deviation band of the fitted sparse variational GP, shown against the training data, with the optimised inducing input locations overlaid.", "name": "fig-uncollapsed-vi-predictions"}}
 latent_dist = opt_posterior(xtest)
-predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
+predictive_dist = opt_posterior.model.likelihood(latent_dist)
 
 meanf = predictive_dist.mean
 sigma = jnp.sqrt(predictive_dist.variance)
