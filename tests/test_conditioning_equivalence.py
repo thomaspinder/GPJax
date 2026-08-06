@@ -39,9 +39,12 @@ def test_collapsed_elbo_equals_mll_when_z_is_x():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="jitter has two owners (Prior.jitter vs the variational family's "
-    "jitter); collapsed_elbo and conjugate_mll factorise different matrices "
-    "at non-default jitter. Resolved by the v1.0 conditioning stack.",
+    reason="the variational family still carries its own jitter knob "
+    "(q.jitter enters Kzz; the model's Prior.jitter enters Sigma), so "
+    "collapsed_elbo and conjugate_mll factorise different matrices at "
+    "non-default jitter. The model-side split is fixed (see "
+    "test_predict_consistent_with_mll_nondefault_jitter); the family-side "
+    "knob unifies in the variational universalisation PR, post-natgrads.",
 )
 def test_collapsed_elbo_equals_mll_when_z_is_x_nondefault_jitter():
     posterior, data = _make(jitter=1e-3)
@@ -51,6 +54,37 @@ def test_collapsed_elbo_equals_mll_when_z_is_x_nondefault_jitter():
     elbo = gpx.objectives.collapsed_elbo(q, data)
     mll = gpx.objectives.conjugate_mll(posterior, data)
     assert jnp.allclose(elbo, mll, atol=2e-4)
+
+
+def test_predict_consistent_with_mll_nondefault_jitter():
+    """predict and the MLL must factorise the SAME matrix at any jitter.
+
+    Before v1.0, ConjugatePosterior.predict applied ``self.jitter`` to the
+    training gram while conjugate_mll applied ``prior.jitter`` — two
+    independent knobs that could legally diverge. Both quantities are now
+    views of one conditioned Posterior, so this closed-form check holds at
+    a deliberately non-default jitter.
+    """
+    jitter = 1e-3
+    model, data = _make(jitter=jitter)
+    posterior = model.condition(data)
+
+    kernel_gram = model.prior.kernel.gram(data.X).as_matrix()
+    noise_variance = 0.2**2
+    sigma = kernel_gram + (jitter + noise_variance) * jnp.eye(data.n)
+    residual = data.y[:, 0] - model.prior.mean_function(data.X)[:, 0]
+
+    quad = residual @ jnp.linalg.solve(sigma, residual)
+    _, logdet = jnp.linalg.slogdet(sigma)
+    expected_mll = -0.5 * (quad + logdet + data.n * jnp.log(2.0 * jnp.pi))
+    assert jnp.allclose(posterior.log_marginal_likelihood, expected_mll, atol=1e-8)
+
+    cross = model.prior.kernel.cross_covariance(data.X, data.X)
+    expected_mean = model.prior.mean_function(data.X)[:, 0] + cross.T @ (
+        jnp.linalg.solve(sigma, residual)
+    )
+    predictive = posterior(data.X)
+    assert jnp.allclose(predictive.mean, expected_mean, atol=1e-8)
 
 
 def test_whitened_matches_unwhitened_at_matched_parameters():
