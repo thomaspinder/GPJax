@@ -81,4 +81,18 @@ jobs:
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
-        extra_args: --debug --only-verified
+        # `--exclude-detectors=lob`: TruffleHog's Lob key pattern is
+        # `(live|test)_` followed by 35 more characters, which matches any
+        # pytest function name that happens to be exactly 40 characters long —
+        # and its verifier then reports those as *verified*, so `--only-verified`
+        # does not filter them out. Four real examples in this repo:
+        # test_fit_natgrads_accepts_optax_schedule,
+        # test_dual_natgrad_matches_salimbeni_step,
+        # test_dual_working_matrices_reconstruct_r,
+        # test_prior_kl_matches_textbook_reference.
+        # Reproduced standalone: a fresh repo containing only one of those names
+        # yields `Lob verified=true`. Since `Secrets Detection` is a required
+        # context on `main`, leaving this on means an arbitrary, length-dependent
+        # subset of PRs can never merge. GPJax has no Lob (direct-mail API)
+        # integration, so excluding the detector costs no real coverage.
+        extra_args: --debug --only-verified --exclude-detectors=lob
