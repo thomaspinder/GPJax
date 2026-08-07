@@ -102,6 +102,7 @@ def fit(
             to True.
         unroll (int): The number of unrolled steps to use for the optimisation.
             Defaults to 1.
+        safe (bool): Whether to validate inputs before optimisation. Defaults to True.
 
     Returns:
         A tuple comprising the optimised model and training history.
@@ -437,96 +438,87 @@ def fit_natgrads(
         ...     optim=ox.adam(0.01), natgrad_lr=1.0, num_iters=10, verbose=False,
         ... )
 
-    Parameters
-    ----------
-    model : Model
-        The variational family to be optimised.
-    objective : Objective
-        The loss to minimise, e.g. ``lambda q, d: -gpjax.objectives.elbo(q, d)``.
-    train_data : Dataset
-        The training data used to evaluate the objective.
-    optim : GradientTransformation
-        The Optax optimiser applied to the hyperparameter partition.
-    natgrad_lr : float | int | jax.Array | optax.Schedule
-        The natural-gradient step size $\gamma\in(0,1]$, or an Optax schedule mapping
-        the iteration number to a step size. Defaults to ``1e-1``, the value
-        Salimbeni et al. recommend in the stochastic, non-conjugate regime;
-        ``natgrad_lr=1.0`` is optimal only when the model is conjugate *and* the batch
-        is full. Adam, Chang, Khan and Solin (2021) write this step size $\rho$ for the
-        dual parameterisation; it is the same quantity, and started from the same $q$
-        the two branches produce identical iterates -- provided the dual branch's
-        computed $\boldsymbol\beta$ stays non-negative, so that its ``beta_floor``
-        never engages. GPJax's clipped probit link breaks that in the far tails.
-        On a ``DualVariationalGaussian``
-        a value above $1$ is rejected, because the site update is a convex combination
-        towards its target -- for a schedule this is checked over the whole
-        ``num_iters``-long trajectory, not just at construction.
-    key : KeyArray
-        The random key used for mini-batch selection. Defaults to ``jr.key(42)``.
-    num_iters : int
-        The number of alternating iterations to run. Defaults to 100.
-    batch_size : int
-        The size of the mini-batch to use. Defaults to -1 (i.e. full batch). The same
-        batch feeds both sub-steps of an iteration.
-    map_jitter : float
-        Jitter added inside the $\boldsymbol\theta\leftrightarrow\boldsymbol\xi$ maps.
-        Defaults to ``0.0`` and is deliberately **not** inherited from the model's
-        ``Prior.jitter``: a non-zero value biases the recovered covariance by
-        $\approx\varepsilon\lVert\mathbf S\rVert^2$ regardless of conditioning, which
-        destroys the exactness of the conjugate one-step solution. Raise it to
-        $10^{-12}$--$10^{-10}$ only when fighting an ill-conditioned $\mathbf S$, and
-        note that a non-zero value also shifts every entry of ``history`` by
-        $\mathcal O(\varepsilon)$, because the logged loss is read off the
-        differentiated $\boldsymbol\eta$ closure.
-    backoff : float
-        Multiplicative shrink factor applied to $\gamma$ when a step would leave the
-        negative-definite cone. Defaults to 0.5.
-    max_backoff : int
-        The number of shrink attempts after the first, so $\gamma$ can fall by
-        $\beta^{K}$. Defaults to 5.
-    beta_floor : float
-        Lower clip on the expected negative curvature $\beta$ in the dual step, which
-        keeps $\boldsymbol\Lambda_2$ inside the positive semi-definite cone for
-        likelihoods that are not log-concave. The Salimbeni-family step ignores it.
-        Defaults to ``1e-8``.
-    log_rate : int
-        How frequently the objective value should be printed. Defaults to 10.
-    verbose : bool
-        Whether to display the training progress bar. Defaults to True.
-    unroll : int
-        The number of unrolled steps to use for the optimisation. Defaults to 1.
-    safe : bool
-        Whether to validate inputs before optimisation. Defaults to True.
+    Args:
+        model (Model): The variational family to be optimised.
+        objective (Objective): The loss to minimise, e.g.
+            ``lambda q, d: -gpjax.objectives.elbo(q, d)``.
+        train_data (Dataset): The training data used to evaluate the objective.
+        optim (GradientTransformation): The Optax optimiser applied to the
+            hyperparameter partition.
+        natgrad_lr (float | int | jax.Array | optax.Schedule): The natural-gradient
+            step size $\gamma\in(0,1]$, or an Optax schedule mapping the iteration
+            number to a step size. Defaults to ``1e-1``, the value Salimbeni et al.
+            recommend in the stochastic, non-conjugate regime; ``natgrad_lr=1.0`` is
+            optimal only when the model is conjugate *and* the batch is full. Adam,
+            Chang, Khan and Solin (2021) write this step size $\rho$ for the dual
+            parameterisation; it is the same quantity, and started from the same $q$
+            the two branches produce identical iterates -- provided the dual branch's
+            computed $\boldsymbol\beta$ stays non-negative, so that its ``beta_floor``
+            never engages. GPJax's clipped probit link breaks that in the far tails.
+            On a ``DualVariationalGaussian`` a value above $1$ is rejected, because
+            the site update is a convex combination towards its target -- for a
+            schedule this is checked over the whole ``num_iters``-long trajectory, not
+            just at construction.
+        key (KeyArray): The random key used for mini-batch selection. Defaults to
+            ``jr.key(42)``.
+        num_iters (int): The number of alternating iterations to run. Defaults to 100.
+        batch_size (int): The size of the mini-batch to use. Defaults to -1 (i.e. full
+            batch). The same batch feeds both sub-steps of an iteration.
+        map_jitter (float): Jitter added inside the
+            $\boldsymbol\theta\leftrightarrow\boldsymbol\xi$ maps. Defaults to ``0.0``
+            and is deliberately **not** inherited from the model's ``Prior.jitter``: a
+            non-zero value biases the recovered covariance by
+            $\approx\varepsilon\lVert\mathbf S\rVert^2$ regardless of conditioning,
+            which destroys the exactness of the conjugate one-step solution. Raise it
+            to $10^{-12}$--$10^{-10}$ only when fighting an ill-conditioned
+            $\mathbf S$, and note that a non-zero value also shifts every entry of
+            ``history`` by $\mathcal O(\varepsilon)$, because the logged loss is read
+            off the differentiated $\boldsymbol\eta$ closure.
+        backoff (float): Multiplicative shrink factor applied to $\gamma$ when a step
+            would leave the negative-definite cone. Defaults to 0.5.
+        max_backoff (int): The number of shrink attempts after the first, so $\gamma$
+            can fall by $\beta^{K}$. Defaults to 5.
+        beta_floor (float): Lower clip on the expected negative curvature $\beta$ in
+            the dual step, which keeps $\boldsymbol\Lambda_2$ inside the positive
+            semi-definite cone for likelihoods that are not log-concave. The
+            Salimbeni-family step ignores it. Defaults to ``1e-8``.
+        log_rate (int): How frequently the objective value should be printed. Defaults
+            to 10.
+        verbose (bool): Whether to display the training progress bar. Defaults to
+            True.
+        unroll (int): The number of unrolled steps to use for the optimisation.
+            Defaults to 1.
+        safe (bool): Whether to validate inputs before optimisation. Defaults to True.
 
-    Returns
-    -------
-    tuple[Model, jax.Array]
-        A tuple of the optimised model and a 1-D history of length ``num_iters``.
+    Returns:
+        tuple[Model, jax.Array]: A tuple of the optimised model and a 1-D history of
+            length ``num_iters``.
 
-    Notes
-    -----
-    **Step ordering.** Within one iteration the natural-gradient step runs *first* and
-    the Optax step second, on the already-updated $q$. Salimbeni et al. describe the
-    reverse order and explicitly allow either; natgrad-first is chosen here because the
-    forward pass that produces $\partial\ell/\partial\boldsymbol\eta$ also yields
-    $\ell(\boldsymbol\xi_t,\boldsymbol\phi_t)$ for free, which is exactly ``fit()``'s
-    ``history[t]`` convention, and because it decouples a bad hyperparameter step from
-    the Cholesky factorisations of the natural-gradient step by one iteration. The
-    ordering changes traces bit-for-bit, so do not reverse it casually.
+    Notes:
+        **Step ordering.** Within one iteration the natural-gradient step runs *first*
+        and the Optax step second, on the already-updated $q$. Salimbeni et al.
+        describe the reverse order and explicitly allow either; natgrad-first is
+        chosen here because the forward pass that produces
+        $\partial\ell/\partial\boldsymbol\eta$ also yields
+        $\ell(\boldsymbol\xi_t,\boldsymbol\phi_t)$ for free, which is exactly
+        ``fit()``'s ``history[t]`` convention, and because it decouples a bad
+        hyperparameter step from the Cholesky factorisations of the natural-gradient
+        step by one iteration. The ordering changes traces bit-for-bit, so do not
+        reverse it casually.
 
-    **Choice of family.** The step differentiates the loss through
-    $\boldsymbol\xi(\boldsymbol\eta)$, which subtracts
-    $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ from $\mathbf H_2$. When
-    $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$ that cancellation loses digits
-    quietly -- finite, unguarded and increasingly wrong -- so prefer
-    ``WhitenedVariationalGaussian``, whose $q(\mathbf v)$ stays close to
-    $\mathcal N(\mathbf 0,\mathbf I)$, in that regime.
-    ``DualVariationalGaussian`` is immune to this particular cancellation for a
-    different reason: its step is affine in the stored sites and takes no
-    $\boldsymbol\xi(\boldsymbol\eta)$ round trip at all, so
-    $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ is never formed. It buys that with a
-    second $M\times M$ factorisation per objective evaluation and a step size capped
-    at $1$.
+        **Choice of family.** The step differentiates the loss through
+        $\boldsymbol\xi(\boldsymbol\eta)$, which subtracts
+        $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ from $\mathbf H_2$. When
+        $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$ that cancellation loses
+        digits quietly -- finite, unguarded and increasingly wrong -- so prefer
+        ``WhitenedVariationalGaussian``, whose $q(\mathbf v)$ stays close to
+        $\mathcal N(\mathbf 0,\mathbf I)$, in that regime.
+        ``DualVariationalGaussian`` is immune to this particular cancellation for a
+        different reason: its step is affine in the stored sites and takes no
+        $\boldsymbol\xi(\boldsymbol\eta)$ round trip at all, so
+        $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ is never formed. It buys that with a
+        second $M\times M$ factorisation per objective evaluation and a step size
+        capped at $1$.
     """
     if safe:
         # Check inputs.
@@ -641,8 +633,10 @@ def get_batch(train_data: Dataset, batch_size: int, key: KeyArray) -> Dataset:
     # Subsample mini-batch indices with replacement.
     indices = jr.choice(key, n, (batch_size,), replace=True)
 
-    full_size = train_data.n_total if train_data.n_total is not None else n
-    return Dataset(X=x[indices], y=y[indices], n_total=full_size)
+    # Stamp the parent's size onto the batch so minibatch objectives can rescale the
+    # expected log-likelihood. `full_size` already falls back to `n` when the parent
+    # is itself a full dataset, and re-batching a batch keeps the original size.
+    return Dataset(X=x[indices], y=y[indices], n_total=train_data.full_size)
 
 
 def _prepare_model(model: Model, train_data: Dataset) -> Model:
@@ -723,39 +717,43 @@ def _check_natgrad_lr(
 ) -> None:
     r"""Check the natural-gradient step size is a positive float or an optax schedule.
 
-    Parameters
-    ----------
-    natgrad_lr : Any
-        The candidate step size.
-    model : Any
-        The model being fitted. Unconstrained above for the Salimbeni families, which
-        tolerate $\gamma>1$ in principle; capped at $1$ for
-        ``DualVariationalGaussian``.
-    num_iters : Any
-        The number of iterations the schedule will be evaluated at. Supply it to have
-        a schedule bound-checked over its whole trajectory; without it a callable
-        ``natgrad_lr`` is accepted unexamined.
+    Args:
+        natgrad_lr (Any): The candidate step size.
+        model (Any): The model being fitted. Unconstrained above for the Salimbeni
+            families, which tolerate $\gamma>1$ in principle; capped at $1$ for
+            ``DualVariationalGaussian``.
+        num_iters (Any): The number of iterations the schedule will be evaluated at.
+            Supply it to have a schedule bound-checked over its whole trajectory;
+            without it a callable ``natgrad_lr`` is accepted unexamined.
 
-    Notes
-    -----
-    A 0-d JAX array is accepted, because the driver immediately does
-    ``jnp.asarray(schedule(iteration))`` and the dispatched step is annotated
-    ``ScalarFloat``. ``bool`` is rejected despite being an ``int`` subclass: silently
-    reading ``True`` as $\gamma=1$ is never what the caller meant. The positivity check
-    is skipped for traced values, which have no concrete sign at trace time.
+    Raises:
+        TypeError: If ``natgrad_lr`` is neither a float, an int, a 0-d JAX array, nor
+            a callable schedule.
+        ValueError: If ``natgrad_lr`` is non-positive, or exceeds $1$ for a
+            ``DualVariationalGaussian``.
 
-    The dual branch requires $\rho\in(0,1]$: the site update is a convex combination
-    towards the target, so $\rho>1$ overshoots it and can push $\boldsymbol\Lambda_2$
-    out of the positive semi-definite cone, from which the run never recovers -- the
-    ``NaN`` is silent and poisons every later iterate. A schedule is fully determined
-    at construction time, so when ``num_iters`` is known the whole trajectory
-    ``natgrad_lr(jnp.arange(num_iters))`` is checked up front, exactly as a scalar is.
-    Schedules that cannot be evaluated on an integer array are left alone.
+    Notes:
+        A 0-d JAX array is accepted, because the driver immediately does
+        ``jnp.asarray(schedule(iteration))`` and the dispatched step is annotated
+        ``ScalarFloat``. ``bool`` is rejected despite being an ``int`` subclass:
+        silently reading ``True`` as $\gamma=1$ is never what the caller meant. The
+        positivity check is skipped for traced values, which have no concrete sign at
+        trace time.
 
-    Positivity is checked for *every* family, scalar or schedule. A rate of zero is a
-    wasted iteration and a negative rate extrapolates away from the target, which can
-    leave the cone in either parameterisation; a decaying schedule that reaches or
-    crosses zero inside the horizon is the realistic way to hit this by accident.
+        The dual branch requires $\rho\in(0,1]$: the site update is a convex
+        combination towards the target, so $\rho>1$ overshoots it and can push
+        $\boldsymbol\Lambda_2$ out of the positive semi-definite cone, from which the
+        run never recovers -- the ``NaN`` is silent and poisons every later iterate. A
+        schedule is fully determined at construction time, so when ``num_iters`` is
+        known the whole trajectory ``natgrad_lr(jnp.arange(num_iters))`` is checked up
+        front, exactly as a scalar is. Schedules that cannot be evaluated on an
+        integer array are left alone.
+
+        Positivity is checked for *every* family, scalar or schedule. A rate of zero
+        is a wasted iteration and a negative rate extrapolates away from the target,
+        which can leave the cone in either parameterisation; a decaying schedule that
+        reaches or crosses zero inside the horizon is the realistic way to hit this by
+        accident.
     """
     if callable(natgrad_lr):
         _check_natgrad_schedule(natgrad_lr, model, num_iters)
@@ -796,13 +794,35 @@ def _check_natgrad_schedule(
     semi-definite cone in either parameterisation, and the scalar path already rejects
     it. Only the upper bound is dual-specific, because only the site update is a convex
     combination.
+
+    Args:
+        natgrad_lr (Callable): The candidate schedule.
+        model (Any): The model being fitted; only ``DualVariationalGaussian`` carries
+            the upper bound.
+        num_iters (Any): The scan length. A non-integer or non-positive value means
+            the trajectory is unknown, and the schedule is left unexamined.
+
+    Raises:
+        ValueError: If the schedule is non-positive anywhere in the first
+            ``num_iters`` iterations, or exceeds $1$ there for a
+            ``DualVariationalGaussian``.
     """
     if not isinstance(num_iters, int) or isinstance(num_iters, bool) or num_iters <= 0:
         return
 
+    # A schedule need only be defined on scalars: Optax's are all vectorised, but a
+    # hand-written one may branch in Python, index a list, or call `float()` on the
+    # step. Evaluating such a schedule on an integer array raises `TypeError` (a
+    # scalar conversion or index was demanded of a 1-d array, which also covers JAX's
+    # own `ConcretizationTypeError`), `ValueError` (an array was used as a truth
+    # value, or the result is ragged), or `IndexError` (a lookup table shorter than
+    # the horizon). Those three mean "not evaluable in bulk", so the trajectory check
+    # is skipped, as documented. Anything else is a genuine bug inside the caller's
+    # schedule and must not be swallowed here -- it would resurface as a `NaN`
+    # thousands of iterations later, or not at all.
     try:
         rates = jnp.asarray(natgrad_lr(jnp.arange(num_iters)))
-    except Exception:
+    except (TypeError, ValueError, IndexError):
         return
 
     smallest = float(jnp.min(rates))
