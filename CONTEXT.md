@@ -33,9 +33,26 @@ cannot.
 
 **condition** — the operation p(f, y) + 𝒟 → p(f | 𝒟), spelled
 `model.condition(D)` or the operator form `model | D` (read: "f given D").
-Signatures follow the maths: models take data; already-fit variational
-families condition without arguments (`q.condition()`), except the collapsed
-family, whose optimal q is solved from the data (`q.condition(D)`).
+
+The signature is `condition(train_data)` uniformly, on every conditionable
+object, with `train_data` required. It is universal across the exact, latent,
+sparse, collapsed and state-space modes. Where the maths does not consume the
+data — the uncollapsed variational families, which already carry the fitted
+q(u) — the argument is still accepted, for interface uniformity, and the
+docstring says so plainly. A signature that varied by object would be a
+worse API than one argument occasionally ignored.
+
+The one documented exclusion is the heteroscedastic path
+(`HeteroscedasticModel` and `HeteroscedasticVariationalFamily`), which has no
+closed-form conditioned process: it carries two latent processes, signal and
+noise, so there is no single p(f | 𝒟) to return. Both raise
+`NotImplementedError` naming the alternative — inference runs through
+`HeteroscedasticVariationalFamily` and the `heteroscedastic_elbo` objective,
+and prediction through `predict` / `predict_latents`, or by conditioning the
+`signal_variational` and `noise_variational` components individually.
+
+`prior_kl` is deliberately *not* part of this contract: it keeps a per-family
+signature, because only the collapsed family's KL is a function of the data.
 
 **Posterior** — the conditioned process p(f | 𝒟) returned by `condition`. An
 *immutable* pytree: the training-covariance factorisation is computed once and
@@ -47,7 +64,7 @@ implementations behind the interface.
 
 **variational family** — a trainable approximate posterior over inducing
 values: to sparse GPs what JointModel is to exact ones. It carries the joint
-model in its `model` field, and `.condition()` yields a Posterior like any
+model in its `model` field, and `.condition(D)` yields a Posterior like any
 other; `elbo`-style objectives are its training criteria. The model's
 `Prior.jitter` is the only stabilisation knob — families carry none of their
 own.
@@ -67,4 +84,6 @@ the conditioned posterior, not a second derivation.
 
 **Dataset** — the data container. `n_total` records the full-dataset size
 when the object is a minibatch view (stamped by `get_batch`); the minibatch
-ELBO scale is derived from it, never supplied by hand.
+ELBO scale is derived from it, never supplied by hand. Read it through
+`full_size`, which falls back to `n` for a whole dataset — production code
+uses `data.full_size / data.n` and never re-spells the fallback inline.
