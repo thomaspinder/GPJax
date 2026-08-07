@@ -35,6 +35,7 @@ from gpjax.integrators import (
 )
 from gpjax.parameters import (
     NonNegativeReal,
+    PositiveReal,
     _val,
 )
 from gpjax.summary import _SummaryMixin
@@ -588,6 +589,90 @@ class Poisson(AbstractLikelihood):
         return self.link_function(dist.mean)
 
 
+class StudentT(AbstractLikelihood):
+    r"""Student's t likelihood object for robust regression.
+
+    Replaces the Gaussian likelihood's light-tailed noise model with a
+    heavy-tailed Student's t distribution, so that outlying observations pull
+    the posterior mean less strongly (Jylanki, Vanhatalo & Vehtari, 2011).
+    Since the Student's t distribution is not conjugate to a Gaussian prior,
+    the expected log likelihood has no closed form and is instead computed by
+    Gauss-Hermite quadrature via `GHQuadratureIntegrator`.
+    """
+
+    degrees_of_freedom: tp.Any
+    scale: tp.Any
+
+    def __init__(
+        self,
+        degrees_of_freedom: tp.Union[ScalarFloat, PositiveReal] = 4.0,
+        scale: tp.Union[ScalarFloat, PositiveReal] = 1.0,
+        integrator: AbstractIntegrator = GHQuadratureIntegrator(num_points=20),
+    ):
+        r"""Initializes the Student's t likelihood.
+
+        Args:
+            degrees_of_freedom (Union[ScalarFloat, PositiveReal]): the degrees
+                of freedom of the Student's t distribution. Lower values give
+                heavier tails and hence more robustness to outliers; as the
+                degrees of freedom grow large the distribution approaches a
+                Gaussian.
+            scale (Union[ScalarFloat, PositiveReal]): the scale of the
+                Student's t observation noise. Note this is not the
+                observation standard deviation: for `degrees_of_freedom > 2`
+                the variance is `scale**2 * degrees_of_freedom /
+                (degrees_of_freedom - 2)`.
+            integrator (AbstractIntegrator): The integrator to be used for computing expected log
+                likelihoods. Must be an instance of `AbstractIntegrator`. Defaults to the
+                `GHQuadratureIntegrator`, as the Student's t expected log likelihood has no
+                closed form.
+        """
+        if not isinstance(degrees_of_freedom, PositiveReal):
+            degrees_of_freedom = PositiveReal(jnp.asarray(degrees_of_freedom))
+        self.degrees_of_freedom = degrees_of_freedom
+
+        if not isinstance(scale, PositiveReal):
+            scale = PositiveReal(jnp.asarray(scale))
+        self.scale = scale
+
+        super().__init__(integrator)
+
+    def link_function(self, f: Float[Array, ...]) -> npd.StudentT:
+        r"""The link function of the Student's t likelihood.
+
+        Args:
+            f (Float[Array, "..."]): Function values.
+
+        Returns:
+            npd.StudentT: The likelihood function.
+        """
+        return npd.StudentT(
+            df=_val(self.degrees_of_freedom),
+            loc=f,
+            scale=_val(self.scale).astype(f.dtype),
+        )
+
+    def predict(
+        self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
+    ) -> npd.StudentT:
+        r"""Evaluate the pointwise predictive distribution.
+
+        Evaluate the pointwise predictive distribution, given a Gaussian
+        process posterior and likelihood parameters. As with `Poisson`, the
+        Student's t distribution is not conjugate to a Gaussian latent, so
+        this evaluates the link function at the posterior mean rather than
+        marginalising the latent uncertainty.
+
+        Args:
+            dist (tp.Union[npd.MultivariateNormal, GaussianDistribution]): The Gaussian
+                process posterior, evaluated at a finite set of test points.
+
+        Returns:
+            npd.StudentT: The pointwise predictive distribution.
+        """
+        return self.link_function(dist.mean)
+
+
 def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
     r"""Compute the inverse probit function.
 
@@ -601,7 +686,7 @@ def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
     return 0.5 * (1.0 + jsp.special.erf(x / jnp.sqrt(2.0))) * (1 - 2 * jitter) + jitter
 
 
-NonGaussian = tp.Union[Poisson, Bernoulli]
+NonGaussian = tp.Union[Poisson, Bernoulli, StudentT]
 
 __all__ = [
     "AbstractHeteroscedasticLikelihood",
@@ -616,5 +701,6 @@ __all__ = [
     "NonGaussian",
     "Poisson",
     "SoftplusTransform",
+    "StudentT",
     "inv_probit",
 ]

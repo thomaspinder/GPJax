@@ -187,6 +187,49 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
     _ = loss_grad(params)
 
 
+@pytest.mark.parametrize("n_points", [1, 2, 10])
+@pytest.mark.parametrize("n_dims", [1, 2, 3])
+@pytest.mark.parametrize("key_val", [123, 42])
+def test_non_conjugate_mll_studentt(n_points, n_dims, key_val):
+    key = jr.key(key_val)
+    D = build_data(n_points, n_dims, key, binary=False)
+
+    # Build model
+    p = gpx.gps.Prior(
+        kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
+        mean_function=gpx.mean_functions.Constant(),
+    )
+    likelihood = gpx.likelihoods.StudentT()
+    post = (p * likelihood).init_latent(D.n)
+
+    # test simple call
+    res_simple = -non_conjugate_mll(post, D)
+    assert isinstance(res_simple, jax.Array)
+    assert res_simple.shape == ()
+
+    # test call wrapped in loss function
+    params, static = eqx.partition(post, eqx.is_array)
+
+    def loss(params):
+        posterior = paramax.unwrap(eqx.combine(params, static))
+        return -non_conjugate_mll(posterior, D)
+
+    res_wrapped = loss(params)
+    assert jnp.allclose(res_simple, res_wrapped)
+
+    # test loss with jit
+    loss_jit = jax.jit(loss)
+    res_jit = loss_jit(params)
+    assert jnp.allclose(res_simple, res_jit)
+
+    # test loss with grad
+    loss_grad = jax.grad(loss)
+    grads = loss_grad(params)
+    # Gradient should flow to the degrees-of-freedom parameter too.
+    dof_grad = grads.likelihood.degrees_of_freedom._unconstrained
+    assert jnp.isfinite(dof_grad).all()
+
+
 @pytest.mark.parametrize("n_points", [10, 20])
 @pytest.mark.parametrize("n_dims", [1, 2, 3])
 @pytest.mark.parametrize("key_val", [123, 42])
