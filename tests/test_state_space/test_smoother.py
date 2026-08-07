@@ -113,6 +113,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
 
     means_smoothed = [None] * n
     covs_smoothed = [None] * n
+    gains = [None] * (n - 1)
     means_smoothed[-1] = means_filtered[-1]
     covs_smoothed[-1] = covs_filtered[-1]
     for i in range(n - 2, -1, -1):
@@ -123,6 +124,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
         smoother_gain = (
             cov_filtered @ transition_matrix_next.T @ np.linalg.inv(cov_predicted_next)
         )
+        gains[i] = smoother_gain
         means_smoothed[i] = means_filtered[i] + smoother_gain @ (
             means_smoothed[i + 1] - means_predicted[i + 1]
         )
@@ -132,7 +134,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
             @ (covs_smoothed[i + 1] - cov_predicted_next)
             @ smoother_gain.T
         )
-    return np.array(means_smoothed), np.array(covs_smoothed)
+    return np.array(means_smoothed), np.array(covs_smoothed), np.array(gains)
 
 
 def test_rts_smoother_matches_numpy_reference_to_machine_precision():
@@ -154,7 +156,7 @@ def test_rts_smoother_matches_numpy_reference_to_machine_precision():
     )
     smoothed_means, smoothed_Ls = rts_smoother(sde, forward_outputs, time_steps)
 
-    means_reference, covs_reference = _numpy_rts_reference(
+    means_reference, covs_reference, _gains_reference = _numpy_rts_reference(
         sde, y, time_steps, float(obs_stddev**2)
     )
     smoothed_covs = jax.vmap(lambda L: L @ L.T)(smoothed_Ls)
@@ -164,6 +166,49 @@ def test_rts_smoother_matches_numpy_reference_to_machine_precision():
     )
     np.testing.assert_allclose(
         np.asarray(smoothed_covs), covs_reference, atol=1e-12, rtol=1e-12
+    )
+
+
+def test_rts_smoother_return_gains_matches_numpy_reference():
+    """``return_gains=True`` exposes exactly the gains used internally; check
+    them against the same NumPy oracle used for the smoothed means/covariances,
+    and confirm the default call is unaffected (2-tuple, unchanged values)."""
+    lengthscale, variance, obs_stddev = 1.5, 0.8, 0.2
+    n = 15
+    X, y = _build_matern12_dataset(
+        n=n, lengthscale=lengthscale, variance=variance, obs_stddev=obs_stddev
+    )
+    sigma_eff = jnp.asarray(obs_stddev)
+    sde = Matern12SDE(lengthscale=lengthscale, variance=variance)
+    time_steps = jnp.concatenate([jnp.array([0.0]), jnp.diff(X)])
+    is_observed = jnp.ones(n, dtype=bool)
+
+    forward_outputs, _ = _sqrt_filter_forward(
+        sde, y, time_steps, is_observed, sigma_eff
+    )
+    smoothed_means, smoothed_Ls, smoother_gains = rts_smoother(
+        sde, forward_outputs, time_steps, return_gains=True
+    )
+    smoothed_means_default, smoothed_Ls_default = rts_smoother(
+        sde, forward_outputs, time_steps
+    )
+
+    means_reference, _covs_reference, gains_reference = _numpy_rts_reference(
+        sde, y, time_steps, float(obs_stddev**2)
+    )
+
+    assert smoother_gains.shape == (n - 1, sde.state_dim, sde.state_dim)
+    np.testing.assert_allclose(
+        np.asarray(smoother_gains), gains_reference, atol=1e-12, rtol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_means), np.asarray(smoothed_means_default), atol=0.0
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_Ls), np.asarray(smoothed_Ls_default), atol=0.0
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_means), means_reference, atol=1e-12, rtol=1e-12
     )
 
 

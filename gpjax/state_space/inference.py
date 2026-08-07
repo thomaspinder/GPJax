@@ -309,7 +309,7 @@ def _sqrt_filter_forward(
     )
 
 
-def rts_smoother(sde, forward_outputs, time_steps):
+def rts_smoother(sde, forward_outputs, time_steps, *, return_gains: bool = False):
     r"""Square-root RTS smoother.
 
     Runs the standard Särkkä & Solin (2019) §10.7 backward recursion on the
@@ -328,6 +328,17 @@ def rts_smoother(sde, forward_outputs, time_steps):
     The last step has no future, so its smoothed state equals its filtered
     state.
 
+    The per-step gains :math:`G_i` are already computed inside the backward
+    scan to produce :math:`P^{\text{smooth}}_i`; ``return_gains`` just adds
+    them to the scan's output rather than discarding them, at no extra
+    numerical cost. They are the building block for the smoother
+    cross-covariance recursion
+    (:math:`\mathrm{Cov}(x_i, x_j \mid y_{1:T}) = G_i \cdots G_{j-1}
+    P^{\text{smooth}}_j` for :math:`i < j`, Särkkä & Solin 2019 §12.2) used by
+    :func:`gpjax.state_space.prediction._dense_test_covariance` to build the
+    joint predictive covariance without materialising an
+    :math:`N \times N` gram.
+
     Args:
         sde (LinearSDE): State-space SDE used in the forward pass;
             ``sde.discretise(dt)`` is called once per backward step.
@@ -337,11 +348,18 @@ def rts_smoother(sde, forward_outputs, time_steps):
         time_steps (Float[Array, "num_train"]): Same ``time_steps`` that drove
             the forward pass; ``time_steps[i+1]`` is the inter-step ``dt``
             between filtered index ``i`` and predicted index ``i + 1``.
+        return_gains (bool, keyword-only): If ``True``, also return the
+            per-step smoother gains :math:`G_i` for :math:`i = 0, \ldots,
+            \text{num\_train} - 2`.
 
     Returns:
         tuple: ``smoothed_means`` of shape ``Float[Array, "num_train state_dim"]``
             and ``smoothed_Ls`` of shape
-            ``Float[Array, "num_train state_dim state_dim"]``.
+            ``Float[Array, "num_train state_dim state_dim"]``. If
+            ``return_gains`` is ``True``, a third element ``smoother_gains`` of
+            shape ``Float[Array, "num_train-1 state_dim state_dim"]`` is
+            appended, with ``smoother_gains[i]`` the gain :math:`G_i`
+            connecting smoothed index ``i`` to smoothed index ``i + 1``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 3.
     """
@@ -388,7 +406,7 @@ def rts_smoother(sde, forward_outputs, time_steps):
         P_smoothed = 0.5 * (P_smoothed + P_smoothed.T)
         L_smoothed = _psd_sqrt(P_smoothed)
 
-        return (mean_smoothed, L_smoothed), (mean_smoothed, L_smoothed)
+        return (mean_smoothed, L_smoothed), (mean_smoothed, L_smoothed, smoother_gain)
 
     # Initial smoother carry = filtered state at the last step (no future).
     init_carry = (means_updated[-1], Ls_updated[-1])
@@ -408,7 +426,9 @@ def rts_smoother(sde, forward_outputs, time_steps):
     _, smoothed_outputs_reversed = jax.lax.scan(
         backward_step, init_carry, backward_inputs_reversed
     )
-    smoothed_means_prefix, smoothed_Ls_prefix = smoothed_outputs_reversed
+    smoothed_means_prefix, smoothed_Ls_prefix, smoother_gains_prefix_reversed = (
+        smoothed_outputs_reversed
+    )
 
     # Un-reverse and append the last step (which equals the filtered state).
     smoothed_means = jnp.concatenate(
@@ -417,4 +437,10 @@ def rts_smoother(sde, forward_outputs, time_steps):
     smoothed_Ls = jnp.concatenate(
         [jnp.flip(smoothed_Ls_prefix, axis=0), Ls_updated[-1:]], axis=0
     )
-    return smoothed_means, smoothed_Ls
+    if not return_gains:
+        return smoothed_means, smoothed_Ls
+
+    # smoother_gains[i] = G_i, connecting smoothed index i to i + 1; indices
+    # 0 .. num_train - 2, matching backward_inputs before the reverse.
+    smoother_gains = jnp.flip(smoother_gains_prefix_reversed, axis=0)
+    return smoothed_means, smoothed_Ls, smoother_gains
