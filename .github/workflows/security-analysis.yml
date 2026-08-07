@@ -3,8 +3,14 @@ name: "Security Analysis"
 on:
   push:
     branches: [ "main" ]
+  # Deliberately unfiltered: the two jobs below are required contexts on `main`,
+  # and a `branches: [main]` filter here meant they only ever reported on PRs
+  # that already targeted `main`. Stacked PRs — which target their predecessor,
+  # not `main` — produced 16 checks instead of 18, so the whole of a stack got
+  # reviewed and approved without ever being secret- or dependency-scanned; the
+  # gate first fired at retarget time, after review. Scan the code, not the
+  # target branch.
   pull_request:
-    branches: [ "main" ]
   schedule:
     - cron: '30 4 * * 1'  # Weekly on Mondays at 4:30 AM UTC
 
