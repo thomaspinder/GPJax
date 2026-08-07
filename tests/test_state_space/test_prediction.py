@@ -195,7 +195,7 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp_for_quasi_perio
         mean_function=gpx.mean_functions.Zero(),
         kernel=product_kernel,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     ss_posterior = ss_prior * likelihood
     train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
 
@@ -208,9 +208,7 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp_for_quasi_perio
         kernel=product_kernel,
     )
     dense_posterior = dense_prior * likelihood
-    dense_dist = dense_posterior.predict(
-        Xtest, train_data, return_covariance_type="diagonal"
-    )
+    dense_dist = dense_posterior.predict(Xtest, train_data, covariance="diagonal")
     dense_means = np.asarray(dense_dist.mean)
     dense_variances = np.asarray(dense_dist.variance)
 
