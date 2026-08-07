@@ -645,3 +645,198 @@ def test_dual_elbo_dominates_when_inducing_equal_inputs():
         dual_value = dual_elbo(eqx.tree_at(where, q, lengthscale), data)
         moment_value = elbo(eqx.tree_at(where, q_moment, lengthscale), data)
         assert dual_value >= moment_value - 1e-5
+
+
+# ---------------------------------------------------------------------------
+# Value pins for the variational bounds
+#
+# PROVENANCE. The reference numbers below are *golden values pinned to the
+# behaviour of this repository on 2026-08-07*, the day `variational_expectation`
+# stopped computing its marginals through the vmapped `q_moments` hack and
+# started going through `q.condition(data)(x, covariance="diagonal")`. They were
+# produced by running the code below on that date; they are not derived
+# analytically, and no claim is made that they are the "right" answers beyond
+# agreeing with the derivations already pinned elsewhere in this module
+# (`test_collapsed_elbo` against `conjugate_mll`, `test_dual_elbo_equals_elbo_*`
+# against the moment bound, `test_dual_elbo_equals_titsias_collapsed_bound`
+# against a hand-written Titsias reference).
+#
+# Their job is to catch *unintended drift*: every other assertion in this module
+# is a shape check, a jit/grad smoke test, or an invariance between two things
+# that would move together under a shared refactor. A deliberate change to a
+# bound must update these numbers in the same commit, with the reason recorded;
+# an accidental one must fail here. This is the discipline the integration
+# goldens use.
+#
+# The tolerance is the 1e-8 the universalisation spec asked for
+# (plans/2026-08-06-variational-universalisation-spec.md, section 2), applied as
+# a relative tolerance because the bounds are O(10)-O(100).
+# ---------------------------------------------------------------------------
+
+_PIN_RTOL = 1e-8
+
+
+def _pinned_setup(binary: bool = False):
+    """A fixed-seed sparse-GP fixture with every hyperparameter stated explicitly.
+
+    Nothing here is left at a library default: a default that moves should break
+    the test that covers the default, not silently rewrite these goldens.
+    """
+    key_inputs, key_noise = jr.split(jr.key(20260806))
+    inputs = jnp.sort(jr.uniform(key_inputs, (24, 1), minval=-2.0, maxval=2.0), axis=0)
+    if binary:
+        outputs = (jnp.sin(2.5 * inputs) > 0.0).astype(jnp.float64)
+        likelihood = gpx.likelihoods.Bernoulli()
+    else:
+        outputs = jnp.sin(2.5 * inputs) + 0.15 * jr.normal(key_noise, (24, 1))
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=jnp.array(0.31))
+
+    model = (
+        Prior(
+            mean_function=gpx.mean_functions.Constant(jnp.array(0.35)),
+            kernel=gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.2)),
+            jitter=1e-6,
+        )
+        * likelihood
+    )
+    inducing_inputs = jnp.linspace(-1.8, 1.8, 6).reshape(-1, 1)
+    return model, Dataset(X=inputs, y=outputs), inducing_inputs
+
+
+def _pinned_moments(num_inducing: int):
+    """A deterministic, non-default $q(u) = \\mathcal{N}(\\mu, LL^{\\top})$.
+
+    Left at the ``(0, I)`` default the whitened and unwhitened predictives would
+    agree on far too much, and the pins would not distinguish them.
+    """
+    key_mean, key_root = jr.split(jr.key(20260807))
+    variational_mean = 0.4 * jr.normal(key_mean, (num_inducing, 1))
+    factor = jr.normal(key_root, (num_inducing, num_inducing))
+    covariance = 0.3 * (factor @ factor.T / num_inducing) + 0.25 * jnp.eye(num_inducing)
+    return variational_mean, jnp.linalg.cholesky(covariance)
+
+
+def _pinned_uncollapsed_family(family: str, binary: bool):
+    """Build the named uncollapsed family on the pinned fixture."""
+    model, data, inducing_inputs = _pinned_setup(binary=binary)
+    variational_mean, variational_root = _pinned_moments(inducing_inputs.shape[0])
+    family_class = {
+        "unwhitened": gpx.variational_families.VariationalGaussian,
+        "whitened": gpx.variational_families.WhitenedVariationalGaussian,
+    }[family]
+    q = family_class(
+        model=model,
+        inducing_inputs=inducing_inputs,
+        variational_mean=variational_mean,
+        variational_root_covariance=variational_root,
+    )
+    return q, data
+
+
+@pytest.mark.parametrize(
+    ("family", "binary", "expected"),
+    [
+        ("unwhitened", False, -156.97886237724757),
+        ("unwhitened", True, -23.95338163104619),
+        ("whitened", False, -188.92109861263216),
+        ("whitened", True, -24.03297657416993),
+    ],
+)
+def test_elbo_matches_pinned_reference(family: str, binary: bool, expected: float):
+    """Pin ``elbo`` on the fixed-seed fixture. See PROVENANCE above."""
+    q, data = _pinned_uncollapsed_family(family, binary)
+    np.testing.assert_allclose(
+        np.float64(elbo(q, data)), expected, rtol=_PIN_RTOL, atol=0.0
+    )
+
+
+def test_elbo_minibatch_scaling_matches_pinned_reference():
+    """Pin ``elbo`` on a half batch that still declares the full dataset size.
+
+    Separately pinned because the ``full_size / n`` factor multiplies only the
+    expectation term, so a mutation that moved or dropped it would leave the
+    full-batch pins above untouched.
+    """
+    q, data = _pinned_uncollapsed_family("unwhitened", binary=False)
+    half = data.n // 2
+    batch = Dataset(X=data.X[:half], y=data.y[:half], n_total=data.n)
+    assert batch.full_size / batch.n == 2.0
+
+    np.testing.assert_allclose(
+        np.float64(elbo(q, batch)), -115.20674571856766, rtol=_PIN_RTOL, atol=0.0
+    )
+
+
+def test_collapsed_elbo_matches_pinned_reference():
+    """Pin ``collapsed_elbo``, now the ``elbo_bound`` view of CollapsedPosterior."""
+    model, data, inducing_inputs = _pinned_setup(binary=False)
+    q = gpx.variational_families.CollapsedVariationalGaussian(
+        model=model, inducing_inputs=inducing_inputs
+    )
+    np.testing.assert_allclose(
+        np.float64(collapsed_elbo(q, data)),
+        -10.20124866788459,
+        rtol=_PIN_RTOL,
+        atol=0.0,
+    )
+
+
+@pytest.mark.parametrize(
+    ("binary", "expected"),
+    [
+        (False, -217.27620719760560),
+        (True, -24.56743524418616),
+    ],
+)
+def test_dual_elbo_matches_pinned_reference(binary: bool, expected: float):
+    """Pin ``dual_elbo`` at a fixed, non-zero pair of dual sites.
+
+    Coherent to pin alongside ``elbo``: it is the same functional in the dual
+    coordinates, so the two pins must move together or not at all.
+    """
+    model, data, inducing_inputs = _pinned_setup(binary=binary)
+    dual_vector, dual_matrix = _random_dual_sites(11, inducing_inputs.shape[0])
+    q = DualVariationalGaussian(
+        model=model,
+        inducing_inputs=inducing_inputs,
+        dual_vector=dual_vector,
+        dual_matrix=dual_matrix,
+    )
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, data)), expected, rtol=_PIN_RTOL, atol=0.0
+    )
+
+
+def test_pinned_dual_elbo_agrees_with_pinned_elbo_at_matched_moments():
+    """The dual pins and the ``elbo`` machinery must agree on the same $q$.
+
+    Ties the two families of goldens together, so a drift that hits only one of
+    the two code paths cannot be papered over by updating one number.
+    """
+    model, data, inducing_inputs = _pinned_setup(binary=False)
+    dual_vector, dual_matrix = _random_dual_sites(11, inducing_inputs.shape[0])
+    q = DualVariationalGaussian(
+        model=model,
+        inducing_inputs=inducing_inputs,
+        dual_vector=dual_vector,
+        dual_matrix=dual_matrix,
+    )
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, data)),
+        np.float64(elbo(_matched_variational_gaussian(q), data)),
+        rtol=1e-8,
+    )
+
+
+@pytest.mark.parametrize("family", ["unwhitened", "whitened"])
+def test_pinned_elbo_is_a_lower_bound_on_the_evidence(family: str):
+    """The goldens are loose, but they are genuine bounds -- not broken numbers.
+
+    Recorded because the pinned values sit far below ``conjugate_mll`` on the
+    same fixture, which looks alarming out of context. It is deliberate: the
+    pinned $q$ is nowhere near optimal, and a bound evaluated at the optimum is
+    stationary in the marginals, so it would pin almost nothing about the
+    diagonal predictive path ``variational_expectation`` now runs through.
+    """
+    q, data = _pinned_uncollapsed_family(family, binary=False)
+    assert elbo(q, data) <= conjugate_mll(q.model, data)
