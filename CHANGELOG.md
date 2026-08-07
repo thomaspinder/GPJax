@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`gpjax.fit_natgrads` and the `gpjax.natural_gradients` module.** Trains a variational
+  family by alternating one natural-gradient step on the variational distribution with
+  one step of a supplied Optax optimiser on everything else — kernel and likelihood
+  hyperparameters, the mean function, and the inducing inputs — following Salimbeni,
+  Eleftheriadis and Hensman (2018), [arXiv:1803.09151](https://arxiv.org/abs/1803.09151).
+  `VariationalGaussian` and `WhitenedVariationalGaussian` are supported. For a conjugate
+  model on the full batch, `natgrad_lr=1.0` reaches the optimal `q` in one iteration.
+
+### Removed
+
+- **`NaturalVariationalGaussian` and `ExpectationVariationalGaussian`.** These were
+  parameterisation-only classes with no optimiser attached: they stored the natural or
+  expectation coordinates of `q(u)` but offered no way to take a natural-gradient step
+  in them. Natural-gradient geometry belongs to the optimiser — the Fisher matrix *is*
+  the Jacobian dη/dθ, so a natural-gradient step in the natural parameters θ is exactly
+  an ordinary gradient step in the expectation parameters η, and either coordinate system
+  can be recovered on the fly from whatever the family happens to store. `fit_natgrads`
+  therefore operates directly on `VariationalGaussian` and `WhitenedVariationalGaussian`,
+  which store constraint-respecting coordinates. Users of the removed classes should
+  switch to `VariationalGaussian` with `gpjax.fit_natgrads`.
+  The `VariationalParametrisationSuite` ASV benchmark loses its `natural` and
+  `expectation` axis values; previously recorded results for those two arms are orphaned.
+
 ### Fixed
 
 - **`Zero` mean function is trainable and drifts away from zero.** Fitting a

@@ -9,9 +9,9 @@ SvgpElboSuite (uncollapsed VariationalGaussian + stochastic ELBO) varies
 both M (inducing count) and batch_size; VfeElboSuite (collapsed analytic
 ELBO) varies M only — the collapsed objective requires the full dataset.
 
-VariationalParametrisationSuite compares the four variational Gaussian
-parameterisations (standard, whitened, natural, expectation) at one
-fixed (n, M) so users can see the per-step cost of the choice.
+VariationalParametrisationSuite compares the two variational Gaussian
+parameterisations (standard, whitened) at one fixed (n, M) so users can
+see the per-step cost of the choice.
 
 HeteroscedasticElboSuite and OilmmPredictSuite are independent — they
 do not participate in the alignment because their model structure
@@ -26,9 +26,7 @@ from gpjax.dataset import Dataset
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
-    ExpectationVariationalGaussian,
     HeteroscedasticVariationalFamily,
-    NaturalVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
 )
@@ -117,15 +115,13 @@ class VfeElboSuite:
 _VARIATIONAL_FAMILIES = {
     "standard": VariationalGaussian,
     "whitened": WhitenedVariationalGaussian,
-    "natural": NaturalVariationalGaussian,
-    "expectation": ExpectationVariationalGaussian,
 }
 
 
 class VariationalParametrisationSuite:
-    """Per-step ELBO cost across the four variational Gaussian families.
+    """Per-step ELBO cost across the variational Gaussian parameterisations.
 
-    All four parameterise the same q(u); the differences are in how the
+    They all parameterise the same q(u); the differences are in how the
     KL term and predictive moments are computed. Holding (n, M) fixed
     isolates the parameterisation cost.
     """
