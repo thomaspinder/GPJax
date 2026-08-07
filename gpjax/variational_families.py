@@ -68,6 +68,18 @@ def _tri_solve(L, B):
     return jsp.linalg.solve_triangular(L, B, lower=True)
 
 
+def _symmetrise(matrix: Float[Array, "M M"]) -> Float[Array, "M M"]:
+    """Return ``(matrix + matrix.T) / 2``.
+
+    Args:
+        matrix (Float[Array, "M M"]): A square matrix.
+
+    Returns:
+        Float[Array, "M M"]: The symmetric part of ``matrix``.
+    """
+    return 0.5 * (matrix + matrix.T)
+
+
 class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
     r"""
     Abstract base class used to represent families of distributions that can be
@@ -140,6 +152,24 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
         """The number of inducing inputs."""
         return _val(self.inducing_inputs).shape[0]
 
+    def _fmt_Kzt_Ktt(self, Kzt, Ktt):
+        """Adapt the cross- and test-covariances before they enter ``predict``.
+
+        An identity pass-through for Euclidean inducing inputs. Subclasses over
+        non-Euclidean index sets -- :class:`GraphVariationalGaussian` is the only one
+        today -- override it to densify and to restore the second axis that a
+        single-node query drops.
+        """
+        return Kzt, Ktt
+
+    def _fmt_inducing_inputs(self):
+        """Return the inducing inputs in the form the kernel expects.
+
+        An identity pass-through except for families whose inducing inputs are node
+        indices rather than continuous coordinates.
+        """
+        return _val(self.inducing_inputs)
+
 
 class VariationalGaussian(AbstractVariationalGaussian[L]):
     r"""The variational Gaussian family of probability distributions.
@@ -172,12 +202,6 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
         self.variational_mean = Real(variational_mean)
         self.variational_root_covariance = LowerTriangular(variational_root_covariance)
-
-    def _fmt_Kzt_Ktt(self, Kzt, Ktt):
-        return Kzt, Ktt
-
-    def _fmt_inducing_inputs(self):
-        return _val(self.inducing_inputs)
 
     def prior_kl(self) -> ScalarFloat:
         r"""Compute the prior KL divergence.
@@ -487,6 +511,336 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
         )
 
 
+class DualVariationalGaussian(AbstractVariationalGaussian[L]):
+    r"""The dual (site) parameterisation of a sparse variational Gaussian process.
+
+    Following the t-SVGP parameterisation of Adam, Chang, Khan and Solin (2021),
+    [arXiv:2111.03412](https://arxiv.org/abs/2111.03412), the variational distribution
+    is stored as an unnormalised Gaussian *site* on the inducing outputs rather than as
+    moments:
+    ```math
+    t(u) = \exp\left(\lambda_1^{\top}\tilde u
+        - \tfrac{1}{2}\tilde u^{\top}\Lambda_2\tilde u\right),
+    \qquad q(u) \propto p_{\theta}(u)\,t(u),
+    ```
+    with $\tilde u = u - \mu_z$ the *centred* inducing outputs, giving
+    ```math
+    S = \left(\mathbf{K}_{zz}^{-1} + \Lambda_2\right)^{-1},
+    \qquad \tilde m = S\lambda_1, \qquad m = \mu_z + \tilde m .
+    ```
+    ``dual_vector`` is $\lambda_1\in\mathbb{R}^{M\times1}$ and ``dual_matrix`` is
+    $\Lambda_2\in\mathbb{R}^{M\times M}$, stored in the **precision** convention (PSD,
+    no $-\tfrac{1}{2}$ factor). Both default to zero, so that $q(u) = p(u)$ and the
+    prior KL vanishes at initialisation.
+
+    Neither field is wrapped in a constraining bijection: positive semi-definiteness
+    of $\Lambda_2$ comes from the convex-combination structure of the natural-gradient
+    update, and a bijection here would destroy that affine step.
+
+    Everything routes through the working matrix
+    $\mathbf{R} = \mathbf{K}_{zz} + \mathbf{K}_{zz}\Lambda_2\mathbf{K}_{zz}
+    = \mathbf{K}_{zz}\mathbf{S}^{-1}\mathbf{K}_{zz}$, so no matrix is ever explicitly
+    inverted and $\Lambda_2$ is never factorised.
+
+    Example:
+    ```pycon
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
+        >>> import jax.numpy as jnp
+        >>> import gpjax as gpx
+        >>>
+        >>> prior = gpx.gps.Prior(
+        ...     mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
+        ... )
+        >>> model = prior * gpx.likelihoods.Gaussian()
+        >>> q = gpx.variational_families.DualVariationalGaussian(
+        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 4).reshape(-1, 1)
+        ... )
+        >>> bool(abs(q.prior_kl()) < 1e-10)
+        True
+    ```
+    """
+
+    dual_vector: tp.Any
+    dual_matrix: tp.Any
+
+    def __init__(
+        self,
+        posterior: JointModel,
+        inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
+        dual_vector: tp.Union[Float[Array, "N 1"], None] = None,
+        dual_matrix: tp.Union[Float[Array, "N N"], None] = None,
+        jitter: ScalarFloat = 1e-6,
+    ):
+        super().__init__(posterior, inducing_inputs, jitter)
+
+        if dual_vector is None:
+            dual_vector = jnp.zeros((self.num_inducing, 1))
+
+        if dual_matrix is None:
+            dual_matrix = jnp.zeros((self.num_inducing, self.num_inducing))
+
+        self.dual_vector = Real(dual_vector)
+        self.dual_matrix = Real(dual_matrix)
+
+    def _gram_and_root(
+        self,
+    ) -> tuple[Float[Array, "M M"], Float[Array, "M M"]]:
+        r"""Return the jittered $\mathbf{K}_{zz}$ and its lower Cholesky factor.
+
+        Split out of :meth:`_working_matrices` so that callers needing only
+        $\mathbf{A} = \mathbf{K}_{zz}^{-1}\mathbf{K}_{zb}$ -- the natural-gradient step
+        is the one in-tree example -- do not compute and discard the factor of
+        $\mathbf{R}$.
+
+        Returns:
+            tuple[Float[Array, "M M"], Float[Array, "M M"]]: The jittered gram matrix
+                $\mathbf{K}_{zz}$ and its lower-triangular Cholesky factor
+                $\mathbf{L}_K$.
+        """
+        inducing_inputs = self._fmt_inducing_inputs()
+        kernel = self.posterior.prior.kernel
+
+        Kzz = add_jitter(kernel.gram(inducing_inputs).as_matrix(), self.jitter)
+        return Kzz, jnp.linalg.cholesky(Kzz)
+
+    def _working_matrices(
+        self,
+    ) -> tuple[Float[Array, "M M"], Float[Array, "M M"], Float[Array, "M M"]]:
+        r"""Return $(\mathbf{K}_{zz},\ \mathbf{L}_K,\ \mathbf{L}_R)$.
+
+        The working matrix is
+        ```math
+        \mathbf{R} = \mathbf{K}_{zz} + \mathbf{K}_{zz}\Lambda_2\mathbf{K}_{zz}
+            = \mathbf{K}_{zz}\mathbf{S}^{-1}\mathbf{K}_{zz}
+            = \mathbf{L}_K\left(\mathbf{I}
+              + \mathbf{L}_K^{\top}\Lambda_2\mathbf{L}_K\right)\mathbf{L}_K^{\top},
+        ```
+        and it is the right-hand form that is factorised: with
+        $\mathbf{G} = \operatorname{sym}(\mathbf{L}_K^{\top}\Lambda_2\mathbf{L}_K)$,
+        $\mathbf{L}_R = \mathbf{L}_K\operatorname{chol}(\mathbf{I} + \mathbf{G})$,
+        which is again lower triangular and satisfies
+        $\mathbf{L}_R\mathbf{L}_R^{\top} = \mathbf{R}$. Exactly **two** Cholesky
+        factorisations per call, as for the explicit triple product, plus one extra
+        $M\times M$ product.
+
+        Forming $\mathbf{R}$ explicitly instead is not safe. In exact arithmetic
+        $\mathbf{R}\succeq\mathbf{K}_{zz}\succ0$ whenever $\Lambda_2\succeq0$, so
+        $\operatorname{chol}(\mathbf{R})$ exists -- but the rounding error of the triple
+        product is $\mathcal{O}(\lVert\mathbf{K}_{zz}\rVert^2\lVert\Lambda_2\rVert
+        \varepsilon)$, which overwhelms
+        $\lambda_{\min}(\mathbf{R})\approx\texttt{jitter}$ for a large-variance kernel
+        or in single precision, and ``jnp.linalg.cholesky`` then returns ``NaN``
+        silently. In the Cholesky basis the factorised matrix is
+        $\mathbf{I} + \mathbf{G}$ with $\lambda_{\min}\ge1-\mathcal{O}(\lVert
+        \mathbf{G}\rVert\varepsilon)$, so it is unconditionally factorisable however
+        badly $\mathbf{K}_{zz}$ is scaled.
+
+        Returns:
+            tuple[Float[Array, "M M"], Float[Array, "M M"], Float[Array, "M M"]]: The
+                jittered gram matrix and the lower-triangular Cholesky factors of
+                $\mathbf{K}_{zz}$ and $\mathbf{R}$.
+        """
+        Kzz, Lk = self._gram_and_root()
+
+        dual_matrix = _val(self.dual_matrix)
+        inner = _symmetrise(Lk.T @ dual_matrix @ Lk) + jnp.eye(
+            self.num_inducing, dtype=Kzz.dtype
+        )
+        Lr = Lk @ jnp.linalg.cholesky(inner)
+        return Kzz, Lk, Lr
+
+    def moments(self) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
+        r"""Return the implied moments $(\mathbf{m},\mathbf{S})$ of $q(u)$.
+
+        ```math
+        \mathbf{S} = \mathbf{K}_{zz}\mathbf{R}^{-1}\mathbf{K}_{zz},
+        \qquad
+        \mathbf{m} = \mu_z
+            + \mathbf{K}_{zz}\mathbf{R}^{-1}\left(\mathbf{K}_{zz}\lambda_1\right).
+        ```
+
+        For reporting and for interoperating with :class:`VariationalGaussian`; the
+        training path never needs it. Nothing here is cached on the module: caching
+        would silently turn :func:`~gpjax.objectives.dual_elbo` back into
+        :func:`~gpjax.objectives.elbo` under differentiation.
+
+        Returns:
+            tuple[Float[Array, "M 1"], Float[Array, "M M"]]: The mean and covariance
+                of $q(u)$.
+        """
+        Kzz, _, Lr = self._working_matrices()
+        dual_vector = _val(self.dual_vector)
+        inducing_mean = self.posterior.prior.mean_function(self._fmt_inducing_inputs())
+
+        covariance = _symmetrise(Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz))
+        centred_mean = Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
+        return inducing_mean + centred_mean, covariance
+
+    def marginals(
+        self, inputs: Float[Array, "P D"]
+    ) -> tuple[Float[Array, " P"], Float[Array, " P"]]:
+        r"""Batched marginal mean and variance of $q(f(\cdot))$ at ``inputs``.
+
+        ```math
+        \mu_{\star} = \mu(X_{\star})
+            + \mathbf{K}_{\star z}\mathbf{R}^{-1}\mathbf{K}_{zz}\lambda_1,
+        \qquad
+        \sigma^2_{\star} = \operatorname{diag}(\mathbf{K}_{\star\star})
+            - \lVert\mathbf{L}_K^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
+            + \lVert\mathbf{L}_R^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
+            + \varepsilon .
+        ```
+
+        Costs $\mathcal{O}(M^3 + PM^2)$, the same order as ``vmap``-ing :meth:`predict`
+        over single inputs the way :func:`~gpjax.objectives.elbo` does -- ``vmap``
+        leaves the two factorisations unbatched, so they are not repeated per datum.
+        The gain is in the constant: two BLAS-3 triangular solves against a
+        $M\times P$ right-hand side, instead of $P$ rank-one solves and $P$
+        ``GaussianDistribution`` constructions whose covariance is $1\times1$.
+
+        The trailing ``+ self.jitter`` on the variance is load-bearing, not a numerical
+        nicety. :meth:`VariationalGaussian.predict` runs ``add_jitter`` on its output
+        covariance, so the per-point marginals that :func:`~gpjax.objectives.elbo` sees
+        are inflated by exactly ``self.jitter``. Dropping it here makes
+        :func:`~gpjax.objectives.dual_elbo` disagree with
+        :func:`~gpjax.objectives.elbo` at matched moments by
+        $N\varepsilon/(2\sigma^2)$ -- a discrepancy that reads like a KL bug.
+
+        Unlike :meth:`predict`, this routine does not route its kernel matrices through
+        :meth:`_fmt_Kzt_Ktt`: it is for Euclidean inducing inputs only. A future
+        non-Euclidean subclass must override it alongside the hook.
+
+        Args:
+            inputs (Float[Array, "P D"]): The inputs, of shape ``(P, D)``, at which the
+                marginals of $q(f(\cdot))$ are required.
+
+        Returns:
+            tuple[Float[Array, " P"], Float[Array, " P"]]: The marginal mean and
+                variance at each input.
+        """
+        Kzz, Lk, Lr = self._working_matrices()
+        dual_vector = _val(self.dual_vector)
+        kernel = self.posterior.prior.kernel
+        mean_function = self.posterior.prior.mean_function
+        inducing_inputs = self._fmt_inducing_inputs()
+
+        Kzs = kernel.cross_covariance(inducing_inputs, inputs)
+        Kss_diagonal = lx.diagonal(kernel.diagonal(inputs))
+
+        mean = mean_function(inputs).squeeze(-1) + (
+            Kzs.T @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
+        ).squeeze(-1)
+
+        prior_projection = _tri_solve(Lk, Kzs)
+        site_projection = _tri_solve(Lr, Kzs)
+        variance = (
+            Kss_diagonal
+            - jnp.sum(jnp.square(prior_projection), axis=0)
+            + jnp.sum(jnp.square(site_projection), axis=0)
+            + self.jitter
+        )
+        return mean, variance
+
+    def prior_kl(self) -> ScalarFloat:
+        r"""Compute $\operatorname{KL}[q(u)\mid\mid p(u)]$ from the stored sites.
+
+        ```math
+        \operatorname{KL} = \tfrac{1}{2}\left(
+            \operatorname{tr}\left(\mathbf{R}^{-1}\mathbf{K}_{zz}\right) - M
+            + \tilde m^{\top}\mathbf{K}_{zz}^{-1}\tilde m
+            + \log\lvert\mathbf{R}\rvert - \log\lvert\mathbf{K}_{zz}\rvert
+        \right),
+        ```
+        obtained from the standard Gaussian KL by substituting
+        $\mathbf{S} = \mathbf{K}_{zz}\mathbf{R}^{-1}\mathbf{K}_{zz}$, which gives
+        $\mathbf{K}_{zz}^{-1}\mathbf{S} = \mathbf{R}^{-1}\mathbf{K}_{zz}$ and
+        $\log\lvert\mathbf{S}\rvert
+        = 2\log\lvert\mathbf{K}_{zz}\rvert - \log\lvert\mathbf{R}\rvert$. The two
+        log-determinants are read off the Cholesky diagonals; no matrix is inverted and
+        $\mathbf{S}$ is never formed. The trace comes from
+        $\operatorname{tr}(\mathbf{R}^{-1}\mathbf{K}_{zz})
+        = \lVert\mathbf{L}_R^{-1}\mathbf{L}_K\rVert_F^2$, one triangular solve against a
+        factor already in hand rather than a full ``cho_solve`` whose $M\times M$ result
+        would only be traced.
+
+        Returns:
+            ScalarFloat: The KL divergence between the variational approximation and
+                the GP prior.
+        """
+        Kzz, Lk, Lr = self._working_matrices()
+        dual_vector = _val(self.dual_vector)
+
+        # tr[R^{-1} Kzz] = tr[Lk^T R^{-1} Lk] = ||Lr^{-1} Lk||_F^2.
+        trace = jnp.sum(jnp.square(_tri_solve(Lr, Lk)))
+
+        # The sites act on the centred process, so the Mahalanobis term is built from
+        # the centred mean and the zero-mean prior N(0, Kzz).
+        centred_mean = Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
+        mahalanobis = jnp.sum(jnp.square(_tri_solve(Lk, centred_mean)))
+
+        log_det_ratio = 2.0 * (
+            jnp.sum(jnp.log(jnp.diag(Lr))) - jnp.sum(jnp.log(jnp.diag(Lk)))
+        )
+        return 0.5 * (trace - self.num_inducing + mahalanobis + log_det_ratio)
+
+    def predict(
+        self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+    ) -> GaussianDistribution:
+        r"""Compute the predictive distribution of the GP at the test inputs t.
+
+        ```math
+            \mathcal{N}\left(f(t);\ \mu_t
+            + \mathbf{K}_{tz}\mathbf{R}^{-1}\mathbf{K}_{zz}\lambda_1,\
+            \mathbf{K}_{tt} - \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zt}
+            + \mathbf{K}_{tz}\mathbf{R}^{-1}\mathbf{K}_{zt}\right).
+        ```
+
+        Because $\mathbf{R}\succeq\mathbf{K}_{zz}$ implies
+        $\mathbf{R}^{-1}\preceq\mathbf{K}_{zz}^{-1}$, the predictive covariance can
+        never exceed the prior covariance -- that is structural here, not something the
+        jitter has to enforce.
+
+        Args:
+            test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
+                make a prediction.
+
+        Returns:
+            GaussianDistribution: The predictive distribution of the low-rank GP at
+                the test inputs.
+        """
+        Kzz, Lk, Lr = self._working_matrices()
+        dual_vector = _val(self.dual_vector)
+        kernel = self.posterior.prior.kernel
+        mean_function = self.posterior.prior.mean_function
+        inducing_inputs = self._fmt_inducing_inputs()
+
+        t = test_inputs
+        Ktt = kernel.gram(t).as_matrix()
+        Kzt = kernel.cross_covariance(inducing_inputs, t)
+        mut = mean_function(t)
+
+        Kzt, Ktt = self._fmt_Kzt_Ktt(Kzt, Ktt)
+
+        # Lk^{-1} Kzt and Lr^{-1} Kzt
+        prior_projection = _tri_solve(Lk, Kzt)
+        site_projection = _tri_solve(Lr, Kzt)
+
+        mean = mut + Kzt.T @ jsp.linalg.cho_solve((Lr, True), Kzz @ dual_vector)
+
+        covariance = (
+            Ktt
+            - jnp.matmul(prior_projection.T, prior_projection)
+            + jnp.matmul(site_projection.T, site_projection)
+        )
+        covariance = add_jitter(covariance, self.jitter)
+        covariance_op = lx.MatrixLinearOperator(covariance)
+
+        return GaussianDistribution(
+            loc=jnp.atleast_1d(mean.squeeze()), scale=covariance_op
+        )
+
+
 class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
     r"""Collapsed variational Gaussian.
 
@@ -730,6 +1084,7 @@ __all__ = [
     "AbstractVariationalFamily",
     "AbstractVariationalGaussian",
     "CollapsedVariationalGaussian",
+    "DualVariationalGaussian",
     "GraphVariationalGaussian",
     "HeteroscedasticPrediction",
     "HeteroscedasticVariationalFamily",

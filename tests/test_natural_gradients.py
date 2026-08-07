@@ -22,6 +22,7 @@ import gpjax
 from gpjax.dataset import Dataset
 from gpjax.linalg import add_jitter
 from gpjax.natural_gradients import (
+    _expected_log_likelihood_derivatives,
     _first_valid_trial,
     _symmetrise,
     expectation_from_moments,
@@ -32,6 +33,7 @@ from gpjax.natural_gradients import (
     partition_variational,
 )
 from gpjax.objectives import (
+    dual_elbo,
     elbo,
     variational_expectation,
 )
@@ -53,12 +55,17 @@ from hypothesis import (
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 import jax.tree_util as jtu
 import networkx as nx
 import numpy as np
 import paramax
 import pytest
 
+from tests._dual_helpers import (
+    build_dual as _build_dual,
+    matched_variational_gaussian as _matched_variational_gaussian,
+)
 from tests._reference.conjugate_svgp import (
     conjugate_optimum as _conjugate_optimum,
 )
@@ -1053,3 +1060,410 @@ def test_whitened_and_unwhitened_traces_agree() -> None:
     np.testing.assert_allclose(
         np.asarray(whitened_trace), np.asarray(unwhitened_trace), atol=1e-9
     )
+
+
+# ---------------------------------------------------------------------------
+# PR#3 -- the dual (t-SVGP) branch, Adam et al. (2021), arXiv:2111.03412
+# ---------------------------------------------------------------------------
+class _NegativeCurvatureLikelihood(gpjax.likelihoods.AbstractLikelihood):
+    r"""A synthetic likelihood with $\beta_i=-\tfrac12$ everywhere.
+
+    $\mathbb E_q[\log p] = \tfrac14 v_i - (y_i-m_i)^2$, so Price's identity gives
+    $\beta_i=-2\,\partial_{v_i}\mathbb E_q[\log p]=-\tfrac12<0$. No real GPJax
+    likelihood does this -- it exists purely to exercise the ``beta_floor`` guard.
+    """
+
+    def predict(self, dist):
+        return dist
+
+    def link_function(self, f):
+        raise NotImplementedError
+
+    def expected_log_likelihood(self, y, mean, variance, **_):
+        return (0.25 * variance - jnp.square(y - mean)).squeeze(-1)
+
+
+def _negative_dual_elbo(family, data):
+    return -dual_elbo(family, data)
+
+
+def _titsias_optimum(family, data):
+    r"""Closed-form optimal $(\mathbf m^\star,\mathbf S^\star)$ in the u-space."""
+    gram, cross, _, inducing_mean, input_mean = _kernel_matrices(family, data.X)
+    noise_variance = _val(family.posterior.likelihood.obs_stddev) ** 2
+    working = jnp.linalg.inv(gram + cross.T @ cross / noise_variance)
+    residual = data.y - input_mean
+    optimal_mean = inducing_mean + gram @ working @ cross.T @ residual / noise_variance
+    return optimal_mean, gram @ working @ gram
+
+
+def _uncentred_dual_step(family, data, rate):
+    """The reference implementation's uncentred ``g_1``; a control, not the update.
+
+    ``tsvgp.py::natgrad_step`` shifts by ``predict_f(Z)``, which already includes the
+    mean function, so its ``g_1`` is ``alpha + beta * m`` instead of
+    ``alpha + beta * (m - mu(x))``. Reproduced here only so that the recovery test in
+    :func:`test_dual_natgrad_handles_non_zero_mean_function` cannot pass vacuously.
+    """
+    _, root_gram, _ = family._working_matrices()
+    mean, variance = family.marginals(data.X)
+    alpha, beta = _expected_log_likelihood_derivatives(
+        family.posterior.likelihood, data.y, mean, variance
+    )
+    uncentred = alpha + beta * mean
+
+    cross = family.posterior.prior.kernel.cross_covariance(
+        _val(family.inducing_inputs), data.X
+    )
+    design = jsp.linalg.cho_solve((root_gram, True), cross)
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
+    target_vector = (design @ uncentred)[:, None]
+    target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
+
+    return eqx.tree_at(
+        lambda tree: (tree.dual_vector, tree.dual_matrix),
+        family,
+        (
+            Real((1 - rate) * _val(family.dual_vector) + rate * scale * target_vector),
+            Real(
+                _symmetrise(
+                    (1 - rate) * _val(family.dual_matrix) + rate * scale * target_matrix
+                )
+            ),
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# N1 -- one rho = 1 step lands on the Titsias optimum
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_rho_one_conjugate_recovery():
+    """The conjugate targets do not depend on q, so rho = 1 is a one-step solve."""
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    stepped, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+
+    mean, covariance = stepped.moments()
+    optimal_mean, optimal_covariance = _titsias_optimum(family, dataset)
+
+    np.testing.assert_allclose(np.asarray(mean), np.asarray(optimal_mean), atol=1e-10)
+    np.testing.assert_allclose(
+        np.asarray(covariance), np.asarray(optimal_covariance), atol=1e-10
+    )
+
+
+# ---------------------------------------------------------------------------
+# N2 -- the flanked sites match the exact likelihood projections
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_recovers_exact_sites():
+    r"""Test $K_{zz}\Lambda_2 K_{zz}$ and $K_{zz}\lambda_1$, never $\Lambda_2$ itself.
+
+    The stored sites carry the round trip through $K_{zz}^{-1}$, so entrywise
+    assertions on them are meaningless at high $\operatorname{cond}(K_{zz})$; the
+    flanked quantities are what the algebra actually determines.
+    """
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    stepped, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+
+    gram, cross, _, _, input_mean = _kernel_matrices(family, dataset.X)
+    noise_variance = _val(posterior.likelihood.obs_stddev) ** 2
+
+    np.testing.assert_allclose(
+        np.asarray(gram @ _val(stepped.dual_matrix) @ gram),
+        np.asarray(cross.T @ cross / noise_variance),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(gram @ _val(stepped.dual_vector)),
+        np.asarray(cross.T @ (dataset.y - input_mean) / noise_variance),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N3 -- idempotence of the conjugate step
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_second_step_is_a_fixed_point():
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    first, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    second, _ = _take_step(first, dataset, 1.0, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        np.asarray(_val(second.dual_vector)),
+        np.asarray(_val(first.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(_val(second.dual_matrix)),
+        np.asarray(_val(first.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N4 -- from zero sites, one rate-rho step gives exactly rho * lambda^*
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("rate", [0.3, 0.7])
+def test_dual_natgrad_from_zero_scales_with_rho(rate: float):
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    optimal, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    partial, _ = _take_step(family, dataset, rate, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        np.asarray(_val(partial.dual_vector)),
+        rate * np.asarray(_val(optimal.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(_val(partial.dual_matrix)),
+        rate * np.asarray(_val(optimal.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N5 -- the dual step IS the Salimbeni step
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("rate", [0.3, 0.8, 1.0])
+def test_dual_natgrad_matches_salimbeni_step(rate: float):
+    r"""Started from the same $q$, the two branches produce identical iterates.
+
+    Because $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, the
+    tied site update rearranges to
+    $\boldsymbol\eta\leftarrow\boldsymbol\eta+\rho\nabla_{\boldsymbol\mu}\mathcal L$ --
+    Salimbeni's step at $\gamma=\rho$. This pins the dual update against an
+    independently implemented parameterisation rather than against itself, and is the
+    strongest correctness handle available on the E-step.
+    """
+    posterior, dataset, inducing_inputs, jitter = _bernoulli_setup()
+    dual = _build_dual(posterior, inducing_inputs, jitter, seed=11)
+    moment = _matched_variational_gaussian(dual)
+
+    for _ in range(6):
+        dual, _ = _take_step(dual, dataset, rate, objective=_negative_dual_elbo)
+        moment, _ = _take_step(moment, dataset, rate)
+
+        dual_mean, dual_covariance = dual.moments()
+        moment_mean, moment_root = _moments_of(moment)
+        np.testing.assert_allclose(
+            np.asarray(dual_mean), np.asarray(moment_mean), atol=1e-10
+        )
+        np.testing.assert_allclose(
+            np.asarray(dual_covariance),
+            np.asarray(moment_root @ moment_root.T),
+            atol=1e-10,
+        )
+
+
+# ---------------------------------------------------------------------------
+# N6 -- the PSD cone is preserved over a long mini-batch run
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_preserves_psd():
+    """A convex combination of PSD matrices stays PSD; 50 steps must not drift out."""
+    posterior, dataset, inducing_inputs, jitter = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+
+    key = jr.key(0)
+    for _ in range(50):
+        key, batch_key = jr.split(key)
+        indices = jr.choice(batch_key, dataset.n, (8,), replace=False)
+        batch = Dataset(X=dataset.X[indices], y=dataset.y[indices], n_total=dataset.n)
+        family, _ = _take_step(family, batch, 0.8, objective=_negative_dual_elbo)
+        assert jnp.linalg.eigvalsh(_val(family.dual_matrix)).min() >= -1e-10
+
+
+# ---------------------------------------------------------------------------
+# N7 -- the beta floor is trace-safe and rescues a negative-curvature likelihood
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_beta_floor_is_trace_safe():
+    posterior, dataset, inducing_inputs, jitter = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    variational, hyper = partition_variational(family)
+
+    stepped, _ = eqx.filter_jit(natural_gradient_step)(
+        variational,
+        hyper,
+        dataset,
+        _negative_dual_elbo,
+        jnp.asarray(0.8),
+        beta_floor=1e-8,
+    )
+    assert jnp.all(jnp.isfinite(_val(stepped.dual_matrix)))
+
+    def scan_body(carry, _):
+        carry, loss = natural_gradient_step(
+            carry,
+            hyper,
+            dataset,
+            _negative_dual_elbo,
+            jnp.asarray(0.8),
+            beta_floor=1e-8,
+        )
+        return carry, loss
+
+    _, history = jax.lax.scan(scan_body, variational, jnp.arange(3))
+    assert jnp.all(jnp.isfinite(history))
+
+    # A likelihood whose expected curvature is negative everywhere: `beta` is a
+    # constant -0.5, so without the floor the very first step would push Lambda_2
+    # out of the PSD cone.
+    concave = eqx.tree_at(
+        lambda tree: tree.posterior.likelihood,
+        family,
+        _NegativeCurvatureLikelihood(),
+    )
+    unfloored, _ = _take_step(
+        concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=-jnp.inf
+    )
+    assert jnp.linalg.eigvalsh(_val(unfloored.dual_matrix)).min() < -1e-6
+
+    floored, _ = _take_step(
+        concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=1e-8
+    )
+    assert jnp.linalg.eigvalsh(_val(floored.dual_matrix)).min() >= -1e-10
+
+
+# ---------------------------------------------------------------------------
+# N8 -- the centred site convention, against the reference implementation's bug
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_handles_non_zero_mean_function():
+    """A non-zero mean function must not shift the recovered optimum.
+
+    The setup carries a ``Constant(0.4)`` mean, so the uncentred variant that the
+    reference implementation computes is measurably wrong -- asserted here so that the
+    recovery assertion cannot pass for the wrong reason.
+    """
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    assert float(jnp.abs(posterior.prior.mean_function(dataset.X)).max()) > 0.1
+
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    centred, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    uncentred = _uncentred_dual_step(family, dataset, 1.0)
+    optimal_mean, _ = _titsias_optimum(family, dataset)
+
+    np.testing.assert_allclose(
+        np.asarray(centred.moments()[0]), np.asarray(optimal_mean), atol=1e-10
+    )
+    assert jnp.max(jnp.abs(uncentred.moments()[0] - optimal_mean)) > 1e-6
+
+
+# ---------------------------------------------------------------------------
+# N9 -- the N/B scaling makes the mini-batch target unbiased
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_minibatch_is_unbiased():
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+
+    half = dataset.n // 2
+    first_half = Dataset(X=dataset.X[:half], y=dataset.y[:half], n_total=dataset.n)
+    second_half = Dataset(X=dataset.X[half:], y=dataset.y[half:], n_total=dataset.n)
+
+    full, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    left, _ = _take_step(family, first_half, 1.0, objective=_negative_dual_elbo)
+    right, _ = _take_step(family, second_half, 1.0, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        0.5 * np.asarray(_val(left.dual_vector) + _val(right.dual_vector)),
+        np.asarray(_val(full.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        0.5 * np.asarray(_val(left.dual_matrix) + _val(right.dual_matrix)),
+        np.asarray(_val(full.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N10 -- jit and scan compatibility of the dual branch
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_step_is_jit_and_scan_compatible():
+    posterior, dataset, inducing_inputs, jitter = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    variational, hyper = partition_variational(family)
+
+    eager, eager_loss = natural_gradient_step(
+        variational, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+    )
+    jitted, jitted_loss = eqx.filter_jit(natural_gradient_step)(
+        variational, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+    )
+    np.testing.assert_allclose(
+        np.asarray(_val(jitted.dual_vector)),
+        np.asarray(_val(eager.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(_val(jitted.dual_matrix)),
+        np.asarray(_val(eager.dual_matrix)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.float64(jitted_loss), np.float64(eager_loss), rtol=1e-12
+    )
+
+    def scan_body(carry, _):
+        carry, loss = natural_gradient_step(
+            carry, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+        )
+        return carry, loss
+
+    scanned, history = jax.lax.scan(scan_body, variational, jnp.arange(3))
+    assert history.shape == (3,)
+    assert jnp.all(jnp.isfinite(history))
+    assert jtu.tree_structure(scanned) == jtu.tree_structure(variational)
+
+
+# ---------------------------------------------------------------------------
+# N11 -- the partition picks exactly the two sites
+# ---------------------------------------------------------------------------
+def test_dual_variational_coordinates_partition():
+    posterior, _, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    variational, hyper = partition_variational(family)
+
+    assert sorted(
+        jtu.keystr(path) for path, _ in jtu.tree_flatten_with_path(variational)[0]
+    ) == [".dual_matrix.value", ".dual_vector.value"]
+    assert ".inducing_inputs.value" in [
+        jtu.keystr(path) for path, _ in jtu.tree_flatten_with_path(hyper)[0]
+    ]
+
+    recombined = eqx.combine(variational, hyper)
+    assert jtu.tree_structure(recombined) == jtu.tree_structure(family)
+
+
+# ---------------------------------------------------------------------------
+# Dtype preservation and the non-trainable guard on the dual branch
+# ---------------------------------------------------------------------------
+@pytest.mark.filterwarnings("ignore:X is not of type float64")
+@pytest.mark.filterwarnings("ignore:y is not of type float64")
+def test_dual_natgrad_preserves_float32():
+    """A float32 model must not be silently promoted by the step."""
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    cast = lambda leaf: jnp.asarray(leaf, dtype=jnp.float32)
+    family = jtu.tree_map(cast, family)
+    dataset = Dataset(X=cast(dataset.X), y=cast(dataset.y))
+
+    stepped, _ = _take_step(
+        family, dataset, jnp.float32(0.5), objective=_negative_dual_elbo
+    )
+    assert _val(stepped.dual_vector).dtype == jnp.float32
+    assert _val(stepped.dual_matrix).dtype == jnp.float32
+
+
+def test_dual_natgrad_step_rejects_non_trainable_coordinates():
+    posterior, dataset, inducing_inputs, jitter = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs, jitter)
+    family = eqx.tree_at(
+        lambda tree: tree.dual_matrix, family, paramax.non_trainable(family.dual_matrix)
+    )
+    with pytest.raises(ValueError, match="dual_matrix"):
+        _take_step(family, dataset, 0.5, objective=_negative_dual_elbo)

@@ -38,6 +38,7 @@ from gpjax.typing import (
     KeyArray,
     ScalarFloat,
 )
+from gpjax.variational_families import DualVariationalGaussian
 
 Model = tp.TypeVar("Model", bound=eqx.Module)
 
@@ -453,7 +454,10 @@ def fit_natgrads(
         ``natgrad_lr=1.0`` is optimal only when the model is conjugate *and* the batch
         is full. Adam, Chang, Khan and Solin (2021) write this step size $\rho$ for the
         dual parameterisation; it is the same quantity, and started from the same $q$
-        the two branches produce identical iterates.
+        the two branches produce identical iterates. On a ``DualVariationalGaussian``
+        a value above $1$ is rejected, because the site update is a convex combination
+        towards its target -- for a schedule this is checked over the whole
+        ``num_iters``-long trajectory, not just at construction.
     key : KeyArray
         The random key used for mini-batch selection. Defaults to ``jr.key(42)``.
     num_iters : int
@@ -478,8 +482,10 @@ def fit_natgrads(
         The number of shrink attempts after the first, so $\gamma$ can fall by
         $\beta^{K}$. Defaults to 5.
     beta_floor : float
-        Forwarded to the dispatched step for a uniform contract; the Salimbeni-family
-        step ignores it. Defaults to ``1e-8``.
+        Lower clip on the expected negative curvature $\beta$ in the dual step, which
+        keeps $\boldsymbol\Lambda_2$ inside the positive semi-definite cone for
+        likelihoods that are not log-concave. The Salimbeni-family step ignores it.
+        Defaults to ``1e-8``.
     log_rate : int
         How frequently the objective value should be printed. Defaults to 10.
     verbose : bool
@@ -512,6 +518,12 @@ def fit_natgrads(
     quietly -- finite, unguarded and increasingly wrong -- so prefer
     ``WhitenedVariationalGaussian``, whose $q(\mathbf v)$ stays close to
     $\mathcal N(\mathbf 0,\mathbf I)$, in that regime.
+    ``DualVariationalGaussian`` is immune to this particular cancellation for a
+    different reason: its step is affine in the stored sites and takes no
+    $\boldsymbol\xi(\boldsymbol\eta)$ round trip at all, so
+    $\boldsymbol\eta_1\boldsymbol\eta_1^\top$ is never formed. It buys that with a
+    second $M\times M$ factorisation per objective evaluation and a step size capped
+    at $1$.
     """
     if safe:
         # Check inputs.
@@ -522,7 +534,7 @@ def fit_natgrads(
         _check_batch_size(batch_size)
         _check_log_rate(log_rate)
         _check_verbose(verbose)
-        _check_natgrad_lr(natgrad_lr, model)
+        _check_natgrad_lr(natgrad_lr, model, num_iters)
         # Surface a frozen coordinate as an ordinary argument error, before `vscan`
         # opens a progress bar and buries the traceback in the scan trace. The step
         # itself repeats the check unconditionally as a backstop.
@@ -703,7 +715,9 @@ def _check_verbose(verbose: tp.Any) -> None:
         )
 
 
-def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
+def _check_natgrad_lr(
+    natgrad_lr: tp.Any, model: tp.Any = None, num_iters: tp.Any = None
+) -> None:
     r"""Check the natural-gradient step size is a positive float or an optax schedule.
 
     Parameters
@@ -711,8 +725,13 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
     natgrad_lr : Any
         The candidate step size.
     model : Any
-        The model being fitted. Unused for the Salimbeni families; later
-        parameterisations register tighter bounds against it.
+        The model being fitted. Unconstrained above for the Salimbeni families, which
+        tolerate $\gamma>1$ in principle; capped at $1$ for
+        ``DualVariationalGaussian``.
+    num_iters : Any
+        The number of iterations the schedule will be evaluated at. Supply it to have
+        a schedule bound-checked for a ``DualVariationalGaussian``; without it a
+        callable ``natgrad_lr`` is accepted unexamined.
 
     Notes
     -----
@@ -721,10 +740,17 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
     ``ScalarFloat``. ``bool`` is rejected despite being an ``int`` subclass: silently
     reading ``True`` as $\gamma=1$ is never what the caller meant. The positivity check
     is skipped for traced values, which have no concrete sign at trace time.
-    """
-    del model
 
+    The dual branch requires $\rho\in(0,1]$: the site update is a convex combination
+    towards the target, so $\rho>1$ overshoots it and can push $\boldsymbol\Lambda_2$
+    out of the positive semi-definite cone, from which the run never recovers -- the
+    ``NaN`` is silent and poisons every later iterate. A schedule is fully determined
+    at construction time, so when ``num_iters`` is known the whole trajectory
+    ``natgrad_lr(jnp.arange(num_iters))`` is checked up front, exactly as a scalar is.
+    Schedules that cannot be evaluated on an integer array are left alone.
+    """
     if callable(natgrad_lr):
+        _check_natgrad_schedule(natgrad_lr, model, num_iters)
         return
 
     is_scalar_array = isinstance(natgrad_lr, jax.Array) and jnp.ndim(natgrad_lr) == 0
@@ -741,6 +767,40 @@ def _check_natgrad_lr(natgrad_lr: tp.Any, model: tp.Any = None) -> None:
 
     if natgrad_lr <= 0:
         raise ValueError(f"Expected natgrad_lr to be positive. Got {natgrad_lr}.")
+
+    if isinstance(model, DualVariationalGaussian) and natgrad_lr > 1.0:
+        raise ValueError(
+            "Expected natgrad_lr to lie in (0, 1] for a DualVariationalGaussian, "
+            f"whose site update is a convex combination. Got {natgrad_lr}."
+        )
+
+
+def _check_natgrad_schedule(
+    natgrad_lr: tp.Callable, model: tp.Any, num_iters: tp.Any
+) -> None:
+    """Bound-check an optax schedule on a ``DualVariationalGaussian``.
+
+    The schedule is evaluated at the same iteration indices ``fit_natgrads`` scans
+    over, so the check sees exactly the step sizes the run will take.
+    """
+    if not isinstance(model, DualVariationalGaussian):
+        return
+
+    if not isinstance(num_iters, int) or isinstance(num_iters, bool) or num_iters <= 0:
+        return
+
+    try:
+        rates = jnp.asarray(natgrad_lr(jnp.arange(num_iters)))
+    except Exception:
+        return
+
+    largest = float(jnp.max(rates))
+    if largest > 1.0:
+        raise ValueError(
+            "Expected natgrad_lr to lie in (0, 1] for a DualVariationalGaussian, "
+            "whose site update is a convex combination. The supplied schedule reaches "
+            f"{largest} within the first {num_iters} iterations."
+        )
 
 
 def _check_batch_size(batch_size: tp.Any) -> None:

@@ -9,9 +9,9 @@ SvgpElboSuite (uncollapsed VariationalGaussian + stochastic ELBO) varies
 both M (inducing count) and batch_size; VfeElboSuite (collapsed analytic
 ELBO) varies M only — the collapsed objective requires the full dataset.
 
-VariationalParametrisationSuite compares the two variational Gaussian
-parameterisations (standard, whitened) at one fixed (n, M) so users can
-see the per-step cost of the choice.
+VariationalParametrisationSuite compares the three variational Gaussian
+parameterisations (standard, whitened, dual) at one fixed (n, M) so users
+can see the per-step cost of the choice.
 
 HeteroscedasticElboSuite and OilmmPredictSuite are independent — they
 do not participate in the alignment because their model structure
@@ -26,6 +26,7 @@ from gpjax.dataset import Dataset
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
+    DualVariationalGaussian,
     HeteroscedasticVariationalFamily,
     VariationalGaussian,
     WhitenedVariationalGaussian,
@@ -115,15 +116,25 @@ class VfeElboSuite:
 _VARIATIONAL_FAMILIES = {
     "standard": VariationalGaussian,
     "whitened": WhitenedVariationalGaussian,
+    "dual": DualVariationalGaussian,
 }
 
 
 class VariationalParametrisationSuite:
     """Per-step ELBO cost across the variational Gaussian parameterisations.
 
-    They all parameterise the same q(u); the differences are in how the
-    KL term and predictive moments are computed. Holding (n, M) fixed
-    isolates the parameterisation cost.
+    All three parameterise the same q(u); the differences are in how the
+    KL term and predictive moments are computed. The dual (t-SVGP) family
+    stores sites rather than moments and recovers q(u) through
+    R = Kzz + Kzz Lambda_2 Kzz, so every predict and every KL factorises
+    both Kzz and R, against one factorisation for the standard family and
+    none in the whitened KL. Holding (n, M) fixed isolates that cost.
+
+    The arm deliberately times the generic ``elbo`` on all three families
+    rather than ``dual_elbo`` on the dual one: the point of the comparison
+    is the parameterisation, so the objective has to be held fixed. The
+    dual family's own fast path is ``dual_elbo``, which replaces the
+    per-point ``predict`` with one batched ``marginals`` call.
     """
 
     params = (list(_VARIATIONAL_FAMILIES),)

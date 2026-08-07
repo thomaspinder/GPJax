@@ -78,6 +78,7 @@ Functions `(model, Dataset) -> scalar`:
 - `conjugate_mll` / `conjugate_loocv` -- for `ConjugatePosterior`
 - `log_posterior_density` (alias `non_conjugate_mll`) -- for `NonConjugatePosterior`
 - `elbo` / `collapsed_elbo` -- for variational families
+- `dual_elbo` -- for `DualVariationalGaussian` (t-SVGP; same value as `elbo`, different hyperparameter gradient)
 - `heteroscedastic_elbo` -- for heteroscedastic models
 
 Optimise by negating: `nmll = lambda p, d: -conjugate_mll(p, d)`
@@ -88,7 +89,7 @@ Four optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (SciP
 
 ### Variational inference (`gpjax/variational_families.py`)
 
-`VariationalGaussian`, `WhitenedVariationalGaussian`, `CollapsedVariationalGaussian`, `GraphVariationalGaussian`, `HeteroscedasticVariationalFamily`. All inherit from `AbstractVariationalFamily` and implement `predict()` + `prior_kl()`.
+`VariationalGaussian`, `WhitenedVariationalGaussian`, `DualVariationalGaussian`, `CollapsedVariationalGaussian`, `GraphVariationalGaussian`, `HeteroscedasticVariationalFamily`. All inherit from `AbstractVariationalFamily` and implement `predict()` + `prior_kl()`.
 
 ### NumPyro integration (`gpjax/numpyro_extras.py`)
 

@@ -23,11 +23,13 @@ from gpjax.typing import (
 )
 from gpjax.variational_families import (
     AbstractVariationalFamily,
+    DualVariationalGaussian,
     HeteroscedasticVariationalFamily,
 )
 
 VF = TypeVar("VF", bound=AbstractVariationalFamily)
 HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
+DVF = TypeVar("DVF", bound=DualVariationalGaussian)
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
@@ -309,6 +311,98 @@ def variational_expectation(
         y, mean[:, None], variance[:, None]
     )
     return expectation
+
+
+def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
+    r"""Compute the evidence lower bound of a dual (t-SVGP) approximation.
+
+    The *same functional* as :func:`elbo`, but evaluated as a function of the stored
+    dual sites and the kernel hyperparameters, never of $(m, S)$:
+    ```math
+    \mathcal{L}_{\text{dual}}(\lambda_1, \Lambda_2;\theta)
+        = \frac{N}{B}\sum_{i\in\mathcal{B}}
+          \mathbb{E}_{q(f_i)}\left[\log p(y_i\mid f_i)\right]
+          - \operatorname{KL}\left[q(u)\mid\mid p_{\theta}(u)\right],
+    \qquad
+    S = \left(\mathbf{K}_{zz}(\theta)^{-1} + \Lambda_2\right)^{-1}.
+    ```
+    Following Adam, Chang, Khan and Solin (2021),
+    [arXiv:2111.03412](https://arxiv.org/abs/2111.03412).
+
+    Example:
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
+        >>> import jax.numpy as jnp
+        >>> import gpjax as gpx
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Bernoulli()
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        >>> q = gpx.variational_families.DualVariationalGaussian(
+        ...     posterior=posterior, inducing_inputs=z
+        ... )
+
+        >>> gpx.objectives.dual_elbo(q, D).shape
+        ()
+
+    Args:
+        variational_family: The dual variational approximation whose sites and
+            hyperparameters the bound is evaluated at.
+        data: The training data, or a mini-batch of it.
+
+    Returns
+    -------
+    ScalarFloat
+        The evidence lower bound of the dual variational approximation.
+
+    Notes
+    -----
+    Its **value** equals :func:`elbo` at the implied moments for any sites and any
+    $\theta$; its **hyperparameter gradient** differs, because $q$ moves with $\theta$
+    through $\mathbf{K}_{zz}$ while the sites stay frozen. The extra term,
+    $\langle\nabla_{\eta}\mathcal{L},\ \partial\eta_0(\theta)/\partial\theta\rangle$,
+    vanishes at a converged E-step and is the source of the tighter M-step behaviour
+    Adam et al. report. Do **not** wrap $\mathbf{K}_{zz}$ in ``lax.stop_gradient``, and
+    do not cache the implied moments on the family: that implicit dependence is the
+    entire point, and removing it is a silent bug -- identical values, wrong gradients.
+
+    The marginals are computed in one batched
+    :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call rather
+    than by ``vmap``-ing ``predict`` over single points as :func:`elbo` does. Both are
+    $\mathcal{O}(M^3 + NM^2)$ -- ``vmap`` leaves the factorisations unbatched, so they
+    are not repeated per datum -- but the batched form replaces $N$ rank-one triangular
+    solves with two BLAS-3 ones. :func:`elbo` called directly on a
+    ``DualVariationalGaussian`` is still correct and returns the same value and the
+    same gradients; ``dual_elbo`` is the fast path, not a different bound.
+
+    Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this objective
+    remains valid -- it is ordinary gradient descent in the dual coordinates. It gives
+    *different* dynamics from :func:`~gpjax.fit.fit` on a ``VariationalGaussian``,
+    because the two parameterisations induce different metrics.
+    :func:`~gpjax.fit.fit_natgrads` is the parameterisation-invariant alternative.
+    """
+    # KL[q(u) || p(u)], evaluated through R = Kzz + Kzz Lambda_2 Kzz.
+    kl = variational_family.prior_kl()
+
+    # Batched marginals of q(f(x)); O(M^3 + N M^2).
+    mean, variance = variational_family.marginals(data.X)
+
+    likelihood = variational_family.posterior.likelihood
+    expectation = likelihood.expected_log_likelihood(
+        data.y, mean[:, None], variance[:, None]
+    )
+
+    # For batch size b, n/b * sum_i E_q[log p(y_i | f(x_i))] - KL[q(u) || p(u)].
+    full_size = data.n_total if data.n_total is not None else data.n
+    return jnp.sum(expectation) * full_size / data.n - kl
 
 
 # TODO: Replace code within CollapsedELBO to using (low rank structure of) LinOps and the GaussianDistribution object to be as succinct as e.g., the `ConjugateMLL`.

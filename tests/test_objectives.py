@@ -3,20 +3,39 @@ import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import Prior
 from gpjax.likelihoods import Gaussian
+from gpjax.linalg import add_jitter
+from gpjax.natural_gradients import (
+    natural_gradient_step,
+    partition_variational,
+)
 from gpjax.objectives import (
     collapsed_elbo,
     conjugate_loocv,
     conjugate_mll,
+    dual_elbo,
     elbo,
     non_conjugate_mll,
 )
+from gpjax.parameters import (
+    PositiveReal,
+    _val,
+)
+from gpjax.variational_families import DualVariationalGaussian
 import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import jax.scipy as jsp
+import jax.tree_util as jtu
+import numpy as np
 import paramax
 import pytest
+
+from tests._dual_helpers import (
+    DUAL_JITTER,
+    matched_variational_gaussian as _matched_variational_gaussian,
+    random_dual_sites as _random_dual_sites,
+)
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
@@ -350,3 +369,288 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
     closed_form = conjugate_loocv(posterior, data)
 
     assert jnp.allclose(closed_form, total, atol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# dual_elbo -- the t-SVGP bound (Adam et al. 2021, arXiv:2111.03412)
+# ---------------------------------------------------------------------------
+_DUAL_JITTER = DUAL_JITTER
+
+
+def _dual_setup(
+    num_inducing: int = 5,
+    num_data: int = 30,
+    jitter: float = _DUAL_JITTER,
+    binary: bool = False,
+    inducing_at_inputs: bool = False,
+):
+    """A conjugate (or Bernoulli) SVGP setup with a non-zero mean function."""
+    key_inputs, key_noise = jr.split(jr.key(42))
+    inputs = jnp.sort(
+        jr.uniform(key_inputs, (num_data, 1), minval=-2.0, maxval=2.0), axis=0
+    )
+    if binary:
+        outputs = jr.bernoulli(key_noise, 0.5, (num_data, 1)).astype(jnp.float64)
+        likelihood = gpx.likelihoods.Bernoulli()
+    else:
+        outputs = jnp.sin(3.0 * inputs) + 0.1 * jr.normal(key_noise, (num_data, 1))
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=jnp.array(0.37))
+    data = Dataset(X=inputs, y=outputs)
+
+    kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3))
+    mean_function = gpx.mean_functions.Constant(jnp.array(0.4))
+    posterior = gpx.gps.Prior(mean_function=mean_function, kernel=kernel) * likelihood
+
+    inducing_inputs = (
+        inputs
+        if inducing_at_inputs
+        else jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
+    )
+    return posterior, data, inducing_inputs, jitter
+
+
+def _dual_natgrad_step(q_dual: DualVariationalGaussian, data: Dataset, rate: float):
+    variational, hyper = partition_variational(q_dual)
+    updated, _ = natural_gradient_step(
+        variational,
+        hyper,
+        data,
+        lambda model, batch: -dual_elbo(model, batch),
+        jnp.asarray(rate),
+    )
+    return eqx.combine(updated, hyper)
+
+
+def _kernel_hyper_gradient(objective_fn, family, data):
+    """Gradient of ``objective_fn`` with respect to the kernel parameters only."""
+    params, static = eqx.partition(family, eqx.is_array)
+
+    def loss(trainable):
+        return objective_fn(paramax.unwrap(eqx.combine(trainable, static)), data)
+
+    grads = jax.grad(loss)(params)
+    leaves = jtu.tree_leaves(grads.posterior.prior.kernel)
+    return jnp.concatenate([jnp.ravel(leaf) for leaf in leaves])
+
+
+@pytest.mark.parametrize("binary", [True, False])
+def test_dual_elbo(binary: bool):
+    posterior, data, inducing_inputs, jitter = _dual_setup(binary=binary)
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+
+    res_simple = -dual_elbo(q, data)
+    assert isinstance(res_simple, jax.Array)
+    assert res_simple.shape == ()
+
+    params, static = eqx.partition(q, eqx.is_array)
+
+    def loss(params):
+        model = paramax.unwrap(eqx.combine(params, static))
+        return -dual_elbo(model, data)
+
+    np.testing.assert_allclose(
+        np.float64(loss(params)), np.float64(res_simple), rtol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.float64(jax.jit(loss)(params)), np.float64(res_simple), atol=1e-12
+    )
+
+    grads = jax.grad(loss)(params)
+    assert jnp.all(jnp.isfinite(grads.dual_vector.value))
+    assert jnp.all(jnp.isfinite(grads.dual_matrix.value))
+
+
+@pytest.mark.parametrize("sites", ["optimal", "random"])
+@pytest.mark.parametrize("batch", ["full", "half"])
+def test_dual_elbo_equals_elbo_at_matched_moments(sites: str, batch: str):
+    """The two bounds are the same functional, so their values must coincide.
+
+    The ``half`` arm evaluates both bounds on half the rows while the batch still
+    declares the full size through ``Dataset.n_total``, so the mini-batch factor
+    ``N / B`` is 2 on both sides. Without it the arm would only ever exercise
+    ``N / B == 1`` and a mutation dropping the factor from ``dual_elbo`` would
+    survive.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup()
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+
+    if sites == "optimal":
+        q = _dual_natgrad_step(q, data, 1.0)
+    else:
+        dual_vector, dual_matrix = _random_dual_sites(3, q.num_inducing)
+        q = eqx.tree_at(
+            lambda t: (t.dual_vector, t.dual_matrix),
+            q,
+            (gpx.parameters.Real(dual_vector), gpx.parameters.Real(dual_matrix)),
+        )
+
+    if batch == "half":
+        half = data.n // 2
+        data = Dataset(X=data.X[:half], y=data.y[:half], n_total=data.n)
+        assert data.n_total / data.n == 2.0
+
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, data)),
+        np.float64(elbo(_matched_variational_gaussian(q), data)),
+        rtol=1e-10,
+    )
+
+
+def test_dual_elbo_applies_the_minibatch_scale():
+    """``dual_elbo`` must scale the expectation term, and only it, by ``N / B``.
+
+    Pinned directly rather than through the ``elbo`` comparison above, which would
+    stay green if *both* bounds dropped the factor.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup()
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+    dual_vector, dual_matrix = _random_dual_sites(7, q.num_inducing)
+    q = eqx.tree_at(
+        lambda t: (t.dual_vector, t.dual_matrix),
+        q,
+        (gpx.parameters.Real(dual_vector), gpx.parameters.Real(dual_matrix)),
+    )
+
+    half = data.n // 2
+    batch = Dataset(X=data.X[:half], y=data.y[:half], n_total=data.n)
+    scale = batch.n_total / batch.n
+
+    mean, variance = q.marginals(batch.X)
+    expectation = jnp.sum(
+        posterior.likelihood.expected_log_likelihood(
+            batch.y, mean[:, None], variance[:, None]
+        )
+    )
+    expected = scale * expectation - q.prior_kl()
+
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, batch)), np.float64(expected), rtol=1e-12
+    )
+
+
+def test_dual_elbo_equals_titsias_collapsed_bound():
+    """One rho = 1 step on a conjugate model reproduces the Titsias bound.
+
+    The family jitter is pushed to 1e-12 because ``marginals`` adds it to every
+    marginal variance, which biases the bound by ``N * jitter / (2 sigma^2)`` -- at the
+    usual 1e-8 that is 1.1e-6, four orders of magnitude outside the tolerance here.
+    """
+    jitter = 1e-12
+    posterior, data, inducing_inputs, _ = _dual_setup(jitter=jitter)
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+    q = _dual_natgrad_step(q, data, 1.0)
+
+    kernel = posterior.prior.kernel
+    gram = add_jitter(kernel.gram(inducing_inputs).as_matrix(), jitter)
+    cross = kernel.cross_covariance(inducing_inputs, data.X)
+    diagonal = jnp.diag(kernel.gram(data.X).as_matrix())
+    noise_variance = _val(posterior.likelihood.obs_stddev) ** 2
+    residual = (data.y - posterior.prior.mean_function(data.X)).squeeze(-1)
+
+    root_gram = jnp.linalg.cholesky(gram)
+    design = jsp.linalg.cho_solve((root_gram, True), cross)
+    nystrom = cross.T @ design
+    covariance = nystrom + noise_variance * jnp.eye(data.n)
+    root_covariance = jnp.linalg.cholesky(covariance)
+    quadratic = jnp.sum(
+        residual
+        * jsp.linalg.cho_solve((root_covariance, True), residual[:, None]).squeeze(-1)
+    )
+    log_marginal = -0.5 * (
+        data.n * jnp.log(2 * jnp.pi)
+        + 2.0 * jnp.sum(jnp.log(jnp.diag(root_covariance)))
+        + quadratic
+    )
+    trace_term = jnp.sum(diagonal - jnp.sum(cross * design, axis=0)) / (
+        2 * noise_variance
+    )
+
+    np.testing.assert_allclose(
+        np.float64(dual_elbo(q, data)),
+        np.float64(log_marginal - trace_term),
+        atol=1e-8,
+    )
+
+
+def test_dual_elbo_hyper_gradients_differ_away_from_optimum():
+    """Away from a converged E-step the two bounds have different theta-gradients.
+
+    This is the regression test against caching ``(m, S)`` on the family: a cached
+    implementation reproduces every *value* assertion in this module and only fails
+    here.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup()
+    dual_vector, dual_matrix = _random_dual_sites(3, inducing_inputs.shape[0])
+    q = DualVariationalGaussian(
+        posterior=posterior,
+        inducing_inputs=inducing_inputs,
+        dual_vector=dual_vector,
+        dual_matrix=dual_matrix,
+        jitter=jitter,
+    )
+
+    dual_gradient = _kernel_hyper_gradient(dual_elbo, q, data)
+    moment_gradient = _kernel_hyper_gradient(
+        elbo, _matched_variational_gaussian(q), data
+    )
+
+    assert not jnp.allclose(dual_gradient, moment_gradient)
+    relative_difference = jnp.max(jnp.abs(dual_gradient - moment_gradient)) / jnp.max(
+        jnp.abs(moment_gradient)
+    )
+    assert relative_difference > 0.1
+
+
+def test_dual_elbo_hyper_gradients_agree_at_converged_estep():
+    """At a stationary q the extra term vanishes and the gradients coincide.
+
+    The E-step really does have to be run to convergence: at 66 steps the two
+    gradients agree to 1.5e-14, but at 6 steps they still differ by 1.6e-4.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup(binary=True)
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+    for _ in range(66):
+        q = _dual_natgrad_step(q, data, 0.8)
+
+    dual_gradient = _kernel_hyper_gradient(dual_elbo, q, data)
+    moment_gradient = _kernel_hyper_gradient(
+        elbo, _matched_variational_gaussian(q), data
+    )
+    np.testing.assert_allclose(
+        np.asarray(dual_gradient), np.asarray(moment_gradient), atol=1e-8
+    )
+
+
+def test_dual_elbo_dominates_when_inducing_equal_inputs():
+    """With Z = X the stored sites are theta-free, so the dual bound dominates.
+
+    Adam et al.'s Eq. (29)-(31) needs theta-free exact sites, which only happens in the
+    dense conjugate limit. No dominance is asserted in the sparse case, where the
+    flanked sites still move with theta through K_zx.
+    """
+    posterior, data, inducing_inputs, jitter = _dual_setup(
+        num_data=12, jitter=1e-6, inducing_at_inputs=True
+    )
+    q = DualVariationalGaussian(
+        posterior=posterior, inducing_inputs=inducing_inputs, jitter=jitter
+    )
+    q = _dual_natgrad_step(q, data, 1.0)
+    q_moment = _matched_variational_gaussian(q)
+
+    base_lengthscale = _val(posterior.prior.kernel.lengthscale)
+    for shift in (-0.6, -0.3, 0.0, 0.3, 0.6):
+        lengthscale = PositiveReal(base_lengthscale * jnp.exp(shift))
+        where = lambda t: t.posterior.prior.kernel.lengthscale
+        dual_value = dual_elbo(eqx.tree_at(where, q, lengthscale), data)
+        moment_value = elbo(eqx.tree_at(where, q_moment, lengthscale), data)
+        assert dual_value >= moment_value - 1e-5
