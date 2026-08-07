@@ -19,59 +19,42 @@
 #
 # Download this notebook: {nb-download}`dual_svgp.ipynb`
 #
-# A sparse variational GP stores its approximate posterior $q(\mathbf{u})$ as a mean
-# and a Cholesky factor. That is a choice, not a law. The
-# {cite:t}`adam2021dual` *dual*
-# parameterisation stores something else: the **likelihood sites**, one per data
-# point, tied down to the inducing points. The distribution is the same object; what
-# changes is which numbers are held in memory, and therefore what the optimiser is
-# allowed to hold fixed.
+# This is the applied companion to the
+# [natural gradients notebook](natural_gradients.py). That notebook derives
+# the whole geometry this one puts to work: the exponential-family view of
+# $q(\mathbf{u})$, the Fisher identity that makes the natural gradient free
+# to compute, the site — or *dual* — reparameterisation of
+# {cite:t}`adam2021dual`, its EP heritage, the two silent convention traps in
+# the source material, the tied update and why it never inverts anything,
+# the positive-semidefinite cone-safety argument for the site branch, and
+# the claims table for `dual_elbo` versus `elbo` as an M-step objective.
+# **Read that one first.** Nothing below re-derives any of it; this notebook
+# assumes it and asks instead: does GPJax's implementation actually deliver
+# what the theory promises, on real models, with real numbers? A sibling
+# notebook, [natgrads.py](natgrads.py), runs the same kind of check for the
+# moment-storage branch, `VariationalGaussian`.
 #
-# Two things follow from that change, and this notebook is about establishing how
-# much each one is worth.
+# Four checks, in order. A conjugate regression where `DualVariationalGaussian`
+# plus one `natural_gradient_step` at $\rho=1$ reproduces the
+# {cite:t}`titsias2009` optimum exactly. A non-conjugate classification
+# problem where the site branch and the moment branch are driven through
+# matched steps and compared directly, which locates precisely where the
+# $\rho=\gamma$ identity's log-concavity condition fails and `beta_floor`
+# starts to matter. The banana benchmark from the natural-gradients notebook,
+# run again with all three optimisers — Adam alone, natural gradients on
+# $(\mathbf{m},\mathbf{L})$, and t-SVGP's dual branch — with timings. And,
+# last, the M-step claims table exercised in practice: a bound slice showing
+# where `dual_elbo` dominates `elbo` and where it does not, and a full
+# variational-EM training loop comparing the two as M-step objectives.
 #
-# 1. **The natural-gradient step becomes an explicit convex combination of the stored
-#    parameters.** No conversion to natural parameters, no conversion back, and the
-#    KL term is never differentiated. The step is the same *iteration* as the one in
-#    the [natural gradients notebook](natgrads.py) —
-#    we check that below to $10^{-15}$ — **provided the computed per-point curvature
-#    $\beta_i$ stays non-negative**. That holds for a genuinely log-concave
-#    likelihood. GPJax's probit link clips its probabilities, which breaks
-#    log-concavity in the far tails; where that bites, the dual branch's `beta_floor`
-#    engages and the two branches really do differ. We locate that below and measure
-#    it. Away from it, the difference is wall-clock only, never accuracy.
-# 2. **The hyperparameter objective changes.** Because the sites are, in this
-#    convention, free of the kernel hyperparameters, letting $\mathbf{K}_{zz}$ move
-#    while the sites stay put gives a *different* function of $\boldsymbol{\theta}$
-#    from the usual "freeze $(\mathbf{m},\mathbf{S})$" bound: the same value at the
-#    current hyperparameters, and a gradient that coincides with the standard one
-#    there only once the E-step has converged — which, between optimiser steps, it
-#    never has. That gap is the mechanism. It is worth more than the first point and
-#    is harder to pin down; the last third of the notebook is spent being precise
-#    about what is proven and what is merely measured.
-#
-# The route is: the dual coordinates and their EP heritage; the tying that restores
-# $\mathcal{O}(M^2)$ memory; the two storage conventions and which one GPJax picked;
-# the tied update and why it needs no round trip; a conjugate model where one step at
-# $\rho=1$ is the exact answer; the $\rho=\gamma$ check that discharges claim 1; the
-# banana classification benchmark from the natural-gradients notebook, run again with
-# all three optimisers; and finally hyperparameter learning, where `dual_elbo` and
-# `elbo` part company.
-#
-# This notebook assumes the natural-gradients notebook. Read that one first: it
-# derives the exponential-family view of $q(\mathbf{u})$, the identity that the
-# natural gradient in one of its two canonical coordinate systems is the ordinary
-# gradient in the other, and the mirror-descent reading of the step size, all of which
-# are assumed here.
-#
-# **One notational break from it.** That notebook writes the natural parameter of
-# $q(\mathbf{u})$ as $\boldsymbol{\theta}$ and the expectation parameter as
-# $\boldsymbol{\eta}$. Here $\boldsymbol{\theta}$ is reserved for the kernel
-# hyperparameters, so the natural parameter is $\boldsymbol{\eta}$, the expectation
-# parameter is $\boldsymbol{\mu}$, and $\boldsymbol{\lambda}$ is the site — not that
-# notebook's conjugate likelihood parameter. In these letters its identity reads
-# $\tilde\nabla_{\boldsymbol{\eta}}\mathcal{L} = \partial\mathcal{L}/\partial\boldsymbol{\mu}$,
-# and it is restated that way where it is used below.
+# **One notational reminder, carried over from the natural-gradients
+# notebook.** $\boldsymbol{\theta}$ is the kernel hyperparameters, not a
+# natural parameter; the natural parameter of $q(\mathbf{u})$ is
+# $\boldsymbol{\eta}$, its expectation parameter is $\boldsymbol{\mu}$, and
+# $\boldsymbol{\lambda} = (\boldsymbol{\lambda}_1, \boldsymbol{\Lambda}_2)$
+# is the site — the pair `DualVariationalGaussian` stores as `dual_vector`
+# and `dual_matrix`. $\mathbf{a}_i = \mathbf{K}_{zz}^{-1}\mathbf{k}_z(x_i)$
+# throughout.
 
 # %%
 # Enable Float64 for more stable matrix inversions.
@@ -82,7 +65,6 @@ import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
 from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -125,169 +107,36 @@ def negative_dual_elbo(model, data):
 
 
 # %% [markdown]
-# ## From natural to dual coordinates
+# ## What `DualVariationalGaussian` stores
 #
-# Write the natural parameter of $q(\mathbf{u}) = \mathcal{N}(\mathbf{m},\mathbf{S})$
-# as $\boldsymbol{\eta} = (\mathbf{S}^{-1}\mathbf{m},\ -\tfrac12\mathbf{S}^{-1})$, and
-# the natural parameter of the prior
-# $p(\mathbf{u}) = \mathcal{N}(\mathbf{0},\mathbf{K}_{zz})$ as
-# $\boldsymbol{\eta}_0(\boldsymbol{\theta}) = (\mathbf{0},\ -\tfrac12\mathbf{K}_{zz}^{-1})$.
-# Their difference is the object this notebook stores:
+# In brief, because the natural-gradients notebook has the derivation: $q$
+# is the prior reweighted by an unnormalised Gaussian site,
+# $q(\mathbf{u}) \propto p_{\boldsymbol{\theta}}(\mathbf{u})\,
+# \exp(\boldsymbol{\lambda}_1^\top\tilde{\mathbf{u}} -
+# \tfrac12\tilde{\mathbf{u}}^\top\boldsymbol{\Lambda}_2\tilde{\mathbf{u}})$
+# with $\tilde{\mathbf{u}} = \mathbf{u} - \boldsymbol{\mu}_z$, giving moments
+# $\mathbf{S} = (\mathbf{K}_{zz}^{-1} + \boldsymbol{\Lambda}_2)^{-1}$,
+# $\mathbf{m} = \boldsymbol{\mu}_z + \mathbf{S}\boldsymbol{\lambda}_1$.
+# `DualVariationalGaussian` stores $\boldsymbol{\lambda}_1$ as `dual_vector`
+# and $\boldsymbol{\Lambda}_2$ as `dual_matrix`, both zero by default — so
+# $q = p$ at initialisation — and exposes the pair above via `.moments()`.
+# GPJax stores the **flanked, precision** convention (never the un-flanked
+# sums, never $-\tfrac12\boldsymbol{\Lambda}_2$); that is the rule the
+# natural-gradients notebook derives and states, and every demo below
+# depends on it silently, the way any user of the API does.
 #
-# $$\boldsymbol{\eta} = \underbrace{\left(\mathbf{0},\ -\tfrac12\mathbf{K}_{zz}^{-1}\right)}_{\boldsymbol{\eta}_0(\boldsymbol{\theta})\ \text{prior}} \;+\; \underbrace{\left(\boldsymbol{\lambda}_1,\ -\tfrac12\boldsymbol{\Lambda}_2\right)}_{\boldsymbol{\lambda}\ \text{sites}} .$$
-#
-# The decomposition is additive, and — in this convention — the second half carries no
-# dependence on the kernel hyperparameters $\boldsymbol{\theta}$ at all. Equivalently,
-# $q$ is the prior reweighted by an unnormalised Gaussian *site*,
-#
-# $$t(\tilde{\mathbf{u}}) = \exp\!\left(\boldsymbol{\lambda}_1^\top\tilde{\mathbf{u}} - \tfrac12\tilde{\mathbf{u}}^\top\boldsymbol{\Lambda}_2\tilde{\mathbf{u}}\right), \qquad q(\mathbf{u}) \propto p_{\boldsymbol{\theta}}(\mathbf{u})\,t(\tilde{\mathbf{u}}),$$
-#
-# from which the moments follow by completing the square,
-#
-# $$\mathbf{S} = \left(\mathbf{K}_{zz}^{-1} + \boldsymbol{\Lambda}_2\right)^{-1}, \qquad \tilde{\mathbf{m}} = \mathbf{S}\boldsymbol{\lambda}_1, \qquad \mathbf{m} = \boldsymbol{\mu}_z + \tilde{\mathbf{m}} .$$
-#
-# Here $\tilde{\mathbf{u}} = \mathbf{u} - \boldsymbol{\mu}_z$ are the inducing outputs
-# centred on the prior mean function, so a non-zero mean function needs no special
-# case anywhere below. `DualVariationalGaussian` stores $\boldsymbol{\lambda}_1$ as
-# `dual_vector` ($M\times1$) and $\boldsymbol{\Lambda}_2$ as `dual_matrix`
-# ($M\times M$), both defaulting to zero — which sets $q = p$ and makes the KL vanish
-# at initialisation.
-#
-# Nothing here is ever inverted. Every quantity the family needs routes through
-#
-# $$\mathbf{R} := \mathbf{K}_{zz} + \mathbf{K}_{zz}\boldsymbol{\Lambda}_2\mathbf{K}_{zz} = \mathbf{K}_{zz}\mathbf{S}^{-1}\mathbf{K}_{zz},$$
-#
-# which satisfies $\mathbf{R} \succeq \mathbf{K}_{zz} \succ 0$ whenever
-# $\boldsymbol{\Lambda}_2 \succeq 0$. So $\operatorname{chol}(\mathbf{R})$ cannot fail,
-# and — this is the point — it is *better* conditioned than
-# $\operatorname{chol}(\boldsymbol{\Lambda}_2)$ would be, which is rank deficient at
-# initialisation and whenever the batch is smaller than $M$. Two Cholesky
-# factorisations per iteration, $\mathbf{L}_K$ and $\mathbf{L}_R$, and no more.
-
-# %% [markdown]
-# ## The EP connection
-#
-# Where do $\boldsymbol{\lambda}_1$ and $\boldsymbol{\Lambda}_2$ come from? Adam et
-# al. show that the ELBO-optimal $q$ has the site form
-#
-# $$q^*(\mathbf{u}) \;\propto\; p_{\boldsymbol{\theta}}(\mathbf{u})\prod_{i=1}^{N} t_i^*(\mathbf{u}), \qquad t_i^*(\mathbf{u}) = \exp\!\left(\langle\boldsymbol{\lambda}_i^*,\ \mathbf{T}(\mathbf{a}_i^\top\mathbf{u})\rangle\right),$$
-#
-# with $\mathbf{T}(v) = (v, v^2)$ the Gaussian sufficient statistics and
-# $\mathbf{a}_i = \mathbf{K}_{zz}^{-1}\mathbf{k}_z(x_i)$. Each $t_i$ is a
-# **two-dimensional** object acting on the scalar projection
-# $\mathbf{a}_i^\top\mathbf{u}$: one local likelihood approximation per data point,
-# exactly as in expectation propagation. The difference from EP is where the site
-# values come from. EP computes them by matching moments against a cavity
-# distribution; here they are read straight off the first two derivatives of the
-# expected log likelihood. With $q(f_i) = \mathcal{N}(m_i, v_i)$, Bonnet's and Price's
-# theorems give
+# Where do $\boldsymbol{\lambda}_1$ and $\boldsymbol{\Lambda}_2$ come from at
+# the optimum? One local likelihood approximation per data point, EP-style,
+# with the site values read off Bonnet's and Price's theorems rather than
+# fitted by moment matching:
 #
 # $$\alpha_i = \frac{\partial}{\partial m_i}\,\mathbb{E}_{q(f_i)}\!\left[\log p(y_i\mid f_i)\right], \qquad \beta_i = -2\,\frac{\partial}{\partial v_i}\,\mathbb{E}_{q(f_i)}\!\left[\log p(y_i\mid f_i)\right],$$
 #
-# so a single `jax.grad` of the likelihood's existing `expected_log_likelihood`
-# suffices. No second derivatives, and it works for closed-form and quadrature
-# likelihoods alike.
-#
-# Stored naively that is $\mathcal{O}(N)$ memory, which would be a poor trade. But
-# every $t_i$ enters $q(\mathbf{u})$ only through the rank-one projection
-# $\mathbf{a}_i^\top\mathbf{u}$, so the $N$ sites can be **tied**: summed into two
-# inducing-space objects of size $M$ and $M\times M$. Writing
-# $g_{1,i} = \alpha_i + \beta_i\,(m_i - \mu(x_i))$ and $g_{2,i} = \beta_i$, the tied
-# values at a converged full-batch E-step are
-#
-# $$\boldsymbol{\lambda}_1 = \sum_{i=1}^{N}\mathbf{a}_i g_{1,i} = \mathbf{A}\mathbf{g}_1, \qquad \boldsymbol{\Lambda}_2 = \sum_{i=1}^{N}g_{2,i}\,\mathbf{a}_i\mathbf{a}_i^\top = \mathbf{A}\operatorname{diag}(\mathbf{g}_2)\mathbf{A}^\top .$$
-#
-# Memory is back to $\mathcal{O}(M^2)$, the same as standard SVGP. Two warnings. The
-# tying introduces a bias — the paper says so, and reports that it "does not seem to
-# affect convergence in practice". And these sums are the *fixed point*, not the value
-# at a general iterate: during training the stored pair is a running convex
-# combination of such targets, and is never computed by evaluating the sum.
-
-# %% [markdown]
-# ## Two conventions, and which one GPJax stores
-#
-# Two traps wait for anyone reading the paper alongside the code, and both are
-# silent: each produces a valid-looking $q$ that is simply not the one intended.
-#
-# **The flanking trap.** The paper's main text (its Eq. 21) stores the *un-flanked*
-# sums, built from $\mathbf{k}_z(x_i)$ rather than
-# $\mathbf{a}_i = \mathbf{K}_{zz}^{-1}\mathbf{k}_z(x_i)$:
-#
-# $$\bar{\boldsymbol{\lambda}}_1 = \mathbf{K}_{zx}\mathbf{g}_1 = \mathbf{K}_{zz}\boldsymbol{\lambda}_1, \qquad \bar{\boldsymbol{\Lambda}}_2 = \mathbf{K}_{zx}\operatorname{diag}(\mathbf{g}_2)\mathbf{K}_{xz} = \mathbf{K}_{zz}\boldsymbol{\Lambda}_2\mathbf{K}_{zz}.$$
-#
-# Both conventions describe the same $q$, and $\mathbf{R}$ is literally the same
-# matrix in each. They are not interchangeable for our purposes, though: in the
-# un-flanked form *both* halves of $\boldsymbol{\eta} - \boldsymbol{\eta}_0$ move with
-# $\boldsymbol{\theta}$, since
-# $\boldsymbol{\eta}_1 = \mathbf{K}_{zz}^{-1}\bar{\boldsymbol{\lambda}}_1$. The
-# additive, hyperparameter-free split that the whole second half of this notebook
-# rests on holds *exactly* only in the flanked convention. The paper flags the choice
-# in a single sentence and calls the flanked form "an alternative tying method"; GPJax
-# stores the alternative.
-#
-# **The $-\tfrac12$ trap.** The paper uses $\lambda_2$ with two incompatible meanings:
-# the natural-parameter one ($-\tfrac12\beta_i$, following its Eq. 13) and the
-# precision one ($g_{2,i} = \beta_i$, in its Eq. 21 and Algorithm 2). The dense limit
-# settles it: with $\mathbf{Z} = \mathbf{X}$ we have $\mathbf{a}_i = \mathbf{e}_i$ and
-# $\mathbf{S}^{-1} = \mathbf{K}_{ff}^{-1} + \operatorname{diag}(\boldsymbol{\beta})$,
-# which forces $\boldsymbol{\Lambda}_2 = \operatorname{diag}(\boldsymbol{\beta})$,
-# positive. **GPJax stores $\boldsymbol{\Lambda}_2$ in the precision convention**:
-# positive semi-definite, no $-\tfrac12$.
-#
-# The flanked convention is not free. Storing $\boldsymbol{\Lambda}_2$ rather than
-# $\bar{\boldsymbol{\Lambda}}_2$ means a round trip through $\mathbf{K}_{zz}^{-1}$ and
-# back, which squares its condition number. We measure the consequence in the
-# $\mathbf{Z}=\mathbf{X}$ demo below, where it is dramatic entrywise and invisible in
-# everything anyone actually reads off the model. The practical rule that falls out:
-# never test $\boldsymbol{\Lambda}_2$ entrywise — test $\mathbf{R}$, the moments, the
-# bound, or the predictions.
-
-# %% [markdown]
-# ## The tied natural-gradient update
-#
-# Now the payoff. Split the ELBO into its two terms, with $\boldsymbol{\mu}$ the
-# expectation parameter of $q$:
-#
-# $$\mathcal{L}(\boldsymbol{\eta}) = \mathcal{L}_{\text{ell}}(\boldsymbol{\eta}) - \operatorname{KL}\left[q_{\boldsymbol{\eta}}\,\|\,p_{\boldsymbol{\eta}_0}\right], \qquad \mathcal{L}_{\text{ell}} = \frac{N}{B}\sum_{i\in\mathcal{B}}\mathbb{E}_{q(f_i)}\!\left[\log p(y_i\mid f_i)\right].$$
-#
-# For an exponential family the KL between two of its members is
-# $\langle\boldsymbol{\eta}-\boldsymbol{\eta}_0,\boldsymbol{\mu}\rangle - A(\boldsymbol{\eta}) + A(\boldsymbol{\eta}_0)$,
-# and $\nabla_{\boldsymbol{\eta}}A = \boldsymbol{\mu}$, so the two Jacobian terms
-# cancel and
-#
-# $$\nabla_{\boldsymbol{\mu}}\operatorname{KL}\left[q_{\boldsymbol{\eta}}\,\|\,p_{\boldsymbol{\eta}_0}\right] = \boldsymbol{\eta} - \boldsymbol{\eta}_0 = \boldsymbol{\lambda} .$$
-#
-# **The KL's gradient is the stored parameter itself.** Since the natural gradient in
-# $\boldsymbol{\eta}$ is the ordinary gradient in $\boldsymbol{\mu}$, the ascent step
-# $\boldsymbol{\eta} \leftarrow \boldsymbol{\eta} + \rho\,\nabla_{\boldsymbol{\mu}}\mathcal{L}$
-# collapses to
-#
-# $$\boldsymbol{\lambda} \;\leftarrow\; (1-\rho)\,\boldsymbol{\lambda} \;+\; \rho\,\nabla_{\boldsymbol{\mu}}\mathcal{L}_{\text{ell}},$$
-#
-# a convex combination between where the sites are and where this mini-batch wants
-# them. The KL never has to be differentiated at all. Chaining
-# $\nabla_{\boldsymbol{\mu}}\mathcal{L}_{\text{ell}}$ through the marginals and
-# converting out of the $-\tfrac12$ convention gives the update in stored
-# coordinates,
-#
-# $$\boldsymbol{\lambda}_1 \leftarrow (1-\rho)\boldsymbol{\lambda}_1 + \rho\,\frac{N}{B}\,\mathbf{A}_{\mathcal{B}}\mathbf{g}_1^{\mathcal{B}}, \qquad \boldsymbol{\Lambda}_2 \leftarrow (1-\rho)\boldsymbol{\Lambda}_2 + \rho\,\frac{N}{B}\,\mathbf{A}_{\mathcal{B}}\operatorname{diag}\!\left(\mathbf{g}_2^{\mathcal{B}}\right)\mathbf{A}_{\mathcal{B}}^\top .$$
-#
-# The $N/B$ factor is not in the paper's printed update; without it the sites converge
-# to $B/N$ of their correct value, since a mini-batch sum is $B/N$ of the full sum in
-# expectation. The reference implementation supplies it, and so does GPJax.
-#
-# Two consequences worth stating separately. First, the update is **affine in the
-# stored parameters**, so for $\rho\in[0,1]$ and $\beta_i\ge0$ it can never leave the
-# positive semi-definite cone: a convex combination of PSD matrices is PSD. Second,
-# $\rho$ **is** the Salimbeni step size $\gamma$ of the natural-gradients notebook,
-# not a separate damping coefficient — the display above is
-# $\boldsymbol{\eta}\leftarrow\boldsymbol{\eta}+\rho\nabla_{\boldsymbol{\mu}}\mathcal{L}$
-# written out. GPJax accordingly uses one keyword, `natgrad_lr`, for both dispatch
-# branches. We check that claim numerically two sections from now.
-#
-# First, the ingredients. For a Gaussian likelihood $\alpha_i = (y_i - m_i)/\sigma^2$
-# and $\beta_i = 1/\sigma^2$; here are both, by autodiff through
-# `expected_log_likelihood`.
+# so a single `jax.grad` of the likelihood's existing
+# `expected_log_likelihood` gives both, for closed-form and quadrature
+# likelihoods alike. Here is that call pattern, checked against the
+# Gaussian closed form $\alpha_i = (y_i-m_i)/\sigma^2$,
+# $\beta_i = 1/\sigma^2$.
 
 # %%
 key, alpha_beta_key = jr.split(key)
@@ -326,41 +175,11 @@ print(
 print(f"beta                            : {price_beta[0]:.6f} (= 1 / {check_stddev}^2)")
 
 # %% [markdown]
-# ## No round trip needed
-#
-# It is worth being concrete about what the dual step does *not* do. A
-# natural-gradient step in the stored parameterisation $(\mathbf{m},\mathbf{L})$ has
-# to convert to $\boldsymbol{\eta}$, differentiate the whole ELBO — Cholesky of
-# $\mathbf{K}_{zz}$, the conditional, and the KL — apply a Jacobian, and then convert
-# back through $\boldsymbol{\theta}$, which costs an inverse and a fresh Cholesky. In
-# dual coordinates none of that happens, for two structural reasons: the stored
-# coordinates *are* an affine image of $\boldsymbol{\eta}$, so the step is an affine
-# step on them; and the target $\nabla_{\boldsymbol{\mu}}\mathcal{L}_{\text{ell}}$ has
-# a closed form whose only dependence on $q$ is through the marginals $(m_i, v_i)$,
-# which the ELBO computes anyway.
-#
-# | stage | dual (t-SVGP) | natural gradients on $(\mathbf{m},\mathbf{L})$ |
-# |---|---|---|
-# | $\operatorname{chol}(\mathbf{K}_{zz})$ | $\mathcal{O}(M^3)$ | $\mathcal{O}(M^3)$ |
-# | $\mathbf{A}_{\mathcal{B}} = \mathbf{K}_{zz}^{-1}\mathbf{K}_{zb}$ | $\mathcal{O}(M^2B)$ | $\mathcal{O}(M^2B)$ |
-# | covariance factor | $\operatorname{chol}(\mathbf{R})$, $\mathcal{O}(M^3)$ | $\mathbf{S} = \mathbf{L}\mathbf{L}^\top$, $\mathcal{O}(M^3)$ |
-# | marginals $(m_i, v_i)$ | $\mathcal{O}(M^2B)$ | $\mathcal{O}(M^2B)$ |
-# | $(\boldsymbol{\alpha},\boldsymbol{\beta})$ | one `jax.grad` of a scalar in two $B$-vectors | the same, but inside the full AD tape |
-# | gradient assembly | two `einsum`s, $\mathcal{O}(M^2B)$ | reverse-mode AD through chol / conditional / **KL**, plus a Jacobian |
-# | $\boldsymbol{\eta}\to\boldsymbol{\xi}$ round trip | **none** | inverse + Cholesky, $\mathcal{O}(M^3)$ |
-#
-# Same asymptotics, with strictly less work on the dual side of the table. Whether
-# that turns into wall-clock depends on how large a share of the iteration the saved
-# work was, and we measure it on the banana below rather than assert it here. What is
-# certain is the direction of any difference: since the iterates are the same either
-# way, the E-step can only differ in time, never in accuracy. Adam et al. measure about
-# $5\times$ on MNIST ($N = 70{,}000$, $M = 100$, $B = 200$, ten latent GPs) against
-# GPflow's SVGP with natural gradients, with their own caveat that "our implementation
-# is not as optimized as SVGP in GPflow". Their sweep over $M$ they describe as "a
-# constant factor caused by our computationally cheaper E-step; the effect is
-# substantial in most practical settings where $m$ is set below 250". Those are their
-# numbers on their hardware. Everything printed below is ours, on the CPU that
-# rendered this page.
+# Both match the closed form to machine precision. This is the ingredient
+# every demo below is built from: `expected_log_likelihood` plus one
+# `jax.grad` call, tied across data points into the $M$- and
+# $M\times M$-sized `dual_vector`/`dual_matrix` update the natural-gradients
+# notebook derives in full.
 
 # %% [markdown]
 # ## Conjugate models: one step is enough
@@ -369,20 +188,18 @@ print(f"beta                            : {price_beta[0]:.6f} (= 1 / {check_stdd
 #
 # $$\alpha_i = \frac{y_i - m_i}{\sigma^2}, \quad \beta_i = \frac{1}{\sigma^2} \qquad\Longrightarrow\qquad g_{1,i} = \alpha_i + \beta_i\left(m_i - \mu(x_i)\right) = \frac{y_i - \mu(x_i)}{\sigma^2}, \quad g_{2,i} = \frac{1}{\sigma^2} .$$
 #
-# The $m_i$ cancels. So the update is an affine contraction towards a fixed point that
-# does not move, and $\rho=1$ lands on it from anywhere in one step:
+# The $m_i$ cancels, so the tied update's target does not move either, and
+# $\rho=1$ lands on the fixed point from anywhere in one step:
 #
 # $$\boldsymbol{\lambda}_1^\star = \frac{1}{\sigma^2}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zx}(\mathbf{y}-\boldsymbol{\mu}_x), \qquad \boldsymbol{\Lambda}_2^\star = \frac{1}{\sigma^2}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zx}\mathbf{K}_{xz}\mathbf{K}_{zz}^{-1},$$
 #
-# whereupon
-# $\mathbf{R}^\star = \mathbf{K}_{zz} + \sigma^{-2}\mathbf{K}_{zx}\mathbf{K}_{xz}$ is
-# exactly the inverse of Titsias' $\boldsymbol{\Sigma}$, and
-#
-# $$\mathbf{m}^\star = \boldsymbol{\mu}_z + \frac{1}{\sigma^2}\mathbf{K}_{zz}\boldsymbol{\Sigma}\mathbf{K}_{zx}(\mathbf{y}-\boldsymbol{\mu}_x), \qquad \mathbf{S}^\star = \mathbf{K}_{zz}\boldsymbol{\Sigma}\mathbf{K}_{zz}, \qquad \boldsymbol{\Sigma} = \left(\mathbf{K}_{zz} + \sigma^{-2}\mathbf{K}_{zx}\mathbf{K}_{xz}\right)^{-1},$$
-#
-# the {cite:t}`titsias2009` optimal $q(\mathbf{u})$ verbatim. The mean function below is
-# deliberately non-zero: the sites act on the *centred* process, and the
-# $\mathbf{y}-\boldsymbol{\mu}_x$ above is where that shows up.
+# whereupon $\mathbf{R}^\star = \mathbf{K}_{zz} + \sigma^{-2}\mathbf{K}_{zx}\mathbf{K}_{xz}$
+# is exactly the inverse of Titsias' $\boldsymbol{\Sigma}$ and $(\mathbf{m}^\star,\mathbf{S}^\star)$
+# is the {cite:t}`titsias2009` optimal $q(\mathbf{u})$ verbatim — the site
+# instantiation of the general "$\gamma=1$ is exact" argument the
+# natural-gradients notebook proves for any storage convention. The mean
+# function below is deliberately non-zero: the sites act on the *centred*
+# process, so $\mathbf{y}-\boldsymbol{\mu}_x$ is where that matters.
 
 # %%
 num_data = 200
@@ -408,6 +225,7 @@ def conjugate_model(lengthscale):
     prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Constant(jnp.array(prior_constant)),
         kernel=jk.RBF(lengthscale=lengthscale),
+        jitter=regression_jitter,
     )
     return prior * gpx.likelihoods.Gaussian(obs_stddev=noise_stddev)
 
@@ -532,175 +350,59 @@ print(
 )
 
 # %% [markdown]
-# One step from $\boldsymbol{\lambda}=\mathbf{0}$ reproduces the Titsias optimum to
-# around $10^{-12}$ in the mean and $10^{-13}$ in the covariance, and a second step
-# moves nothing.
+# One step from $\boldsymbol{\lambda}=\mathbf{0}$ reproduces the Titsias
+# optimum to around $10^{-12}$ in the mean and $10^{-13}$ in the covariance,
+# and a second step moves nothing — the numbers above confirm both.
 #
-# The last two printed lines deserve a sentence, because the residual between
-# `dual_elbo` and the analytic collapsed bound is not noise — it is
-# $N\varepsilon/(2\sigma^2)$ to nine significant figures, where $\varepsilon$ is the
-# model's `Prior.jitter`, which is why both are printed to twelve.
-# The conditioned sparse posterior adds that jitter to every marginal variance it
-# returns, so `elbo` carries the inflation too, and the dual family reproduces it
-# deliberately: matching the two objectives to machine precision is worth more than
-# matching either to a formula on paper. Lower the jitter and the gap falls
-# proportionally.
+# The last two printed lines deserve a sentence, because the residual
+# between `dual_elbo` and the analytic collapsed bound is not noise — it is
+# $N\varepsilon/(2\sigma^2)$ to eight significant figures, where
+# $\varepsilon$ is the model's `Prior.jitter`, which is why both are printed
+# to twelve. The
+# conditioned sparse posterior adds that jitter to every marginal variance it
+# returns, so `elbo` carries the inflation too, and the dual family
+# reproduces it deliberately: matching the two objectives to machine
+# precision is worth more than matching either to a formula on paper. Lower
+# the jitter and the gap falls proportionally.
 #
-# One thing this demo does *not* show, contrary to a remark in the paper that is easy
-# to over-read: the constant $c(\boldsymbol{\theta})$ relating the dual ELBO to
-# $\log\mathcal{Z}(\boldsymbol{\theta})$ is **not** zero here. Its value depends on
-# which site convention $\mathcal{Z}$ is taken against, and the two have to be paired
-# consistently. Against the *normalised projected* site
+# One thing this demo does *not* show, contrary to a remark in the paper
+# that is easy to over-read: the constant $c(\boldsymbol{\theta})$ relating
+# the dual ELBO to $\log\mathcal{Z}(\boldsymbol{\theta})$ is **not** zero
+# here. Its value depends on which site convention $\mathcal{Z}$ is taken
+# against, and the two have to be paired consistently. Against the
+# *normalised projected* site
 # $t_i(\mathbf{u}) = \mathcal{N}(y_i \mid \mathbf{a}_i^\top\mathbf{u}, \sigma^2)$,
-# $c(\boldsymbol{\theta})$ is minus the Titsias trace term, that is the negated
-# `sparsity_gap` computed above, and it vanishes only when
-# $\mathbf{Z} = \mathbf{X}$ — the non-sparse case the
-# paper's remark actually covers. Against the unnormalised site of the previous
-# section, the one this notebook stores, it picks up the site normaliser as well and is
-# a different and much larger constant. Either way it is non-zero and
-# $\boldsymbol{\theta}$-dependent, which is why GPJax evaluates the bound as
-# (variational expectation $-$ KL) rather than as a log-partition function.
+# $c(\boldsymbol{\theta})$ is minus the Titsias trace term — the negated
+# `sparsity_gap` computed above — and it vanishes only when
+# $\mathbf{Z} = \mathbf{X}$, the non-sparse case the paper's remark actually
+# covers. Against the unnormalised, flanked site GPJax stores, it picks up
+# the site normaliser as well and is a different and much larger constant.
+# Either way it is non-zero and $\boldsymbol{\theta}$-dependent, which is why
+# GPJax evaluates the bound as (variational expectation $-$ KL) rather than
+# as a log-partition function.
 
 # %% [markdown]
-# ## $\rho$ is $\gamma$
+# ## Locating where $\rho=\gamma$ stops holding
 #
-# The claim from the tied-update section was that the dual E-step and the
-# natural-gradient E-step of the previous notebook are the *same iteration*, not two
-# algorithms that happen to converge to the same place. Started from the same $q$,
-# with the same rate and the same batches, they should produce the same
-# $(\mathbf{m},\mathbf{S})$ at every step, to floating-point noise. There is one
-# condition on that, which the derivation left implicit and which the second demo below
-# violates: the dual branch clips the per-point curvature $\beta_i$ at `beta_floor`, so
-# the identity needs the computed $\beta_i$ to be non-negative. We check the clean case
-# first and then go looking for the exception.
+# The natural-gradients notebook proves the site step and the moment step
+# are the *same iteration* whenever the computed $\beta_i$ stay
+# non-negative, and shows this on the banana classification problem: a
+# single point crosses into $\beta_i<0$ at step five of six matched
+# $\rho=\gamma=0.8$ steps, the `beta_floor` clip engages, and the two
+# branches part company at $\mathcal{O}(10^{-3})$ in $(\mathbf{m},\mathbf{S})$
+# — while agreeing to the float64 noise floor everywhere before that. We
+# reproduce that check here rather than take it on faith, because it is the
+# load-bearing claim behind everything that follows: the banana benchmark
+# and the VEM loop below both interleave many such steps, so knowing exactly
+# when and how far the two branches can diverge tells us how much of any
+# difference in their trajectories to attribute to the E-step versus the
+# M-step.
 #
-# Testing that needs a non-conjugate problem — in the conjugate case both branches
-# jump to the same optimum at $\rho=1$, which proves nothing about the path — and
-# matched initialisations. `DualVariationalGaussian` starts at
-# $\boldsymbol{\lambda}=\mathbf{0}$, i.e. $q = p$, so the `VariationalGaussian` here is
-# built at $\mathbf{m}=\mathbf{0}$, $\mathbf{S}=\mathbf{K}_{zz}$ rather than at its
-# default $\mathbf{S}=\mathbf{I}$.
-
-# %%
-num_logit_data = 200
-num_logit_inducing = 8
-logit_jitter = 1e-8
-
-key, logit_input_key, logit_label_key = jr.split(key, 3)
-logit_inputs = jr.uniform(logit_input_key, (num_logit_data, 1), minval=-2.0, maxval=2.0)
-logit_labels = (
-    jr.uniform(logit_label_key, (num_logit_data, 1))
-    < jax.nn.sigmoid(3.0 * jnp.sin(2.0 * logit_inputs))
-).astype(jnp.float64)
-logit_data = gpx.Dataset(X=logit_inputs, y=logit_labels)
-logit_inducing = jnp.linspace(-2.0, 2.0, num_logit_inducing).reshape(-1, 1)
-
-logit_model = (
-    gpx.gps.Prior(
-        mean_function=gpx.mean_functions.Zero(),
-        kernel=jk.RBF(lengthscale=0.5, variance=1.7),
-    )
-    * gpx.likelihoods.Bernoulli()
-)
-
-logit_dual = DualVariationalGaussian(
-    model=logit_model, inducing_inputs=logit_inducing
-)
-logit_gram = paramax.unwrap(logit_model).prior.kernel.gram(
-    logit_inducing
-).as_matrix() + logit_jitter * jnp.eye(num_logit_inducing)
-logit_moments = VariationalGaussian(
-    model=logit_model,
-    inducing_inputs=logit_inducing,
-    variational_mean=jnp.zeros((num_logit_inducing, 1)),
-    variational_root_covariance=jnp.linalg.cholesky(logit_gram),
-)
-
-shared_bound = float(
-    dual_elbo(paramax.unwrap(logit_dual), logit_data)
-    - elbo(paramax.unwrap(logit_moments), logit_data)
-)
-print(f"cond(K_zz)                          : {jnp.linalg.cond(logit_gram):.3e}")
-print(f"dual_elbo - elbo at the shared init : {shared_bound:.3e}")
-
-
-# %%
-def implied_moments(family):
-    """Return $(m, S)$ for either parameterisation."""
-    unwrapped = paramax.unwrap(family)
-    if isinstance(unwrapped, DualVariationalGaussian):
-        return unwrapped.moments()
-    root = unwrapped.variational_root_covariance
-    return unwrapped.variational_mean, root @ root.T
-
-
-print("rate    max |(m, S) gap| over six full-batch steps")
-for rate in [0.3, 0.8, 1.0]:
-    site_partition, site_hyper = partition_variational(logit_dual)
-    moment_partition, moment_hyper = partition_variational(logit_moments)
-    worst_gap = 0.0
-    for _ in range(6):
-        site_partition, _ = natural_gradient_step(
-            site_partition, site_hyper, logit_data, negative_dual_elbo, rate
-        )
-        moment_partition, _ = natural_gradient_step(
-            moment_partition, moment_hyper, logit_data, negative_elbo, rate
-        )
-        site_mean, site_covariance = implied_moments(
-            eqx.combine(site_partition, site_hyper)
-        )
-        moment_mean, moment_covariance = implied_moments(
-            eqx.combine(moment_partition, moment_hyper)
-        )
-        worst_gap = max(
-            worst_gap,
-            float(jnp.max(jnp.abs(site_mean - moment_mean))),
-            float(jnp.max(jnp.abs(site_covariance - moment_covariance))),
-        )
-    print(f"{rate:5.2f}   {worst_gap:.3e}")
-
-# %%
-# The same statement one level up, through `fit_natgrads`, with the hyperparameters
-# held still by a zero-learning-rate optimiser so that only the E-steps move.
-frozen_hyperparameters = dict(
-    train_data=logit_data,
-    optim=ox.sgd(0.0),
-    natgrad_lr=0.8,
-    num_iters=50,
-    key=jr.key(1),
-    verbose=False,
-)
-_, site_history = gpx.fit_natgrads(
-    model=logit_dual, objective=negative_dual_elbo, **frozen_hyperparameters
-)
-_, moment_history = gpx.fit_natgrads(
-    model=logit_moments, objective=negative_elbo, **frozen_hyperparameters
-)
-print(f"negative ELBO after 50 E-steps, sites  : {float(site_history[-1]):.10f}")
-print(f"negative ELBO after 50 E-steps, moments: {float(moment_history[-1]):.10f}")
-print(
-    "max gap over the whole trace           : "
-    f"{jnp.max(jnp.abs(site_history - moment_history)):.3e}"
-)
-
-# %% [markdown]
-# The two traces are the same trace. Whatever else is true of the dual
-# parameterisation, it is not a different approximation: at $\rho=\gamma$ the E-steps
-# coincide, so any difference in a fitted model has to come from somewhere else — the
-# M-step, or the one modelling assumption the identity rests on. On this problem every
-# $\beta_i$ stays positive, which is that assumption; the banana model in the next
-# section drives a point far enough into the tail that GPJax's *computed* $\beta_i$
-# turns negative, the `beta_floor` guard engages, and the two branches then genuinely
-# part company. We locate that point and measure the consequence.
-
-# %% [markdown]
-# ## The banana, again
-#
-# The next cell is the data-generating function from the
-# [natural gradients notebook](natgrads.py),
-# reproduced character for character — same function body, same `jr.key(42)`, same
-# 2000 points — so the problem here is the same problem, point for point, as the one
-# there. The initialisation of $q$ differs, for a reason given below.
+# The next cell is the data-generating function and inducing-point layout
+# from the natural-gradients notebook, reproduced character for character —
+# same function body, same `jr.key(42)`, same 2000 points, same $10\times5$
+# grid — so the problem here is the same problem, point for point, as the
+# one there.
 
 
 # %%
@@ -723,11 +425,6 @@ train_inputs, test_inputs_2d = banana_inputs[:num_train], banana_inputs[num_trai
 train_labels, test_labels = banana_labels[:num_train], banana_labels[num_train:]
 banana_train = gpx.Dataset(X=train_inputs, y=train_labels)
 
-print(f"train / test  : {banana_train.n} / {banana_data.n - banana_train.n}")
-print(f"class balance : {float(banana_data.y.mean()):.3f}")
-
-# %%
-# Three models over the same inducing grid, all started from q = p.
 num_banana_inducing = 50
 inducing_grid = jnp.meshgrid(jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8, 5))
 banana_inducing = jnp.stack([axis.ravel() for axis in inducing_grid], axis=1)
@@ -757,29 +454,22 @@ def make_banana_moment_family():
     )
 
 
-banana_dual_family = DualVariationalGaussian(
-    model=banana_model,
-    inducing_inputs=banana_inducing,
-)
-natgrad_family = make_banana_moment_family()
-adam_family = make_banana_moment_family()
-
+print(f"train / test  : {banana_train.n} / {banana_data.n - banana_train.n}")
+print(f"class balance : {float(banana_data.y.mean()):.3f}")
 print(f"inducing inputs : {banana_inducing.shape}")
 print(f"cond(K_zz)      : {jnp.linalg.cond(banana_gram):.3e}")
 
-# %% [markdown]
-# All three start at $q = p$, that is $\mathbf{m}=\mathbf{0}$ and
-# $\mathbf{S}=\mathbf{K}_{zz}$, which is where a dual family with zero sites already
-# is. The natural-gradients notebook used `VariationalGaussian`'s own default
-# $\mathbf{S}=\mathbf{I}$ instead, so the curves below start from a slightly different
-# place than the ones there; matched initialisations matter more within a comparison
-# than across notebooks.
-
 
 # %%
-# The rho = gamma check again, on a harder model, this time step by step and carrying
-# the diagnostic that explains what happens: Price's curvature beta_i, which the site
-# update needs to be non-negative.
+def implied_moments(family):
+    """Return $(m, S)$ for either parameterisation."""
+    unwrapped = paramax.unwrap(family)
+    if isinstance(unwrapped, DualVariationalGaussian):
+        return unwrapped.moments()
+    root = unwrapped.variational_root_covariance
+    return unwrapped.variational_mean, root @ root.T
+
+
 def price_curvature(family, data):
     """Return the marginal means and $\\beta_i=-2\\,\\partial_{v_i}E_q[\\log p]$."""
     marginal_mean, marginal_variance = family.marginals(data.X)
@@ -855,47 +545,37 @@ print(f"\nworst gap, default beta_floor = 1e-8 : {banana_gap:.3e}")
 print(f"worst gap, clip disabled (-inf)      : {unfloored_gap:.3e}")
 
 # %% [markdown]
-# The two branches part company, and the table says exactly when and why. It is not
-# conditioning, and it is not the cancellation in
-# $\mathbf{H}_2 = \mathbf{S} + \mathbf{m}\mathbf{m}^\top$ that the moment branch has
-# to undo. Disabling the clip — the last line above — brings the same six steps back
-# to the noise floor, which rules both of those out: they are unchanged by the value
-# of `beta_floor`.
+# The table matches the natural-gradients notebook's: for the first four
+# steps every $\beta_i$ is positive, the clip is inert, and the branches
+# agree to $10^{-13}$. At step five a single training point out of 1600
+# crosses into $\beta_i<0$ — a label-$0$ point whose marginal mean of
+# $+2.427$ sits almost exactly on the mirrored $+2.44$ threshold the
+# cone-safety section derives for GPJax's clipped `inv_probit` —
+# `beta_floor` engages, and from that step on the gap jumps
+# to $\mathcal{O}(10^{-3})$ and compounds. Disabling the clip brings the same
+# six steps back to the noise floor, which is the control that pins the
+# cause down to the clip alone.
 #
-# What the $\rho=\gamma$ identity actually needs is a condition the derivation left
-# implicit. The site target is built from Price's curvature
-# $\beta_i = -2\,\partial_{v_i}\mathbb{E}_{q}\!\left[\log p(y_i\mid f_i)\right]$, and
-# the dual branch clips it at `beta_floor` before it enters
-# $\boldsymbol{\Lambda}_2$ while the Salimbeni branch never sees it at all. So long as
-# $\beta_i \ge 0$ the clip is inert and the two are the same iteration. $\beta_i \ge 0$
-# is guaranteed by log-concavity of $\log p(y\mid f)$ — and GPJax's Bernoulli
-# likelihood is not quite log-concave, *as computed*. `inv_probit` squashes its output
-# into $[10^{-3},\,1-10^{-3}]$ so that the log stays finite, and that floor flattens
-# the tail: $\log p$ as computed has *positive* second derivative for
-# $f \lesssim -2.44$, where the exact probit log-likelihood would still be concave.
-# A point the model has become confident is mislabelled sits in that region and
-# contributes $\beta_i < 0$. Mind the sign: for a $y_i = 0$ point the log-likelihood is
-# $\log\Phi(-f_i)$, so the quantity that has to fall below $-2.44$ is $-m_i$, and the
-# table's offending point — marginal mean $+2.43$, label $0$ — is exactly on that
-# threshold at step five and past it at step six.
+# For the two demos ahead, the practical reading is: whatever difference
+# shows up between the dual and moment branches beyond the low-$10^{-3}$
+# level located here is not coming from the E-step being a different
+# search direction. It is either wall-clock, or the M-step objective.
+
+# %% [markdown]
+# ## The banana benchmark: three optimisers
 #
-# That is what the table shows. For the first four steps every $\beta_i$ is positive,
-# the clip does nothing, and the branches agree to $10^{-13}$ — the true noise floor of
-# this problem. At step five a single training point out of 1600 crosses over, and from
-# that step the two are stepping differently by
-# $\rho\,\tfrac{N}{B}\,(\beta_{\text{floor}} - \beta_i)\,
-# \mathbf{a}_i\mathbf{a}_i^\top$, with
-# $\mathbf{a}_i = \mathbf{K}_{zz}^{-1}\mathbf{k}_{zi}$. One rank-one term at
-# $\beta_i \approx -0.26$ is enough to move $(\mathbf{m},\mathbf{S})$ by
-# $\sim\!10^{-3}$, and the gap compounds over the following step.
-#
-# Two things follow. The residual is still far below anything visible in the ELBO,
-# which is the number either optimiser is steering by, so it does not undermine the
-# comparisons below. But the "same iteration" claim is conditional, not absolute, and
-# the condition is a property of the *computed* likelihood rather than of the
-# mathematical one.
+# All three models below start at $q=p$, that is $\mathbf{m}=\mathbf{0}$,
+# $\mathbf{S}=\mathbf{K}_{zz}$ — where a dual family with zero sites already
+# is — over the same inducing grid just built.
 
 # %%
+banana_dual_family = DualVariationalGaussian(
+    model=banana_model,
+    inducing_inputs=banana_inducing,
+)
+natgrad_family = make_banana_moment_family()
+adam_family = make_banana_moment_family()
+
 # The log-linear ramp of the natural-gradients notebook: 1e-4 -> 1e-1 over K = 100.
 num_iterations = 1000
 batch_size = 256
@@ -1014,135 +694,66 @@ for name, curve, seconds, _ in curves[:2]:
         )
 
 # %% [markdown]
-# Both natural-gradient runs leave Adam behind per iteration, and both reach Adam's
-# thousand-iteration bound in a fraction of the wall-clock time Adam needed for it —
-# the crossings are printed above.
+# Both natural-gradient runs leave Adam behind per iteration, and both reach
+# Adam's thousand-iteration bound in a fraction of the wall-clock time Adam
+# needed for it — the crossings are printed above.
 #
-# What the timings do *not* show is a cheaper dual iteration. On this problem the two
-# natural-gradient runs cost within a few percent of each other per iteration, with
-# the dual one marginally the more expensive. The round trip the dual parameterisation
-# avoids is $\mathcal{O}(M^3)$ at $M=50$, which is nothing next to the
-# $\mathcal{O}(BM^2)$ marginals at $B=256$, so there is little to save here in the
-# first place. (GPJax's dual step also evaluates the objective once more per iteration
-# than it strictly needs to, so that `history[t]` means the same thing in both
-# branches — but under `jit`, which is how `fit_natgrads` always runs, XLA normally
-# folds that repeat away, and nothing measured here separates the two effects.) Adam
-# et al. report their gains at $M=100$ with ten latent GPs and $N=70{,}000$, where the
-# constant they save is a much larger share of the total. Take the numbers above as a
-# measurement of this configuration on this CPU, not as a refutation or a
-# confirmation of theirs.
+# What the timings do *not* show is a cheaper dual iteration. On this
+# problem the two natural-gradient runs cost within a few percent of each
+# other per iteration, with the dual one marginally the more expensive. The
+# round trip the dual parameterisation avoids is $\mathcal{O}(M^3)$ at
+# $M=50$, which is nothing next to the $\mathcal{O}(BM^2)$ marginals at
+# $B=256$, so there is little to save here in the first place. (GPJax's dual
+# step also evaluates the objective once more per iteration than it
+# strictly needs to, so that `history[t]` means the same thing in both
+# branches — but under `jit`, which is how `fit_natgrads` always runs, XLA
+# normally folds that repeat away, and nothing measured here separates the
+# two effects.) Adam et al. report their gains at $M=100$ with ten latent
+# GPs and $N=70{,}000$, where the constant they save is a much larger share
+# of the total. Take the numbers above as a measurement of this
+# configuration on this CPU, not as a refutation or a confirmation of
+# theirs.
 #
-# The two natural-gradient curves do *not* lie on top of each other, and the gap is
-# far too large to be the $10^{-3}$ that the `beta_floor` clip contributed a few cells
-# ago. Up to that clip their E-steps are still the same iteration; what differs is
-# that `fit_natgrads` interleaves an Adam step on the
-# kernel hyperparameters and the inducing inputs, and the objective it differentiates
-# for that step is `dual_elbo` in one run and `elbo` in the other. Those two have the
-# same value and different hyperparameter gradients away from a converged E-step — and
-# with $\gamma$ ramping up from $10^{-4}$, the E-step spends most of the first hundred
-# iterations far from converged. From iteration 1 onwards the two runs are optimising
-# the same model from different hyperparameters, and they never rejoin.
+# The two natural-gradient curves do *not* lie on top of each other, and the
+# gap is far too large to be the $10^{-3}$ located a section ago. Up to that
+# clip their E-steps are still the same iteration; what differs is that
+# `fit_natgrads` interleaves an Adam step on the kernel hyperparameters and
+# the inducing inputs, and the objective it differentiates for that step is
+# `dual_elbo` in one run and `elbo` in the other. Those two have the same
+# value and different hyperparameter gradients away from a converged
+# E-step — and with $\gamma$ ramping up from $10^{-4}$, the E-step spends
+# most of the first hundred iterations far from converged. From iteration 1
+# onwards the two runs are optimising the same model from different
+# hyperparameters, and they never rejoin.
 #
-# Which way does the divergence go? Here the dual run ends at the *higher*, that is
-# worse, negative ELBO of the two; both final values are printed above. That is one
-# seed, on a mini-batch bound, with the kernel hyperparameters and all fifty inducing
-# inputs moving under a ramping $\gamma$ — the two runs sit at different
-# $\boldsymbol{\theta}$ from iteration 1, so this is not a controlled comparison of the
-# two M-step objectives and should not be read as one, in either direction. The
-# controlled version — frozen inducing inputs, one kernel hyperparameter, matched
-# E-steps — is the VEM run at the end of the notebook. What this figure does establish
-# is that the choice of M-step objective changes the trajectory by tens of nats, which
-# is why the rest of the notebook is about that choice.
+# Which way does the divergence go? Here the dual run ends at the *higher*,
+# that is worse, negative ELBO of the two; both final values are printed
+# above. That is one seed, on a mini-batch bound, with the kernel
+# hyperparameters and all fifty inducing inputs moving under a ramping
+# $\gamma$ — the two runs sit at different $\boldsymbol{\theta}$ from
+# iteration 1, so this is not a controlled comparison of the two M-step
+# objectives and should not be read as one, in either direction. The
+# controlled version — frozen inducing inputs, one kernel hyperparameter,
+# matched E-steps — is the VEM run at the end of the notebook. What this
+# figure does establish is that the choice of M-step objective changes the
+# trajectory by tens of nats, which is why the rest of the notebook is about
+# that choice.
 
 # %% [markdown]
-# ## Hyperparameter learning: `dual_elbo` versus `elbo`
+# ## The M-step in practice
 #
-# Variational EM alternates an E-step, which maximises the ELBO over $q$ at fixed
-# $\boldsymbol{\theta}$, with an M-step, which maximises it over $\boldsymbol{\theta}$
-# at fixed $q$. "Fixed $q$" is the ambiguous part. In natural coordinates the E-step
-# returns
-# $\boldsymbol{\eta}^*_t = \boldsymbol{\eta}_0(\boldsymbol{\theta}_t) + \boldsymbol{\lambda}^*_t$,
-# and there are two ways to hold that still:
-#
-# $$\text{standard:}\quad l(\boldsymbol{\theta}) = \mathcal{L}\big(\underbrace{\boldsymbol{\eta}_0(\boldsymbol{\theta}_t) + \boldsymbol{\lambda}^*_t}_{\text{all frozen}},\ \boldsymbol{\theta}\big), \qquad\qquad \text{dual:}\quad \bar l(\boldsymbol{\theta}) = \mathcal{L}\big(\boldsymbol{\eta}_0(\boldsymbol{\theta}) + \boldsymbol{\lambda}^*_t,\ \boldsymbol{\theta}\big).$$
-#
-# `elbo` computes the first, because a `VariationalGaussian` stores
-# $(\mathbf{m},\mathbf{L})$ and those are what stay fixed. `dual_elbo` computes the
-# second, because a `DualVariationalGaussian` stores the sites, and the prior half of
-# $q$ is rebuilt from $\mathbf{K}_{zz}(\boldsymbol{\theta})$ every time the bound is
-# evaluated. The intuition is that the sites encode what the *data* said, which is a
-# property of the likelihood and should not be re-derived when the kernel moves,
-# whereas the prior contribution to $q$ *should* move with the kernel.
-#
-# That is also why nothing derived from $\boldsymbol{\theta}$ may be cached on the
-# family. Caching $(\mathbf{m},\mathbf{S})$ would turn `dual_elbo` back into `elbo`
-# under differentiation while leaving every printed value identical — a silent bug of
-# the worst kind.
-#
-# Here is what is actually guaranteed, which is less than the headline suggests:
-#
-# | claim | status |
-# |---|---|
-# | $\bar l$ is a valid lower bound on $\log p_{\boldsymbol{\theta}}(\mathbf{y})$ everywhere | **proven** — it is the ELBO at a legitimate Gaussian $q$ |
-# | $\bar l(\boldsymbol{\theta}_t) = l(\boldsymbol{\theta}_t)$ | **proven**, exactly, at a converged E-step |
-# | $\nabla_{\boldsymbol{\theta}}\bar l(\boldsymbol{\theta}_t) = \nabla_{\boldsymbol{\theta}}l(\boldsymbol{\theta}_t)$ | **proven**, same condition, by the envelope theorem |
-# | $\bar l(\boldsymbol{\theta}) \ge l(\boldsymbol{\theta})$ for *all* $\boldsymbol{\theta}$ | proven only when the sites are genuinely $\boldsymbol{\theta}$-free — a conjugate likelihood with its exact sites *and* $\mathbf{Z} = \mathbf{X}$, which is the regime of the second demo below |
-# | $\bar l$ is a local upper bound on $l$ | proven in the conjugate case; the paper writes "we can't show this in the non-conjugate setting" |
-# | faster EM convergence when non-conjugate | **empirical only** — "exact theoretical reasons behind the speed-ups are currently unknown to us" |
-#
-# The honest headline: the two bounds agree in value *and* gradient at a converged
-# E-step, and the dual M-step objective is less sensitive to
-# $\boldsymbol{\theta}_{\text{old}}$, which permits larger M-steps. It is not a
-# uniformly tighter bound in the general sparse case. Take the claims in order.
-
-
-# %%
-def kernel_gradient(variational, hyper, objective, dataset):
-    """Gradient of `objective` with respect to the unconstrained kernel parameters."""
-
-    def loss(hyper):
-        return objective(paramax.unwrap(eqx.combine(variational, hyper)), dataset)
-
-    gradient = eqx.filter_grad(loss)(hyper)
-    leaves = jtu.tree_leaves(gradient.model.prior.kernel)
-    return jnp.concatenate([jnp.atleast_1d(jnp.ravel(leaf)) for leaf in leaves])
-
-
-print("E-steps   max |grad dual_elbo - grad elbo|   |grad dual_elbo|")
-for num_e_steps in [0, 1, 3, 6, 20, 60]:
-    site_partition, site_hyper = partition_variational(logit_dual)
-    moment_partition, moment_hyper = partition_variational(logit_moments)
-    for _ in range(num_e_steps):
-        site_partition, _ = natural_gradient_step(
-            site_partition, site_hyper, logit_data, negative_dual_elbo, 0.8
-        )
-        moment_partition, _ = natural_gradient_step(
-            moment_partition, moment_hyper, logit_data, negative_elbo, 0.8
-        )
-    site_gradient = kernel_gradient(
-        site_partition, site_hyper, negative_dual_elbo, logit_data
-    )
-    moment_gradient = kernel_gradient(
-        moment_partition, moment_hyper, negative_elbo, logit_data
-    )
-    print(
-        f"{num_e_steps:7d}   "
-        f"{float(jnp.max(jnp.abs(site_gradient - moment_gradient))):24.3e}   "
-        f"{float(jnp.max(jnp.abs(site_gradient))):.3e}"
-    )
-
-# %% [markdown]
-# The gradients converge onto each other as the E-step converges, which is the
-# envelope theorem doing its work: at a stationary $q$ the implicit dependence of the
-# prior half of $\boldsymbol{\eta}$ on $\boldsymbol{\theta}$ contributes nothing. Away
-# from stationarity the difference is not a rounding effect but a different vector: at
-# the shared initialisation the two gradients disagree by as much as the whole
-# magnitude of either one.
-#
-# So the two M-step objectives can only differ when the E-step is incomplete, which in
-# practice is always: nobody runs an E-step to convergence between Adam steps. The
-# question is whether the difference helps. Freeze the sites at their
-# $\boldsymbol{\theta}_t$ values and slide the lengthscale.
+# The natural-gradients notebook's claims table is the reference for what
+# follows; we do not restate its proof here, only exercise it. In brief,
+# `elbo` freezes the *whole* natural parameter of $q$ at its E-step optimum
+# while $\boldsymbol{\theta}$ moves; `dual_elbo` freezes only the
+# data-derived sites and lets the prior half of $q$ track
+# $\mathbf{K}_{zz}(\boldsymbol{\theta})$. The two agree in value and
+# gradient at a converged E-step, by the envelope theorem, and can disagree
+# substantially away from it — which in practice is always, since nobody
+# runs an E-step to convergence between Adam steps. Two questions follow.
+# Does the dual bound actually dominate the standard one, as the paper's
+# figure suggests? And does that translate into a better fitted model at the
+# end of a real VEM loop?
 
 # %%
 log_offsets = jnp.linspace(-1.2, 0.6, 61)
@@ -1173,25 +784,6 @@ def bound_slice(inducing_inputs, dataset, sites, moments, offsets):
 
 dual_slice, moment_slice = bound_slice(
     regression_inducing, regression_data, frozen_sites, frozen_moments, log_offsets
-)
-
-# The slice is not symmetric about theta_t, so print both of its ends.
-reference_index = int(jnp.argmin(jnp.abs(log_offsets)))
-inducing_spacing = float(regression_inducing[1, 0] - regression_inducing[0, 0])
-shortest_lengthscale = float(regression_lengthscale * jnp.exp(log_offsets[0]))
-print("delta log-l        dual_elbo          elbo")
-for label, index in [
-    ("left edge ", 0),
-    ("at theta_t", reference_index),
-    ("right edge", len(log_offsets) - 1),
-]:
-    print(
-        f"{label} {float(log_offsets[index]):+5.2f}  {float(dual_slice[index]):12.2f}  "
-        f"{float(moment_slice[index]):14.2f}"
-    )
-print(
-    f"inducing spacing {inducing_spacing:.3f}, shortest lengthscale on the slice "
-    f"{shortest_lengthscale:.3f}"
 )
 
 fig, axes = plt.subplots(ncols=2, figsize=(10, 3.0))
@@ -1230,120 +822,38 @@ axes[1].set(
 clean_legend(axes[1])
 
 # %% [markdown]
-# The left panel is the shape the paper's Fig. 2 is about, and the honest reading of it
-# is asymmetric. Both bounds pass through the same point at $\boldsymbol{\theta}_t$ —
-# that is the value-equality row of the table, and it holds to $7\times10^{-14}$ here,
-# which is the $M=20$ minimum printed above.
-#
-# To the *right*, at longer lengthscales, $l$ falls off a cliff — the printed
-# right-edge values put it more than $10^{5}$ nats below $\bar l$ — because a $q$
-# whose covariance was chosen for one kernel is a bad approximation under another, but
-# $\bar l$ has barely moved, since only the data-dependent half of it was frozen. To
-# the *left* the two collapse together instead, within a few nats of each other and
-# both a couple of hundred nats below their value at $\boldsymbol{\theta}_t$. That is
-# not the freezing failing but the sparse approximation itself: by the left-hand edge
-# the lengthscale has dropped below half the inducing spacing — both are printed above
-# — so $\mathbf{Q}_{ff}$ is a poor stand-in for $\mathbf{K}_{ff}$ and no choice of
-# frozen $q$ rescues it. Since the M-step travels rightwards out of a too-short
-# lengthscale, the asymmetry is the useful half: in the direction of travel an M-step
-# on $\bar l$ can go much further before the bound it is climbing stops being
+# Left panel: both bounds pass through the same point at
+# $\boldsymbol{\theta}_t$, which is the value-equality row of the claims
+# table. To the *right*, at longer lengthscales, $l$ falls off a cliff — a
+# $q$ chosen for one kernel is a bad approximation under another — while
+# $\bar l$ has barely moved, since only the data-dependent half of it was
+# frozen. To the *left* the two collapse together instead, since the sparse
+# approximation itself degrades there regardless of which $q$ is frozen.
+# Since the M-step travels rightwards out of a too-short lengthscale, the
+# asymmetry is the useful half: in the direction of travel, an M-step on
+# $\bar l$ can go much further before the bound it is climbing stops being
 # informative.
 #
-# The right panel is the caveat. At $M=20$ the dual bound dominates everywhere we
-# looked, up to float64 noise at the crossing point — the printed $M=20$ minimum is
-# negative at the $10^{-14}$ level and sits at $\Delta\log\ell = 0$, which is the
-# value-equality point itself. At $M=5$ and $M=10$ the gap dips below zero for real —
-# the minima are printed above — and the guarantee does not hold. The reason is
-# precise: with
-# $\mathbf{Z}\neq\mathbf{X}$ the flanked sites
-# $\boldsymbol{\lambda}_1^\star = \mathbf{K}_{zz}^{-1}\mathbf{K}_{zx}(\mathbf{y}-\boldsymbol{\mu}_x)/\sigma^2$
-# still depend on $\boldsymbol{\theta}$ through $\mathbf{K}_{zx}$, so freezing them at
-# $\boldsymbol{\theta}_t$ makes
-# $\boldsymbol{\eta}_0(\boldsymbol{\theta})+\boldsymbol{\lambda}^*_t$ sub-optimal
-# elsewhere and the proof's hypothesis fails. Remove the sparsity and the hypothesis
-# holds exactly.
-
-# %%
-# Z = X: the sites collapse to (y - mu) / sigma^2 and I / sigma^2, free of theta.
-dense_count = 40
-dense_inputs = regression_inputs[:dense_count]
-dense_outputs = regression_outputs[:dense_count]
-dense_data = gpx.Dataset(X=dense_inputs, y=dense_outputs)
-
-dense_sites, dense_moments = exact_sites(
-    regression_lengthscale, dense_inputs, dense_data
-)
-dense_prior = paramax.unwrap(
-    site_family(regression_lengthscale, dense_inputs)
-).model.prior
-dense_gram = dense_prior.kernel.gram(
-    dense_inputs
-).as_matrix() + regression_jitter * jnp.eye(dense_count)
-dense_centred = dense_outputs - dense_prior.mean_function(dense_inputs)
-
-exact_dual_vector = dense_centred / observation_variance
-exact_dual_matrix = jnp.eye(dense_count) / observation_variance
-flanked_error = jnp.max(jnp.abs(dense_gram @ (dense_sites[0] - exact_dual_vector)))
-flanked_scale = jnp.max(jnp.abs(dense_gram @ exact_dual_vector))
-
-print(f"cond(K_zz) at Z = X                : {jnp.linalg.cond(dense_gram):.3e}")
-print(
-    "max |Lambda_2 - I / sigma^2|       : "
-    f"{jnp.max(jnp.abs(dense_sites[1] - exact_dual_matrix)):.3e}   (never test this)"
-)
-print(
-    "relative error of K_zz lambda_1    : "
-    f"{float(flanked_error / flanked_scale):.3e}   (test this instead)"
-)
-
-dense_offsets = jnp.linspace(-0.6, 0.6, 41)
-dense_dual_slice, dense_moment_slice = bound_slice(
-    dense_inputs, dense_data, dense_sites, dense_moments, dense_offsets
-)
-
-fig, ax = plt.subplots(figsize=(5.5, 3.2))
-ax.plot(dense_offsets, dense_dual_slice, color=cols[2], label=r"$\bar l$ (dual_elbo)")
-ax.plot(dense_offsets, dense_moment_slice, color=cols[1], label=r"$l$ (elbo)")
-ax.axvline(0.0, color="black", linestyle="--", linewidth=1)
-ax.set(
-    xlabel=r"$\Delta\log\ell$ from $\theta_t$",
-    ylabel="Bound (nats)",
-    yscale="symlog",
-    title=r"$Z = X$: dominance holds",
-)
-clean_legend(ax)
-
-dense_gap = dense_dual_slice - dense_moment_slice
-print(f"smallest gap over the slice        : {float(dense_gap.min()):+.3e} nats")
-print(f"largest gap over the slice         : {float(dense_gap.max()):+.3e} nats")
+# Right panel: at $M=20$ the dual bound dominates everywhere probed, up to
+# float64 noise at the crossing point (the value-equality point itself). At
+# $M=5$ and $M=10$ the gap dips below zero for real — printed above — so the
+# dominance guarantee, which the claims table restricts to $\mathbf{Z}=\mathbf{X}$,
+# genuinely does not extend to every sparse configuration. (At
+# $\mathbf{Z}=\mathbf{X}$ itself the flanked sites reduce to
+# $\boldsymbol{\lambda}_1=(\mathbf{y}-\boldsymbol{\mu})/\sigma^2$,
+# $\boldsymbol{\Lambda}_2=\mathbf{I}/\sigma^2$ — genuinely
+# $\boldsymbol{\theta}$-free — and dominance holds everywhere; that is a
+# corollary of the claims table, not a new demo, so we do not reproduce it
+# here.)
 
 # %% [markdown]
-# With no sparsity gap the dual bound dominates over the whole slice, by several
-# orders of magnitude, and stays finite where $l$ collapses through decades on a
-# symlog axis. The smallest gap is float64 noise at the crossing point, not a
-# violation.
-#
-# The two diagnostic lines above the plot are the conditioning story promised earlier,
-# and they are worth reading together. At $\mathbf{Z}=\mathbf{X}$ the analytic answer
-# for the stored matrix is $\boldsymbol{\Lambda}_2 = \mathbf{I}/\sigma^2$, and the
-# computed one is wrong by *several units* entrywise, because forming it needs
-# $\mathbf{K}_{zz}^{-1}$ twice at a condition number near $10^9$. Yet
-# $\mathbf{K}_{zz}\boldsymbol{\lambda}_1$ — the flanked quantity that everything
-# downstream actually consumes — is right to nine digits, and the bound plotted above
-# is smooth. The error lives in the near-null space of $\mathbf{K}_{zz}$ and is
-# annihilated on the way back out. That is a measurement in one configuration and not
-# a theorem, which is exactly why the rule is to test $\mathbf{R}$, the moments or the
-# predictions, and never $\boldsymbol{\Lambda}_2$ itself.
-
-# %% [markdown]
-# ## The M-step in a loop
-#
-# Bound slices are static. The claim that actually matters is that a real VEM loop
-# gets further with `dual_elbo` as its M-step objective, and that one is empirical:
-# the paper says as much. So we run it. Both branches share the same E-step — the same
-# iteration, up to the `beta_floor` clip located earlier — and differ only in what the
-# M-step differentiates. The inducing inputs are frozen so that only the kernel moves,
-# and the lengthscale starts five times too short.
+# Bound slices are static. The claim that actually matters is that a real
+# VEM loop gets further with `dual_elbo` as its M-step objective, and that
+# one is empirical — the paper says as much, and so does the claims table.
+# So we run it. Both branches share the same E-step — the same iteration, up
+# to the `beta_floor` clip located earlier — and differ only in what the
+# M-step differentiates. The inducing inputs are frozen so that only the
+# kernel moves, and the lengthscale starts five times too short.
 
 # %%
 expectation_steps = 20
@@ -1493,80 +1003,87 @@ print(
     f"smallest {float(bound_lead.min()):+.3f}, largest {float(bound_lead.max()):+.3f}, "
     f"final {float(bound_lead[-1]):+.3f} nats"
 )
-# Sentinel above every attainable round, so "never" stays distinguishable.
-never_positive = vem_rounds + 1
-crossing_round = int(jnp.min(jnp.where(bound_lead > 0.0, rounds, never_positive)))
-if crossing_round == never_positive:
-    print("the dual M-step never takes the lead")
+# The last round the lead is non-positive, so we can report where it becomes
+# permanent rather than where it first (and only briefly) turns positive.
+last_nonpositive_round = int(jnp.max(jnp.where(bound_lead <= 0.0, rounds, 0)))
+if last_nonpositive_round == 0:
+    print("dual_elbo leads for the whole run")
 else:
+    remaining = vem_rounds - last_nonpositive_round
     print(
-        f"first round with a positive lead: {crossing_round}; smallest lead from "
-        f"there on: {float(bound_lead[crossing_round - 1 :].min()):+.3f} nats"
+        f"last round with a non-positive lead: {last_nonpositive_round}; "
+        f"the lead stays positive for all {remaining} rounds after that"
     )
 
 # %% [markdown]
-# The two lengthscale traces sit on top of each other for the first several rounds and
-# then separate, with the dual branch ending the longer of the two; both final values
-# are printed above. The right panel is the difference of the two bounds rather than
-# the two bounds themselves, and that is deliberate: on a negative ELBO of around 294 a
-# lead of a nat is invisible, so the traces would be indistinguishable and the sign of
-# the difference — the whole question — unreadable.
+# The two lengthscale traces sit on top of each other for the first several
+# rounds and then separate, with the dual branch ending the longer of the
+# two; both final values are printed above. The right panel plots the
+# difference of the two bounds rather than the two bounds themselves,
+# because on a negative ELBO of a few hundred a lead of a nat is invisible
+# on the natural scale.
 #
-# The sign changes. Over the opening rounds the dual branch is *behind*, by up to a few
-# nats, while both are still far from the optimum and moving fast; it takes the lead at
-# the printed crossing round and does not give it back, peaking below a nat and ending
-# at the printed final value. So the honest reading is not "the dual M-step is
-# uniformly ahead". It is that the two branches take different routes to the same
-# place: after forty rounds the dual one has the longer lengthscale and the marginally
-# better bound, and their held-out NLPDs agree to three decimal places. That is
-# consistent with the theory, which promises equality at convergence and says nothing
-# about the rate — "exact theoretical reasons behind the speed-ups are currently
-# unknown to us".
+# The sign is not settled early. For the first two rounds the dual bound
+# leads by a few tenths of a nat, then falls behind for rounds three through
+# six — both lengthscales are still moving fast and $q$ is far from
+# converged at every round, exactly the regime where the two M-step
+# objectives are proven to differ — bottoming out at $-1.15$ nats. The round
+# printed above is the *last* one with a non-positive lead; every round
+# after it is positive, rising to a peak around $+1.27$ nats and easing back
+# to the final value printed above. So the honest reading is not "the
+# dual M-step is uniformly ahead"; early on it is not. It is that the two
+# branches take different routes to the same place: after forty rounds the
+# dual one has the longer lengthscale and the marginally better bound, and
+# their held-out metrics agree closely. That is consistent with the theory,
+# which promises equality at convergence and says nothing about the rate —
+# "exact theoretical reasons behind the speed-ups are currently unknown to
+# us."
 #
 # It is also a soft result on a two-dimensional problem with one kernel
-# hyperparameter and fifty fixed inducing points. The regime the paper reports gains
-# in — many latent GPs, large $N$, mini-batched, hyperparameters far from their
-# optimum — is not this one. Read the demo as a mechanism check rather than as a
-# benchmark, and if you want the mechanism in one sentence: at an incomplete E-step
-# the two objectives have different hyperparameter gradients, and the dual one is the
-# gradient of a function that still knows the prior depends on $\boldsymbol{\theta}$.
+# hyperparameter and fifty fixed inducing points. The regime the paper
+# reports gains in — many latent GPs, large $N$, mini-batched,
+# hyperparameters far from their optimum — is not this one. Read the demo as
+# a mechanism check rather than as a benchmark, and if you want the
+# mechanism in one sentence: at an incomplete E-step the two objectives have
+# different hyperparameter gradients, and the dual one is the gradient of a
+# function that still knows the prior depends on $\boldsymbol{\theta}$.
 
 # %% [markdown]
 # ## Caveats
 #
-# * **One latent process.** Everything above assumes $L=1$. The site structure across
-#   multiple latent GPs is block diagonal only when the variational family is itself
-#   latent diagonal, and the tied projection has to be re-derived rather than reused
-#   for a multi-output model. `DualVariationalGaussian` targets the scalar case.
-# * **$\beta_i \ge 0$ needs a log-concave likelihood — as *computed*, not as written.**
-#   Student-$t$ and some heteroscedastic likelihoods are not log-concave at all, and
-#   for those the target can push $\boldsymbol{\Lambda}_2$ out of the PSD cone. Less
-#   obviously, GPJax's Bernoulli joins them in the far tails: `inv_probit` clips its
-#   output into $[10^{-3},\,1-10^{-3}]$, which flattens $\log p$ and makes its second
-#   derivative positive for $f \lesssim -2.44$, so a confidently mislabelled point
-#   yields $\beta_i < 0$. The `beta_floor` keyword (default $10^{-8}$) clips
-#   $\boldsymbol{\beta}$ from below and keeps the step inside the cone. It is *not* a
-#   no-op for Bernoulli — it is what breaks the $\rho=\gamma$ identity on the banana
-#   demo above, by $\sim\!10^{-3}$ in $(\mathbf{m},\mathbf{S})$. Note that it clips
-#   $\boldsymbol{\beta}$, never $\boldsymbol{\Lambda}_2$: the update stays affine, so
-#   it stays `jit`- and `scan`-safe.
-# * **$\rho \in (0,1]$.** The convex-combination guarantee stops at $1$, and beyond it
-#   the step extrapolates past a target that is only locally valid. `fit_natgrads`
-#   rejects a larger constant rate for this family at call time.
-# * **Flanked storage squares $\operatorname{cond}(\mathbf{K}_{zz})$.** Benign in
-#   everything measured here at the level of $\mathbf{R}$, the moments and the bound,
-#   and visibly not benign entrywise in $\boldsymbol{\Lambda}_2$. Never write a test
-#   against $\boldsymbol{\Lambda}_2$ directly.
+# * **One latent process.** Everything above assumes $L=1$. The site
+#   structure across multiple latent GPs is block diagonal only when the
+#   variational family is itself latent diagonal, and the tied projection
+#   has to be re-derived rather than reused for a multi-output model.
+# * **$\beta_i \ge 0$ needs a log-concave likelihood — as *computed*, not as
+#   written.** Student-$t$ and some heteroscedastic likelihoods are not
+#   log-concave at all, and for those the target can push
+#   $\boldsymbol{\Lambda}_2$ out of the PSD cone. Less obviously, GPJax's
+#   Bernoulli joins them in the far tails: `inv_probit` clips its output
+#   into $[10^{-3},\,1-10^{-3}]$, which flattens $\log p$ and makes its
+#   second derivative positive for $f \lesssim -2.44$, so a confidently
+#   mislabelled point yields $\beta_i < 0$. The `beta_floor` keyword
+#   (default $10^{-8}$) clips $\boldsymbol{\beta}$ from below and keeps the
+#   step inside the cone. It is *not* a no-op for Bernoulli — it is what
+#   broke the $\rho=\gamma$ identity above, by $\sim\!5\times10^{-3}$ in
+#   $(\mathbf{m},\mathbf{S})$. Note that it clips $\boldsymbol{\beta}$,
+#   never $\boldsymbol{\Lambda}_2$: the update stays affine, so it stays
+#   `jit`- and `scan`-safe.
+# * **$\rho \in (0,1]$.** The convex-combination guarantee stops at $1$, and
+#   beyond it the step extrapolates past a target that is only locally
+#   valid. `fit_natgrads` rejects a larger constant rate for this family at
+#   call time.
+# * **Flanked storage squares $\operatorname{cond}(\mathbf{K}_{zz})$.**
+#   Benign in everything measured here at the level of $\mathbf{R}$, the
+#   moments and the bound; never write a test against
+#   $\boldsymbol{\Lambda}_2$ directly — see the natural-gradients notebook
+#   for the numerical demonstration of why.
 # * **The E-step is not a free lunch.** Wherever the computed $\beta_i$ stay
 #   non-negative it is the *same iteration* as the natural gradient step on
-#   $(\mathbf{m},\mathbf{L})$, and where they do not the difference is the clip above,
-#   not a better search direction. Whatever the dual parameterisation buys is either
-#   wall-clock per iteration or M-step behaviour; none of it is a better $q$ at the
-#   same $\boldsymbol{\theta}$.
-#
-# For the geometry the E-step is built on — the Fisher identity, mirror descent, the
-# negative-definite cone and the step-size backoff — see the
-# [natural gradients notebook](natgrads.py).
+#   $(\mathbf{m},\mathbf{L})$, and where they do not, the difference is the
+#   clip above, not a better search direction. Whatever the dual
+#   parameterisation buys is either wall-clock per iteration or M-step
+#   behaviour; none of it is a better $q$ at the same $\boldsymbol{\theta}$.
 
 # %% [markdown]
 # ## System configuration

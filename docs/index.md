@@ -152,6 +152,7 @@ examples/intro_to_kernels
 examples/regression
 examples/classification
 examples/poisson
+examples/natural_gradients
 ```
 
 ```{toctree}
