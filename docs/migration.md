@@ -143,6 +143,53 @@ Three breaking changes follow:
   `AbstractVariationalFamily` must now implement `predict`, `prior_kl` and
   `condition`.
 
+### OILMM joins the conditioning contract
+
+`OILMMModel.condition_on_observations(D)` becomes `model.condition(D)` (or
+`model | D`), and `OILMMPosterior.predict(x, return_full_cov=...)` becomes the
+`covariance=` keyword every other process uses. Both old spellings still work
+and emit a `DeprecationWarning`.
+
+```python
+import jax.numpy as jnp
+import jax.random as jr
+import gpjax as gpx
+from gpjax.models import create_oilmm
+
+X = jnp.linspace(0.0, 5.0, 20).reshape(-1, 1)
+y = jnp.hstack([jnp.sin(X), jnp.cos(X), jnp.sin(2.0 * X)])
+D = gpx.Dataset(X=X, y=y)
+model = create_oilmm(
+    num_outputs=3, num_latent_gps=2, kernel=gpx.kernels.RBF(), key=jr.key(0)
+)
+
+posterior = model | D                              # was: condition_on_observations(D)
+predictive = posterior(X[:5], covariance="diagonal")  # was: return_full_cov=False
+evidence = posterior.log_marginal_likelihood       # was: oilmm_mll(model, D)
+```
+
+Two behavioural notes. `OILMMPosterior` is now an `equinox.Module` and a
+`gpjax.conditioning.Posterior`, so it is a pytree and can be passed through
+`jit`, `grad` and `vmap`; its constructor takes `(model, train_data)` rather
+than pre-built latent pieces. And because it caches the latent factorisations
+at `condition` time rather than rebuilding them inside `predict`, repeated
+prediction from one posterior is markedly cheaper — condition once, predict
+many times.
+
+`latent_datasets` is gone, and `latent_posteriors` now holds conditioned
+`ExactPosterior`s rather than unconditioned `ConjugateModel`s. Each latent
+process carries its own projected training set, so reach through it:
+
+```python
+latent = posterior.latent_posteriors[0]
+projected_y = latent.train_data.y            # was: posterior.latent_datasets[0].y
+latent_pred = latent(X[:5])                  # was: predict(x, train_data=...)
+```
+
+For this multi-output process `covariance="dense"` returns the joint
+`(NP, NP)` covariance across test inputs *and* outputs, flattened
+output-major, where single-output processes return `(N, N)`.
+
 `HeteroscedasticVariationalFamily` is the exception: it approximates two
 latent processes, so it has no single conditioned process and its
 `condition` raises `NotImplementedError`. Use `predict_latents(xtest)`, or

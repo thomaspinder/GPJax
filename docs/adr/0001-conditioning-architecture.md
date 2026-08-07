@@ -66,6 +66,7 @@ implemented across every conditioning mode:
 | sparse | `VariationalGaussian`, `WhitenedVariationalGaussian`, `DualVariationalGaussian`, `GraphVariationalGaussian` | `SparsePosterior` |
 | collapsed | `CollapsedVariationalGaussian` | `CollapsedPosterior` |
 | state-space | `StateSpaceConjugateModel` | `StateSpacePosterior` (Kalman-backed) |
+| multi-output | `OILMMModel` | `OILMMPosterior` (M cached latent factorisations) |
 
 The sparse families carry q(u) internally and ignore `train_data`; the
 collapsed family solves its optimal q\*(u) from it; the state-space mode
@@ -86,11 +87,22 @@ papered over — returning some partial object from `condition` would make the
 contract dishonest, which is the failure mode the uniform signature exists to
 prevent.
 
-`gpjax.models.oilmm` sits outside this contract. `OILMMModel` is not a
-`JointModel`; it keeps `condition_on_observations` and its own
-`OILMMPosterior`, which is a plain class holding `Dataset` objects rather
-than a `gpjax.conditioning.Posterior`. Folding it in is follow-up work, not
-part of the v1.0 claim.
+`gpjax.models.oilmm` is on the contract. `OILMMModel` is not a `JointModel`
+— it is not built from `prior * likelihood` — but it does not need to be:
+`condition` is a method returning a `Posterior`, and membership is defined by
+that, not by ancestry. `model.condition(D)` and `model | D` return an
+`OILMMPosterior`, now a `Posterior` subclass holding the `M` conditioned
+latent processes; `condition_on_observations` and `predict(return_full_cov=)`
+survive as deprecated aliases.
+
+Two things fell out of that change rather than being designed into it. The
+old `OILMMPosterior` held `M` *unconditioned* `ConjugateModel`s alongside `M`
+datasets, deferring the real conditioning to `predict` — so every prediction
+re-factorised `M` Choleskys. Holding `ExactPosterior`s instead caches them at
+`condition` time (measured ~1.8x on repeated prediction at n=300). And the
+docstring's stated reason for the plain class — that it "holds Dataset
+objects which are not JAX pytree nodes" — was simply untrue: `Dataset` is a
+registered pytree, and `ExactPosterior` has held one as a field all along.
 
 ## Rejected alternatives
 
@@ -135,7 +147,7 @@ part of the v1.0 claim.
   deepening, one training loop with stepper adapters, the compute-engine
   seam, sharing the `K_zz` factor between `prior_kl` and `condition(D)`
   within a single ELBO step (today each factorises its own; XLA CSE merges
-  them under `jit`), bringing `gpjax.models.oilmm` onto the contract, and the
+  them under `jit`), and the
   heteroscedastic family's NamedTuple predict (candidate-3 debt — it still
   derives its predictive through its two sub-families rather than a
   conditioning mode of its own, which is why it is the documented exclusion
