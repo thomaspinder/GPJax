@@ -1019,7 +1019,12 @@ colourbar = fig.colorbar(contours, ax=axes, label=r"$q(y=1 \mid x)$")
 # $\boldsymbol{\Theta}_2^{\text{tgt}}$; and likelihoods that are not log-concave
 # (Student-$t$, for instance), for which
 # $\partial\mathcal{L}_{\text{data}}/\partial\mathbf{S}$ can have positive eigenvalues
-# and the target itself sits outside the cone. Below we sweep $\gamma$ from an
+# and the target itself sits outside the cone. Log-concavity here is a property of the
+# likelihood *as computed*, not as written: GPJax's `inv_probit` clips its output into
+# $[10^{-3},\,1-10^{-3}]$, which flattens the tail of $\log p$ enough to give it a
+# positive second derivative for $f \lesssim -2.44$, so even the Bernoulli model used
+# below leaves the guaranteed regime once a point is confidently mislabelled. That is
+# the behaviour the backoff below is really guarding. Below we sweep $\gamma$ from an
 # over-confident starting point — $\mathbf{S}_0 = 10^{-2}\mathbf{I}$, sharper than the
 # target — which is precisely the regime where extrapolation bites.
 
@@ -1134,9 +1139,9 @@ for max_backoff in [0, 3, 5, 7, 10]:
 #   likelihood with gross outliers the target $\boldsymbol{\Theta}_2^{\text{tgt}}$ can
 #   itself be outside the cone, so no positive $\gamma$ is provably safe.
 #
-# The companion dual sparse GP notebook takes the same geometry in a different
-# direction, storing the site parameters of the variational distribution rather than
-# its moments.
+# The companion [dual sparse GP notebook](dual_svgp.py) takes the same geometry in a
+# different direction, storing the site parameters of the variational distribution
+# rather than its moments.
 
 # %% [markdown]
 # ## System configuration

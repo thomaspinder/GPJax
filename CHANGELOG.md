@@ -29,7 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   current sites with a closed-form target, so no expectation-to-natural round trip is
   needed and the KL is never differentiated. `fit_natgrads` dispatches on the family
   and takes that step; the step size means the same thing in both branches, and from
-  the same starting `q` the dual and Salimbeni E-steps produce identical iterates. The
+  the same starting `q` the dual and Salimbeni E-steps produce identical iterates —
+  provided the dual branch's computed per-point curvature stays non-negative, so that
+  its `beta_floor` never engages. That holds for a genuinely log-concave likelihood;
+  GPJax's `inv_probit` clips its probabilities away from 0 and 1, which breaks
+  log-concavity in the far tails, and there the two branches diverge. The
   dual branch restricts the step size to the interval from zero to one, since the
   update is a convex combination.
   `dual_elbo` has the same *value* as `elbo` at the implied moments, for any sites and

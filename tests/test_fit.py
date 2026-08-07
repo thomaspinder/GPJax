@@ -1119,11 +1119,65 @@ def test_fit_natgrads_dual_rejects_schedule_above_one() -> None:
         )
 
     # A schedule that only exceeds 1 outside the horizon is fine, and the Salimbeni
-    # families are unrestricted either way.
+    # families are unrestricted above either way.
     _check_natgrad_lr(ox.linear_schedule(0.5, 5.0, 100), dual, 3)
     _check_natgrad_lr(ox.constant_schedule(5.0), moment, 3)
     # Without ``num_iters`` a schedule stays unexamined, as documented.
     _check_natgrad_lr(ox.constant_schedule(5.0), dual)
+
+
+def test_check_natgrad_schedule_rejects_non_positive_rates() -> None:
+    """The lower bound binds for every family, not just the dual one.
+
+    ``rho <= 0`` is not a small step: zero wastes the iteration and a negative rate
+    extrapolates *away* from the target, which can leave the PSD cone in either
+    parameterisation. The scalar path has always rejected it; before this guard a
+    schedule that decayed through zero inside the horizon sailed past unexamined.
+    """
+    dual, _ = _dual_svgp_setup(n_data=10)
+    moment, _ = _svgp_setup(n_data=10)
+
+    # A ramp that hits exactly zero at the end of the horizon, and one that crosses.
+    touches_zero = ox.linear_schedule(0.5, 0.0, 9)
+    crosses_zero = ox.linear_schedule(0.5, -0.5, 5)
+
+    for model in (dual, moment):
+        for schedule in (touches_zero, crosses_zero):
+            with pytest.raises(ValueError, match=r"natgrad_lr to be positive"):
+                _check_natgrad_lr(schedule, model, 10)
+
+    # A constant negative schedule is rejected for both families too.
+    for model in (dual, moment):
+        with pytest.raises(ValueError, match=r"natgrad_lr to be positive"):
+            _check_natgrad_lr(ox.constant_schedule(-0.1), model, 3)
+
+    # The valid ramp the notebooks use must still pass, for both families.
+    valid_ramp = ox.exponential_decay(
+        init_value=1e-4, transition_steps=100, decay_rate=1000.0, end_value=1e-1
+    )
+    for model in (dual, moment):
+        _check_natgrad_lr(valid_ramp, model, 200)
+
+    # A decay that only reaches zero past the horizon is still fine.
+    _check_natgrad_lr(touches_zero, dual, 5)
+    # And without ``num_iters`` nothing is examined, as documented.
+    _check_natgrad_lr(crosses_zero, dual)
+
+
+def test_fit_natgrads_rejects_a_schedule_that_decays_through_zero() -> None:
+    """The guard fires at the entry point, not only in the helper."""
+    moment, D = _svgp_setup(n_data=10)
+
+    with pytest.raises(ValueError, match=r"natgrad_lr to be positive"):
+        fit_natgrads(
+            model=moment,
+            objective=_negative_elbo,
+            train_data=D,
+            optim=ox.adam(0.05),
+            natgrad_lr=ox.linear_schedule(0.5, -0.5, 5),
+            num_iters=10,
+            verbose=False,
+        )
 
 
 def test_fit_on_dual_family_still_works() -> None:

@@ -162,6 +162,7 @@ examples/poisson
 examples/collapsed_vi
 examples/uncollapsed_vi
 examples/natgrads
+examples/dual_svgp
 examples/state_space_gps
 examples/oilmm
 ```

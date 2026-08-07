@@ -20,6 +20,7 @@ import re
 import equinox as eqx
 import gpjax
 from gpjax.dataset import Dataset
+from gpjax.likelihoods import inv_probit
 from gpjax.linalg import add_jitter
 from gpjax.natural_gradients import (
     _expected_log_likelihood_derivatives,
@@ -836,9 +837,11 @@ def test_natgrad_step_supports_graph_variational_gaussian() -> None:
     """The graph family steps without error and keeps its int64 inducing inputs.
 
     The objective is the prior KL rather than the ELBO: ``elbo`` routes through
-    ``variational_expectation``, whose per-point ``vmap`` trips a pre-existing
-    jaxtyping error in ``EigenKernelComputation._cross_covariance`` for a single
-    graph node. That is orthogonal to natural gradients, so the smoke test avoids it.
+    ``variational_expectation``, whose per-point ``vmap`` makes
+    ``KernelComputation.gram`` raise ``ValueError:
+    `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` for a single graph
+    node. That break is pre-existing -- it reproduces unchanged on ``main`` -- and is
+    orthogonal to natural gradients, so the smoke test avoids it.
     """
     graph = nx.barbell_graph(10, 0)
     laplacian = nx.laplacian_matrix(graph).toarray()
@@ -1467,3 +1470,128 @@ def test_dual_natgrad_step_rejects_non_trainable_coordinates():
     )
     with pytest.raises(ValueError, match="dual_matrix"):
         _take_step(family, dataset, 0.5, objective=_negative_dual_elbo)
+
+
+# ---------------------------------------------------------------------------
+# N12 -- the clipped probit link is what breaks the rho = gamma identity
+# ---------------------------------------------------------------------------
+def _mislabelled_bernoulli_setup(flip: bool):
+    r"""A Bernoulli SVGP whose labels are cleanly separated, or not.
+
+    With ``flip`` the two points at $x=\pm 1.077$ carry the label of the *opposite*
+    side. The prior is smooth enough (lengthscale $0.7$, variance $4$, eight inducing
+    points) that the fit cannot bend around them, so within a couple of steps their
+    marginal means sit deep in the tail the probit clip flattens.
+    """
+    inputs = jnp.linspace(-2.0, 2.0, 40).reshape(-1, 1)
+    labels = (inputs[:, 0] > 0.0).astype(jnp.float64)
+    if flip:
+        labels = labels.at[30].set(0.0).at[9].set(1.0)
+
+    kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(4.0))
+    posterior = (
+        gpjax.gps.Prior(mean_function=gpjax.mean_functions.Zero(), kernel=kernel)
+        * gpjax.likelihoods.Bernoulli()
+    )
+    return (
+        posterior,
+        Dataset(X=inputs, y=labels[:, None]),
+        jnp.linspace(-2.0, 2.0, 8).reshape(-1, 1),
+    )
+
+
+def _six_matched_steps(posterior, dataset, inducing_inputs, beta_floor):
+    """Six matched rho = 0.8 steps; return the worst gap and the smallest beta seen."""
+    dual = _build_dual(posterior, inducing_inputs)
+    moment = _matched_variational_gaussian(dual)
+
+    worst_gap = 0.0
+    smallest_beta = jnp.inf
+    for _ in range(6):
+        unwrapped = paramax.unwrap(dual)
+        mean, variance = unwrapped.marginals(dataset.X)
+        _, beta = _expected_log_likelihood_derivatives(
+            unwrapped.posterior.likelihood, dataset.y, mean, variance
+        )
+        smallest_beta = min(smallest_beta, float(jnp.min(beta)))
+
+        dual, _ = _take_step(
+            dual, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=beta_floor
+        )
+        moment, _ = _take_step(moment, dataset, 0.8)
+
+        dual_mean, dual_covariance = dual.moments()
+        moment_mean, moment_root = _moments_of(moment)
+        worst_gap = max(
+            worst_gap,
+            float(jnp.max(jnp.abs(dual_mean - moment_mean))),
+            float(jnp.max(jnp.abs(dual_covariance - moment_root @ moment_root.T))),
+        )
+    return worst_gap, smallest_beta
+
+
+def test_beta_floor_not_conditioning_breaks_the_dual_salimbeni_identity():
+    r"""``inv_probit``'s clip, not arithmetic, is what separates the two branches.
+
+    ``inv_probit`` squashes its output into $[10^{-3},\,1-10^{-3}]$, so the *computed*
+    Bernoulli log-likelihood is not log-concave in the tails: its second derivative
+    turns positive for $f \lesssim -2.44$. A confidently mislabelled point therefore
+    contributes $\beta_i<0$, the dual branch clips it at ``beta_floor`` and the
+    Salimbeni branch does not, and the iterates part company.
+
+    The three arms isolate the cause. Only the clip is varied between the first two,
+    and only the data between the first and third, so a conditioning or cancellation
+    explanation cannot account for the pattern -- neither of those responds to
+    ``beta_floor``.
+    """
+    posterior, dataset, inducing_inputs = _mislabelled_bernoulli_setup(flip=True)
+
+    # (1) Default floor: beta goes negative, the clip engages, the branches diverge.
+    floored_gap, smallest_beta = _six_matched_steps(
+        posterior, dataset, inducing_inputs, beta_floor=1e-8
+    )
+    assert smallest_beta < -0.1, (
+        "the mislabelled points must drive the computed beta negative for this test "
+        f"to be exercising the clip at all; smallest beta was {smallest_beta}"
+    )
+    assert floored_gap > 1e-3
+
+    # (2) Same model, same data, clip disabled: back to the arithmetic noise floor.
+    unfloored_gap, unfloored_smallest = _six_matched_steps(
+        posterior, dataset, inducing_inputs, beta_floor=-jnp.inf
+    )
+    assert unfloored_smallest == pytest.approx(smallest_beta)
+    assert unfloored_gap < 1e-10
+
+    # (3) Clean labels, default floor: beta never goes negative, so the clip is inert
+    #     and the identity holds exactly -- the mislabelling, not the model, is what
+    #     reaches the non-log-concave tail.
+    clean_posterior, clean_dataset, clean_inducing = _mislabelled_bernoulli_setup(
+        flip=False
+    )
+    clean_gap, clean_smallest = _six_matched_steps(
+        clean_posterior, clean_dataset, clean_inducing, beta_floor=1e-8
+    )
+    assert clean_smallest > 0.0
+    assert clean_gap < 1e-10
+
+
+def test_clipped_probit_log_likelihood_is_not_log_concave_in_the_tail():
+    """The upstream cause, pinned directly on ``inv_probit``.
+
+    Without the clip $\\log\\Phi$ is concave everywhere. With it the tail flattens onto
+    $\\log(10^{-3})$, so the second derivative must return to zero from below and is
+    positive well before it gets there.
+    """
+    second_derivative = jax.grad(jax.grad(lambda f: jnp.log(inv_probit(f))))
+
+    # Concave where the clip is nowhere near binding.
+    for latent in [-2.0, -1.0, 0.0, 1.0, 2.0]:
+        assert float(second_derivative(jnp.asarray(latent))) < 0.0
+
+    # Convex once the clip has flattened the tail.
+    for latent in [-3.0, -3.5, -4.0]:
+        assert float(second_derivative(jnp.asarray(latent))) > 0.0
+
+    # The clip is the reason: the probability has bottomed out on the floor.
+    assert float(inv_probit(jnp.asarray(-6.0))) == pytest.approx(1e-3, rel=1e-4)
