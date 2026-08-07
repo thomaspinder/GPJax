@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
@@ -38,7 +40,7 @@ class Matern52(StationaryKernel):
     $$
     """
 
-    name: str = "Matérn52"
+    name: ClassVar[str] = "Matérn52"
 
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]

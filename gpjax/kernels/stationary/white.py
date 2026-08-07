@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from typing import ClassVar
+
 import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import AbstractKernel, _val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     ConstantDiagonalKernelComputation,
 )
 from gpjax.kernels.stationary.base import StationaryKernel
+from gpjax.parameters import NonNegativeReal
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -37,7 +40,12 @@ class White(StationaryKernel):
     $$
     """
 
-    name: str = "White"
+    name: ClassVar[str] = "White"
+    # White noise has no lengthscale: __call__ never reads it, so it is
+    # overridden to a ClassVar here rather than inherited as a real field,
+    # which would otherwise manufacture a phantom, trainable pytree leaf
+    # (see issue #695).
+    lengthscale: ClassVar[None] = None
 
     def __init__(
         self,
@@ -55,7 +63,18 @@ class White(StationaryKernel):
             compute_engine: The computation engine that the kernel uses to compute the
                 covariance matrix
         """
-        super().__init__(active_dims, 1.0, variance, n_dims, compute_engine)
+        # Bypass StationaryKernel.__init__ (which would set a lengthscale)
+        # and go straight to AbstractKernel.__init__.
+        AbstractKernel.__init__(
+            self,
+            active_dims=active_dims,
+            n_dims=n_dims,
+            compute_engine=compute_engine,
+        )
+        if isinstance(variance, AbstractUnwrappable):
+            self.variance = variance
+        else:
+            self.variance = NonNegativeReal(variance)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         K = jnp.all(jnp.equal(x, y)) * _val(self.variance)

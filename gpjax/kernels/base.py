@@ -51,7 +51,9 @@ class AbstractKernel(_SummaryMixin, eqx.Module):
     active_dims: tp.Union[list[int], slice] = eqx.field(
         static=True, default_factory=lambda: slice(None)
     )
-    compute_engine: AbstractKernelComputation = eqx.field(static=True)
+    compute_engine: AbstractKernelComputation = eqx.field(
+        static=True, default_factory=DenseKernelComputation
+    )
     n_dims: tp.Union[int, None] = eqx.field(static=True, default=None)
 
     def __init__(
@@ -301,19 +303,6 @@ class ProductKernel(CombinationKernel):
 
     def _reduce(self, values: Float[Array, " K"]) -> ScalarFloat:
         return jnp.prod(values)
-
-
-def _compute_base_init(active_dims, n_dims, compute_engine=DenseKernelComputation()):
-    """Compute validated base kernel init values without setting fields.
-
-    Use this in subclass __init__ methods to compute the base fields before
-    setting them, since equinox modules are frozen after super().__init__().
-    """
-    active_dims = active_dims or slice(None)
-    _check_active_dims(active_dims)
-    _check_n_dims(n_dims)
-    active_dims, n_dims = _check_dims_compat(active_dims, n_dims)
-    return active_dims, n_dims, compute_engine
 
 
 def _check_active_dims(active_dims: tp.Any):

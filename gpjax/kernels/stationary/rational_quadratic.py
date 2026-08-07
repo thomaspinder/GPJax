@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import beartype.typing as tp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
@@ -48,7 +50,7 @@ class RationalQuadratic(StationaryKernel):
     squared lengthscale.
     """
 
-    name: str = "Rational Quadratic"
+    name: ClassVar[str] = "Rational Quadratic"
     alpha: tp.Any
 
     def __init__(
