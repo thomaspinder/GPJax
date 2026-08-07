@@ -413,7 +413,7 @@ class OILMMPosterior(Posterior):
         self,
         test_inputs: Float[Array, "N D"],
         *,
-        covariance: tp.Literal["dense", "diagonal"] = "dense",
+        covariance: tp.Literal["dense", "diagonal"] = "diagonal",
     ) -> GaussianDistribution:
         r"""Evaluate the conditioned OILMM at the given test inputs.
 
@@ -427,6 +427,13 @@ class OILMMPosterior(Posterior):
         processes return :math:`(N, N)`. ``covariance="diagonal"`` returns the
         :math:`NP` marginal variances, and asks the same of each latent
         process, so the dense latent covariances are never formed.
+
+        The default is ``"diagonal"``: forming the joint covariance costs
+        :math:`O(m n^2 p^2)` (an :math:`np \times np` matrix from :math:`m`
+        :math:`n \times n` latent covariances), which forfeits the
+        :math:`O(mn^3 + nmp)` scaling OILMM exists for. Marginal variances are
+        the common query and stay on the cheap path; pass
+        ``covariance="dense"`` to opt into the joint covariance explicitly.
 
         Args:
             test_inputs: Input locations of shape ``(N, D)``.
@@ -495,10 +502,12 @@ class OILMMPosterior(Posterior):
         test_inputs: Float[Array, "N D"],
         train_data: Dataset | None = None,
         *,
-        covariance: tp.Literal["dense", "diagonal"] = "dense",
+        covariance: tp.Literal["dense", "diagonal"] = "diagonal",
         return_full_cov: bool | None = None,
     ) -> GaussianDistribution:
         r"""Sugar for calling the posterior: ``predict(t) == self(t)``.
+
+        Defaults to ``covariance="diagonal"``: see :meth:`__call__` for why.
 
         Args:
             test_inputs: Input locations of shape ``(N, D)``.
