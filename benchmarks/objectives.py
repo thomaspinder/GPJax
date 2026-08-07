@@ -190,7 +190,7 @@ class OilmmPredictSuite:
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, P))
         dataset = gpx.Dataset(X=X, y=y)
-        self.posterior = model.condition_on_observations(dataset)
+        self.posterior = model.condition(dataset)
         self.X_test = jnp.linspace(0.1, 0.9, 20).reshape(-1, 1)
         realise(self.posterior.predict(self.X_test))
 
