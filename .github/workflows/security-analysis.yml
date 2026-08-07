@@ -3,8 +3,14 @@ name: "Security Analysis"
 on:
   push:
     branches: [ "main" ]
+  # Deliberately unfiltered: the two jobs below are required contexts on `main`,
+  # and a `branches: [main]` filter here meant they only ever reported on PRs
+  # that already targeted `main`. Stacked PRs — which target their predecessor,
+  # not `main` — produced 16 checks instead of 18, so the whole of a stack got
+  # reviewed and approved without ever being secret- or dependency-scanned; the
+  # gate first fired at retarget time, after review. Scan the code, not the
+  # target branch.
   pull_request:
-    branches: [ "main" ]
   schedule:
     - cron: '30 4 * * 1'  # Weekly on Mondays at 4:30 AM UTC
 
@@ -75,4 +81,18 @@ jobs:
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
-        extra_args: --debug --only-verified
+        # `--exclude-detectors=lob`: TruffleHog's Lob key pattern is
+        # `(live|test)_` followed by 35 more characters, which matches any
+        # pytest function name that happens to be exactly 40 characters long —
+        # and its verifier then reports those as *verified*, so `--only-verified`
+        # does not filter them out. Four real examples in this repo:
+        # test_fit_natgrads_accepts_optax_schedule,
+        # test_dual_natgrad_matches_salimbeni_step,
+        # test_dual_working_matrices_reconstruct_r,
+        # test_prior_kl_matches_textbook_reference.
+        # Reproduced standalone: a fresh repo containing only one of those names
+        # yields `Lob verified=true`. Since `Secrets Detection` is a required
+        # context on `main`, leaving this on means an arbitrary, length-dependent
+        # subset of PRs can never merge. GPJax has no Lob (direct-mail API)
+        # integration, so excluding the detector costs no real coverage.
+        extra_args: --debug --only-verified --exclude-detectors=lob
