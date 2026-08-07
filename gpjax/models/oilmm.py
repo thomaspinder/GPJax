@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import typing as tp
+import warnings
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -21,6 +22,7 @@ import jax.random as jr
 from jaxtyping import Array, Float
 import lineax as lx
 
+from gpjax.conditioning import Posterior
 from gpjax.distributions import GaussianDistribution
 from gpjax.parameters import NonNegativeReal, PositiveReal, Real, _val
 from gpjax.typing import ScalarFloat
@@ -263,155 +265,264 @@ class OILMMModel(eqx.Module):
         y_projected = T @ dataset.y.T  # [M, P] @ [P, N] = [M, N]
         return dataset.X, y_projected
 
-    def condition_on_observations(self, dataset: Dataset) -> OILMMPosterior:
-        """Condition on observations to create posterior.
+    def condition(self, train_data: Dataset) -> OILMMPosterior:
+        r"""Condition the model on data, returning the conditioned process.
 
-        This implements the core OILMM inference algorithm:
-        1. Project observations: y_latent = T @ y
-        2. Condition M independent GPs on projected data
-        3. Return OILMMPosterior wrapping the M posteriors
+        Projects the observations into latent space and conditions the ``M``
+        independent latent GPs, caching each factorisation on the returned
+        :class:`OILMMPosterior`. Operator sugar: ``model | train_data``.
 
         Args:
-            dataset: Training data with X [N, D] and y [N, P]
+            train_data: Training data with ``X`` of shape ``(N, D)`` and ``y``
+                of shape ``(N, P)``.
 
         Returns:
-            OILMMPosterior containing M independent posteriors
+            OILMMPosterior: The conditioned OILMM process.
         """
-        from gpjax.dataset import Dataset
-        from gpjax.likelihoods import Gaussian
+        return OILMMPosterior(self, train_data)
 
-        # Phase 1: Project observations (O(nmp))
-        X, y_projected = self._project_observations(dataset)  # [N, D], [M, N]
+    def __or__(self, train_data: Dataset) -> OILMMPosterior:
+        r"""Operator sugar for :meth:`condition`: ``model | train_data``."""
+        return self.condition(train_data)
 
-        # Phase 2: Get projected noise variances
-        projected_noise_vars = self.mixing_matrix.projected_noise_variance  # [M]
-
-        # Phase 3: Condition each latent GP independently.
-        # NOTE: We use a Python loop rather than jax.vmap because each
-        # latent Prior/Posterior is an eqx.Module with independent state.
-        latent_posteriors = []
-        latent_datasets = []
-        for i in range(self.num_latent_gps):
-            # Create dataset for this latent GP
-            latent_dataset = Dataset(X=X, y=y_projected[i][:, None])  # [N, 1]
-            latent_datasets.append(latent_dataset)
-
-            # Create likelihood with projected noise
-            likelihood = Gaussian(
-                obs_stddev=jnp.sqrt(projected_noise_vars[i]),
-            )
-
-            # Standard GPJax conditioning: Prior * Likelihood -> ConjugateModel
-            latent_posteriors.append(self.latent_priors[i] * likelihood)
-
-        return OILMMPosterior(
-            latent_posteriors=tuple(latent_posteriors),
-            latent_datasets=tuple(latent_datasets),
-            mixing_matrix=self.mixing_matrix,
-        )
-
-
-class OILMMPosterior:
-    """Posterior distribution for OILMM.
-
-    Wraps M independent ConjugateModel objects and provides a unified
-    predict() interface that reconstructs predictions in output space.
-
-    This is a plain class (not eqx.Module) because it holds Dataset objects
-    which are not JAX pytree nodes. The latent posteriors and mixing matrix
-    are still eqx.Modules and participate in JAX transformations when accessed.
-
-    Attributes:
-        latent_posteriors: Tuple of M independent ConjugateModel objects
-        latent_datasets: Tuple of M projected training Datasets (one per latent GP)
-        mixing_matrix: OrthogonalMixingMatrix for reconstruction
-        num_latent_gps: Number of latent GPs (m)
-    """
-
-    def __init__(
-        self,
-        latent_posteriors: tuple,
-        latent_datasets: tuple,
-        mixing_matrix: OrthogonalMixingMatrix,
-    ):
-        """Initialize OILMM posterior.
+    def condition_on_observations(self, dataset: Dataset) -> OILMMPosterior:
+        """Deprecated alias for :meth:`condition`.
 
         Args:
-            latent_posteriors: Tuple of M ConjugateModel objects
-            latent_datasets: Tuple of M Dataset objects (projected training data)
-            mixing_matrix: OrthogonalMixingMatrix containing H, T
+            dataset: Training data with ``X`` of shape ``(N, D)`` and ``y`` of
+                shape ``(N, P)``.
+
+        Returns:
+            OILMMPosterior: The conditioned OILMM process.
         """
-        self.latent_posteriors = latent_posteriors
-        self.latent_datasets = latent_datasets
-        self.mixing_matrix = mixing_matrix
-        self.num_latent_gps = len(latent_posteriors)
+        warnings.warn(
+            "OILMMModel.condition_on_observations is deprecated; use "
+            "model.condition(train_data) (or model | train_data), which is "
+            "the conditioning interface shared by every GPJax model.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.condition(dataset)
+
+
+def _projection_correction(model: OILMMModel, data: Dataset) -> ScalarFloat:
+    r"""The OILMM evidence correction, Prop. 9 of Bruinsma et al. (2020).
+
+    The projection :math:`T` discards the :math:`p - m` output dimensions
+    orthogonal to the mixing matrix. These terms restore them, so that the
+    latent log-likelihoods sum to the evidence of the full multi-output model
+    rather than of the projected one.
+
+    Args:
+        model: The OILMM whose mixing matrix defines the projection.
+        data: Training data with ``X`` of shape ``(N, D)`` and ``y`` of shape
+            ``(N, P)``.
+
+    Returns:
+        ScalarFloat: The additive correction to the latent log-likelihoods.
+    """
+    num_data = data.n
+    num_outputs = model.num_outputs
+    num_latents = model.num_latent_gps
+    mix = model.mixing_matrix
+
+    U = mix.U  # [P, M]
+    S = _val(mix.S)  # [M]
+    sigma2 = _val(mix.obs_noise_variance)  # scalar
+
+    # -(n/2) log|S|, with |S| = prod(S_i).
+    term_log_S = -0.5 * num_data * jnp.sum(jnp.log(S))
+
+    # -n(p - m)/2 log(2 pi sigma^2).
+    term_noise = (
+        -0.5 * num_data * (num_outputs - num_latents) * jnp.log(2.0 * jnp.pi * sigma2)
+    )
+
+    # -(1/(2 sigma^2)) ||(I_p - U U^T) Y||_F^2, computed without forming the
+    # P x P projector.
+    Y = data.y  # [N, P]
+    UtY = U.T @ Y.T  # [M, N]
+    residual = Y.T - U @ UtY  # [P, N]
+    term_residual = -0.5 * jnp.sum(residual**2) / sigma2
+
+    return term_log_S + term_noise + term_residual
+
+
+class OILMMPosterior(Posterior):
+    r"""The conditioned OILMM process.
+
+    OILMM's orthogonal mixing matrix decouples a :math:`P`-output problem into
+    :math:`M` independent single-output problems, so conditioning it is
+    conditioning each latent GP on its projected observations. This object
+    holds the resulting :math:`M` :class:`~gpjax.conditioning.ExactPosterior`
+    factorisations and reconstructs predictions in output space on demand::
+
+        posterior = model.condition(train_data)   # or: model | train_data
+        predictive = posterior(test_inputs)
+
+    Like every conditioned process in GPJax, the factorisations are computed
+    once, at ``condition`` time, and cached here; each query is a view of them.
+
+    Attributes:
+        latent_posteriors: The ``M`` conditioned latent processes.
+        mixing_matrix: The orthogonal mixing matrix used for reconstruction.
+        evidence_correction: The Prop. 9 projection correction, cached so that
+            ``log_marginal_likelihood`` is a view rather than a recomputation.
+        num_outputs: The number of outputs, :math:`P`.
+        num_latent_gps: The number of latent GPs, :math:`M`.
+    """
+
+    latent_posteriors: tuple
+    mixing_matrix: OrthogonalMixingMatrix
+    evidence_correction: ScalarFloat
+    num_outputs: int = eqx.field(static=True)
+    num_latent_gps: int = eqx.field(static=True)
+
+    def __init__(self, model: OILMMModel, train_data: Dataset):
+        r"""Condition an OILMM on data.
+
+        Args:
+            model: The model to condition.
+            train_data: Training data with ``X`` of shape ``(N, D)`` and ``y``
+                of shape ``(N, P)``.
+        """
+        from gpjax.conditioning import ExactPosterior
+        from gpjax.dataset import Dataset as _Dataset
+        from gpjax.likelihoods import Gaussian
+
+        # Project the observations into latent space (O(nmp)), then condition
+        # each latent GP on its own column. A Python loop rather than vmap:
+        # each latent prior is an eqx.Module with independent state.
+        inputs, projected_outputs = model._project_observations(train_data)
+        projected_noise_vars = model.mixing_matrix.projected_noise_variance
+
+        self.latent_posteriors = tuple(
+            ExactPosterior(
+                model.latent_priors[index],
+                Gaussian(obs_stddev=jnp.sqrt(projected_noise_vars[index])),
+                _Dataset(X=inputs, y=projected_outputs[index][:, None]),
+            )
+            for index in range(model.num_latent_gps)
+        )
+        self.mixing_matrix = model.mixing_matrix
+        self.evidence_correction = _projection_correction(model, train_data)
+        self.num_outputs = model.num_outputs
+        self.num_latent_gps = model.num_latent_gps
+
+    def __call__(
+        self,
+        test_inputs: Float[Array, "N D"],
+        *,
+        covariance: tp.Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        r"""Evaluate the conditioned OILMM at the given test inputs.
+
+        Each latent process is queried independently and mixed back into output
+        space: the mean as :math:`H \mu`, and the covariance as
+        :math:`(H \otimes I) \Sigma (H \otimes I)^{\top}`.
+
+        Note that for this multi-output process ``covariance="dense"`` returns
+        the joint :math:`(NP, NP)` covariance across both test inputs and
+        outputs, flattened output-major to match the mean; single-output
+        processes return :math:`(N, N)`. ``covariance="diagonal"`` returns the
+        :math:`NP` marginal variances, and asks the same of each latent
+        process, so the dense latent covariances are never formed.
+
+        Args:
+            test_inputs: Input locations of shape ``(N, D)``.
+            covariance: Whether to return the dense joint covariance over test
+                inputs and outputs, or only the marginal variances.
+
+        Returns:
+            GaussianDistribution: The predictive distribution, with ``loc`` of
+            shape ``(NP,)`` flattened output-major.
+        """
+        num_test = test_inputs.shape[0]
+        mixing = self.mixing_matrix.H  # [P, M]
+
+        latent_predictives = [
+            latent(test_inputs, covariance=covariance)
+            for latent in self.latent_posteriors
+        ]
+        latent_means = jnp.stack(
+            [predictive.mean for predictive in latent_predictives]
+        )  # [M, N]
+
+        mixed_mean = jnp.einsum("pm,mn->pn", mixing, latent_means)  # [P, N]
+        mixed_mean_flat = mixed_mean.T.ravel()  # [NP], output-major
+
+        if covariance == "dense":
+            # Cov[p1, p2] = sum_m H[p1, m] H[p2, m] Sigma_latent_m.
+            latent_covariances = jnp.stack(
+                [predictive.covariance() for predictive in latent_predictives]
+            )  # [M, N, N]
+            blocks = jnp.einsum(
+                "pm,qm,mij->pqij", mixing, mixing, latent_covariances
+            )  # [P, P, N, N]
+            # Reorder to [N, P, N, P] so flattening matches the mean's.
+            size = num_test * self.num_outputs
+            scale = lx.MatrixLinearOperator(
+                blocks.transpose(2, 0, 3, 1).reshape(size, size)
+            )
+        else:
+            latent_variances = jnp.stack(
+                [predictive.variance for predictive in latent_predictives]
+            )  # [M, N]
+            mixed_variances = jnp.einsum(
+                "pm,mn->pn", self.mixing_matrix.H_squared, latent_variances
+            )  # [P, N]
+            scale = lx.DiagonalLinearOperator(mixed_variances.T.ravel())
+
+        return GaussianDistribution(
+            loc=jnp.atleast_1d(mixed_mean_flat.squeeze()),
+            scale=scale,
+        )
+
+    @property
+    def log_marginal_likelihood(self) -> ScalarFloat:
+        r"""The evidence :math:`\log p(Y)`, Prop. 9 of Bruinsma et al. (2020).
+
+        The sum of the latent processes' log marginal likelihoods plus the
+        projection correction, both cached at ``condition`` time.
+        """
+        latent_evidence = jnp.stack(
+            [latent.log_marginal_likelihood for latent in self.latent_posteriors]
+        )
+        return self.evidence_correction + jnp.sum(latent_evidence)
 
     def predict(
         self,
         test_inputs: Float[Array, "N D"],
-        return_full_cov: bool = True,
+        train_data: Dataset | None = None,
+        *,
+        covariance: tp.Literal["dense", "diagonal"] = "dense",
+        return_full_cov: bool | None = None,
     ) -> GaussianDistribution:
-        """Predict at test locations.
-
-        Reconstructs predictions in output space from M independent latent posteriors:
-        1. Predict each latent GP independently
-        2. Reconstruct mean: f_mean = H @ latent_means
-        3. Reconstruct covariance: Sigma_f = (H x I) Sigma_x (H x I)^T
+        r"""Sugar for calling the posterior: ``predict(t) == self(t)``.
 
         Args:
-            test_inputs: Test input locations [N, D]
-            return_full_cov: If True, return full [NP, NP] covariance.
-                           If False, return diagonal covariance matrix.
+            test_inputs: Input locations of shape ``(N, D)``.
+            train_data: Accepted and ignored — this process is already
+                conditioned on its training set.
+            covariance: Whether to return the dense joint covariance or only
+                the marginal variances.
+            return_full_cov: Deprecated. ``True`` maps to ``covariance="dense"``
+                and ``False`` to ``covariance="diagonal"``.
 
         Returns:
-            GaussianDistribution with:
-                - loc: [NP] flattened output-major
-                - scale: lx.MatrixLinearOperator [NP, NP] covariance (full or diagonal)
+            GaussianDistribution: The predictive distribution at the inputs.
         """
-        N = test_inputs.shape[0]
-        H = self.mixing_matrix.H  # [P, M]
-        H_squared = self.mixing_matrix.H_squared  # [P, M]
-
-        # Phase 1: Predict each latent GP independently.
-        # NOTE: Python loop -- cannot vmap over eqx.Module instances.
-        latent_preds = [
-            post.predict(test_inputs, ds)
-            for post, ds in zip(
-                self.latent_posteriors, self.latent_datasets, strict=True
+        del train_data
+        if return_full_cov is not None:
+            warnings.warn(
+                "OILMMPosterior.predict(return_full_cov=...) is deprecated; "
+                'pass covariance="dense" or covariance="diagonal" instead, as '
+                "every other GPJax process does.",
+                DeprecationWarning,
+                stacklevel=2,
             )
-        ]
-        latent_means = jnp.array([pred.mean for pred in latent_preds])  # [M, N]
-        latent_covs = [pred.covariance() for pred in latent_preds]  # M x [N, N]
-
-        # Phase 2: Reconstruct mean
-        f_mean = jnp.einsum("pm,mn->pn", H, latent_means)  # [P, N]
-        f_mean_flat = f_mean.T.ravel()  # [N*P] output-major
-
-        # Phase 3: Reconstruct covariance
-        # Use plain Python if/else (not jax.lax.cond) because return_full_cov
-        # is a Python bool that should not be traced by JAX.
-        if return_full_cov:
-            # Full covariance via block structure:
-            # Cov[p1,p2] = sum_m H[p1,m] H[p2,m] Sigma_latent_m
-            latent_covs_stacked = jnp.stack(latent_covs)  # [M, N, N]
-            f_cov_blocks = jnp.einsum(
-                "pm,qm,mij->pqij", H, H, latent_covs_stacked
-            )  # [P, P, N, N]
-            P = self.mixing_matrix.num_outputs
-            # Reorder to [N, P, N, P] so flattening matches f_mean.T.ravel().
-            f_cov = f_cov_blocks.transpose(2, 0, 3, 1).reshape(N * P, N * P)  # [NP, NP]
-            scale = lx.MatrixLinearOperator(f_cov)
-        else:
-            # Diagonal-only covariance for efficiency — keep it diagonal.
-            latent_vars = jnp.array([jnp.diag(cov) for cov in latent_covs])  # [M, N]
-            f_vars = jnp.einsum("pm,mn->pn", H_squared, latent_vars)  # [P, N]
-            f_vars_flat = f_vars.T.ravel()  # [N*P]
-            scale = lx.DiagonalLinearOperator(f_vars_flat)
-
-        return GaussianDistribution(
-            loc=jnp.atleast_1d(f_mean_flat.squeeze()),
-            scale=scale,
-        )
+            covariance = "dense" if return_full_cov else "diagonal"
+        return self(test_inputs, covariance=covariance)
 
 
 def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
@@ -424,6 +535,10 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
     The correction terms prevent the projection from collapsing and account
     for data in the (p - m) dimensions orthogonal to the mixing matrix.
 
+    Like the other objectives, this is a one-line view of the conditioned
+    process: the evidence is owned by :class:`OILMMPosterior` and computed once
+    when the model is conditioned.
+
     Args:
         model: OILMMModel with parameters to evaluate.
         data: Training data with X [N, D] and y [N, P].
@@ -431,49 +546,7 @@ def oilmm_mll(model: OILMMModel, data: Dataset) -> ScalarFloat:
     Returns:
         Scalar log marginal likelihood.
     """
-    n = data.n
-    p = model.num_outputs
-    m = model.num_latent_gps
-    mix = model.mixing_matrix
-
-    U = mix.U  # [P, M]
-    S = _val(mix.S)  # [M]
-    sigma2 = _val(mix.obs_noise_variance)  # scalar
-
-    # --- Correction term 1: -(n/2) log|S| ---
-    # |S| = prod(S_i), so log|S| = sum(log(S_i))
-    term_log_S = -0.5 * n * jnp.sum(jnp.log(S))
-
-    # --- Correction term 2: -n(p-m)/2 log(2 pi sigma^2) ---
-    term_noise = -0.5 * n * (p - m) * jnp.log(2.0 * jnp.pi * sigma2)
-
-    # --- Correction term 3: -(1/(2 sigma^2)) ||(I_p - UU^T)Y||_F^2 ---
-    # Residual = Y - U(U^T Y), computed without forming the P x P projector.
-    Y = data.y  # [N, P]
-    UtY = U.T @ Y.T  # [M, N]
-    projected = U @ UtY  # [P, N]
-    residual = Y.T - projected  # [P, N]
-    frob_sq = jnp.sum(residual**2)
-    term_residual = -0.5 * frob_sq / sigma2
-
-    correction = term_log_S + term_noise + term_residual
-
-    # --- Latent GP log-likelihoods via the conditioning module ---
-    from gpjax.conditioning import ExactPosterior
-    from gpjax.dataset import Dataset
-    from gpjax.likelihoods import Gaussian
-
-    X, y_projected = model._project_observations(data)  # [N, D], [M, N]
-    projected_noise_vars = mix.projected_noise_variance  # [M]
-
-    latent_lls = []
-    for i in range(m):
-        latent_dataset = Dataset(X=X, y=y_projected[i][:, None])
-        likelihood = Gaussian(obs_stddev=jnp.sqrt(projected_noise_vars[i]))
-        conditioned = ExactPosterior(model.latent_priors[i], likelihood, latent_dataset)
-        latent_lls.append(conditioned.log_marginal_likelihood)
-
-    return correction + jnp.sum(jnp.array(latent_lls))
+    return model.condition(data).log_marginal_likelihood
 
 
 # Convenience constructors
