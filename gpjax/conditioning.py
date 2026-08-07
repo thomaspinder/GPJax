@@ -546,6 +546,98 @@ class SparsePosterior(Posterior):
             jitter=model.prior.jitter,
         )
 
+    def sample_approx(
+        self,
+        num_samples: int,
+        key: KeyArray,
+        num_features: int | None = 100,
+    ) -> FunctionalSample:
+        r"""Draw approximate posterior samples via decoupled (pathwise) sampling.
+
+        The sparse analogue of :meth:`ExactPosterior.sample_approx`: a prior
+        draw built from Fourier features of the kernel, plus a canonical
+        correction that pulls the draw onto a draw of the variational
+        distribution :math:`q(u)` at the inducing inputs (Wilson et al., 2020,
+        section 5.2),
+
+        .. math::
+
+            \hat{f}(\cdot) = \hat{f}_{\text{prior}}(\cdot)
+                + K_{\cdot z} K_{zz}^{-1}
+                \big(u - \hat{f}_{\text{prior}}(z)\big),
+                \qquad u \sim q(u).
+
+        Reuses the cached :math:`K_{zz}` Cholesky factor and variational
+        moments; no extra factorisation is performed. For the whitened
+        parameterisation, the draw of :math:`u` is de-whitened through the
+        same cached factor before entering the correction.
+
+        Args:
+            num_samples: The desired number of samples.
+            key: The random seed used for the sample(s).
+            num_features: The number of Fourier features used to approximate
+                the prior component of each sample.
+
+        Returns:
+            FunctionalSample: A function evaluating the sample draws at any
+                inputs; the same draw is returned for all queries.
+        """
+        if (not isinstance(num_samples, int)) or num_samples <= 0:
+            raise ValueError("num_samples must be a positive integer")
+        model = self.model
+        if model.likelihood.num_outputs > 1:
+            raise ValueError(
+                "sample_approx does not support multi-output likelihoods yet."
+            )
+
+        freq_key, weight_key, inducing_key = jr.split(key, 3)
+        prior = model.prior
+        inducing_inputs = self.inducing_inputs
+        cholesky_kzz = self.cholesky_kzz
+        num_inducing = cholesky_kzz.shape[0]
+
+        fourier_feature_fn = _build_fourier_features_fn(prior, num_features, freq_key)
+        fourier_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
+
+        # A draw of q(u) (or, whitened, of q(v)): mu + sqrt @ eps.
+        standard_normal = jr.normal(inducing_key, [num_inducing, num_samples])
+        site_draws = self.variational_mean + jnp.matmul(
+            self.variational_root, standard_normal
+        )
+        if self.whitened:
+            # u = m(z) + Lz v, so u - m(z) = Lz v -- the mean cancels without
+            # ever being added, matching the de-meaned residual below.
+            centred_inducing_draws = jnp.matmul(cholesky_kzz, site_draws)
+        else:
+            centred_inducing_draws = site_draws - prior.mean_function(inducing_inputs)
+
+        # Kzz^{-1}(u - f_prior(z)), with f_prior(z) = m(z) + phi(z)^T w:
+        # the mean cancels, leaving only the deviation phi(z)^T w to subtract.
+        prior_features_z = fourier_feature_fn(inducing_inputs)
+        perturbed_residual = centred_inducing_draws - jnp.inner(
+            prior_features_z, fourier_weights
+        )
+        canonical_weights = jsp.linalg.cho_solve(
+            (cholesky_kzz, True), perturbed_residual
+        )
+
+        def sample_fn(test_inputs: Float[Array, "n D"]) -> Float[Array, "n B"]:
+            fourier_features = fourier_feature_fn(test_inputs)
+            weight_space_contribution = jnp.inner(fourier_features, fourier_weights)
+            canonical_features = prior.kernel.cross_covariance(
+                test_inputs, inducing_inputs
+            )
+            function_space_contribution = jnp.matmul(
+                canonical_features, canonical_weights
+            )
+            return (
+                prior.mean_function(test_inputs)
+                + weight_space_contribution
+                + function_space_contribution
+            )
+
+        return sample_fn
+
 
 class CollapsedPosterior(Posterior):
     r"""The Titsias (2009) collapsed sparse posterior.
