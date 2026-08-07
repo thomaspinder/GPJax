@@ -81,14 +81,32 @@ def test_abstract_variational_family():
         def prior_kl(self) -> Float[Array, ""]:
             return jnp.array(0.0)
 
+        def condition(self, train_data):
+            return None
+
     # A family that forgets `prior_kl` must not be instantiable: every
     # ELBO-style objective subtracts it, so the base class declares it.
     class KLFreeVariationalFamily(AbstractVariationalFamily):
         def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
             return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
 
+        def condition(self, train_data):
+            return None
+
     with pytest.raises(TypeError):
         KLFreeVariationalFamily(model=DummyPosterior())
+
+    # `condition` is part of the same contract: `q | D` must work for every
+    # family, so a class that omits it is not a variational family either.
+    class ConditionFreeVariationalFamily(AbstractVariationalFamily):
+        def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
+            return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
+
+        def prior_kl(self) -> Float[Array, ""]:
+            return jnp.array(0.0)
+
+    with pytest.raises(TypeError):
+        ConditionFreeVariationalFamily(model=DummyPosterior())
 
     # Test that the dummy variational family can be instantiated.
     dummy_variational_family = DummyVariationalFamily(model=DummyPosterior())
@@ -710,6 +728,27 @@ def test_dual_prior_kl_non_negative(seed: int) -> None:
     assert q.prior_kl() >= -1e-12
 
 
+@pytest.mark.parametrize("seed", list(range(10)))
+def test_dual_prior_kl_matches_the_moment_family(seed: int) -> None:
+    """The dual KL must equal the moment family's KL at the same q(u).
+
+    Non-negativity alone rules out very little: a dropped term or a doubled
+    trace stays non-negative. ``VariationalGaussian.prior_kl`` is pinned to a
+    dense textbook reference by
+    ``test_prior_kl_matches_textbook_reference``, so evaluating it at the
+    dual family's implied moments turns the site parameterisation into a
+    checked quantity rather than a merely finite one.
+    """
+    q_dual = _build_dual_family(6, seed=seed)
+    q_moment = _matched_variational_gaussian(q_dual)
+    np.testing.assert_allclose(
+        np.float64(q_dual.prior_kl()),
+        np.float64(q_moment.prior_kl()),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+
+
 @pytest.mark.parametrize("n_test", [1, 7])
 @pytest.mark.parametrize("seed", [0, 3])
 def test_dual_predict_matches_variational_gaussian_at_matched_moments(
@@ -845,3 +884,264 @@ def test_dual_marginals_include_jitter() -> None:
     np.testing.assert_allclose(
         np.asarray(variance - analytic), q.model.prior.jitter, rtol=0.0, atol=1e-15
     )
+
+
+# ---------------------------------------------------------------------------
+# CollapsedPosterior.prior_kl -- oracle tests
+#
+# ``CollapsedPosterior.prior_kl`` evaluates the KL from Titsias' analytically
+# optimal q*(u) to the prior p(u) through the factorisation the collapsed
+# bound already holds: S* = Lz B^-1 Lz^T and a centred mean
+# sigma^-1 Lz B^-1 A (y - m(x)). Asserting only that the result is finite
+# would pass for a sign error, a dropped term or a factor of two, so the
+# reference below is built along a route that shares no algebra with it:
+# q*(u) is re-derived by Bayes' rule in the projected (DTC) linear model and
+# handed to the same dense textbook Gaussian KL used by the uncollapsed
+# families above.
+# ---------------------------------------------------------------------------
+
+_COLLAPSED_KERNELS = {
+    "rbf": lambda: gpx.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3)),
+    "matern32": lambda: gpx.kernels.Matern32(
+        lengthscale=jnp.array(0.6), variance=jnp.array(0.9)
+    ),
+    "matern12": lambda: gpx.kernels.Matern12(
+        lengthscale=jnp.array(1.1), variance=jnp.array(2.0)
+    ),
+}
+
+# Inducing configurations: a coarse grid, a finer grid whose points sit within
+# a lengthscale of each other (so Kzz is genuinely correlated), a scattered
+# two-dimensional set, and the M = 1 edge case where ``tr(B^-1) - M`` is a
+# single scalar.
+_COLLAPSED_INDUCING = {
+    "grid-4-1d": lambda: jnp.linspace(-2.0, 2.0, 4).reshape(-1, 1),
+    "grid-9-1d": lambda: jnp.linspace(-3.0, 3.0, 9).reshape(-1, 1),
+    "scatter-6-2d": lambda: jr.uniform(
+        jr.key(11), (6, 2), minval=-2.5, maxval=2.5, dtype=jnp.float64
+    ),
+    "single-1d": lambda: jnp.array([[0.3]]),
+}
+
+
+def _collapsed_train_data(num_dims: int, num_data: int = 17) -> gpx.Dataset:
+    """Deterministic training data of the requested input dimension."""
+    inputs = jr.uniform(
+        jr.key(5), (num_data, num_dims), minval=-3.0, maxval=3.0, dtype=jnp.float64
+    )
+    outputs = jnp.sin(1.3 * inputs[:, :1]) + 0.15 * jr.normal(
+        jr.key(7), (num_data, 1), dtype=jnp.float64
+    )
+    return gpx.Dataset(X=inputs, y=outputs)
+
+
+def _build_collapsed_family(
+    kernel_name: str, inducing_name: str, observation_noise: float
+) -> tuple[CollapsedVariationalGaussian, gpx.Dataset]:
+    """Build a collapsed family and matching data, fully deterministically."""
+    inducing_inputs = _COLLAPSED_INDUCING[inducing_name]()
+    prior = gpx.gps.Prior(
+        kernel=_COLLAPSED_KERNELS[kernel_name](),
+        mean_function=gpx.mean_functions.Constant(jnp.array(0.4)),
+    )
+    model = prior * gpx.likelihoods.Gaussian(
+        obs_stddev=jnp.array(float(observation_noise))
+    )
+    family = CollapsedVariationalGaussian(model=model, inducing_inputs=inducing_inputs)
+    return family, _collapsed_train_data(inducing_inputs.shape[-1])
+
+
+def _titsias_optimal_q(family: CollapsedVariationalGaussian, train_data: gpx.Dataset):
+    r"""Titsias' optimal :math:`q^{\star}(u)`, re-derived rather than quoted.
+
+    The collapsed bound is maximised by the exact posterior over :math:`u` of
+    the projected ("DTC") Gaussian linear model
+
+    .. math::
+
+        u \sim \mathcal{N}(m_z, K_{zz}), \qquad
+        y \mid u \sim \mathcal{N}\big(m_x + W(u - m_z),\, \sigma^2 I\big),
+        \qquad W = K_{xz}K_{zz}^{-1},
+
+    so its moments follow from the textbook conjugate Gaussian update alone:
+
+    .. math::
+
+        S^{\star} = \big(K_{zz}^{-1} + \sigma^{-2}W^{\top}W\big)^{-1},
+        \qquad
+        \mu^{\star} = m_z + \sigma^{-2}S^{\star}W^{\top}(y - m_x).
+
+    Neither :math:`L_z`, nor :math:`A`, nor :math:`B` appears: the whole
+    factorisation the implementation is built on is bypassed, which is what
+    makes the comparison evidence rather than a restatement. ``K_zz`` is read
+    throughout as the stabilised ``K_zz + jitter I`` that conditioning
+    actually uses, so the two routes describe the same prior.
+
+    Args:
+        family: The collapsed variational family.
+        train_data: The data the optimal distribution is solved against.
+
+    Returns:
+        tuple: ``(mean_q, cov_q, mean_p, cov_p)`` as dense arrays, with the
+        means flattened to one dimension.
+    """
+    model = family.model
+    kernel = model.prior.kernel
+    mean_function = model.prior.mean_function
+    noise_variance = _val(model.likelihood.obs_stddev) ** 2
+
+    inducing_inputs = _val(family.inducing_inputs)
+    num_inducing = inducing_inputs.shape[0]
+    identity = jnp.eye(num_inducing, dtype=inducing_inputs.dtype)
+
+    prior_cov = kernel.gram(inducing_inputs).as_matrix() + model.prior.jitter * identity
+    prior_mean = mean_function(inducing_inputs).reshape(-1)
+
+    # W = Kxz Kzz^{-1}, the DTC projection of u onto the training inputs.
+    cross_cov = kernel.cross_covariance(inducing_inputs, train_data.X)
+    projection = jnp.linalg.solve(prior_cov, cross_cov).T
+    residual = (train_data.y - mean_function(train_data.X)).reshape(-1)
+
+    precision = jnp.linalg.inv(prior_cov) + projection.T @ projection / noise_variance
+    optimal_cov = jnp.linalg.inv(precision)
+    optimal_mean = prior_mean + optimal_cov @ (projection.T @ residual) / noise_variance
+    return optimal_mean, optimal_cov, prior_mean, prior_cov
+
+
+def _oracle_collapsed_prior_kl(
+    family: CollapsedVariationalGaussian, train_data: gpx.Dataset
+) -> Float[Array, ""]:
+    """KL[q*(u) || p(u)] from the re-derived moments and the textbook formula."""
+    optimal_mean, optimal_cov, prior_mean, prior_cov = _titsias_optimal_q(
+        family, train_data
+    )
+    return _textbook_gaussian_kl(optimal_mean, optimal_cov, prior_mean, prior_cov)
+
+
+@pytest.mark.parametrize("observation_noise", [0.37, 1.2])
+@pytest.mark.parametrize("inducing_name", list(_COLLAPSED_INDUCING))
+@pytest.mark.parametrize("kernel_name", list(_COLLAPSED_KERNELS))
+def test_collapsed_prior_kl_matches_gaussian_kl_oracle(
+    kernel_name: str, inducing_name: str, observation_noise: float
+) -> None:
+    """The collapsed KL must equal KL[q*(u) || p(u)] computed densely.
+
+    This is the only assertion that constrains the *value* of
+    ``CollapsedPosterior.prior_kl``: a sign flip on any of its four terms, a
+    dropped ``- M``, or a factor of two moves the result far outside the
+    tolerance below.
+    """
+    family, train_data = _build_collapsed_family(
+        kernel_name, inducing_name, observation_noise
+    )
+    optimal_mean, optimal_cov, prior_mean, prior_cov = _titsias_optimal_q(
+        family, train_data
+    )
+
+    # Guard against a degenerate configuration in which q* has collapsed onto
+    # the prior and every term of the KL is separately zero.
+    assert jnp.linalg.norm(optimal_mean - prior_mean) > 1e-2
+    assert jnp.max(jnp.abs(optimal_cov - prior_cov)) > 1e-2
+
+    reference = _textbook_gaussian_kl(optimal_mean, optimal_cov, prior_mean, prior_cov)
+    assert reference > 1e-2
+
+    np.testing.assert_allclose(
+        np.float64(family.condition(train_data).prior_kl),
+        np.float64(reference),
+        rtol=1e-11,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("inducing_name", list(_COLLAPSED_INDUCING))
+@pytest.mark.parametrize("kernel_name", list(_COLLAPSED_KERNELS))
+def test_collapsed_optimal_q_moments_match_the_dtc_posterior(
+    kernel_name: str, inducing_name: str
+) -> None:
+    r"""The cached factors must encode the moments the KL claims they do.
+
+    ``prior_kl`` reads :math:`S^{\star} = L_z B^{-1} L_z^{\top}` and
+    :math:`\tilde m^{\star} = \sigma^{-1} L_z B^{-1} A (y - m(x))` off the
+    conditioning cache. Reassembling both from that cache and comparing them
+    with the conjugate update splits a KL failure into "the moments are
+    wrong" and "the KL of correct moments is assembled wrong", which the
+    value test alone cannot distinguish.
+    """
+    family, train_data = _build_collapsed_family(kernel_name, inducing_name, 0.37)
+    posterior = family.condition(train_data)
+
+    num_inducing = posterior.cholesky_b.shape[0]
+    inverse_b = jsp.linalg.cho_solve(
+        (posterior.cholesky_b, True), jnp.eye(num_inducing, dtype=jnp.float64)
+    )
+    cached_cov = posterior.cholesky_kzz @ inverse_b @ posterior.cholesky_kzz.T
+    cached_centred_mean = (
+        posterior.cholesky_kzz
+        @ jsp.linalg.cho_solve(
+            (posterior.cholesky_b, True), posterior.scaled_cross @ posterior.residual
+        )
+    ).reshape(-1) / jnp.sqrt(posterior.observation_variance)
+
+    optimal_mean, optimal_cov, prior_mean, _ = _titsias_optimal_q(family, train_data)
+
+    np.testing.assert_allclose(
+        np.asarray(cached_cov), np.asarray(optimal_cov), rtol=1e-10, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.asarray(prior_mean + cached_centred_mean),
+        np.asarray(optimal_mean),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("inducing_name", ["grid-9-1d", "scatter-6-2d"])
+@pytest.mark.parametrize("kernel_name", ["rbf", "matern32"])
+def test_collapsed_prior_kl_gradients_match_the_oracle(
+    kernel_name: str, inducing_name: str
+) -> None:
+    """``collapsed_elbo`` differentiates the KL, so its gradient must be right too.
+
+    A value test cannot see an error that cancels at the evaluation point but
+    not in the derivative -- for instance a term differentiated through the
+    wrong factor.
+    """
+    family, train_data = _build_collapsed_family(kernel_name, inducing_name, 0.5)
+
+    grads = eqx.filter_grad(lambda model: model.prior_kl(train_data))(family)
+    reference_grads = eqx.filter_grad(
+        lambda model: _oracle_collapsed_prior_kl(model, train_data)
+    )(family)
+
+    leaves = jax.tree.leaves(eqx.filter(grads, eqx.is_inexact_array))
+    reference_leaves = jax.tree.leaves(
+        eqx.filter(reference_grads, eqx.is_inexact_array)
+    )
+
+    assert leaves and len(leaves) == len(reference_leaves)
+    for leaf, reference_leaf in zip(leaves, reference_leaves, strict=True):
+        np.testing.assert_allclose(
+            np.asarray(leaf), np.asarray(reference_leaf), rtol=1e-8, atol=1e-10
+        )
+
+
+def test_collapsed_prior_kl_is_sugar_over_the_conditioned_posterior() -> None:
+    """``family.prior_kl(D)`` must be exactly ``family.condition(D).prior_kl``."""
+    family, train_data = _build_collapsed_family("rbf", "grid-9-1d", 0.37)
+    np.testing.assert_array_equal(
+        np.asarray(family.prior_kl(train_data)),
+        np.asarray(family.condition(train_data).prior_kl),
+    )
+
+
+def test_collapsed_prior_kl_vanishes_when_the_data_are_uninformative() -> None:
+    """As sigma grows, q*(u) returns to p(u) and the KL must fall to zero.
+
+    An anchor that does not go through the dense oracle at all: with a huge
+    observation noise ``B -> I``, every term of the KL vanishes separately,
+    and any surviving constant (a mislaid ``- M``, say) shows up as a
+    non-zero limit.
+    """
+    family, train_data = _build_collapsed_family("rbf", "grid-9-1d", 1e6)
+    assert 0.0 <= family.prior_kl(train_data) < 1e-8

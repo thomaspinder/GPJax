@@ -2,13 +2,16 @@
 
 The v1.0 contract for Gaussian-output variational families:
 
-- ``condition()`` returns a :class:`gpjax.conditioning.Posterior`;
+- ``condition(train_data)`` returns a :class:`gpjax.conditioning.Posterior`;
 - ``predict`` is one-line sugar over ``condition`` and agrees with it exactly;
 - ``prior_kl()`` returns a finite scalar;
 - the posterior's diagonal-covariance path agrees with the dense marginals.
 
-The collapsed family is the one whose maths needs data: ``condition`` and
-``prior_kl`` take the training set, mirroring ``model.condition(train_data)``.
+``condition`` takes ``train_data`` uniformly across every family. The
+uncollapsed families already carry $q(u)$ internally and ignore it; the
+collapsed family, whose optimal $q^{\\star}(u)$ is solved from the data,
+consumes it. ``prior_kl`` is *not* part of that uniform contract and still
+diverges: only the collapsed family's KL is a function of the data.
 """
 
 import gpjax as gpx
@@ -110,10 +113,8 @@ def _build(family_cls):
 
 
 def _condition(family):
-    """Condition the family, passing data only where its maths requires it."""
-    if isinstance(family, CollapsedVariationalGaussian):
-        return family.condition(_train_data())
-    return family.condition()
+    """Condition the family. Every family takes ``train_data``, uniformly."""
+    return family.condition(_train_data())
 
 
 _FAMILIES = [
@@ -140,15 +141,11 @@ def test_condition_returns_a_conditioning_posterior(family_cls):
 
 @pytest.mark.parametrize("family_cls", _FAMILIES, ids=lambda cls: cls.__name__)
 def test_predict_is_sugar_over_condition(family_cls):
-    """``q.predict(x)`` must agree with ``q.condition()(x)`` exactly."""
+    """``q.predict(x, D)`` must agree with ``q.condition(D)(x)`` exactly."""
     family, test_inputs = _build(family_cls)
-    if family_cls is CollapsedVariationalGaussian:
-        data = _train_data()
-        via_predict = family.predict(test_inputs, data)
-        via_condition = family.condition(data)(test_inputs)
-    else:
-        via_predict = family.predict(test_inputs)
-        via_condition = family.condition()(test_inputs)
+    data = _train_data()
+    via_predict = family.predict(test_inputs, data)
+    via_condition = family.condition(data)(test_inputs)
 
     np.testing.assert_array_equal(
         np.asarray(via_predict.mean), np.asarray(via_condition.mean)

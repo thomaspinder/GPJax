@@ -537,9 +537,13 @@ class HeteroscedasticModel(JointModel[M, K, HL]):
     :class:`gpjax.variational_families.HeteroscedasticVariationalFamily` and
     the ``heteroscedastic_elbo`` objective; the noise process is exposed as
     the nested joint model :attr:`noise_model`.
+
+    The noise prior is stored *only* inside :attr:`noise_model`, and
+    :attr:`noise_prior` reads through to it. Holding it in both places would
+    duplicate its parameters across two pytree paths, which an optimiser step
+    would then drive out of sync.
     """
 
-    noise_prior: tp.Any
     noise_model: tp.Any
 
     def __init__(
@@ -554,13 +558,58 @@ class HeteroscedasticModel(JointModel[M, K, HL]):
             prior (Prior): The prior over the signal process.
             likelihood (AbstractHeteroscedasticLikelihood): The observation
                 likelihood.
-            noise_prior (Prior): The prior over the latent noise process.
+            noise_prior (Prior): The prior over the latent noise process. It is
+                stored as ``self.noise_model.prior``, not as a field of its own.
+
+        Raises:
+            ValueError: If ``noise_prior`` is ``None``.
         """
         if noise_prior is None:
             raise ValueError("Heteroscedastic models require a noise_prior.")
         super().__init__(prior=prior, likelihood=likelihood)
-        self.noise_prior = noise_prior
         self.noise_model = JointModel(prior=noise_prior, likelihood=likelihood)
+
+    @property
+    def noise_prior(self) -> Prior:
+        r"""The prior over the latent noise process.
+
+        Read-only view of ``self.noise_model.prior``. The noise prior is not a
+        field of this model: a single owner keeps its parameters at one pytree
+        path, so training cannot leave a second copy stale.
+        """
+        return self.noise_model.prior
+
+    def condition(self, train_data: Dataset) -> Posterior:
+        r"""Not available: heteroscedastic conditioning has no closed form.
+
+        Args:
+            train_data: Unused; present for interface uniformity.
+
+        Raises:
+            NotImplementedError: Always. Heteroscedastic models are the one
+                documented exclusion from universal conditioning.
+        """
+        del train_data
+        raise NotImplementedError(
+            "HeteroscedasticModel has no closed-form conditioned process: the "
+            "latent noise process must be inferred jointly with the signal. "
+            "Run inference through "
+            "gpjax.variational_families.HeteroscedasticVariationalFamily, "
+            "fitting it with the gpjax.objectives.heteroscedastic_elbo "
+            "objective, then predict with the fitted variational family:\n\n"
+            "    from gpjax.objectives import heteroscedastic_elbo\n\n"
+            "    q = gpx.variational_families.HeteroscedasticVariationalFamily(\n"
+            "        model=model, inducing_inputs=Z\n"
+            "    )\n"
+            "    q, _ = gpx.fit(\n"
+            "        model=q,\n"
+            "        objective=lambda q, d: -heteroscedastic_elbo(q, d),\n"
+            "        train_data=D,\n"
+            "        optim=optax.adam(1e-2),\n"
+            "        key=key,\n"
+            "    )\n"
+            "    predictive = q(xtest)"
+        )
 
 
 #######################

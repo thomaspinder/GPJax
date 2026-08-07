@@ -23,11 +23,22 @@ an exponential family with sufficient statistics
 $\mathbf t(\mathbf u)=[\mathbf u,\ \mathbf u\mathbf u^\top]$. Three coordinate systems
 are in play:
 
-| coordinates | symbol | contents |
-|---|---|---|
-| moment (stored) | $\boldsymbol\xi$ | $(\mathbf m,\ \mathbf L)$ with $\mathbf S=\mathbf L\mathbf L^\top$ |
-| natural | $\boldsymbol\theta$ | $(\mathbf S^{-1}\mathbf m,\ -\tfrac12\mathbf S^{-1})$ |
-| expectation | $\boldsymbol\eta$ | $(\mathbf m,\ \mathbf S+\mathbf m\mathbf m^\top)$ |
+.. list-table::
+   :header-rows: 1
+   :widths: 22 16 62
+
+   * - coordinates
+     - symbol
+     - contents
+   * - moment (stored)
+     - $\boldsymbol\xi$
+     - $(\mathbf m,\ \mathbf L)$ with $\mathbf S=\mathbf L\mathbf L^\top$
+   * - natural
+     - $\boldsymbol\theta$
+     - $(\mathbf S^{-1}\mathbf m,\ -\tfrac12\mathbf S^{-1})$
+   * - expectation
+     - $\boldsymbol\eta$
+     - $(\mathbf m,\ \mathbf S+\mathbf m\mathbf m^\top)$
 
 The Fisher information in the natural coordinates is exactly the Jacobian
 $\partial\boldsymbol\eta/\partial\boldsymbol\theta$, so the natural gradient of a loss
@@ -97,16 +108,11 @@ def _lower_solve(
 ) -> Float[Array, "M K"]:
     """Solve ``factor @ x = rhs`` for lower-triangular ``factor``.
 
-    Parameters
-    ----------
-    factor
-        A lower-triangular matrix with a strictly positive diagonal.
-    rhs
-        The right-hand side of the triangular system.
+    Args:
+        factor: A lower-triangular matrix with a strictly positive diagonal.
+        rhs: The right-hand side of the triangular system.
 
-    Returns
-    -------
-    Float[Array, "M K"]
+    Returns:
         The solution ``x``.
     """
     return jsp.linalg.solve_triangular(factor, rhs, lower=True)
@@ -117,16 +123,11 @@ def _upper_solve(
 ) -> Float[Array, "M K"]:
     """Solve ``factor @ x = rhs`` for upper-triangular ``factor``.
 
-    Parameters
-    ----------
-    factor
-        An upper-triangular matrix with a strictly positive diagonal.
-    rhs
-        The right-hand side of the triangular system.
+    Args:
+        factor: An upper-triangular matrix with a strictly positive diagonal.
+        rhs: The right-hand side of the triangular system.
 
-    Returns
-    -------
-    Float[Array, "M K"]
+    Returns:
         The solution ``x``.
     """
     return jsp.linalg.solve_triangular(factor, rhs, lower=False)
@@ -138,26 +139,21 @@ def expectation_from_moments(
 ) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
     r"""Map $\boldsymbol\xi=(\mathbf m,\mathbf L)$ to the expectation parameters.
 
-    Parameters
-    ----------
-    variational_mean
-        The variational mean $\mathbf m$, stored as an $M\times1$ column.
-    variational_root_covariance
-        The lower-triangular root $\mathbf L$ with $\mathbf S=\mathbf L\mathbf L^\top$.
+    Args:
+        variational_mean: The variational mean $\mathbf m$, stored as an
+            $M\times1$ column.
+        variational_root_covariance: The lower-triangular root $\mathbf L$ with
+            $\mathbf S=\mathbf L\mathbf L^\top$.
 
-    Returns
-    -------
-    tuple[Float[Array, "M 1"], Float[Array, "M M"]]
+    Returns:
         The expectation parameters $(\boldsymbol\eta_1,\mathbf H_2)$.
 
-    Notes
-    -----
-    $\boldsymbol\eta_1=\mathbf m$,
-    $\mathbf H_2=\mathbf L\mathbf L^\top+\mathbf m\mathbf m^\top$.
-    No factorisation, no solve, no jitter; cost $\mathcal O(M^3)$ matmul.
+    Notes:
+        $\boldsymbol\eta_1=\mathbf m$,
+        $\mathbf H_2=\mathbf L\mathbf L^\top+\mathbf m\mathbf m^\top$.
+        No factorisation, no solve, no jitter; cost $\mathcal O(M^3)$ matmul.
 
     Example:
-    ```pycon
         >>> import jax.numpy as jnp
         >>> from gpjax.natural_gradients import expectation_from_moments
         >>>
@@ -168,7 +164,6 @@ def expectation_from_moments(
         ... )
         >>> [round(entry, 3) for entry in expectation_matrix.ravel().tolist()]
         [2.0, 2.0, 2.0, 5.0]
-    ```
     """
     expectation_matrix = (
         variational_root_covariance @ variational_root_covariance.T
@@ -183,29 +178,24 @@ def natural_from_moments(
 ) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
     r"""Map $\boldsymbol\xi=(\mathbf m,\mathbf L)$ to the natural parameters.
 
-    Parameters
-    ----------
-    variational_mean
-        The variational mean $\mathbf m$, stored as an $M\times1$ column.
-    variational_root_covariance
-        The lower-triangular root $\mathbf L$ with $\mathbf S=\mathbf L\mathbf L^\top$.
+    Args:
+        variational_mean: The variational mean $\mathbf m$, stored as an
+            $M\times1$ column.
+        variational_root_covariance: The lower-triangular root $\mathbf L$ with
+            $\mathbf S=\mathbf L\mathbf L^\top$.
 
-    Returns
-    -------
-    tuple[Float[Array, "M 1"], Float[Array, "M M"]]
+    Returns:
         The natural parameters $(\boldsymbol\theta_1,\boldsymbol\Theta_2)$.
 
-    Notes
-    -----
-    Two triangular solves:
-    $\mathbf L^{-1}=\texttt{tril\_solve}(\mathbf L,\mathbf I)$,
-    $\mathbf P=(\mathbf L^{-1})^\top\mathbf L^{-1}$,
-    $\boldsymbol\theta_1=\mathbf P\mathbf m$,
-    $\boldsymbol\Theta_2=-\tfrac12\mathbf P$.
-    No jitter: $\mathbf L$ already has a strictly positive diagonal.
+    Notes:
+        Two triangular solves:
+        $\mathbf L^{-1}=\texttt{tril\_solve}(\mathbf L,\mathbf I)$,
+        $\mathbf P=(\mathbf L^{-1})^\top\mathbf L^{-1}$,
+        $\boldsymbol\theta_1=\mathbf P\mathbf m$,
+        $\boldsymbol\Theta_2=-\tfrac12\mathbf P$.
+        No jitter: $\mathbf L$ already has a strictly positive diagonal.
 
     Example:
-    ```pycon
         >>> import jax.numpy as jnp
         >>> from gpjax.natural_gradients import natural_from_moments
         >>>
@@ -216,7 +206,6 @@ def natural_from_moments(
         ... )
         >>> [round(entry, 3) for entry in jnp.diag(natural_matrix).tolist()]
         [-0.5, -0.5]
-    ```
     """
     num_inducing = variational_root_covariance.shape[0]
     root_inverse = _lower_solve(
@@ -234,37 +223,31 @@ def moments_from_expectation(
 ) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
     r"""Map the expectation parameters back to $\boldsymbol\xi=(\mathbf m,\mathbf L)$.
 
-    Parameters
-    ----------
-    expectation_vector
-        The first expectation parameter $\boldsymbol\eta_1$.
-    expectation_matrix
-        The second expectation parameter $\mathbf H_2$.
-    map_jitter
-        Jitter $\varepsilon$ added to the diagonal before the Cholesky. Defaults to
-        ``0.0``; this is deliberately *not* the model's ``Prior.jitter``,
-        because a non-zero value biases $\mathbf S$ by $\approx\varepsilon\lVert
-        \mathbf S\rVert^2$ rather than merely perturbing it.
+    Args:
+        expectation_vector: The first expectation parameter $\boldsymbol\eta_1$.
+        expectation_matrix: The second expectation parameter $\mathbf H_2$.
+        map_jitter: Jitter $\varepsilon$ added to the diagonal before the Cholesky.
+            Defaults to ``0.0``; this is deliberately *not* the model's
+            ``Prior.jitter``, because a non-zero value biases $\mathbf S$ by
+            $\approx\varepsilon\lVert\mathbf S\rVert^2$ rather than merely
+            perturbing it.
 
-    Returns
-    -------
-    tuple[Float[Array, "M 1"], Float[Array, "M M"]]
+    Returns:
         The moment parameters $(\mathbf m,\mathbf L)$.
 
-    Notes
-    -----
-    Jitter site #1:
-    $\mathbf S=\operatorname{sym}(\mathbf H_2-\boldsymbol\eta_1\boldsymbol\eta_1^\top)$,
-    $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
-    The subtraction is a cancellation site when
-    $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$; prefer the whitened family there.
-    Unlike the natural route this map has no admissibility guard, so in the cancellation
-    regime it degrades quietly: at $\lVert\mathbf m\rVert\sim10^4$ with
-    $\mathbf S=10^{-8}\mathbf I$ the recovered $\mathbf L$ is finite but wrong by
-    $\mathcal O(10^{-1})$ relative error before it eventually returns ``NaN``.
+    Notes:
+        Jitter site #1:
+        $\mathbf S=\operatorname{sym}(\mathbf H_2-\boldsymbol\eta_1\boldsymbol\eta_1^\top)$,
+        $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
+        The subtraction is a cancellation site when
+        $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$; prefer the whitened
+        family there. Unlike the natural route this map has no admissibility guard,
+        so in the cancellation regime it degrades quietly: at
+        $\lVert\mathbf m\rVert\sim10^4$ with $\mathbf S=10^{-8}\mathbf I$ the
+        recovered $\mathbf L$ is finite but wrong by $\mathcal O(10^{-1})$ relative
+        error before it eventually returns ``NaN``.
 
     Example:
-    ```pycon
         >>> import jax.numpy as jnp
         >>> from gpjax.natural_gradients import moments_from_expectation
         >>>
@@ -275,7 +258,6 @@ def moments_from_expectation(
         ... )
         >>> [round(entry, 3) for entry in root_covariance.ravel().tolist()]
         [1.0, 0.0, 0.0, 1.0]
-    ```
     """
     num_inducing = expectation_matrix.shape[0]
     covariance = _symmetrise(
@@ -293,41 +275,33 @@ def moments_from_natural(
 ) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
     r"""Map the natural parameters back to $\boldsymbol\xi=(\mathbf m,\mathbf L)$.
 
-    Parameters
-    ----------
-    natural_vector
-        The first natural parameter $\boldsymbol\theta_1$.
-    natural_matrix
-        The second natural parameter $\boldsymbol\Theta_2$, required to be negative
-        definite for the result to be finite.
-    map_jitter
-        Jitter $\varepsilon$ added to the diagonal before each Cholesky. Defaults to
-        ``0.0``; see :func:`moments_from_expectation` for why it is not inherited from
-        the family.
+    Args:
+        natural_vector: The first natural parameter $\boldsymbol\theta_1$.
+        natural_matrix: The second natural parameter $\boldsymbol\Theta_2$, required
+            to be negative definite for the result to be finite.
+        map_jitter: Jitter $\varepsilon$ added to the diagonal before each Cholesky.
+            Defaults to ``0.0``; see :func:`moments_from_expectation` for why it is
+            not inherited from the family.
 
-    Returns
-    -------
-    tuple[Float[Array, "M 1"], Float[Array, "M M"]]
+    Returns:
         The moment parameters $(\mathbf m,\mathbf L)$.
 
-    Notes
-    -----
-    Route A (jitter site #2):
-    $\mathbf P=\operatorname{sym}(-2\boldsymbol\Theta_2)$,
-    $\mathbf L_P=\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$,
-    $\mathbf X=\texttt{tril\_solve}(\mathbf L_P,\mathbf I)$,
-    $\mathbf S=\operatorname{sym}(\mathbf X^\top\mathbf X)$,
-    $\mathbf m=\texttt{triu\_solve}(\mathbf L_P^\top,
-    \texttt{tril\_solve}(\mathbf L_P,\boldsymbol\theta_1))$,
-    $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
+    Notes:
+        Route A (jitter site #2):
+        $\mathbf P=\operatorname{sym}(-2\boldsymbol\Theta_2)$,
+        $\mathbf L_P=\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$,
+        $\mathbf X=\texttt{tril\_solve}(\mathbf L_P,\mathbf I)$,
+        $\mathbf S=\operatorname{sym}(\mathbf X^\top\mathbf X)$,
+        $\mathbf m=\texttt{triu\_solve}(\mathbf L_P^\top,
+        \texttt{tril\_solve}(\mathbf L_P,\boldsymbol\theta_1))$,
+        $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
 
-    Route B (the reverse/anti-diagonal Cholesky) is *not* used: the two are numerically
-    equivalent and route A needs no exchange matrix. Returns ``NaN`` rather than raising
-    when $\boldsymbol\Theta_2\not\prec0$ -- that is what makes the step-size backoff
-    ``jit``-clean.
+        Route B (the reverse/anti-diagonal Cholesky) is *not* used: the two are
+        numerically equivalent and route A needs no exchange matrix. Returns ``NaN``
+        rather than raising when $\boldsymbol\Theta_2\not\prec0$ -- that is what
+        makes the step-size backoff ``jit``-clean.
 
     Example:
-    ```pycon
         >>> import jax.numpy as jnp
         >>> from gpjax.natural_gradients import moments_from_natural
         >>>
@@ -338,7 +312,6 @@ def moments_from_natural(
         ... )
         >>> [round(entry, 3) for entry in mean.ravel().tolist()]
         [1.0, 2.0]
-    ```
     """
     num_inducing = natural_matrix.shape[0]
     precision = _symmetrise(-2.0 * natural_matrix)
@@ -359,19 +332,15 @@ def variational_coordinates(
 ) -> tp.Callable[[VF], tuple[tp.Any, ...]]:
     """Return an ``eqx.tree_at`` selector naming the exponential-family coordinates.
 
-    Parameters
-    ----------
-    variational_family
-        The variational family whose coordinates are to be selected.
+    Args:
+        variational_family: The variational family whose coordinates are to be
+            selected.
 
-    Returns
-    -------
-    tp.Callable[[VF], tuple[tp.Any, ...]]
+    Returns:
         A ``where`` function mapping a family to the tuple of nodes holding its
         exponential-family coordinates.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -389,7 +358,6 @@ def variational_coordinates(
         >>> where = variational_coordinates(q)
         >>> [type(node).__name__ for node in where(q)]
         ['Real', 'LowerTriangular']
-    ```
     """
     raise NotImplementedError(
         f"Natural gradients are not defined for {type(variational_family).__name__}."
@@ -411,14 +379,11 @@ def _variational_gaussian_coordinates(
     test in ``tests/test_natural_gradients.py`` predates that and drives the
     graph family with ``prior_kl``.
 
-    Parameters
-    ----------
-    variational_family
-        The family being partitioned. Unused; dispatch is on its type.
+    Args:
+        variational_family: The family being partitioned. Unused; dispatch is on its
+            type.
 
-    Returns
-    -------
-    tp.Callable[[VariationalGaussian], tuple[tp.Any, ...]]
+    Returns:
         A selector returning ``(variational_mean, variational_root_covariance)``.
     """
     del variational_family
@@ -436,14 +401,11 @@ def _dual_variational_coordinates(
     +(\boldsymbol\lambda_1,-\tfrac12\boldsymbol\Lambda_2)$, so they *are* the
     exponential-family coordinates of this family.
 
-    Parameters
-    ----------
-    variational_family
-        The family being partitioned. Unused; dispatch is on its type.
+    Args:
+        variational_family: The family being partitioned. Unused; dispatch is on its
+            type.
 
-    Returns
-    -------
-    tp.Callable[[DualVariationalGaussian], tuple[tp.Any, ...]]
+    Returns:
         A selector returning ``(dual_vector, dual_matrix)``.
     """
     del variational_family
@@ -453,27 +415,21 @@ def _dual_variational_coordinates(
 def partition_variational(variational_family: VF) -> tuple[VF, VF]:
     """Split a family into (variational-coordinate, hyperparameter) partitions.
 
-    Parameters
-    ----------
-    variational_family
-        The variational family to split.
+    Args:
+        variational_family: The variational family to split.
 
-    Returns
-    -------
-    tuple[VF, VF]
+    Returns:
         The variational partition (holding only the exponential-family coordinates)
         and the hyperparameter partition (holding everything else, including the
         inducing inputs, which Salimbeni et al. count as hyperparameters).
 
-    Notes
-    -----
-    Uses a **prefix** filter spec so the split is independent of the parameter
-    wrapper's internal field names (``.value`` versus ``._flat``), composes with
-    ``paramax.non_trainable``, and raises loudly (``AttributeError``) if a field is
-    renamed.
+    Notes:
+        Uses a **prefix** filter spec so the split is independent of the parameter
+        wrapper's internal field names (``.value`` versus ``._flat``), composes with
+        ``paramax.non_trainable``, and raises loudly (``AttributeError``) if a field
+        is renamed.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -496,7 +452,6 @@ def partition_variational(variational_family: VF) -> tuple[VF, VF]:
         ['.variational_mean.value', '.variational_root_covariance._flat']
         >>> len(jtu.tree_leaves(hyper))
         5
-    ```
     """
     where = variational_coordinates(variational_family)
     spec = jtu.tree_map(lambda _: False, variational_family)
@@ -507,21 +462,17 @@ def partition_variational(variational_family: VF) -> tuple[VF, VF]:
 def _contains_non_trainable(node: tp.Any) -> bool:
     """Return whether ``node`` holds a ``paramax.NonTrainable`` anywhere inside it.
 
-    Parameters
-    ----------
-    node
-        A subtree of a variational family.
+    Args:
+        node: A subtree of a variational family.
 
-    Returns
-    -------
-    bool
+    Returns:
         ``True`` if any part of ``node`` is frozen.
 
-    Notes
-    -----
-    ``paramax.non_trainable`` wraps *leaves*, not whole nodes, so a frozen
-    ``variational_mean`` is a ``Real`` whose ``value`` is a ``NonTrainable``. The
-    ``is_leaf`` predicate stops the traversal at those wrappers so they are visible.
+    Notes:
+        ``paramax.non_trainable`` wraps *leaves*, not whole nodes, so a frozen
+        ``variational_mean`` is a ``Real`` whose ``value`` is a ``NonTrainable``. The
+        ``is_leaf`` predicate stops the traversal at those wrappers so they are
+        visible.
     """
     is_frozen = lambda leaf: isinstance(leaf, paramax.NonTrainable)
     return any(map(is_frozen, jtu.tree_leaves(node, is_leaf=is_frozen)))
@@ -530,27 +481,23 @@ def _contains_non_trainable(node: tp.Any) -> bool:
 def _reject_frozen_coordinates(variational_family: VF) -> None:
     r"""Raise if any exponential-family coordinate is ``paramax.non_trainable``.
 
-    Parameters
-    ----------
-    variational_family
-        The family whose coordinates are to be checked.
+    Args:
+        variational_family: The family whose coordinates are to be checked.
 
-    Raises
-    ------
-    ValueError
-        If a coordinate is wrapped in ``paramax.NonTrainable``.
+    Raises:
+        ValueError: If a coordinate is wrapped in ``paramax.NonTrainable``.
 
-    Notes
-    -----
-    A partial natural-gradient step on $\boldsymbol\theta$ is not meaningful. This is a
-    Python-level ``isinstance`` check on a static tree node, executed at trace time, so
-    it never branches on a traced value.
+    Notes:
+        A partial natural-gradient step on $\boldsymbol\theta$ is not meaningful.
+        This is a Python-level ``isinstance`` check on a static tree node, executed
+        at trace time, so it never branches on a traced value.
 
-    The offending coordinates are located by re-walking the tree with the *selector*
-    itself as the ``is_leaf`` predicate, rather than by matching the selected nodes
-    against top-level dataclass fields. A future registration whose ``where`` picks a
-    nested node -- ``tree.signal_variational.variational_mean``, say -- is then still
-    reported, with its full key path, instead of silently passing the guard.
+        The offending coordinates are located by re-walking the tree with the
+        *selector* itself as the ``is_leaf`` predicate, rather than by matching the
+        selected nodes against top-level dataclass fields. A future registration
+        whose ``where`` picks a nested node --
+        ``tree.signal_variational.variational_mean``, say -- is then still reported,
+        with its full key path, instead of silently passing the guard.
     """
     where = variational_coordinates(variational_family)
     coordinates = where(variational_family)
@@ -588,50 +535,40 @@ def _first_valid_trial(
 ) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
     r"""Take the largest admissible step from $\{\gamma\beta^k\}_{k=0}^{K}$.
 
-    Parameters
-    ----------
-    natural_vector
-        The current $\boldsymbol\theta_1$.
-    natural_matrix
-        The current $\boldsymbol\Theta_2$.
-    gradient_vector
-        $\partial\ell/\partial\boldsymbol\eta_1$.
-    gradient_matrix
-        $\partial\ell/\partial\mathbf H_2$, already symmetrised.
-    natgrad_lr
-        The requested step size $\gamma$.
-    map_jitter
-        Jitter passed through to :func:`moments_from_natural`.
-    backoff
-        The multiplicative shrink factor $\beta\in(0,1)$.
-    max_backoff
-        The number $K$ of shrink attempts after the first.
+    Args:
+        natural_vector: The current $\boldsymbol\theta_1$.
+        natural_matrix: The current $\boldsymbol\Theta_2$.
+        gradient_vector: $\partial\ell/\partial\boldsymbol\eta_1$.
+        gradient_matrix: $\partial\ell/\partial\mathbf H_2$, already symmetrised.
+        natgrad_lr: The requested step size $\gamma$.
+        map_jitter: Jitter passed through to :func:`moments_from_natural`.
+        backoff: The multiplicative shrink factor $\beta\in(0,1)$.
+        max_backoff: The number $K$ of shrink attempts after the first.
 
-    Returns
-    -------
-    tuple[Float[Array, "M 1"], Float[Array, "M M"]]
+    Returns:
         The moment parameters of the accepted trial.
 
-    Notes
-    -----
-    ``jnp.linalg.cholesky`` returns ``NaN`` rather than raising, so admissibility is a
-    *value*: ``vmap`` over the $K+1$ trials, mask on ``jnp.isfinite`` and select with
-    ``jnp.argmax``, which returns the first ``True`` and ``0`` when all are ``False``
-    so that ``NaN`` propagates rather than silently returning a wrong answer.
+    Notes:
+        ``jnp.linalg.cholesky`` returns ``NaN`` rather than raising, so admissibility
+        is a *value*: ``vmap`` over the $K+1$ trials, mask on ``jnp.isfinite`` and
+        select with ``jnp.argmax``, which returns the first ``True`` and ``0`` when
+        all are ``False`` so that ``NaN`` propagates rather than silently returning a
+        wrong answer.
 
-    Only the *probe* is replicated, not the whole $\boldsymbol\theta\to\boldsymbol\xi$
-    map. Admissibility of a trial is decided by
-    $\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$ and the two triangular solves
-    for $\mathbf m$; the $\mathcal O(M^3)$ inversion, the $\mathbf X^\top\mathbf X$
-    product and the second Cholesky of :func:`moments_from_natural` cannot turn an
-    admissible $\boldsymbol\Theta_2$ inadmissible, so they run once, at the accepted
-    step size. Replicating them instead measured 13% of total training wall clock at
-    $M=200$, which is not the negligible cost the plan assumed.
+        Only the *probe* is replicated, not the whole
+        $\boldsymbol\theta\to\boldsymbol\xi$ map. Admissibility of a trial is decided
+        by $\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$ and the two
+        triangular solves for $\mathbf m$; the $\mathcal O(M^3)$ inversion, the
+        $\mathbf X^\top\mathbf X$ product and the second Cholesky of
+        :func:`moments_from_natural` cannot turn an admissible
+        $\boldsymbol\Theta_2$ inadmissible, so they run once, at the accepted step
+        size. Replicating them instead measured 13% of total training wall clock at
+        $M=200$, which is not the negligible cost the plan assumed.
 
-    The trial ladder is cast to the dtype of $\boldsymbol\Theta_2$: under
-    ``jax_enable_x64`` the exponent ``jnp.arange(K + 1)`` is ``int64``, so
-    $\beta^{k}$ would otherwise be a non-weak ``float64`` that silently promotes a
-    ``float32`` model and breaks the ``lax.scan`` carry.
+        The trial ladder is cast to the dtype of $\boldsymbol\Theta_2$: under
+        ``jax_enable_x64`` the exponent ``jnp.arange(K + 1)`` is ``int64``, so
+        $\beta^{k}$ would otherwise be a non-weak ``float64`` that silently promotes
+        a ``float32`` model and breaks the ``lax.scan`` carry.
     """
     step_sizes = (natgrad_lr * backoff ** jnp.arange(max_backoff + 1)).astype(
         natural_matrix.dtype
@@ -672,32 +609,24 @@ def natural_gradient_step(
 ) -> tuple[VF, ScalarFloat]:
     r"""One natural-gradient step on the variational coordinates.
 
-    Parameters
-    ----------
-    variational
-        The variational partition returned by :func:`partition_variational`.
-    hyper
-        The hyperparameter partition returned by :func:`partition_variational`.
-    data
-        The (possibly mini-)batch at which the loss is evaluated.
-    objective
-        A loss ``(family, data) -> scalar`` that is *minimised*, e.g.
-        ``lambda q, d: -gpjax.objectives.elbo(q, d)``.
-    natgrad_lr
-        The natural-gradient step size $\gamma$.
-    map_jitter
-        Jitter used by the $\boldsymbol\theta\leftrightarrow\boldsymbol\xi$ maps.
-    backoff
-        Multiplicative shrink factor applied when a step leaves the negative-definite
-        cone.
-    max_backoff
-        Number of shrink attempts after the first.
-    beta_floor
-        Accepted for a uniform dispatch contract; ignored by Salimbeni-family updates.
+    Args:
+        variational: The variational partition returned by
+            :func:`partition_variational`.
+        hyper: The hyperparameter partition returned by
+            :func:`partition_variational`.
+        data: The (possibly mini-)batch at which the loss is evaluated.
+        objective: A loss ``(family, data) -> scalar`` that is *minimised*, e.g.
+            ``lambda q, d: -gpjax.objectives.elbo(q, d)``.
+        natgrad_lr: The natural-gradient step size $\gamma$.
+        map_jitter: Jitter used by the
+            $\boldsymbol\theta\leftrightarrow\boldsymbol\xi$ maps.
+        backoff: Multiplicative shrink factor applied when a step leaves the
+            negative-definite cone.
+        max_backoff: Number of shrink attempts after the first.
+        beta_floor: Accepted for a uniform dispatch contract; ignored by
+            Salimbeni-family updates.
 
-    Returns
-    -------
-    tuple[VF, ScalarFloat]
+    Returns:
         The updated **variational partition** and the loss evaluated at the
         *pre-update* coordinates, so that ``history[t]`` matches ``fit()``'s
         convention. The reported loss is evaluated at
@@ -706,7 +635,6 @@ def natural_gradient_step(
         $\ell(\boldsymbol\xi_t,\boldsymbol\phi_t)$.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -736,7 +664,6 @@ def natural_gradient_step(
         >>> updated = paramax.unwrap(eqx.combine(stepped, hyper))
         >>> bool(loss > -gpx.objectives.elbo(updated, D))
         True
-    ```
     """
     del hyper, data, objective, natgrad_lr, map_jitter, backoff, max_backoff, beta_floor
     raise NotImplementedError(
@@ -769,30 +696,18 @@ def _variational_gaussian_step(
 
     ``beta_floor`` is accepted for a uniform dispatch contract and ignored here.
 
-    Parameters
-    ----------
-    variational
-        The variational partition.
-    hyper
-        The hyperparameter partition.
-    data
-        The batch at which the loss is evaluated.
-    objective
-        The loss being minimised.
-    natgrad_lr
-        The step size $\gamma$.
-    map_jitter
-        Jitter for the coordinate maps.
-    backoff
-        Multiplicative shrink factor for the step-size backoff.
-    max_backoff
-        Number of shrink attempts after the first.
-    beta_floor
-        Unused.
+    Args:
+        variational: The variational partition.
+        hyper: The hyperparameter partition.
+        data: The batch at which the loss is evaluated.
+        objective: The loss being minimised.
+        natgrad_lr: The step size $\gamma$.
+        map_jitter: Jitter for the coordinate maps.
+        backoff: Multiplicative shrink factor for the step-size backoff.
+        max_backoff: Number of shrink attempts after the first.
+        beta_floor: Unused.
 
-    Returns
-    -------
-    tuple[VariationalGaussian, ScalarFloat]
+    Returns:
         The updated variational partition and the pre-update loss. That loss is read
         off the differentiated closure, hence evaluated at
         $\boldsymbol\xi(\boldsymbol\eta_t)$ rather than at the stored $\mathbf L$: with
@@ -858,31 +773,24 @@ def _expected_log_likelihood_derivatives(
 ) -> tuple[Float[Array, " B"], Float[Array, " B"]]:
     r"""Return Bonnet's $\alpha$ and Price's $\beta$ for a batch.
 
-    Parameters
-    ----------
-    likelihood
-        The observation model.
-    response
-        The observed responses $\mathbf y_{\mathcal B}$, shaped $(B, 1)$.
-    mean
-        The marginal means $m_i$ of $q(f_i)$.
-    variance
-        The marginal variances $v_i$ of $q(f_i)$.
+    Args:
+        likelihood: The observation model.
+        response: The observed responses $\mathbf y_{\mathcal B}$, shaped $(B, 1)$.
+        mean: The marginal means $m_i$ of $q(f_i)$.
+        variance: The marginal variances $v_i$ of $q(f_i)$.
 
-    Returns
-    -------
-    tuple[Float[Array, " B"], Float[Array, " B"]]
+    Returns:
         The vectors $\boldsymbol\alpha$ and $\boldsymbol\beta$.
 
-    Notes
-    -----
-    Bonnet's and Price's theorems give
-    $\alpha_i=\partial_{m_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$ and
-    $\beta_i=-2\,\partial_{v_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$,
-    so one ``jax.grad`` of the likelihood's existing ``expected_log_likelihood``
-    suffices -- **no second derivatives of the likelihood are needed**, and the routine
-    works for closed-form and quadrature likelihoods alike. Note that GPJax's argument
-    order is ``(y, mean, variance)``, with the response first.
+    Notes:
+        Bonnet's and Price's theorems give
+        $\alpha_i=\partial_{m_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$
+        and
+        $\beta_i=-2\,\partial_{v_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$,
+        so one ``jax.grad`` of the likelihood's existing ``expected_log_likelihood``
+        suffices -- **no second derivatives of the likelihood are needed**, and the
+        routine works for closed-form and quadrature likelihoods alike. Note that
+        GPJax's argument order is ``(y, mean, variance)``, with the response first.
     """
 
     def total_expectation(mean_, variance_):
@@ -942,37 +850,26 @@ def _dual_variational_gaussian_step(
     :meth:`~gpjax.variational_families.DualVariationalGaussian._working_matrices`
     factorises $\mathbf R$ in a basis where it cannot fail.
 
-    Parameters
-    ----------
-    variational
-        The variational partition, holding the two dual sites.
-    hyper
-        The hyperparameter partition.
-    data
-        The batch at which the sites' target is evaluated.
-    objective
-        The loss being minimised. Evaluated once at the pre-update sites so that
-        ``history[t]`` means the same thing in both dispatch branches.
-    natgrad_lr
-        The step size $\rho\in(0,1]$.
-    map_jitter
-        Unused.
-    backoff
-        Unused.
-    max_backoff
-        Unused.
-    beta_floor
-        Lower clip applied to $\boldsymbol\beta$ before it enters $\boldsymbol\Lambda_2$.
-        A no-op for likelihoods that are log-concave *as computed*; it keeps the update
-        inside the PSD cone for those (Student-t, some heteroscedastic models) whose
-        expected negative curvature can go negative. GPJax's Bernoulli is in the latter
-        group in the far tails: ``inv_probit`` clips its output away from $0$ and $1$,
-        which flattens $\log p$ and makes $\beta_i<0$ for a confidently mislabelled
-        point, so the clip does engage there.
+    Args:
+        variational: The variational partition, holding the two dual sites.
+        hyper: The hyperparameter partition.
+        data: The batch at which the sites' target is evaluated.
+        objective: The loss being minimised. Evaluated once at the pre-update sites
+            so that ``history[t]`` means the same thing in both dispatch branches.
+        natgrad_lr: The step size $\rho\in(0,1]$.
+        map_jitter: Unused.
+        backoff: Unused.
+        max_backoff: Unused.
+        beta_floor: Lower clip applied to $\boldsymbol\beta$ before it enters
+            $\boldsymbol\Lambda_2$. A no-op for likelihoods that are log-concave *as
+            computed*; it keeps the update inside the PSD cone for those (Student-t,
+            some heteroscedastic models) whose expected negative curvature can go
+            negative. GPJax's Bernoulli is in the latter group in the far tails:
+            ``inv_probit`` clips its output away from $0$ and $1$, which flattens
+            $\log p$ and makes $\beta_i<0$ for a confidently mislabelled point, so
+            the clip does engage there.
 
-    Returns
-    -------
-    tuple[DualVariationalGaussian, ScalarFloat]
+    Returns:
         The updated variational partition and the pre-update loss.
     """
     del map_jitter, backoff, max_backoff
@@ -1013,9 +910,9 @@ def _dual_variational_gaussian_step(
 
     # N / B. The paper prints the mini-batch update with no such factor; taken
     # literally the sites converge to B/N of their correct value. `get_batch` stamps
-    # the full-dataset size onto each minibatch as `Dataset.n_total`.
-    full_size = data.n_total if data.n_total is not None else data.n
-    scale = full_size / data.n
+    # the full-dataset size onto each minibatch as `Dataset.n_total`, which
+    # `Dataset.full_size` reads back (falling through to `n` for a whole dataset).
+    scale = data.full_size / data.n
     target_vector = (design @ natural_gradient_vector)[:, None]
     target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
 

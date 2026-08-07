@@ -105,8 +105,8 @@ def conjugate_loocv(model: ConjugateModel, data: Dataset) -> ScalarFloat:
     given here enables exact estimation of the Gaussian process' latent
     function values.
 
-    For a given ``ConjugatePosterior`` object, the following code snippet shows
-    how the leave-one-out log predicitive probability can be evaluated.
+    For a given :class:`~gpjax.gps.ConjugateModel`, the following code snippet
+    shows how the leave-one-out log predictive probability can be evaluated.
 
     Example:
         >>> import gpjax as gpx
@@ -152,13 +152,17 @@ def log_posterior_density(model: NonConjugateModel, data: Dataset) -> ScalarFloa
     of the model's parameters or for model comparison. The implementation given
     here is general and will work for any likelihood support by GPJax.
 
-    Unlike the marginal_log_likelihood function of the `ConjugatePosterior` object,
-    the marginal_log_likelihood function of the `NonConjugatePosterior` object does
-    not provide an exact marginal log-likelihood function. Instead, the
-    `NonConjugatePosterior` object represents the posterior distributions as a
-    function of the model's hyperparameters and the latent function. Markov chain
-    Monte Carlo, variational inference, or Laplace approximations can then be used
-    to sample from, or optimise an approximation to, the posterior distribution.
+    Conditioning a :class:`~gpjax.gps.ConjugateModel` yields an
+    :class:`~gpjax.conditioning.ExactPosterior`, whose
+    :attr:`~gpjax.conditioning.ExactPosterior.log_marginal_likelihood` is available
+    in closed form. Conditioning a :class:`~gpjax.gps.NonConjugateModel` instead
+    yields a :class:`~gpjax.conditioning.LatentPosterior`, which has no exact
+    marginal log-likelihood: it represents the posterior as a function of the
+    model's hyperparameters and the latent function, and exposes the unnormalised
+    :attr:`~gpjax.conditioning.LatentPosterior.log_posterior_density` in its place.
+    Markov chain Monte Carlo, variational inference, or Laplace approximations can
+    then be used to sample from, or optimise an approximation to, the posterior
+    distribution.
 
     Example:
         >>> import gpjax as gpx
@@ -243,8 +247,7 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     var_exp = variational_expectation(variational_family, data)
 
     # For batch size b, we compute  n/b * sum_i[ int log(p(y|f(xi))) q(f(xi)) df(xi)] - KL[q(f(.)) || p(f(.))]
-    full_size = data.n_total if data.n_total is not None else data.n
-    return jnp.sum(var_exp) * full_size / data.n - kl
+    return jnp.sum(var_exp) * data.full_size / data.n - kl
 
 
 def variational_expectation(
@@ -284,7 +287,7 @@ def variational_expectation(
 
     Returns:
         Array: The expectation of the model's log-likelihood under our
-            variational distribution.
+        variational distribution.
     """
     # Unpack training batch
     x, y = data.X, data.y
@@ -293,8 +296,10 @@ def variational_expectation(
     q = variational_family
 
     # Marginal moments mu(x) and diag(Sigma(x, x)) at the training inputs,
-    # through the conditioned posterior's diagonal path.
-    qx = q.condition()(x, covariance="diagonal")
+    # through the conditioned posterior's diagonal path. `train_data` is passed
+    # for interface uniformity; the sparse families carry q(u) internally and
+    # ignore it.
+    qx = q.condition(data)(x, covariance="diagonal")
     mean, variance = qx.mean[:, None], qx.variance[:, None]
 
     # approx int[log(p(y|f(x))) q(f(x))] df(x)
@@ -307,16 +312,18 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
 
     The *same functional* as :func:`elbo`, but evaluated as a function of the stored
     dual sites and the kernel hyperparameters, never of $(m, S)$:
-    ```math
-    \mathcal{L}_{\text{dual}}(\lambda_1, \Lambda_2;\theta)
-        = \frac{N}{B}\sum_{i\in\mathcal{B}}
-          \mathbb{E}_{q(f_i)}\left[\log p(y_i\mid f_i)\right]
-          - \operatorname{KL}\left[q(u)\mid\mid p_{\theta}(u)\right],
-    \qquad
-    S = \left(\mathbf{K}_{zz}(\theta)^{-1} + \Lambda_2\right)^{-1}.
-    ```
+
+    .. math::
+
+        \mathcal{L}_{\text{dual}}(\lambda_1, \Lambda_2;\theta)
+            = \frac{N}{B}\sum_{i\in\mathcal{B}}
+              \mathbb{E}_{q(f_i)}\left[\log p(y_i\mid f_i)\right]
+              - \operatorname{KL}\left[q(u)\mid\mid p_{\theta}(u)\right],
+        \qquad
+        S = \left(\mathbf{K}_{zz}(\theta)^{-1} + \Lambda_2\right)^{-1}.
+
     Following Adam, Chang, Khan and Solin (2021),
-    [arXiv:2111.03412](https://arxiv.org/abs/2111.03412).
+    `arXiv:2111.03412 <https://arxiv.org/abs/2111.03412>`_.
 
     Example:
         >>> import jax
@@ -347,36 +354,36 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
             hyperparameters the bound is evaluated at.
         data: The training data, or a mini-batch of it.
 
-    Returns
-    -------
-    ScalarFloat
-        The evidence lower bound of the dual variational approximation.
+    Returns:
+        ScalarFloat: The evidence lower bound of the dual variational approximation.
 
-    Notes
-    -----
-    Its **value** equals :func:`elbo` at the implied moments for any sites and any
-    $\theta$; its **hyperparameter gradient** differs, because $q$ moves with $\theta$
-    through $\mathbf{K}_{zz}$ while the sites stay frozen. The extra term,
-    $\langle\nabla_{\eta}\mathcal{L},\ \partial\eta_0(\theta)/\partial\theta\rangle$,
-    vanishes at a converged E-step and is the source of the tighter M-step behaviour
-    Adam et al. report. Do **not** wrap $\mathbf{K}_{zz}$ in ``lax.stop_gradient``, and
-    do not cache the implied moments on the family: that implicit dependence is the
-    entire point, and removing it is a silent bug -- identical values, wrong gradients.
+    Notes:
+        Its **value** equals :func:`elbo` at the implied moments for any sites and
+        any $\theta$; its **hyperparameter gradient** differs, because $q$ moves
+        with $\theta$ through $\mathbf{K}_{zz}$ while the sites stay frozen. The
+        extra term,
+        $\langle\nabla_{\eta}\mathcal{L},\ \partial\eta_0(\theta)/\partial\theta\rangle$,
+        vanishes at a converged E-step and is the source of the tighter M-step
+        behaviour Adam et al. report. Do **not** wrap $\mathbf{K}_{zz}$ in
+        ``lax.stop_gradient``, and do not cache the implied moments on the family:
+        that implicit dependence is the entire point, and removing it is a silent
+        bug -- identical values, wrong gradients.
 
-    The marginals are computed in one batched
-    :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call
-    directly from the working matrix $\mathbf{R}$, rather than through the
-    moment conversion that :func:`elbo` performs when it conditions the
-    family. Both are $\mathcal{O}(M^3 + NM^2)$, but this path skips forming
-    and factorising $\mathbf{S}$. :func:`elbo` called directly on a
-    ``DualVariationalGaussian`` is still correct and returns the same value and the
-    same gradients; ``dual_elbo`` is the fast path, not a different bound.
+        The marginals are computed in one batched
+        :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call
+        directly from the working matrix $\mathbf{R}$, rather than through the
+        moment conversion that :func:`elbo` performs when it conditions the
+        family. Both are $\mathcal{O}(M^3 + NM^2)$, but this path skips forming
+        and factorising $\mathbf{S}$. :func:`elbo` called directly on a
+        ``DualVariationalGaussian`` is still correct and returns the same value and
+        the same gradients; ``dual_elbo`` is the fast path, not a different bound.
 
-    Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this objective
-    remains valid -- it is ordinary gradient descent in the dual coordinates. It gives
-    *different* dynamics from :func:`~gpjax.fit.fit` on a ``VariationalGaussian``,
-    because the two parameterisations induce different metrics.
-    :func:`~gpjax.fit.fit_natgrads` is the parameterisation-invariant alternative.
+        Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this
+        objective remains valid -- it is ordinary gradient descent in the dual
+        coordinates. It gives *different* dynamics from :func:`~gpjax.fit.fit` on a
+        ``VariationalGaussian``, because the two parameterisations induce different
+        metrics. :func:`~gpjax.fit.fit_natgrads` is the parameterisation-invariant
+        alternative.
     """
     # KL[q(u) || p(u)], evaluated through R = Kzz + Kzz Lambda_2 Kzz.
     kl = variational_family.prior_kl()
@@ -390,8 +397,7 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
     )
 
     # For batch size b, n/b * sum_i E_q[log p(y_i | f(x_i))] - KL[q(u) || p(u)].
-    full_size = data.n_total if data.n_total is not None else data.n
-    return jnp.sum(expectation) * full_size / data.n - kl
+    return jnp.sum(expectation) * data.full_size / data.n - kl
 
 
 def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
@@ -457,8 +463,7 @@ def heteroscedastic_elbo_conjugate(
         return_parts=True,
     )
 
-    full_size = data.n_total if data.n_total is not None else data.n
-    scale = full_size / data.n
+    scale = data.full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 
@@ -477,12 +482,26 @@ def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> Scal
         noise_stats=noise_stats,
     )
 
-    full_size = data.n_total if data.n_total is not None else data.n
-    scale = full_size / data.n
+    scale = data.full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 
 def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
+    r"""Compute the evidence lower bound of a heteroscedastic approximation.
+
+    Dispatches on the likelihood: those that admit the tight Lazaro-Gredilla &
+    Titsias (2011) bound use :func:`heteroscedastic_elbo_conjugate`, and every
+    other heteroscedastic likelihood uses the generic chained bound,
+    :func:`heteroscedastic_elbo_chained`.
+
+    Args:
+        variational_family: The heteroscedastic variational approximation whose
+            parameters the bound is evaluated at.
+        data: The training data, or a mini-batch of it.
+
+    Returns:
+        ScalarFloat: The evidence lower bound of the variational approximation.
+    """
     likelihood = variational_family.model.likelihood
     if likelihood.supports_tight_bound():
         return heteroscedastic_elbo_conjugate(variational_family, data)

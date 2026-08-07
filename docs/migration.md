@@ -112,10 +112,23 @@ q = gpx.variational_families.VariationalGaussian(
     model=model, inducing_inputs=z          # was: posterior=..., jitter=...
 )
 
-q_posterior = q.condition()   # a Posterior, like model.condition(D)
+q_posterior = q.condition(D)   # a Posterior, exactly like model.condition(D)
 predictive = q_posterior(xtest)
 marginals = q_posterior(xtest, covariance="diagonal")   # new fast path
 ```
+
+`condition` takes `train_data` everywhere, on families as on joint models,
+and `q | D` is the same sugar. The uncollapsed families
+(`VariationalGaussian`, `WhitenedVariationalGaussian`,
+`DualVariationalGaussian`, `GraphVariationalGaussian`) already carry the
+fitted `q(u)`, so they accept `train_data` for that uniformity and ignore it;
+the collapsed family solves its optimal `q*(u)` from the data and consumes
+it. `q.predict(xtest, D)` remains documented sugar for
+`q.condition(D)(xtest)`.
+
+`prior_kl` is *not* part of that uniform contract and keeps its per-family
+signature: `q.prior_kl()` for the uncollapsed families, `q.prior_kl(D)` for
+the collapsed one, whose KL genuinely depends on the data.
 
 Three breaking changes follow:
 
@@ -127,13 +140,14 @@ Three breaking changes follow:
   Prior instead: `gpx.gps.Prior(..., jitter=1e-8)`. The defaults agree
   (both were `1e-6`), so most code sees identical numbers.
 - **`prior_kl` is part of the family contract**: custom subclasses of
-  `AbstractVariationalFamily` must now implement both `predict` and
-  `prior_kl`.
+  `AbstractVariationalFamily` must now implement `predict`, `prior_kl` and
+  `condition`.
 
-`q.predict(xtest)` keeps working as documented sugar for
-`q.condition()(xtest)`. The collapsed family's maths needs the data, so its
-signatures take it: `q.condition(D)`, `q.predict(xtest, D)`,
-`q.prior_kl(D)`.
+`HeteroscedasticVariationalFamily` is the exception: it approximates two
+latent processes, so it has no single conditioned process and its
+`condition` raises `NotImplementedError`. Use `predict_latents(xtest)`, or
+condition its `signal_variational` / `noise_variational` components
+individually.
 
 ## 0.14.x → 0.15.0
 
