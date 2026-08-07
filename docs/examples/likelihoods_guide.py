@@ -119,7 +119,7 @@ plt.show()
 # argument.
 
 # %%
-gpx.likelihoods.Gaussian(num_datapoints=D.n)
+gpx.likelihoods.Gaussian()
 
 # %% [markdown]
 # ### Likelihood parameters
@@ -134,7 +134,7 @@ gpx.likelihoods.Gaussian(num_datapoints=D.n)
 # this as follows:
 
 # %%
-gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.5)
+gpx.likelihoods.Gaussian(obs_stddev=0.5)
 
 # %% [markdown]
 #
@@ -157,7 +157,7 @@ kernel = gpx.kernels.Matern32()
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(kernel=kernel, mean_function=meanf)
 
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.1)
+likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
 
 posterior = prior * likelihood
 
@@ -187,7 +187,7 @@ for ax in axes.ravel():
 # Similarly, for a Bernoulli likelihood function, the samples of $y$ would be binary.
 
 # %% mystnb={"figure": {"caption": "The same latent draws passed through a Bernoulli likelihood, whose predictive samples are constrained to be binary.", "name": "fig-likelihoods-guide-bernoulli-samples"}}
-likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Bernoulli()
 
 
 fig, axes = plt.subplots(ncols=3, nrows=1, figsize=(9, 2))
@@ -292,7 +292,6 @@ jnp.sum(likelihood.expected_log_likelihood(y=y, mean=mean, variance=variance))
 
 # %%
 lquad = gpx.likelihoods.Gaussian(
-    num_datapoints=D.n,
     obs_stddev=jnp.array([0.1]),
     integrator=gpx.integrators.GHQuadratureIntegrator(num_points=20),
 )

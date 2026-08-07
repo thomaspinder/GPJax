@@ -8,6 +8,97 @@ Releases not listed here made no breaking changes; see the
 [changelog](gh:blob/main/CHANGELOG.md) for
 the full history.
 
+## 0.18.x → 1.0.0
+
+GPJax `1.0` restructures the core API around **conditioning**: the joint
+model and the conditioned posterior are now distinct objects, and the API
+reads as the maths. The full decision record is
+[ADR-0001](gh:blob/main/docs/adr/0001-conditioning-architecture.md); the
+vocabulary lives in [CONTEXT.md](gh:blob/main/CONTEXT.md).
+
+### The conditioning API
+
+`prior * likelihood` now returns a `JointModel` — the joint p(f, y), the
+object `gpx.fit` trains. Conditioning it on data yields the posterior
+process, which caches its factorisation and is queried directly:
+
+```python
+import gpjax as gpx
+import jax.numpy as jnp
+
+xtrain = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
+D = gpx.Dataset(X=xtrain, y=jnp.sin(xtrain))
+xtest = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)
+prior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
+)
+
+model = prior * gpx.likelihoods.Gaussian()  # JointModel (was: ConjugatePosterior)
+posterior = model.condition(D)      # Posterior — equivalently: model | D
+predictive = posterior(xtest)       # was: posterior.predict(xtest, D)
+evidence = posterior.log_marginal_likelihood
+```
+
+`model.predict(xtest, D)` and `model(xtest, D)` remain as documented one-line
+sugar for `model.condition(D)(xtest)` — existing prediction code keeps
+working. When predicting repeatedly, condition once and reuse the returned
+posterior.
+
+### Renames
+
+| 0.18.x | 1.0.0 |
+| --- | --- |
+| `ConjugatePosterior` | `ConjugateModel` |
+| `NonConjugatePosterior` | `NonConjugateModel` |
+| `HeteroscedasticPosterior` / `ChainedPosterior` | `HeteroscedasticModel` |
+| `construct_posterior` | `construct_model` |
+| `AbstractPrior` | folded into `Prior` |
+| `AbstractPosterior` | split into `JointModel` and `Posterior` |
+| `StateSpaceConjugatePosterior` | `StateSpaceConjugateModel` |
+| `return_covariance_type=` kwarg | `covariance=` |
+
+### Likelihoods are pure conditionals
+
+`num_datapoints` is gone from every likelihood constructor:
+
+```python
+likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)   # was: Gaussian(num_datapoints=D.n, ...)
+```
+
+The minibatch ELBO scale is now derived from the dataset itself
+(`get_batch` stamps the full size onto each minibatch as `Dataset.n_total`),
+so it can no longer be wrong. `MultiOutputGaussian(num_outputs=P)` likewise
+drops the argument.
+
+`HeteroscedasticGaussian` no longer takes a `noise_prior`; the noise process
+lives on the model, which is constructed directly because it holds two
+priors:
+
+```python
+noise_prior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
+)
+het_model = gpx.gps.HeteroscedasticModel(
+    prior=prior,
+    likelihood=gpx.likelihoods.HeteroscedasticGaussian(),
+    noise_prior=noise_prior,
+)
+```
+
+### Non-conjugate latents initialise lazily
+
+`NonConjugateModel` no longer sizes its latent vector at construction (that
+was what `num_datapoints` was for). `gpx.fit` initialises it automatically on
+first contact with the data; to work with the latent before fitting, call
+`model = model.init_latent(D.n)` explicitly.
+
+### One jitter knob
+
+`Prior.jitter` is now the model's single stabilisation knob, applied exactly
+once inside conditioning. The independent `Posterior.jitter` field is gone —
+previously `predict` and `conjugate_mll` could factorise *different*
+matrices when the two knobs diverged.
+
 ## 0.14.x → 0.15.0
 
 GPJax `0.15` adds the `gpjax.state_space` sub-package (state-space / Markovian

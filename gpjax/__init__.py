@@ -32,12 +32,21 @@ from gpjax import (
     variational_families,
 )
 from gpjax.citation import cite
+from gpjax.conditioning import Posterior
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.fit import (
     fit,
     fit_lbfgs,
     fit_scipy,
+)
+from gpjax.gps import (
+    ConjugateModel,
+    HeteroscedasticModel,
+    JointModel,
+    NonConjugateModel,
+    Prior,
+    construct_model,
 )
 from gpjax.summary import summarise
 
@@ -48,9 +57,16 @@ __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
 __version__ = "0.18.0"
 
 __all__ = [
+    "ConjugateModel",
     "Dataset",
     "GaussianDistribution",
+    "HeteroscedasticModel",
+    "JointModel",
+    "NonConjugateModel",
+    "Posterior",
+    "Prior",
     "cite",
+    "construct_model",
     "fit",
     "fit_lbfgs",
     "fit_scipy",

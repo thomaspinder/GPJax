@@ -1,6 +1,6 @@
 """Closed-form oracles for the conjugate GP quantities.
 
-These tests pin the *values* of ``conjugate_mll``, ``ConjugatePosterior.predict``
+These tests pin the *values* of ``conjugate_mll``, ``ConjugateModel.predict``
 and ``conjugate_loocv`` on a tiny fixed dataset, computed through an independent
 linear-algebra path (direct ``jnp.linalg.solve``/``slogdet``, never
 ``GaussianDistribution``). Everything downstream in the test suite — the Kalman
@@ -31,9 +31,7 @@ def _posterior():
     prior = gpx.gps.Prior(
         mean_function=gpx.mean_functions.Zero(), kernel=kernel, jitter=JITTER
     )
-    likelihood = gpx.likelihoods.Gaussian(
-        num_datapoints=X.shape[0], obs_stddev=OBS_STDDEV
-    )
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=OBS_STDDEV)
     return prior * likelihood
 
 

@@ -29,10 +29,9 @@ import lineax as lx
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
-    AbstractPosterior,
-    AbstractPrior,
-    ChainedPosterior,
-    HeteroscedasticPosterior,
+    HeteroscedasticModel,
+    JointModel,
+    Prior,
 )
 from gpjax.kernels.base import AbstractKernel
 from gpjax.likelihoods import (
@@ -60,9 +59,9 @@ L = tp.TypeVar("L", Gaussian, NonGaussian)
 NGL = tp.TypeVar("NGL", bound=NonGaussian)
 GL = tp.TypeVar("GL", bound=Gaussian)
 HL = tp.TypeVar("HL", bound=AbstractHeteroscedasticLikelihood)
-P = tp.TypeVar("P", bound=AbstractPrior)
-PP = tp.TypeVar("PP", bound=AbstractPosterior)
-HP = tp.TypeVar("HP", HeteroscedasticPosterior, ChainedPosterior)
+P = tp.TypeVar("P", bound=Prior)
+PP = tp.TypeVar("PP", bound=JointModel)
+HP = tp.TypeVar("HP", bound=HeteroscedasticModel)
 
 
 def _psd(matrix):
@@ -81,9 +80,9 @@ class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
     used within variational inference.
     """
 
-    posterior: AbstractPosterior
+    posterior: JointModel
 
-    def __init__(self, posterior: AbstractPosterior[P, L]):
+    def __init__(self, posterior: JointModel):
         self.posterior = posterior
 
     def __call__(self, *args: tp.Any, **kwargs: tp.Any) -> GaussianDistribution:
@@ -126,7 +125,7 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: tp.Union[
             Int[Array, "N D"],
             Float[Array, "N D"],
@@ -163,7 +162,7 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
         variational_mean: tp.Union[Float[Array, "N 1"], None] = None,
         variational_root_covariance: tp.Union[Float[Array, "N N"], None] = None,
@@ -344,7 +343,7 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: Int[Array, "N D"],
         variational_mean: tp.Union[Float[Array, "N 1"], None] = None,
         variational_root_covariance: tp.Union[Float[Array, "N N"], None] = None,
@@ -511,7 +510,7 @@ class NaturalVariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: Float[Array, "N D"],
         natural_vector: tp.Union[Float[Array, "M 1"], None] = None,
         natural_matrix: tp.Union[Float[Array, "M M"], None] = None,
@@ -683,7 +682,7 @@ class ExpectationVariationalGaussian(AbstractVariationalGaussian[L]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, L],
+        posterior: JointModel,
         inducing_inputs: Float[Array, "N D"],
         expectation_vector: tp.Union[Float[Array, "M 1"], None] = None,
         expectation_matrix: tp.Union[Float[Array, "M M"], None] = None,
@@ -848,7 +847,7 @@ class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
 
     def __init__(
         self,
-        posterior: AbstractPosterior[P, GL],
+        posterior: JointModel,
         inducing_inputs: Float[Array, "N D"],
         jitter: ScalarFloat = 1e-6,
     ):
@@ -1006,7 +1005,7 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
 
         if noise_init is not None:
             self.noise_variational = VariationalGaussian(
-                posterior=posterior.noise_posterior,
+                posterior=posterior.noise_model,
                 inducing_inputs=noise_init.inducing_inputs,
                 variational_mean=noise_init.variational_mean,
                 variational_root_covariance=noise_init.variational_root_covariance,
@@ -1025,7 +1024,7 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
                 )
 
             self.noise_variational = VariationalGaussian(
-                posterior=posterior.noise_posterior,
+                posterior=posterior.noise_model,
                 inducing_inputs=noise_inducing,
                 variational_mean=variational_mean_g,
                 variational_root_covariance=variational_root_covariance_g,

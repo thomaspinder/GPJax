@@ -135,14 +135,15 @@ plt.show()
 kernel = gpx.kernels.RBF()
 meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-likelihood = gpx.likelihoods.Poisson(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Poisson()
 
 # %% [markdown]
-# We construct the [posterior](#gpjax.gps.NonConjugatePosterior) through the product of our
-# prior and likelihood.
+# We construct the [model](#gpjax.gps.NonConjugateModel) through the product of our
+# prior and likelihood, and initialise the whitened latent vector that MCMC
+# will sample (sized by the training data).
 
 # %%
-posterior = prior * likelihood
+posterior = (prior * likelihood).init_latent(D.n)
 print(type(posterior))
 
 # %% [markdown]

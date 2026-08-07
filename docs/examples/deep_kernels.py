@@ -196,7 +196,7 @@ base_kernel = gpx.kernels.Matern52(
 kernel = DeepKernelFunction(network=forward_linear, base_kernel=base_kernel)
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Gaussian()
 posterior = prior * likelihood
 # %% [markdown]
 # ### Optimisation

@@ -70,7 +70,7 @@ def _build_matern_posterior(kernel_class, lengthscale, variance, obs_stddev, n):
         mean_function=gpx.mean_functions.Zero(),
         kernel=kernel_class(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     return prior * likelihood
 
 

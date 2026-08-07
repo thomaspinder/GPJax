@@ -174,7 +174,7 @@ plt.show()
 # [`fit_scipy`](#gpjax.fit.fit_scipy).
 
 # %%
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Gaussian()
 kernel = gpx.kernels.GraphKernel(laplacian=L)
 prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
 posterior = prior * likelihood

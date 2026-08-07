@@ -157,7 +157,7 @@ meanf = gpx.mean_functions.Constant()
 
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
-likelihood = gpx.likelihoods.Gaussian(100)
+likelihood = gpx.likelihoods.Gaussian()
 posterior = likelihood * prior
 print(posterior)
 

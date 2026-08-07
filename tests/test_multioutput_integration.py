@@ -29,7 +29,7 @@ class TestICMEndToEnd:
         )
         meanf = gpx.mean_functions.Zero()
         prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
 
         # Verify MLL is computable and finite
@@ -69,7 +69,7 @@ class TestICMEndToEnd:
             prior = gpx.gps.Prior(
                 mean_function=gpx.mean_functions.Zero(), kernel=kernel
             )
-            lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=15, num_outputs=2)
+            lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=2)
             posterior = prior * lik
 
             mll = gpx.objectives.conjugate_mll(posterior, D)
@@ -97,7 +97,7 @@ class TestICMEndToEnd:
             coregionalization_matrix=coreg,
         )
         prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
 
         mll = gpx.objectives.conjugate_mll(posterior, D)
@@ -133,7 +133,7 @@ class TestLCMEndToEnd:
         )
         meanf = gpx.mean_functions.Zero()
         prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
 
         mll = gpx.objectives.conjugate_mll(posterior, D)
@@ -171,7 +171,7 @@ class TestLCMEndToEnd:
 
         meanf = gpx.mean_functions.Zero()
         prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
 
         mll = gpx.objectives.conjugate_mll(posterior, D)
@@ -202,7 +202,7 @@ class TestLCMEndToEnd:
         )
 
         prior = gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=kernel)
-        lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         posterior = prior * lik
 
         mll = gpx.objectives.conjugate_mll(posterior, D)
@@ -233,7 +233,7 @@ class TestLCMEndToEnd:
         icm_prior = gpx.gps.Prior(
             mean_function=gpx.mean_functions.Zero(), kernel=icm_kernel
         )
-        icm_lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        icm_lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         icm_post = icm_prior * icm_lik
         icm_mll = gpx.objectives.conjugate_mll(icm_post, D)
 
@@ -245,7 +245,7 @@ class TestLCMEndToEnd:
         lcm_prior = gpx.gps.Prior(
             mean_function=gpx.mean_functions.Zero(), kernel=lcm_kernel
         )
-        lcm_lik = gpx.likelihoods.MultiOutputGaussian(num_datapoints=N, num_outputs=P)
+        lcm_lik = gpx.likelihoods.MultiOutputGaussian(num_outputs=P)
         lcm_post = lcm_prior * lcm_lik
         lcm_mll = gpx.objectives.conjugate_mll(lcm_post, D)
 

@@ -213,7 +213,7 @@ Which approximation to reach for:
 
 | Data size | Objective | Variational family |
 | --- | --- | --- |
-| Up to a few thousand | [`conjugate_mll`](#gpjax.objectives.conjugate_mll) | none — use [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) directly |
+| Up to a few thousand | [`conjugate_mll`](#gpjax.objectives.conjugate_mll) | none — use [`ConjugateModel`](#gpjax.gps.ConjugateModel) directly |
 | Up to ~50,000 | [`collapsed_elbo`](#gpjax.objectives.collapsed_elbo) | [`CollapsedVariationalGaussian`](#gpjax.variational_families.CollapsedVariationalGaussian) |
 | Beyond that, or a non-Gaussian likelihood | [`elbo`](#gpjax.objectives.elbo) | [`VariationalGaussian`](#gpjax.variational_families.VariationalGaussian) |
 :::

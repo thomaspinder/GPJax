@@ -105,7 +105,7 @@ ax.scatter(x, y)
 kernel = gpx.kernels.RBF()
 meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Bernoulli()
 
 # %% [markdown]
 # We construct the posterior through the product of our prior and likelihood.
@@ -144,7 +144,7 @@ opt_posterior, history = gpx.fit(
 )
 
 # %% [markdown]
-# From which we can [make predictions](#gpjax.gps.NonConjugatePosterior.predict) at
+# From which we can [make predictions](#gpjax.gps.JointModel.predict) at
 # novel inputs, as illustrated in {numref}`fig-classification-map-predictive`.
 
 # %% mystnb={"figure": {"caption": "The MAP predictive mean and its one-sigma band over the binary observations.", "name": "fig-classification-map-predictive"}}

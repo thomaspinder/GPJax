@@ -71,7 +71,7 @@ key = jr.key(42)
 # covariates and a single positive, real valued response variable. There are 308
 # observations in the dataset, so we can comfortably use a conjugate regression
 # Gaussian process here, namely a
-# [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) (for more more details,
+# [`ConjugateModel`](#gpjax.gps.ConjugateModel) (for more more details,
 # checkout the [Regression notebook](regression.py)).
 
 # %%
@@ -189,7 +189,7 @@ kernel = gpx.kernels.RBF(
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=n_train)
+likelihood = gpx.likelihoods.Gaussian()
 
 posterior = prior * likelihood
 

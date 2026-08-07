@@ -121,7 +121,7 @@ plt.show()
 # %%
 meanf = gpx.mean_functions.Constant()
 kernel = gpx.kernels.RBF()  # 1-dimensional inputs
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Gaussian()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 posterior = prior * likelihood
 
@@ -242,7 +242,7 @@ plt.show()
 # %%
 full_rank_model = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
-) * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+) * gpx.likelihoods.Gaussian()
 nmll = jit(lambda: -gpx.objectives.conjugate_mll(full_rank_model, D))
 # %timeit nmll().block_until_ready()
 

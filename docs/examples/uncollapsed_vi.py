@@ -220,7 +220,7 @@ plt.show()
 
 # %%
 meanf = gpx.mean_functions.Zero()
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+likelihood = gpx.likelihoods.Gaussian()
 kernel = jk.RBF()  # 1-dimensional inputs
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 p = prior * likelihood
