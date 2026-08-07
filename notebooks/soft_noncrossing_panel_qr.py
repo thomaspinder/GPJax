@@ -135,7 +135,7 @@ def _(np, os):
     NUM_WARMUP, NUM_SAMPLES = 2500, 1500
     TARGET_ACCEPT = 0.9
     RUN_PILOT = False  # flip to True to run the advisory pilot timing (~30-45 min)
-    RUN_FITS = False  # flip to True to launch the production fits (hours-scale)
+    RUN_FITS = True  # flip to True to launch the production fits (hours-scale)
     RUNTIME_CAP_HOURS = 2.0  # pilot's advisory runtime threshold
     THIN_STORE = 4  # cache thinning for posterior draws
     # NUM_CHAINS lives in the imports cell: XLA_FLAGS must be set before jax loads.
