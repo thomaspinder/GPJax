@@ -83,6 +83,18 @@ harness whose failures actually raise.
   predict-then-score workflows stop re-factorising.
 - Breaking changes at v1.0 are recorded in `docs/migration.md`; the
   vocabulary lives in `CONTEXT.md`.
-- Follow-ups tracked for the stack: variational universalisation
-  (post-natgrads), the linalg structure-preserving deepening, one training
-  loop with stepper adapters, and the compute-engine seam.
+- Variational universalisation (landed as the stack's final PR): every
+  Gaussian-output family conditions through the module's sparse/collapsed
+  modes, deleting the five copied predictive derivations and the duplicated
+  Titsias bound. The family-side `jitter` knob is gone — `Prior.jitter` is
+  applied inside conditioning for families exactly as for joint models — so
+  the collapsed-ELBO/MLL equivalence test that was strictly xfailed at
+  non-default jitter now passes, and the families' `posterior` field is
+  renamed `model` (it holds the joint, not a posterior).
+- Follow-ups tracked for the stack: the linalg structure-preserving
+  deepening, one training loop with stepper adapters, the compute-engine
+  seam, sharing the `K_zz` factor between `prior_kl` and `condition()`
+  within a single ELBO step (today each factorises its own; XLA CSE merges
+  them under `jit`), and the heteroscedastic family's NamedTuple predict
+  (candidate-3 debt — it still derives its predictive through its two
+  sub-families rather than a conditioning mode of its own).

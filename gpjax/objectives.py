@@ -1,9 +1,7 @@
 from typing import TypeVar
 
 import equinox as eqx
-from jax import vmap
 import jax.numpy as jnp
-import jax.scipy as jsp
 from jaxtyping import Float
 import typing_extensions as tpe
 
@@ -15,8 +13,6 @@ from gpjax.gps import (
 from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
 )
-from gpjax.linalg.utils import add_jitter
-from gpjax.parameters import _val
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -225,7 +221,7 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.elbo(q, D)
@@ -276,7 +272,7 @@ def variational_expectation(
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.variational_expectation(q, D)
@@ -296,20 +292,13 @@ def variational_expectation(
     # Variational distribution q(f(.)) = N(f(.); mu(.), Sigma(., .))
     q = variational_family
 
-    # TODO: This needs cleaning up! We are squeezing then broadcasting `mean` and `variance`, which is not ideal.
-
-    # Compute variational mean, mu(x), and variance, diag(Sigma(x, x)), at the training
-    # inputs, x
-    def q_moments(x):
-        qx = q(x)
-        return qx.mean.squeeze(), qx.covariance().squeeze()
-
-    mean, variance = vmap(q_moments)(x[:, None])
+    # Marginal moments mu(x) and diag(Sigma(x, x)) at the training inputs,
+    # through the conditioned posterior's diagonal path.
+    qx = q.condition()(x, covariance="diagonal")
+    mean, variance = qx.mean[:, None], qx.variance[:, None]
 
     # approx int[log(p(y|f(x))) q(f(x))] df(x)
-    expectation = q.posterior.likelihood.expected_log_likelihood(
-        y, mean[:, None], variance[:, None]
-    )
+    expectation = q.model.likelihood.expected_log_likelihood(y, mean, variance)
     return expectation
 
 
@@ -347,7 +336,7 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.DualVariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.dual_elbo(q, D).shape
@@ -375,11 +364,11 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
     entire point, and removing it is a silent bug -- identical values, wrong gradients.
 
     The marginals are computed in one batched
-    :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call rather
-    than by ``vmap``-ing ``predict`` over single points as :func:`elbo` does. Both are
-    $\mathcal{O}(M^3 + NM^2)$ -- ``vmap`` leaves the factorisations unbatched, so they
-    are not repeated per datum -- but the batched form replaces $N$ rank-one triangular
-    solves with two BLAS-3 ones. :func:`elbo` called directly on a
+    :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call
+    directly from the working matrix $\mathbf{R}$, rather than through the
+    moment conversion that :func:`elbo` performs when it conditions the
+    family. Both are $\mathcal{O}(M^3 + NM^2)$, but this path skips forming
+    and factorising $\mathbf{S}$. :func:`elbo` called directly on a
     ``DualVariationalGaussian`` is still correct and returns the same value and the
     same gradients; ``dual_elbo`` is the fast path, not a different bound.
 
@@ -395,7 +384,7 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
     # Batched marginals of q(f(x)); O(M^3 + N M^2).
     mean, variance = variational_family.marginals(data.X)
 
-    likelihood = variational_family.posterior.likelihood
+    likelihood = variational_family.model.likelihood
     expectation = likelihood.expected_log_likelihood(
         data.y, mean[:, None], variance[:, None]
     )
@@ -403,9 +392,6 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
     # For batch size b, n/b * sum_i E_q[log p(y_i | f(x_i))] - KL[q(u) || p(u)].
     full_size = data.n_total if data.n_total is not None else data.n
     return jnp.sum(expectation) * full_size / data.n - kl
-
-
-# TODO: Replace code within CollapsedELBO to using (low rank structure of) LinOps and the GaussianDistribution object to be as succinct as e.g., the `ConjugateMLL`.
 
 
 def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
@@ -416,6 +402,10 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     approximation. To this, we sum the KL divergence from the variational posterior
     to the prior. This collapsed bound is evaluated on the full dataset supplied in
     ``data`` and does not apply minibatch scaling.
+
+    The bound is the ``elbo_bound`` view of the conditioned
+    :class:`~gpjax.conditioning.CollapsedPosterior` — this objective is not a
+    second derivation.
 
     Example:
         >>> import gpjax as gpx
@@ -433,7 +423,7 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.CollapsedVariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.collapsed_elbo(q, D)
@@ -448,88 +438,14 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     Returns:
         ScalarFloat: The evidence lower bound of the variational approximation.
     """
-    # Unpack training data
-    x, y, n = data.X, data.y, data.n
-
-    # Unpack mean function and kernel
-    mean_function = variational_family.posterior.prior.mean_function
-    kernel = variational_family.posterior.prior.kernel
-
-    m = variational_family.num_inducing
-
-    noise = _val(variational_family.posterior.likelihood.obs_stddev) ** 2
-    z = _val(variational_family.inducing_inputs)
-    Kzz = kernel.gram(z)
-    Kzz_dense = add_jitter(Kzz.as_matrix(), variational_family.jitter)
-    Kzx = kernel.cross_covariance(z, x)
-    Kxx_diag = vmap(kernel, in_axes=(0, 0))(x, x)
-    mux = mean_function(x)
-
-    Lz = jnp.linalg.cholesky(Kzz_dense)
-
-    # Notation and derivation:
-    #
-    # Let Q = KxzKzz^{-1}Kzx, we must compute the log normal pdf:
-    #
-    #   log N(y; mux, o^2 I + Q) = -n pi - n/2 log|o^2 I + Q|
-    #   - 1/2 (y - mux)^T (o^2 I + Q)^{-1} (y - mux).
-    #
-    # The log determinant |o^2 I + Q| is computed via applying the matrix determinant
-    #   lemma
-    #
-    #   |o^2 I + Q| = log|o^2 I| + log|I + Lz^{-1} Kzx (o^2 I)^{-1} Kxz Lz^{-1}| = log(o^2) + log|B|,
-    #
-    #   with B = I + AA^T and A = Lz^{-1} Kzx / o.
-    #
-    # Similarly we apply matrix inversion lemma to invert o^2 I + Q
-    #
-    #   (o^2 I + Q)^{-1} = (I o^2)^{-1} - (I o^2)^{-1} Kxz Lz^{-T} (I + Lz^{-1} Kzx (I o^2)^{-1} Kxz Lz^{-T})^{-1} Lz^{-1} Kzx (I o^2)^{-1}
-    #               = (I o^2)^{-1} - (I o^2)^{-1} o A^T (I + o A (I o^2)^{-1} o A^T)^{-1} o A (I o^2)^{-1}
-    #               = I/o^2 - A^T B^{-1} A / o^2,
-    #
-    # giving the quadratic term as
-    #
-    #   (y - mux)^T (o^2 I + Q)^{-1} (y - mux) = [(y - mux)^T(y - mux) - (y - mux)^T A^T B^{-1} A (y - mux)] / o^2,
-    #
-    #   with A and B defined as above.
-
-    A = jsp.linalg.solve_triangular(Lz, Kzx, lower=True) / jnp.sqrt(noise)
-
-    # AA^T
-    AAT = jnp.matmul(A, A.T)
-
-    # B = I + AA^T
-    B = jnp.eye(m) + AAT
-
-    # LL^T = I + AA^T
-    L = jnp.linalg.cholesky(B)
-
-    # log|B| = 2 trace(log|L|) = 2 sum_i log L_ii
-    log_det_B = 2.0 * jnp.sum(jnp.log(jnp.diagonal(L)))
-
-    diff = y - mux
-
-    # L^{-1} A (y - mux)
-    L_inv_A_diff = jsp.linalg.solve_triangular(L, jnp.matmul(A, diff), lower=True)
-
-    # (y - mux)^T (I o^2 + Q)^{-1} (y - mux)
-    quad = (jnp.sum(diff**2) - jnp.sum(L_inv_A_diff**2)) / noise
-
-    # 2 * log N(y; mux, I o^2 + Q)
-    two_log_prob = -n * jnp.log(2.0 * jnp.pi * noise) - log_det_B - quad
-
-    # 1/o^2 tr(Kxx - Q)
-    two_trace = jnp.sum(Kxx_diag) / noise - jnp.trace(AAT)
-
-    # log N(y; mux, I o^2 + Kxz Kzz^{-1} Kzx) - 1/(2 o^2) tr(Kxx - Kxz Kzz^{-1} Kzx)
-    return (two_log_prob - two_trace).squeeze() / 2.0
+    return variational_family.condition(data).elbo_bound
 
 
 def heteroscedastic_elbo_conjugate(
     variational_family: HVF, data: Dataset
 ) -> ScalarFloat:
     r"""Tight bound from Lazaro-Gredilla & Titsias (2011) for heteroscedastic Gaussian likelihoods."""
-    likelihood = variational_family.posterior.likelihood
+    likelihood = variational_family.model.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
 
     expected_ll, _ = likelihood.expected_log_likelihood(
@@ -548,9 +464,7 @@ def heteroscedastic_elbo_conjugate(
 
 def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> ScalarFloat:
     r"""Generic chained bound for heteroscedastic likelihoods."""
-    likelihood: AbstractHeteroscedasticLikelihood = (
-        variational_family.posterior.likelihood
-    )
+    likelihood: AbstractHeteroscedasticLikelihood = variational_family.model.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
     noise_stats = likelihood.noise_statistics(mean_g, var_g)
 
@@ -569,7 +483,7 @@ def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> Scal
 
 
 def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
-    likelihood = variational_family.posterior.likelihood
+    likelihood = variational_family.model.likelihood
     if likelihood.supports_tight_bound():
         return heteroscedastic_elbo_conjugate(variational_family, data)
     return heteroscedastic_elbo_chained(variational_family, data)

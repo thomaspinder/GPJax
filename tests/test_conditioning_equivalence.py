@@ -8,7 +8,6 @@ that consolidating the derivations cannot silently change behaviour.
 
 import gpjax as gpx
 import jax.numpy as jnp
-import pytest
 
 
 def _make(jitter=1e-6):
@@ -27,33 +26,31 @@ def _make(jitter=1e-6):
 def test_collapsed_elbo_equals_mll_when_z_is_x():
     posterior, data = _make()
     q = gpx.variational_families.CollapsedVariationalGaussian(
-        posterior=posterior, inducing_inputs=data.X
+        model=posterior, inducing_inputs=data.X
     )
     elbo = gpx.objectives.collapsed_elbo(q, data)
     mll = gpx.objectives.conjugate_mll(posterior, data)
-    # The identity is exact only in the jitter -> 0 limit: the family's jitter
-    # enters Kzz while the model's enters Sigma, so a small O(jitter/noise)
-    # discrepancy is expected even when both knobs are 1e-6.
+    # The identity is exact only in the jitter -> 0 limit: Prior.jitter enters
+    # Kzz on the bound's side and Sigma on the MLL's, so a small
+    # O(jitter/noise) discrepancy is expected even at the 1e-6 default.
     assert jnp.allclose(elbo, mll, atol=2e-4)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the variational family still carries its own jitter knob "
-    "(q.jitter enters Kzz; the model's Prior.jitter enters Sigma), so "
-    "collapsed_elbo and conjugate_mll factorise different matrices at "
-    "non-default jitter. The model-side split is fixed (see "
-    "test_predict_consistent_with_mll_nondefault_jitter); the family-side "
-    "knob unifies in the variational universalisation PR, post-natgrads.",
-)
 def test_collapsed_elbo_equals_mll_when_z_is_x_nondefault_jitter():
+    """Formerly a strict xfail: the family's own jitter knob made the two
+    sides factorise different matrices at non-default jitter. With the knob
+    unified on ``Prior.jitter`` the identity holds at any jitter, up to the
+    intrinsic O(n * jitter / (2 sigma^2)) gap of the Titsias bound — the
+    tolerance scales linearly with the knob, exactly as in the default-jitter
+    test above (2e-4 at 1e-6 becomes 2e-1 at 1e-3; observed gap ~8.3e-2).
+    """
     posterior, data = _make(jitter=1e-3)
     q = gpx.variational_families.CollapsedVariationalGaussian(
-        posterior=posterior, inducing_inputs=data.X
+        model=posterior, inducing_inputs=data.X
     )
     elbo = gpx.objectives.collapsed_elbo(q, data)
     mll = gpx.objectives.conjugate_mll(posterior, data)
-    assert jnp.allclose(elbo, mll, atol=2e-4)
+    assert jnp.allclose(elbo, mll, atol=2e-1)
 
 
 def test_predict_consistent_with_mll_nondefault_jitter():
@@ -91,10 +88,10 @@ def test_whitened_matches_unwhitened_at_matched_parameters():
     posterior, _ = _make()
     z = jnp.linspace(0.0, 1.0, 5).reshape(-1, 1)
     q_white = gpx.variational_families.WhitenedVariationalGaussian(
-        posterior=posterior, inducing_inputs=z
+        model=posterior, inducing_inputs=z
     )
     q_plain = gpx.variational_families.VariationalGaussian(
-        posterior=posterior, inducing_inputs=z
+        model=posterior, inducing_inputs=z
     )
     # At default parameters, whitened q(u) = N(0, I) and unwhitened
     # q(u) = N(0, I) describe different measures UNLESS the predictive

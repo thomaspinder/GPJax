@@ -42,7 +42,7 @@ class CompileSuite:
         likelihood = gpx.likelihoods.Gaussian()
         self.posterior = prior * likelihood
         self.q = VariationalGaussian(
-            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]
+            model=self.posterior, inducing_inputs=X[:M_INDUCING]
         )
 
         self.jitted_mll = jax.jit(objectives.conjugate_mll)

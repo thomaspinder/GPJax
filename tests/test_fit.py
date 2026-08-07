@@ -312,7 +312,7 @@ def test_fit_batch(num_iters: int, batch_size: int, n_data: int, verbose: bool) 
 
     # Define variational family:
     z = jnp.linspace(-2.0, 2.0, 10).reshape(-1, 1)
-    q = VariationalGaussian(posterior=posterior, inducing_inputs=z)
+    q = VariationalGaussian(model=posterior, inducing_inputs=z)
 
     # Train!
     trained_model, history = fit(
@@ -345,12 +345,12 @@ def _svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
     y = jnp.sin(x) + jr.normal(key=key, shape=x.shape) * 0.1
     D = Dataset(X=x, y=y)
 
-    prior = Prior(kernel=RBF(), mean_function=Constant())
+    prior = Prior(kernel=RBF(), mean_function=Constant(), jitter=jitter)
     likelihood = Gaussian()
     posterior = prior * likelihood
 
     z = jnp.linspace(-2.0, 2.0, n_inducing).reshape(-1, 1)
-    q = VariationalGaussian(posterior=posterior, inducing_inputs=z, jitter=jitter)
+    q = VariationalGaussian(model=posterior, inducing_inputs=z)
     return q, D
 
 
@@ -392,8 +392,8 @@ def test_fit_natgrads_simple() -> None:
 def test_fit_natgrads_gp_regression(n_data: int, verbose: bool) -> None:
     q, D = _svgp_setup(n_data=n_data)
 
-    initial_lengthscale = _val(paramax.unwrap(q).posterior.prior.kernel.lengthscale)
-    initial_obs_stddev = _val(paramax.unwrap(q).posterior.likelihood.obs_stddev)
+    initial_lengthscale = _val(paramax.unwrap(q).model.prior.kernel.lengthscale)
+    initial_obs_stddev = _val(paramax.unwrap(q).model.likelihood.obs_stddev)
 
     trained_model, history = fit_natgrads(
         model=q,
@@ -413,10 +413,10 @@ def test_fit_natgrads_gp_regression(n_data: int, verbose: bool) -> None:
 
     unwrapped = paramax.unwrap(trained_model)
     assert not jnp.allclose(
-        _val(unwrapped.posterior.prior.kernel.lengthscale), initial_lengthscale
+        _val(unwrapped.model.prior.kernel.lengthscale), initial_lengthscale
     )
     assert not jnp.allclose(
-        _val(unwrapped.posterior.likelihood.obs_stddev), initial_obs_stddev
+        _val(unwrapped.model.likelihood.obs_stddev), initial_obs_stddev
     )
 
 
@@ -523,7 +523,7 @@ def test_fit_natgrads_accepts_optax_schedule() -> None:
 def test_fit_natgrads_rejects_unsupported_family() -> None:
     q, D = _svgp_setup(n_data=20)
     collapsed = CollapsedVariationalGaussian(
-        posterior=q.posterior, inducing_inputs=_val(q.inducing_inputs)
+        model=q.model, inducing_inputs=_val(q.inducing_inputs)
     )
 
     with pytest.raises(NotImplementedError, match="CollapsedVariationalGaussian"):
@@ -1043,9 +1043,8 @@ def _dual_svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
     """The ``_svgp_setup`` model, re-expressed in the dual parameterisation."""
     q, D = _svgp_setup(n_data=n_data, n_inducing=n_inducing, jitter=jitter)
     dual = DualVariationalGaussian(
-        posterior=q.posterior,
+        model=q.model,
         inducing_inputs=_val(q.inducing_inputs),
-        jitter=jitter,
     )
     return dual, D
 

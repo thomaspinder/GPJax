@@ -78,8 +78,20 @@ def test_abstract_variational_family():
         def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
             return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
 
+        def prior_kl(self) -> Float[Array, ""]:
+            return jnp.array(0.0)
+
+    # A family that forgets `prior_kl` must not be instantiable: every
+    # ELBO-style objective subtracts it, so the base class declares it.
+    class KLFreeVariationalFamily(AbstractVariationalFamily):
+        def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
+            return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
+
+    with pytest.raises(TypeError):
+        KLFreeVariationalFamily(model=DummyPosterior())
+
     # Test that the dummy variational family can be instantiated.
-    dummy_variational_family = DummyVariationalFamily(posterior=DummyPosterior())
+    dummy_variational_family = DummyVariationalFamily(model=DummyPosterior())
     assert isinstance(dummy_variational_family, AbstractVariationalFamily)
 
 
@@ -140,7 +152,7 @@ def test_variational_gaussians(
     test_inputs = jnp.linspace(-5.0, 5.0, n_test).reshape(-1, 1)
 
     posterior = prior * likelihood
-    q = variational_family(posterior=posterior, inducing_inputs=inducing_inputs)
+    q = variational_family(model=posterior, inducing_inputs=inducing_inputs)
 
     # Test init:
     assert q.num_inducing == n_inducing
@@ -243,7 +255,7 @@ def test_graph_variational_gaussian(
     )
 
     posterior = prior * likelihood
-    q = variational_family(posterior=posterior, inducing_inputs=inducing_inputs)
+    q = variational_family(model=posterior, inducing_inputs=inducing_inputs)
     # Test KL
     kl = q.prior_kl()
     assert isinstance(kl, jnp.ndarray)
@@ -287,21 +299,21 @@ def test_collapsed_variational_gaussian(
     posterior = prior * gpx.likelihoods.Gaussian()
 
     variational_family = CollapsedVariationalGaussian(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=inducing_inputs,
     )
 
     # We should raise an error for non-Gaussian likelihoods:
     with pytest.raises(TypeError):
         CollapsedVariationalGaussian(
-            posterior=prior * gpx.likelihoods.Bernoulli(),
+            model=prior * gpx.likelihoods.Bernoulli(),
             inducing_inputs=inducing_inputs,
         )
 
     # Test init
     assert variational_family.num_inducing == n_inducing
     assert (variational_family.inducing_inputs.unwrap() == inducing_inputs).all()
-    assert variational_family.posterior.likelihood.obs_stddev.unwrap() == 1.0
+    assert variational_family.model.likelihood.obs_stddev.unwrap() == 1.0
 
     # Test predictions
     predictive_dist = variational_family(test_inputs, D)
@@ -353,7 +365,7 @@ def _build_kl_family(
     posterior = prior * gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
     return family(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=inducing_inputs,
         variational_mean=_kl_variational_mean(num_inducing),
         variational_root_covariance=_kl_variational_root(num_inducing),
@@ -445,9 +457,11 @@ def _reference_prior_kl(family):
         cov_p = jnp.eye(num_inducing, dtype=variational_sqrt.dtype)
     else:
         inducing_inputs = _val(family.inducing_inputs)
-        mean_p = family.posterior.prior.mean_function(inducing_inputs).reshape(-1)
-        cov_p = family.posterior.prior.kernel.gram(inducing_inputs).as_matrix()
-        cov_p = cov_p + jnp.eye(num_inducing, dtype=cov_p.dtype) * family.jitter
+        mean_p = family.model.prior.mean_function(inducing_inputs).reshape(-1)
+        cov_p = family.model.prior.kernel.gram(inducing_inputs).as_matrix()
+        cov_p = (
+            cov_p + jnp.eye(num_inducing, dtype=cov_p.dtype) * family.model.prior.jitter
+        )
 
     return _textbook_gaussian_kl(variational_mean, cov_q, mean_p, cov_p)
 
@@ -676,11 +690,11 @@ def _build_dual_family(
         lengthscale=jnp.array(0.7), variance=jnp.array(float(variance))
     )
     mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
-    prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
+    prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function, jitter=jitter)
     posterior = prior * gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 
-    return build_dual(posterior, inducing_inputs, jitter=jitter, seed=seed)
+    return build_dual(posterior, inducing_inputs, seed=seed)
 
 
 @pytest.mark.parametrize("num_inducing", [1, 4, 9])
@@ -816,8 +830,8 @@ def test_dual_marginals_include_jitter() -> None:
     inputs = jnp.linspace(-3.0, 3.0, 13).reshape(-1, 1)
 
     gram, root_gram, root_working = q._working_matrices()
-    cross = q.posterior.prior.kernel.cross_covariance(_val(q.inducing_inputs), inputs)
-    diagonal = jnp.diag(q.posterior.prior.kernel.gram(inputs).as_matrix())
+    cross = q.model.prior.kernel.cross_covariance(_val(q.inducing_inputs), inputs)
+    diagonal = jnp.diag(q.model.prior.kernel.gram(inputs).as_matrix())
     prior_projection = jsp.linalg.solve_triangular(root_gram, cross, lower=True)
     site_projection = jsp.linalg.solve_triangular(root_working, cross, lower=True)
     analytic = (
@@ -829,5 +843,5 @@ def test_dual_marginals_include_jitter() -> None:
 
     _, variance = q.marginals(inputs)
     np.testing.assert_allclose(
-        np.asarray(variance - analytic), q.jitter, rtol=0.0, atol=1e-15
+        np.asarray(variance - analytic), q.model.prior.jitter, rtol=0.0, atol=1e-15
     )

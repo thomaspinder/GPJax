@@ -85,7 +85,7 @@ class SvgpElboSuite:
 
     def setup(self, n, m, batch_size):
         posterior, data, Z = _sparse_setup(n, m=m)
-        self.q = VariationalGaussian(posterior=posterior, inducing_inputs=Z)
+        self.q = VariationalGaussian(model=posterior, inducing_inputs=Z)
         self.batch = Dataset(X=data.X[:batch_size], y=data.y[:batch_size])
         realise(objectives.elbo(self.q, self.batch))
 
@@ -106,7 +106,7 @@ class VfeElboSuite:
 
     def setup(self, n, m):
         posterior, self.data, Z = _sparse_setup(n, m=m)
-        self.q = CollapsedVariationalGaussian(posterior=posterior, inducing_inputs=Z)
+        self.q = CollapsedVariationalGaussian(model=posterior, inducing_inputs=Z)
         realise(objectives.collapsed_elbo(self.q, self.data))
 
     def time_collapsed_elbo(self, n, m):
@@ -143,7 +143,7 @@ class VariationalParametrisationSuite:
     def setup(self, family):
         n = 1000
         posterior, self.data, Z = _sparse_setup(n)
-        self.q = _VARIATIONAL_FAMILIES[family](posterior=posterior, inducing_inputs=Z)
+        self.q = _VARIATIONAL_FAMILIES[family](model=posterior, inducing_inputs=Z)
         realise(objectives.elbo(self.q, self.data))
 
     def time_elbo(self, family):
@@ -168,7 +168,7 @@ class HeteroscedasticElboSuite:
         posterior = signal_prior * likelihood
         Z = data.X[:M_INDUCING]
         self.q = HeteroscedasticVariationalFamily(
-            posterior=posterior, inducing_inputs=Z, inducing_inputs_g=Z
+            model=posterior, inducing_inputs=Z, inducing_inputs_g=Z
         )
         self.data = data
         realise(objectives.heteroscedastic_elbo(self.q, self.data))

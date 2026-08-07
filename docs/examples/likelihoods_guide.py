@@ -268,7 +268,7 @@ for ax in axes.ravel():
 
 # %%
 z = jnp.linspace(-3.0, 3.0, 10).reshape(-1, 1)
-q = gpx.variational_families.VariationalGaussian(posterior=posterior, inducing_inputs=z)
+q = gpx.variational_families.VariationalGaussian(model=posterior, inducing_inputs=z)
 
 
 def q_moments(x):

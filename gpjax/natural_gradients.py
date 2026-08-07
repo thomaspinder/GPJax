@@ -242,7 +242,7 @@ def moments_from_expectation(
         The second expectation parameter $\mathbf H_2$.
     map_jitter
         Jitter $\varepsilon$ added to the diagonal before the Cholesky. Defaults to
-        ``0.0``; this is deliberately *not* the variational family's ``jitter``,
+        ``0.0``; this is deliberately *not* the model's ``Prior.jitter``,
         because a non-zero value biases $\mathbf S$ by $\approx\varepsilon\lVert
         \mathbf S\rVert^2$ rather than merely perturbing it.
 
@@ -383,7 +383,7 @@ def variational_coordinates(
         ... )
         >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
+        ...     model=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
         ... )
         >>>
         >>> where = variational_coordinates(q)
@@ -405,14 +405,11 @@ def _variational_gaussian_coordinates(
     This registration also covers ``WhitenedVariationalGaussian`` and
     ``GraphVariationalGaussian``, which subclass ``VariationalGaussian`` and store the
     same two fields. That is deliberate: the whitened $q(\mathbf v)$ belongs to the
-    same exponential family, so the coordinate maps are identical. Dispatch reaching
-    ``GraphVariationalGaussian`` is not the same as that family being usable end to
-    end: ``elbo`` on a graph family raises ``ValueError:
-    `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` from
-    ``KernelComputation.gram``, reached through the per-point ``vmap`` in
-    ``variational_expectation``. That break is upstream of this module and reproduces
-    unchanged on ``main``. The smoke test in ``tests/test_natural_gradients.py``
-    therefore drives the graph family with ``prior_kl`` instead.
+    same exponential family, so the coordinate maps are identical. The graph family
+    is usable end to end since ``variational_expectation`` switched from a
+    per-point ``vmap`` to the conditioned posterior's diagonal path; the smoke
+    test in ``tests/test_natural_gradients.py`` predates that and drives the
+    graph family with ``prior_kl``.
 
     Parameters
     ----------
@@ -489,7 +486,7 @@ def partition_variational(variational_family: VF) -> tuple[VF, VF]:
         ... )
         >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
+        ...     model=model, inducing_inputs=jnp.linspace(0, 1, 2).reshape(-1, 1)
         ... )
         >>>
         >>> variational, hyper = partition_variational(q)
@@ -728,7 +725,7 @@ def natural_gradient_step(
         ... )
         >>> model = prior * gpx.likelihoods.Gaussian()
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=model, inducing_inputs=jnp.linspace(0, 1, 3).reshape(-1, 1)
+        ...     model=model, inducing_inputs=jnp.linspace(0, 1, 3).reshape(-1, 1)
         ... )
         >>>
         >>> variational, hyper = partition_variational(q)
@@ -766,14 +763,9 @@ def _variational_gaussian_step(
     -\gamma\,\partial\ell/\partial\boldsymbol\eta$ and writes the resulting moment
     parameters back into the variational partition. Also covers
     ``WhitenedVariationalGaussian`` and ``GraphVariationalGaussian``: the whitened
-    $q(\mathbf v)$ is a member of the same exponential family, and the whitening enters
-    only through ``prior_kl``/``predict``, which the loss calls polymorphically. For
-    the graph family that is a statement about dispatch only: the standard ``elbo``
-    path is broken upstream of this module -- ``KernelComputation.gram`` raises
-    ``ValueError: `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` under
-    ``variational_expectation``'s per-point ``vmap``, on ``main`` as well as here -- so
-    a graph model cannot currently be driven through ``fit_natgrads`` with the usual
-    loss.
+    $q(\mathbf v)$ is a member of the same exponential family, and the whitening
+    enters only through ``prior_kl``/``condition``, which the loss calls
+    polymorphically.
 
     ``beta_floor`` is accepted for a uniform dispatch contract and ignored here.
 
@@ -1002,7 +994,7 @@ def _dual_variational_gaussian_step(
     mean, variance = family.marginals(data.X)
 
     alpha, beta = _expected_log_likelihood_derivatives(
-        family.posterior.likelihood, data.y, mean, variance
+        family.model.likelihood, data.y, mean, variance
     )
     # Clip beta, never Lambda_2: `jnp.maximum` is trace-safe, whereas jittering or
     # projecting Lambda_2 would need a factorisation it never otherwise requires.
@@ -1011,10 +1003,10 @@ def _dual_variational_gaussian_step(
     # Centred sites (Adam et al. section on non-zero mean functions). The reference
     # implementation shifts by `predict_f(Z)`, which already includes the mean
     # function, and is therefore wrong for any non-zero mean function.
-    prior_mean = family.posterior.prior.mean_function(data.X).squeeze(-1)
+    prior_mean = family.model.prior.mean_function(data.X).squeeze(-1)
     natural_gradient_vector = alpha + beta * (mean - prior_mean)
 
-    cross_covariance = family.posterior.prior.kernel.cross_covariance(
+    cross_covariance = family.model.prior.kernel.cross_covariance(
         family._fmt_inducing_inputs(), data.X
     )
     design = jsp.linalg.cho_solve((root_gram, True), cross_covariance)

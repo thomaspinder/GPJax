@@ -184,7 +184,7 @@ def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
         prior=prior, likelihood=HeteroscedasticGaussian(), noise_prior=noise_prior
     )
     variational = HeteroscedasticVariationalFamily(
-        posterior=posterior, inducing_inputs=dataset.X, inducing_inputs_g=dataset.X[::2]
+        model=posterior, inducing_inputs=dataset.X, inducing_inputs_g=dataset.X[::2]
     )
 
     mf, vf, _mg, _vg = variational.predict(dataset.X)
@@ -227,7 +227,7 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
     noise_init = VariationalGaussianInit(inducing_inputs=noise_inducing)
 
     q = HeteroscedasticVariationalFamily(
-        posterior=posterior, signal_init=signal_init, noise_init=noise_init
+        model=posterior, signal_init=signal_init, noise_init=noise_init
     )
 
     assert jnp.allclose(q.signal_variational.inducing_inputs.unwrap(), inducing_inputs)
@@ -235,7 +235,7 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
 
     # Test initialization inference (noise inferred from signal)
     q_inferred = HeteroscedasticVariationalFamily(
-        posterior=posterior, signal_init=signal_init
+        model=posterior, signal_init=signal_init
     )
     assert jnp.allclose(
         q_inferred.noise_variational.inducing_inputs.unwrap(), inducing_inputs
@@ -252,7 +252,7 @@ def test_variational_family_init_errors(prior, noise_prior):
     with pytest.raises(
         ValueError, match="Either signal_init or inducing_inputs must be provided"
     ):
-        HeteroscedasticVariationalFamily(posterior=posterior)
+        HeteroscedasticVariationalFamily(model=posterior)
 
 
 def test_variational_family_predict_return_type(prior, noise_prior):
@@ -264,7 +264,7 @@ def test_variational_family_predict_return_type(prior, noise_prior):
     n_inducing = 5
     inducing_inputs = jnp.linspace(0, 1, n_inducing).reshape(-1, 1)
     q = HeteroscedasticVariationalFamily(
-        posterior=posterior, inducing_inputs=inducing_inputs
+        model=posterior, inducing_inputs=inducing_inputs
     )
 
     test_inputs = jnp.linspace(0.5, 0.6, 3).reshape(-1, 1)
@@ -288,7 +288,7 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
             prior=prior, likelihood=likelihood, noise_prior=noise_prior
         )
         return HeteroscedasticVariationalFamily(
-            posterior=posterior, inducing_inputs=dataset.X
+            model=posterior, inducing_inputs=dataset.X
         )
 
     for likelihood_cls in (HeteroscedasticGaussian, SoftplusHeteroscedastic):
@@ -312,7 +312,7 @@ def test_jit_prediction(prior, noise_prior, dataset):
     posterior = HeteroscedasticModel(
         prior=prior, likelihood=likelihood, noise_prior=noise_prior
     )
-    q = HeteroscedasticVariationalFamily(posterior=posterior, inducing_inputs=dataset.X)
+    q = HeteroscedasticVariationalFamily(model=posterior, inducing_inputs=dataset.X)
 
     # JIT compile the predict call via a wrapper function
     @jax.jit
@@ -371,7 +371,7 @@ def test_predictive_variance_tracks_noise(prior, noise_prior):
     )
 
     variational = HeteroscedasticVariationalFamily(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=x,
         inducing_inputs_g=x,
         variational_mean_g=jnp.array([[-1.0], [1.5]]),

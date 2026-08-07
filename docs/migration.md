@@ -97,7 +97,43 @@ first contact with the data; to work with the latent before fitting, call
 `Prior.jitter` is now the model's single stabilisation knob, applied exactly
 once inside conditioning. The independent `Posterior.jitter` field is gone —
 previously `predict` and `conjugate_mll` could factorise *different*
-matrices when the two knobs diverged.
+matrices when the two knobs diverged. The variational families' `jitter`
+constructor argument is gone for the same reason (see below).
+
+### Variational families condition like everything else
+
+Variational families now hold the joint model in a field named `model`
+(they approximate a posterior; they aren't one), and every Gaussian-output
+family conditions through the same machinery as joint models:
+
+```python
+z = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
+q = gpx.variational_families.VariationalGaussian(
+    model=model, inducing_inputs=z          # was: posterior=..., jitter=...
+)
+
+q_posterior = q.condition()   # a Posterior, like model.condition(D)
+predictive = q_posterior(xtest)
+marginals = q_posterior(xtest, covariance="diagonal")   # new fast path
+```
+
+Three breaking changes follow:
+
+- **`posterior=` → `model=`**: the constructor keyword and the field are
+  renamed on every family (`q.posterior.likelihood` becomes
+  `q.model.likelihood`).
+- **`jitter=` removed**: conditioning stabilises `K_zz` with the model's
+  `Prior.jitter`. If you passed a non-default family jitter, set it on the
+  Prior instead: `gpx.gps.Prior(..., jitter=1e-8)`. The defaults agree
+  (both were `1e-6`), so most code sees identical numbers.
+- **`prior_kl` is part of the family contract**: custom subclasses of
+  `AbstractVariationalFamily` must now implement both `predict` and
+  `prior_kl`.
+
+`q.predict(xtest)` keeps working as documented sugar for
+`q.condition()(xtest)`. The collapsed family's maths needs the data, so its
+signatures take it: `q.condition(D)`, `q.predict(xtest, D)`,
+`q.prior_kl(D)`.
 
 ## 0.14.x → 0.15.0
 

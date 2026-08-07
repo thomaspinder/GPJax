@@ -174,7 +174,7 @@ def test_collect_variational_family_lower_cholesky():
     prior = Prior(mean_function=Zero(), kernel=RBF())
     posterior = prior * Gaussian()
     q = gpx.variational_families.VariationalGaussian(
-        posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
+        model=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
     )
     rec = _record_by_name(summary._collect(q), "variational_root_covariance")
     assert rec.cls == "LowerTriangular"
@@ -333,7 +333,7 @@ def test_variational_family_has_rich_protocol():
     prior = Prior(mean_function=Zero(), kernel=RBF())
     posterior = prior * Gaussian()
     q = gpx.variational_families.VariationalGaussian(
-        posterior=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
+        model=posterior, inducing_inputs=jnp.linspace(-3, 3, 5).reshape(-1, 1)
     )
     assert isinstance(q.__rich__(), Table)
 

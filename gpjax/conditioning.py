@@ -375,6 +375,392 @@ class LatentPosterior(Posterior):
         )
 
 
+class SparsePosterior(Posterior):
+    r"""A sparse variational GP conditioned through its inducing variables.
+
+    The predictive :math:`q(f(\cdot)) = \int p(f(\cdot) \mid u)\,q(u)\,\mathrm{d}u`
+    of a Gaussian-output variational family, derived once for both the
+    whitened and unwhitened parameterisations. The cached factor is the lower
+    Cholesky of the (stabilised) inducing gram :math:`K_{zz}`; the variational
+    moments :math:`(\mu, \mathrm{sqrt})` with :math:`S = \mathrm{sqrt}\,
+    \mathrm{sqrt}^{\top}` are supplied by the family at ``condition`` time —
+    a site-parameterised family converts to moments first.
+
+    Internal: constructed by ``AbstractVariationalGaussian.condition()``, not
+    by users directly. The family is retained for its shape hooks
+    (``_fmt_Kzt_Ktt``, ``_fmt_inducing_inputs``), which adapt kernel matrices
+    for non-Euclidean index sets.
+    """
+
+    family: tp.Any
+    inducing_inputs: tp.Any
+    cholesky_kzz: Float[Array, "M M"]
+    variational_mean: Float[Array, "M 1"]
+    variational_root: Float[Array, "M M"]
+    whitened: bool = eqx.field(static=True)
+
+    def __init__(
+        self,
+        family: tp.Any,
+        variational_mean: Float[Array, "M 1"],
+        variational_root: Float[Array, "M M"],
+        *,
+        whitened: bool,
+    ):
+        model = family.model
+        inducing_inputs = family._fmt_inducing_inputs()
+        kzz_dense = model.prior.kernel.gram(inducing_inputs).as_matrix()
+
+        self.family = family
+        self.inducing_inputs = inducing_inputs
+        self.cholesky_kzz = stabilised_cholesky(kzz_dense, model.prior.jitter)
+        self.variational_mean = variational_mean
+        self.variational_root = variational_root
+        self.whitened = whitened
+
+    @property
+    def model(self) -> tp.Any:
+        """The joint model the family approximates the posterior of."""
+        return self.family.model
+
+    def __call__(
+        self,
+        test_inputs: Num[Array, "N D"],
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        r"""Evaluate the sparse predictive at the given test inputs.
+
+        With :math:`A = L_z^{-1} K_{zt}`, the whitened parameterisation gives
+        mean :math:`m(t) + A^{\top}\mu` and root term
+        :math:`\mathrm{sqrt}^{\top} A`; the unwhitened one gives mean
+        :math:`m(t) + A^{\top} L_z^{-1}(\mu - m(z))` and root term
+        :math:`\mathrm{sqrt}^{\top} K_{zz}^{-1} K_{zt}`. In both cases the
+        covariance is
+        :math:`K_{tt} - A^{\top}A + \mathrm{root}^{\top}\mathrm{root}` plus
+        the model's jitter on the diagonal.
+
+        Args:
+            test_inputs: Input locations at which to query the process.
+            covariance: Whether to return the dense joint covariance over the
+                test inputs or only the marginal (diagonal) variances.
+
+        Returns:
+            GaussianDistribution: The predictive distribution at the inputs.
+        """
+        model = self.model
+        kernel = model.prior.kernel
+        mean_function = model.prior.mean_function
+        inducing_inputs = self.inducing_inputs
+        cholesky_kzz = self.cholesky_kzz
+
+        cross_cov = kernel.cross_covariance(inducing_inputs, test_inputs)
+        test_mean = mean_function(test_inputs)
+
+        if covariance == "dense":
+            test_gram = kernel.gram(test_inputs).as_matrix()
+            cross_cov, test_gram = self.family._fmt_Kzt_Ktt(cross_cov, test_gram)
+        else:
+            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            # Only the cross-covariance needs the family's shape hook here;
+            # the placeholder keeps the hook's two-argument contract and its
+            # result is discarded.
+            cross_cov, _ = self.family._fmt_Kzt_Ktt(cross_cov, jnp.empty((0, 0)))
+
+        # A = Lz^{-1} Kzt
+        projected_cross = jsp.linalg.solve_triangular(
+            cholesky_kzz, cross_cov, lower=True
+        )
+
+        if self.whitened:
+            # q(u) = N(m(z) + Lz mu, Lz S Lz^T): mean = m(t) + A^T mu.
+            mean = test_mean + jnp.matmul(projected_cross.T, self.variational_mean)
+            root_term = jnp.matmul(self.variational_root.T, projected_cross)
+        else:
+            # q(u) = N(mu, S): mean = m(t) + Ktz Kzz^{-1} (mu - m(z)).
+            inducing_mean = mean_function(inducing_inputs)
+            centred_mean = jsp.linalg.solve_triangular(
+                cholesky_kzz, self.variational_mean - inducing_mean, lower=True
+            )
+            mean = test_mean + jnp.matmul(projected_cross.T, centred_mean)
+            kzz_inv_cross = jsp.linalg.solve_triangular(
+                cholesky_kzz.T, projected_cross, lower=False
+            )
+            root_term = jnp.matmul(self.variational_root.T, kzz_inv_cross)
+
+        jitter = model.prior.jitter
+        if covariance == "dense":
+            # Ktt - A^T A + root^T root  [the S-term, S = sqrt sqrt^T]
+            predictive_cov = (
+                test_gram
+                - jnp.matmul(projected_cross.T, projected_cross)
+                + jnp.matmul(root_term.T, root_term)
+            )
+            predictive_cov = predictive_cov + jitter * jnp.eye(predictive_cov.shape[0])
+            scale = lx.MatrixLinearOperator(predictive_cov)
+        else:
+            marginal_var = (
+                test_var_diag
+                - jnp.einsum("ij,ij->j", projected_cross, projected_cross)
+                + jnp.einsum("ij,ij->j", root_term, root_term)
+                + jitter
+            )
+            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
+
+        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+
+
+class CollapsedPosterior(Posterior):
+    r"""The Titsias (2009) collapsed sparse posterior.
+
+    Conditioning solves for the optimal variational distribution over the
+    inducing variables analytically, which requires a Gaussian likelihood and
+    the full training set. Cached at ``condition`` time: the Cholesky factor
+    of the stabilised :math:`K_{zz}`, the scaled projection
+    :math:`A = L_z^{-1} K_{zx} / \sigma`, the factor of
+    :math:`B = I + AA^{\top}`, the training residual, and the prior variances
+    at the training inputs. The predictive and the collapsed evidence bound
+    (:attr:`elbo_bound`) are views of these factors.
+
+    Internal: constructed by
+    ``CollapsedVariationalGaussian.condition(train_data)``, not by users
+    directly.
+    """
+
+    family: tp.Any
+    inducing_inputs: tp.Any
+    cholesky_kzz: Float[Array, "M M"]
+    scaled_cross: Float[Array, "M N"]
+    cholesky_b: Float[Array, "M M"]
+    residual: Float[Array, "N 1"]
+    representer_weights: Float[Array, "M 1"]
+    observation_variance: ScalarFloat
+    kxx_diagonal: Float[Array, " N"]
+
+    def __init__(self, family: tp.Any, train_data: Dataset):
+        model = family.model
+        kernel = model.prior.kernel
+        mean_function = model.prior.mean_function
+        obs_stddev = _val(model.likelihood.obs_stddev)
+        noise_var = obs_stddev**2
+
+        inducing_inputs = family._fmt_inducing_inputs()
+        x, y = train_data.X, train_data.y
+        num_inducing = inducing_inputs.shape[0]
+
+        kzz_dense = kernel.gram(inducing_inputs).as_matrix()
+        cholesky_kzz = stabilised_cholesky(kzz_dense, model.prior.jitter)
+        cross_cov = kernel.cross_covariance(inducing_inputs, x)
+
+        # Lz^{-1} Kzx and its noise-scaled form A = Lz^{-1} Kzx / o.
+        projected_cross = jsp.linalg.solve_triangular(
+            cholesky_kzz, cross_cov, lower=True
+        )
+        scaled_cross = projected_cross / obs_stddev
+
+        # LL^T = B = I + AA^T
+        cholesky_b = jnp.linalg.cholesky(
+            jnp.eye(num_inducing) + jnp.matmul(scaled_cross, scaled_cross.T)
+        )
+
+        residual = y - mean_function(x)
+
+        # Kzz^{-1} Kzx B_z^{-1} (y - m(x)) / o^2, with B_z = Lz B Lz^T: the
+        # representer weights of the collapsed predictive mean.
+        projected_residual = jsp.linalg.cho_solve(
+            (cholesky_b, True), jnp.matmul(projected_cross, residual)
+        )
+        representer_weights = (
+            jsp.linalg.solve_triangular(cholesky_kzz.T, projected_residual, lower=False)
+            / noise_var
+        )
+
+        self.family = family
+        self.inducing_inputs = inducing_inputs
+        self.cholesky_kzz = cholesky_kzz
+        self.scaled_cross = scaled_cross
+        self.cholesky_b = cholesky_b
+        self.residual = residual
+        self.representer_weights = representer_weights
+        self.observation_variance = noise_var
+        # The prior variances at the training inputs enter the bound's trace
+        # term. `kernel.diagonal` is the one correct entry point: unlike a
+        # vmap of `kernel.__call__`, it works for every kernel.
+        self.kxx_diagonal = lx.diagonal(kernel.diagonal(x))
+
+    @property
+    def model(self) -> tp.Any:
+        """The joint model the family approximates the posterior of."""
+        return self.family.model
+
+    def __call__(
+        self,
+        test_inputs: Num[Array, "N D"],
+        *,
+        covariance: Literal["dense", "diagonal"] = "dense",
+    ) -> GaussianDistribution:
+        r"""Evaluate the collapsed predictive at the given test inputs.
+
+        Args:
+            test_inputs: Input locations at which to query the process.
+            covariance: Whether to return the dense joint covariance over the
+                test inputs or only the marginal (diagonal) variances.
+
+        Returns:
+            GaussianDistribution: The predictive distribution at the inputs.
+        """
+        model = self.model
+        kernel = model.prior.kernel
+        mean_function = model.prior.mean_function
+        cholesky_kzz = self.cholesky_kzz
+
+        cross_cov = kernel.cross_covariance(self.inducing_inputs, test_inputs)
+        test_mean = mean_function(test_inputs)
+
+        # m(t) + 1/o^2 Ktz Kzz^{-1} Kzx B_z^{-1} (y - m(x))
+        mean = test_mean + jnp.matmul(cross_cov.T, self.representer_weights)
+
+        # Lz^{-1} Kzt and L^{-1} Lz^{-1} Kzt
+        projected_cross = jsp.linalg.solve_triangular(
+            cholesky_kzz, cross_cov, lower=True
+        )
+        site_projection = jsp.linalg.solve_triangular(
+            self.cholesky_b, projected_cross, lower=True
+        )
+
+        jitter = model.prior.jitter
+        if covariance == "dense":
+            test_gram = kernel.gram(test_inputs).as_matrix()
+            # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-T} B^{-1} Lz^{-1} Kzt
+            predictive_cov = (
+                test_gram
+                - jnp.matmul(projected_cross.T, projected_cross)
+                + jnp.matmul(site_projection.T, site_projection)
+            )
+            predictive_cov = predictive_cov + jitter * jnp.eye(predictive_cov.shape[0])
+            scale = lx.MatrixLinearOperator(predictive_cov)
+        else:
+            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
+            marginal_var = (
+                test_var_diag
+                - jnp.einsum("ij,ij->j", projected_cross, projected_cross)
+                + jnp.einsum("ij,ij->j", site_projection, site_projection)
+                + jitter
+            )
+            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
+
+        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+
+    @property
+    def elbo_bound(self) -> ScalarFloat:
+        r"""The collapsed evidence lower bound of Titsias (2009).
+
+        Notation and derivation:
+
+        Let :math:`Q = K_{xz}K_{zz}^{-1}K_{zx}`; we must compute the log
+        normal pdf
+
+        .. math::
+
+            \log \mathcal{N}(y; m_x, \sigma^2 I + Q)
+            = -\tfrac{n}{2}\log 2\pi - \tfrac{1}{2}\log|\sigma^2 I + Q|
+            - \tfrac{1}{2}(y - m_x)^{\top}(\sigma^2 I + Q)^{-1}(y - m_x).
+
+        The log determinant is computed via the matrix determinant lemma,
+
+        .. math::
+
+            \log|\sigma^2 I + Q| = n\log\sigma^2 + \log|B|,
+            \qquad B = I + AA^{\top},\quad A = L_z^{-1}K_{zx}/\sigma,
+
+        and the matrix inversion lemma gives
+
+        .. math::
+
+            (\sigma^2 I + Q)^{-1} = \big(I - A^{\top}B^{-1}A\big)/\sigma^2,
+
+        so the quadratic term is
+        :math:`[(y-m_x)^{\top}(y-m_x) - (y-m_x)^{\top}A^{\top}B^{-1}A(y-m_x)]
+        / \sigma^2`. The bound subtracts the trace correction
+        :math:`\operatorname{tr}(K_{xx} - Q) / (2\sigma^2)`, with
+        :math:`\operatorname{tr}(K_{zz}^{-1}K_{zx}K_{xz}) = \sigma^2
+        \operatorname{tr}(AA^{\top})`.
+
+        Returns:
+            ScalarFloat: The collapsed evidence lower bound on the training
+                data this posterior was conditioned on.
+        """
+        noise_var = self.observation_variance
+        num_data = self.residual.shape[0]
+
+        # log|B| = 2 sum_i log L_ii
+        log_det_b = 2.0 * jnp.sum(jnp.log(jnp.diagonal(self.cholesky_b)))
+
+        # L^{-1} A (y - m(x))
+        projected_residual = jsp.linalg.solve_triangular(
+            self.cholesky_b,
+            jnp.matmul(self.scaled_cross, self.residual),
+            lower=True,
+        )
+
+        # (y - m(x))^T (o^2 I + Q)^{-1} (y - m(x))
+        quadratic = (
+            jnp.sum(self.residual**2) - jnp.sum(projected_residual**2)
+        ) / noise_var
+
+        # 2 log N(y; m(x), o^2 I + Q)
+        two_log_prob = (
+            -num_data * jnp.log(2.0 * jnp.pi * noise_var) - log_det_b - quadratic
+        )
+
+        # 1/o^2 tr(Kxx - Q), using tr(AA^T) = sum(A * A)
+        two_trace = jnp.sum(self.kxx_diagonal) / noise_var - jnp.sum(
+            self.scaled_cross**2
+        )
+
+        # log N(y; m(x), o^2 I + Q) - 1/(2 o^2) tr(Kxx - Q)
+        return (two_log_prob - two_trace).squeeze() / 2.0
+
+    @property
+    def prior_kl(self) -> ScalarFloat:
+        r"""KL divergence from the optimal collapsed :math:`q^{\star}(u)` to
+        the prior :math:`p(u)`.
+
+        Titsias' optimal variational distribution has moments
+        :math:`S^{\star} = L_z B^{-1} L_z^{\top}` and centred mean
+        :math:`\tilde m^{\star} = \sigma^{-1} L_z B^{-1} A (y - m(x))`, so
+
+        .. math::
+
+            \operatorname{KL} = \tfrac{1}{2}\big(
+                \operatorname{tr}(B^{-1}) - M
+                + \sigma^{-2}\lVert B^{-1}A(y - m(x))\rVert^2
+                + \log|B|
+            \big).
+
+        Returns:
+            ScalarFloat: The KL divergence of the optimal collapsed
+                variational distribution from the prior.
+        """
+        num_inducing = self.cholesky_b.shape[0]
+
+        # tr(B^{-1}) = ||L^{-1}||_F^2
+        inverse_factor = jsp.linalg.solve_triangular(
+            self.cholesky_b, jnp.eye(num_inducing), lower=True
+        )
+        trace = jnp.sum(inverse_factor**2)
+
+        # B^{-1} A (y - m(x))
+        weighted_residual = jsp.linalg.cho_solve(
+            (self.cholesky_b, True),
+            jnp.matmul(self.scaled_cross, self.residual),
+        )
+        mahalanobis = jnp.sum(weighted_residual**2) / self.observation_variance
+
+        log_det_b = 2.0 * jnp.sum(jnp.log(jnp.diagonal(self.cholesky_b)))
+        return 0.5 * (trace - num_inducing + mahalanobis + log_det_b)
+
+
 def _build_fourier_features_fn(
     prior: tp.Any, num_features: int, key: KeyArray
 ) -> tp.Callable[[Float[Array, "N D"]], Float[Array, "N L"]]:
@@ -405,7 +791,9 @@ def _build_fourier_features_fn(
 
 
 __all__ = [
+    "CollapsedPosterior",
     "ExactPosterior",
     "LatentPosterior",
     "Posterior",
+    "SparsePosterior",
 ]

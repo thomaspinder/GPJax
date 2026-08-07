@@ -415,9 +415,8 @@ def conjugate_model(lengthscale):
 def site_family(lengthscale, inducing_inputs, sites=None):
     """A dual family, optionally carrying a frozen pair of sites."""
     family = DualVariationalGaussian(
-        posterior=conjugate_model(lengthscale),
+        model=conjugate_model(lengthscale),
         inducing_inputs=inducing_inputs,
-        jitter=regression_jitter,
     )
     if sites is None:
         return family
@@ -432,11 +431,10 @@ def moment_family(lengthscale, inducing_inputs, moments):
     """A moment family carrying a frozen $(m, S)$."""
     mean, covariance = moments
     return VariationalGaussian(
-        posterior=conjugate_model(lengthscale),
+        model=conjugate_model(lengthscale),
         inducing_inputs=inducing_inputs,
         variational_mean=mean,
         variational_root_covariance=jnp.linalg.cholesky(covariance),
-        jitter=regression_jitter,
     )
 
 
@@ -455,7 +453,7 @@ def exact_sites(lengthscale, inducing_inputs, dataset):
 # %%
 # The Titsias optimum in closed form, against the same jittered K_zz the family uses.
 initial_dual = site_family(regression_lengthscale, regression_inducing)
-regression_prior = paramax.unwrap(initial_dual).posterior.prior
+regression_prior = paramax.unwrap(initial_dual).model.prior
 regression_kernel = regression_prior.kernel
 regression_mean_function = regression_prior.mean_function
 
@@ -541,11 +539,11 @@ print(
 # The last two printed lines deserve a sentence, because the residual between
 # `dual_elbo` and the analytic collapsed bound is not noise — it is
 # $N\varepsilon/(2\sigma^2)$ to nine significant figures, where $\varepsilon$ is the
-# family's `jitter`, which is why both are printed to twelve.
-# `VariationalGaussian.predict` adds `jitter` to every marginal variance it
-# returns, so `elbo` carries that inflation too, and the dual family reproduces it
+# model's `Prior.jitter`, which is why both are printed to twelve.
+# The conditioned sparse posterior adds that jitter to every marginal variance it
+# returns, so `elbo` carries the inflation too, and the dual family reproduces it
 # deliberately: matching the two objectives to machine precision is worth more than
-# matching either to a formula on paper. Lower the `jitter` and the gap falls
+# matching either to a formula on paper. Lower the jitter and the gap falls
 # proportionally.
 #
 # One thing this demo does *not* show, contrary to a remark in the paper that is easy
@@ -606,17 +604,16 @@ logit_model = (
 )
 
 logit_dual = DualVariationalGaussian(
-    posterior=logit_model, inducing_inputs=logit_inducing, jitter=logit_jitter
+    model=logit_model, inducing_inputs=logit_inducing
 )
 logit_gram = paramax.unwrap(logit_model).prior.kernel.gram(
     logit_inducing
 ).as_matrix() + logit_jitter * jnp.eye(num_logit_inducing)
 logit_moments = VariationalGaussian(
-    posterior=logit_model,
+    model=logit_model,
     inducing_inputs=logit_inducing,
     variational_mean=jnp.zeros((num_logit_inducing, 1)),
     variational_root_covariance=jnp.linalg.cholesky(logit_gram),
-    jitter=logit_jitter,
 )
 
 shared_bound = float(
@@ -738,7 +735,8 @@ banana_jitter = 1e-6
 
 banana_model = (
     gpx.gps.Prior(
-        mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF(active_dims=[0, 1])
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=jk.RBF(active_dims=[0, 1]),
     )
     * gpx.likelihoods.Bernoulli()
 )
@@ -752,18 +750,16 @@ banana_prior_root = jnp.linalg.cholesky(banana_gram)
 def make_banana_moment_family():
     """A fresh SVGP over the banana data, at q = p."""
     return VariationalGaussian(
-        posterior=banana_model,
+        model=banana_model,
         inducing_inputs=banana_inducing,
         variational_mean=jnp.zeros((num_banana_inducing, 1)),
         variational_root_covariance=banana_prior_root,
-        jitter=banana_jitter,
     )
 
 
 banana_dual_family = DualVariationalGaussian(
-    posterior=banana_model,
+    model=banana_model,
     inducing_inputs=banana_inducing,
-    jitter=banana_jitter,
 )
 natgrad_family = make_banana_moment_family()
 adam_family = make_banana_moment_family()
@@ -790,7 +786,7 @@ def price_curvature(family, data):
 
     def total_expectation(variance):
         return jnp.sum(
-            family.posterior.likelihood.expected_log_likelihood(
+            family.model.likelihood.expected_log_likelihood(
                 data.y, marginal_mean[:, None], variance[:, None]
             )
         )
@@ -802,9 +798,8 @@ def six_matched_steps(beta_floor):
     """Six rho = 0.8 steps in both branches, from the shared q = p start."""
     site_partition, site_hyper = partition_variational(
         DualVariationalGaussian(
-            posterior=banana_model,
+            model=banana_model,
             inducing_inputs=banana_inducing,
-            jitter=banana_jitter,
         )
     )
     moment_partition, moment_hyper = partition_variational(make_banana_moment_family())
@@ -1109,7 +1104,7 @@ def kernel_gradient(variational, hyper, objective, dataset):
         return objective(paramax.unwrap(eqx.combine(variational, hyper)), dataset)
 
     gradient = eqx.filter_grad(loss)(hyper)
-    leaves = jtu.tree_leaves(gradient.posterior.prior.kernel)
+    leaves = jtu.tree_leaves(gradient.model.prior.kernel)
     return jnp.concatenate([jnp.atleast_1d(jnp.ravel(leaf)) for leaf in leaves])
 
 
@@ -1280,7 +1275,7 @@ dense_sites, dense_moments = exact_sites(
 )
 dense_prior = paramax.unwrap(
     site_family(regression_lengthscale, dense_inputs)
-).posterior.prior
+).model.prior
 dense_gram = dense_prior.kernel.gram(
     dense_inputs
 ).as_matrix() + regression_jitter * jnp.eye(dense_count)
@@ -1373,6 +1368,7 @@ def vem_joint_model(lengthscale):
         gpx.gps.Prior(
             mean_function=gpx.mean_functions.Zero(),
             kernel=jk.RBF(active_dims=[0, 1], lengthscale=lengthscale),
+            jitter=banana_jitter,
         )
         * gpx.likelihoods.Bernoulli()
     )
@@ -1384,18 +1380,16 @@ vem_gram = paramax.unwrap(vem_joint_model(initial_lengthscale)).prior.kernel.gra
 
 vem_dual = freeze_inducing(
     DualVariationalGaussian(
-        posterior=vem_joint_model(initial_lengthscale),
+        model=vem_joint_model(initial_lengthscale),
         inducing_inputs=banana_inducing,
-        jitter=banana_jitter,
     )
 )
 vem_moments = freeze_inducing(
     VariationalGaussian(
-        posterior=vem_joint_model(initial_lengthscale),
+        model=vem_joint_model(initial_lengthscale),
         inducing_inputs=banana_inducing,
         variational_mean=jnp.zeros((num_banana_inducing, 1)),
         variational_root_covariance=jnp.linalg.cholesky(vem_gram),
-        jitter=banana_jitter,
     )
 )
 
@@ -1440,7 +1434,7 @@ def run_vem(model, objective):
         variational = expectation_step(variational, hyper)
         hyper, opt_state, loss = maximisation_step(variational, hyper, opt_state)
         combined = paramax.unwrap(eqx.combine(variational, hyper))
-        lengthscales.append(float(combined.posterior.prior.kernel.lengthscale))
+        lengthscales.append(float(combined.model.prior.kernel.lengthscale))
         bounds.append(float(loss))
     return eqx.combine(variational, hyper), jnp.array(lengthscales), jnp.array(bounds)
 
@@ -1476,7 +1470,7 @@ axes[1].set(
 def test_metrics(model):
     """Held-out accuracy and negative log predictive density."""
     unwrapped = paramax.unwrap(model)
-    probability = unwrapped.posterior.likelihood(unwrapped(test_inputs_2d)).mean
+    probability = unwrapped.model.likelihood(unwrapped(test_inputs_2d)).mean
     labels = test_labels.ravel()
     log_density = jnp.mean(
         labels * jnp.log(probability) + (1.0 - labels) * jnp.log1p(-probability)
