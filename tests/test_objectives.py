@@ -842,6 +842,8 @@ def test_pinned_elbo_is_a_lower_bound_on_the_evidence(family: str):
     """
     q, data = _pinned_uncollapsed_family(family, binary=False)
     assert elbo(q, data) <= conjugate_mll(q.model, data)
+
+
 def test_with_log_prior_matches_base_objective_when_prior_is_zero():
     """A zero log-prior must leave both the value and the gradient of the
     wrapped objective unchanged, i.e. `with_log_prior` does not disturb plain
