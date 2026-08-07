@@ -176,6 +176,16 @@ at `condition` time rather than rebuilding them inside `predict`, repeated
 prediction from one posterior is markedly cheaper — condition once, predict
 many times.
 
+`latent_datasets` is gone, and `latent_posteriors` now holds conditioned
+`ExactPosterior`s rather than unconditioned `ConjugateModel`s. Each latent
+process carries its own projected training set, so reach through it:
+
+```python
+latent = posterior.latent_posteriors[0]
+projected_y = latent.train_data.y            # was: posterior.latent_datasets[0].y
+latent_pred = latent(X[:5])                  # was: predict(x, train_data=...)
+```
+
 For this multi-output process `covariance="dense"` returns the joint
 `(NP, NP)` covariance across test inputs *and* outputs, flattened
 output-major, where single-output processes return `(N, N)`.

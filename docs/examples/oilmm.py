@@ -674,13 +674,12 @@ fig, axes = plt.subplots(1, num_latent, figsize=(5 * num_latent, 3), sharey=Fals
 
 for i in range(num_latent):
     ax = axes[i]
-    lat_y = opt_posterior.latent_datasets[i].y.squeeze()
+    latent = opt_posterior.latent_posteriors[i]
+    lat_y = latent.train_data.y.squeeze()
     ax.plot(
         time_hours, lat_y, "o", color=cols[i], alpha=0.4, ms=3, label="Projected data"
     )
-    lat_pred = opt_posterior.latent_posteriors[i].predict(
-        X_test, train_data=opt_posterior.latent_datasets[i]
-    )
+    lat_pred = latent.predict(X_test, covariance="diagonal")
     lat_mean = lat_pred.mean
     lat_std = jnp.sqrt(jnp.diag(lat_pred.covariance()))
 
