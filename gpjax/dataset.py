@@ -78,6 +78,27 @@ class Dataset:
         return self.X.shape[0]
 
     @property
+    def full_size(self) -> int:
+        r"""Size of the dataset this object is a view of.
+
+        When the dataset is a minibatch stamped by :func:`gpjax.fit.get_batch`,
+        this is the ``n_total`` of the parent dataset; otherwise it falls back to
+        :attr:`n`. Minibatch objectives use the ratio ``full_size / n`` to rescale
+        the expected log-likelihood term so that a minibatch estimate is unbiased
+        for the full-data objective::
+
+            scale = data.full_size / data.n
+
+        Both ``n_total`` (static pytree aux data) and ``n`` (an array shape) are
+        static under :func:`jax.jit`, so this is always a concrete Python int and
+        is safe to use in traced code.
+
+        Returns:
+            int: The full-dataset size.
+        """
+        return self.n_total if self.n_total is not None else self.n
+
+    @property
     def in_dim(self) -> int:
         r"""Dimension of the inputs, $X$."""
         return self.X.shape[1]

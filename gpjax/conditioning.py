@@ -55,6 +55,75 @@ from gpjax.typing import (
 )
 
 
+def _prior_covariance(
+    kernel: tp.Any,
+    test_inputs: Num[Array, "N D"],
+    covariance: Literal["dense", "diagonal"],
+) -> Float[Array, "..."]:
+    r"""The prior gram :math:`K_{tt}`, shape ``(N, N)``, when ``covariance``
+    is ``"dense"``; otherwise its diagonal, shape ``(N,)``.
+    """
+    if covariance == "dense":
+        return kernel.gram(test_inputs).as_matrix()
+    return lx.diagonal(kernel.diagonal(test_inputs))
+
+
+def _assemble_predictive(
+    mean: Float[Array, "N 1"],
+    prior_covariance: Float[Array, "..."],
+    *,
+    covariance: Literal["dense", "diagonal"],
+    subtracted_factor: Float[Array, "K N"],
+    added_factor: tp.Optional[Float[Array, "J N"]] = None,
+    jitter: ScalarFloat,
+) -> GaussianDistribution:
+    r"""Assemble a predictive distribution from a mean and covariance factors.
+
+    Every conditioned process in this module ends the same way: the predictive
+    covariance is the prior covariance at the test inputs, less the Gram of one
+    factor and — for the sparse families — plus the Gram of another, with the
+    model's jitter stabilising the diagonal. Only the factors differ between
+    processes, so only they are passed in. A factor :math:`F` of shape
+    ``(K, N)`` over the ``N`` test inputs contributes :math:`F^{\top}F`
+    densely, or the squared column norms :math:`\sum_{k} F_{kn}^2` diagonally.
+
+    Args:
+        mean: The predictive mean, of shape ``(N, 1)``.
+        prior_covariance: :math:`K_{tt}` or its diagonal, whichever matches
+            ``covariance``; see :func:`_prior_covariance`.
+        covariance: Whether to build the dense joint covariance over the test
+            inputs or only the marginal (diagonal) variances.
+        subtracted_factor: Factor whose Gram is subtracted — the uncertainty
+            conditioning removes.
+        added_factor: Optional factor whose Gram is added — the variational
+            family's own covariance, propagated to the test inputs.
+        jitter: Added to the diagonal for numerical stability.
+
+    Returns:
+        GaussianDistribution: The predictive distribution at the test inputs.
+    """
+    if covariance == "dense":
+        predictive_cov = prior_covariance - jnp.matmul(
+            subtracted_factor.T, subtracted_factor
+        )
+        if added_factor is not None:
+            predictive_cov = predictive_cov + jnp.matmul(added_factor.T, added_factor)
+        predictive_cov = predictive_cov + jitter * jnp.eye(predictive_cov.shape[0])
+        scale = lx.MatrixLinearOperator(predictive_cov)
+    else:
+        marginal_var = prior_covariance - jnp.einsum(
+            "ij,ij->j", subtracted_factor, subtracted_factor
+        )
+        if added_factor is not None:
+            marginal_var = marginal_var + jnp.einsum(
+                "ij,ij->j", added_factor, added_factor
+            )
+        marginal_var = marginal_var + jitter
+        scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
+
+    return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+
+
 class Posterior(eqx.Module):
     r"""A conditioned Gaussian process, :math:`p(f \mid \mathcal{D})`.
 
@@ -190,23 +259,13 @@ class ExactPosterior(Posterior):
             )
             covariance = "dense"
 
-        if covariance == "dense":
-            test_gram = kernel.gram(test_inputs).as_matrix()
-            predictive_cov = test_gram - jnp.matmul(solved_cross.T, solved_cross)
-            predictive_cov = predictive_cov + self.prior.jitter * jnp.eye(
-                predictive_cov.shape[0]
-            )
-            scale = lx.MatrixLinearOperator(predictive_cov)
-        else:
-            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
-            marginal_var = (
-                test_var_diag
-                - jnp.einsum("ij,ji->i", solved_cross.T, solved_cross)
-                + self.prior.jitter
-            )
-            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
-
-        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+        return _assemble_predictive(
+            mean,
+            _prior_covariance(kernel, test_inputs, covariance),
+            covariance=covariance,
+            subtracted_factor=solved_cross,
+            jitter=self.prior.jitter,
+        )
 
     def loo(self) -> Float[Array, " NP"]:
         r"""Per-point leave-one-out predictive log-densities.
@@ -340,23 +399,13 @@ class LatentPosterior(Posterior):
         mean_test = self.prior.mean_function(test_inputs)
         mean = mean_test + jnp.matmul(solved_cross.T, self.latent)
 
-        if covariance == "dense":
-            test_gram = kernel.gram(test_inputs).as_matrix()
-            predictive_cov = test_gram - jnp.matmul(solved_cross.T, solved_cross)
-            predictive_cov = predictive_cov + self.prior.jitter * jnp.eye(
-                predictive_cov.shape[0]
-            )
-            scale = lx.MatrixLinearOperator(predictive_cov)
-        else:
-            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
-            marginal_var = (
-                test_var_diag
-                - jnp.einsum("ij,ji->i", solved_cross.T, solved_cross)
-                + self.prior.jitter
-            )
-            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
-
-        return GaussianDistribution(jnp.atleast_1d(mean.squeeze()), scale)
+        return _assemble_predictive(
+            mean,
+            _prior_covariance(kernel, test_inputs, covariance),
+            covariance=covariance,
+            subtracted_factor=solved_cross,
+            jitter=self.prior.jitter,
+        )
 
     @property
     def log_posterior_density(self) -> ScalarFloat:
@@ -386,7 +435,7 @@ class SparsePosterior(Posterior):
     \mathrm{sqrt}^{\top}` are supplied by the family at ``condition`` time —
     a site-parameterised family converts to moments first.
 
-    Internal: constructed by ``AbstractVariationalGaussian.condition()``, not
+    Internal: constructed by ``AbstractVariationalGaussian.condition``, not
     by users directly. The family is retained for its shape hooks
     (``_fmt_Kzt_Ktt``, ``_fmt_inducing_inputs``), which adapt kernel matrices
     for non-Euclidean index sets.
@@ -457,11 +506,10 @@ class SparsePosterior(Posterior):
         cross_cov = kernel.cross_covariance(inducing_inputs, test_inputs)
         test_mean = mean_function(test_inputs)
 
+        prior_cov = _prior_covariance(kernel, test_inputs, covariance)
         if covariance == "dense":
-            test_gram = kernel.gram(test_inputs).as_matrix()
-            cross_cov, test_gram = self.family._fmt_Kzt_Ktt(cross_cov, test_gram)
+            cross_cov, prior_cov = self.family._fmt_Kzt_Ktt(cross_cov, prior_cov)
         else:
-            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
             # Only the cross-covariance needs the family's shape hook here;
             # the placeholder keeps the hook's two-argument contract and its
             # result is discarded.
@@ -488,26 +536,15 @@ class SparsePosterior(Posterior):
             )
             root_term = jnp.matmul(self.variational_root.T, kzz_inv_cross)
 
-        jitter = model.prior.jitter
-        if covariance == "dense":
-            # Ktt - A^T A + root^T root  [the S-term, S = sqrt sqrt^T]
-            predictive_cov = (
-                test_gram
-                - jnp.matmul(projected_cross.T, projected_cross)
-                + jnp.matmul(root_term.T, root_term)
-            )
-            predictive_cov = predictive_cov + jitter * jnp.eye(predictive_cov.shape[0])
-            scale = lx.MatrixLinearOperator(predictive_cov)
-        else:
-            marginal_var = (
-                test_var_diag
-                - jnp.einsum("ij,ij->j", projected_cross, projected_cross)
-                + jnp.einsum("ij,ij->j", root_term, root_term)
-                + jitter
-            )
-            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
-
-        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+        # Ktt - A^T A + root^T root  [the S-term, S = sqrt sqrt^T]
+        return _assemble_predictive(
+            mean,
+            prior_cov,
+            covariance=covariance,
+            subtracted_factor=projected_cross,
+            added_factor=root_term,
+            jitter=model.prior.jitter,
+        )
 
 
 class CollapsedPosterior(Posterior):
@@ -628,28 +665,15 @@ class CollapsedPosterior(Posterior):
             self.cholesky_b, projected_cross, lower=True
         )
 
-        jitter = model.prior.jitter
-        if covariance == "dense":
-            test_gram = kernel.gram(test_inputs).as_matrix()
-            # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-T} B^{-1} Lz^{-1} Kzt
-            predictive_cov = (
-                test_gram
-                - jnp.matmul(projected_cross.T, projected_cross)
-                + jnp.matmul(site_projection.T, site_projection)
-            )
-            predictive_cov = predictive_cov + jitter * jnp.eye(predictive_cov.shape[0])
-            scale = lx.MatrixLinearOperator(predictive_cov)
-        else:
-            test_var_diag = lx.diagonal(kernel.diagonal(test_inputs))
-            marginal_var = (
-                test_var_diag
-                - jnp.einsum("ij,ij->j", projected_cross, projected_cross)
-                + jnp.einsum("ij,ij->j", site_projection, site_projection)
-                + jitter
-            )
-            scale = lx.DiagonalLinearOperator(jnp.atleast_1d(marginal_var.squeeze()))
-
-        return GaussianDistribution(loc=jnp.atleast_1d(mean.squeeze()), scale=scale)
+        # Ktt - Ktz Kzz^{-1} Kzt + Ktz Lz^{-T} B^{-1} Lz^{-1} Kzt
+        return _assemble_predictive(
+            mean,
+            _prior_covariance(kernel, test_inputs, covariance),
+            covariance=covariance,
+            subtracted_factor=projected_cross,
+            added_factor=site_projection,
+            jitter=model.prior.jitter,
+        )
 
     @property
     def elbo_bound(self) -> ScalarFloat:

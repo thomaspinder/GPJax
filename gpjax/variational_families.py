@@ -28,6 +28,7 @@ import lineax as lx
 
 from gpjax.conditioning import (
     CollapsedPosterior,
+    Posterior,
     SparsePosterior,
 )
 from gpjax.dataset import Dataset
@@ -43,7 +44,10 @@ from gpjax.likelihoods import (
     Gaussian,
     NonGaussian,
 )
-from gpjax.linalg.utils import add_jitter
+from gpjax.linalg.utils import (
+    add_jitter,
+    stabilised_cholesky,
+)
 from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     LowerTriangular,
@@ -67,9 +71,22 @@ PP = tp.TypeVar("PP", bound=JointModel)
 HP = tp.TypeVar("HP", bound=HeteroscedasticModel)
 
 
-def _tri_solve(L, B):
-    """Solve L x = B where L is lower triangular. Works for matrix B."""
-    return jsp.linalg.solve_triangular(L, B, lower=True)
+def _tri_solve(
+    factor: Float[Array, "M M"], rhs: Float[Array, "M N"]
+) -> Float[Array, "M N"]:
+    """Solve ``factor @ x = rhs`` for a lower-triangular ``factor``.
+
+    The right-hand side may carry several columns; they are solved in one
+    BLAS-3 call.
+
+    Args:
+        factor (Float[Array, "M M"]): A lower-triangular matrix.
+        rhs (Float[Array, "M N"]): The right-hand side, one system per column.
+
+    Returns:
+        Float[Array, "M N"]: The solution $x$ of ``factor @ x = rhs``.
+    """
+    return jsp.linalg.solve_triangular(factor, rhs, lower=True)
 
 
 def _symmetrise(matrix: Float[Array, "M M"]) -> Float[Array, "M M"]:
@@ -142,6 +159,29 @@ class AbstractVariationalFamily(_SummaryMixin, eqx.Module, tp.Generic[L]):
             ScalarFloat: The KL divergence.
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def condition(self, train_data: Dataset) -> Posterior:
+        r"""Condition the family, yielding its posterior process.
+
+        The signature is the one every conditionable object in GPJax shares:
+        ``condition(train_data)``, with ``model | D`` as sugar. Families
+        whose approximate posterior is already carried internally accept
+        ``train_data`` for that uniformity and ignore it; the collapsed
+        family, whose optimal $q(u)$ is solved from the data, consumes it.
+
+        Args:
+            train_data (Dataset): The training data to condition on.
+
+        Returns:
+            Posterior: The conditioned process, queried as
+                ``q.condition(train_data)(test_inputs)``.
+        """
+        raise NotImplementedError
+
+    def __or__(self, train_data: Dataset) -> Posterior:
+        r"""Sugar for conditioning: ``q | D`` reads as $q(f \mid \mathcal{D})$."""
+        return self.condition(train_data)
 
 
 class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
@@ -269,10 +309,10 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
         inducing_mean = mean_function(inducing_inputs)
         Kzz = kernel.gram(inducing_inputs)
-        Kzz_dense = add_jitter(Kzz.as_matrix(), self.model.prior.jitter)
 
-        # Lz Lz^T = Kzz. The single unavoidable factorisation.
-        Lz = jnp.linalg.cholesky(Kzz_dense)
+        # Lz Lz^T = Kzz + jitter I. The single unavoidable factorisation, taken
+        # through the one stabilise-and-factor seam.
+        Lz = stabilised_cholesky(Kzz.as_matrix(), self.model.prior.jitter)
 
         # (muz - mu)^T Kzz^{-1} (muz - mu) = ||Lz^{-1} (muz - mu)||^2
         mahalanobis = jnp.sum(
@@ -294,18 +334,25 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
             mahalanobis - num_inducing + log_det_prior - log_det_variational + trace
         )
 
-    def condition(self) -> SparsePosterior:
+    def condition(self, train_data: tp.Optional[Dataset]) -> SparsePosterior:
         r"""Condition the family, yielding its posterior process.
 
         The family already carries everything conditioning needs — the joint
-        model and the variational moments — so no data is required. The
-        returned :class:`~gpjax.conditioning.SparsePosterior` caches the
-        factorisation of $\mathbf{K}_{zz}$ and is queried directly:
-        ``q.condition()(test_inputs)``.
+        model and the variational moments — so ``train_data`` is accepted for
+        interface uniformity with :meth:`gpjax.gps.JointModel.condition` and
+        is **not used**. The returned
+        :class:`~gpjax.conditioning.SparsePosterior` caches the factorisation
+        of $\mathbf{K}_{zz}$ and is queried directly:
+        ``q.condition(train_data)(test_inputs)``.
+
+        Args:
+            train_data (Dataset | None): Accepted for interface uniformity and
+                ignored; the fitted $q(u)$ already summarises the data.
 
         Returns:
             SparsePosterior: The conditioned sparse posterior process.
         """
+        del train_data
         return SparsePosterior(
             self,
             _val(self.variational_mean),
@@ -314,7 +361,9 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         )
 
     def predict(
-        self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+        self,
+        test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
+        train_data: tp.Optional[Dataset] = None,
     ) -> GaussianDistribution:
         r"""Compute the predictive distribution of the GP at the test inputs t.
 
@@ -325,17 +374,19 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
 
             \mathcal{N}\left(f(t); \mu t + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} (\mu - \mu z),  \mathbf{K}_{tt} - \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt} + \mathbf{K}_{tz} \mathbf{K}_{zz}^{-1} S \mathbf{K}_{zz}^{-1} \mathbf{K}_{zt}\right).
 
-        Sugar for ``self.condition()(test_inputs)``.
+        Sugar for ``self.condition(train_data)(test_inputs)``.
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
                 make a prediction.
+            train_data (Dataset | None): Accepted for interface uniformity and
+                ignored, exactly as by :meth:`condition`.
 
         Returns:
             GaussianDistribution: The predictive distribution of the low-rank GP at
                 the test inputs.
         """
-        return self.condition()(test_inputs)
+        return self.condition(train_data)(test_inputs)
 
 
 class GraphVariationalGaussian(VariationalGaussian[L]):
@@ -439,18 +490,24 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
 
         return 0.5 * (mahalanobis + trace - self.num_inducing - log_det_variational)
 
-    def condition(self) -> SparsePosterior:
+    def condition(self, train_data: tp.Optional[Dataset]) -> SparsePosterior:
         r"""Condition the family, yielding its posterior process.
 
-        Identical to :meth:`VariationalGaussian.condition` except that the
-        stored moments parameterise the whitened distribution
+        Identical to :meth:`VariationalGaussian.condition` — ``train_data`` is
+        likewise accepted for interface uniformity and **not used** — except
+        that the stored moments parameterise the whitened distribution
         $q(u) = \mathcal{N}(\mathbf{L}_z\mu + \mu_z, \mathbf{L}_z S
         \mathbf{L}_z^{\top})$, which the returned posterior de-whitens at
         query time.
 
+        Args:
+            train_data (Dataset | None): Accepted for interface uniformity and
+                ignored; the fitted $q(u)$ already summarises the data.
+
         Returns:
             SparsePosterior: The conditioned sparse posterior process.
         """
+        del train_data
         return SparsePosterior(
             self,
             _val(self.variational_mean),
@@ -463,19 +520,23 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
     r"""The dual (site) parameterisation of a sparse variational Gaussian process.
 
     Following the t-SVGP parameterisation of Adam, Chang, Khan and Solin (2021),
-    [arXiv:2111.03412](https://arxiv.org/abs/2111.03412), the variational distribution
-    is stored as an unnormalised Gaussian *site* on the inducing outputs rather than as
-    moments:
-    ```math
-    t(u) = \exp\left(\lambda_1^{\top}\tilde u
-        - \tfrac{1}{2}\tilde u^{\top}\Lambda_2\tilde u\right),
-    \qquad q(u) \propto p_{\theta}(u)\,t(u),
-    ```
+    `arXiv:2111.03412 <https://arxiv.org/abs/2111.03412>`_, the variational
+    distribution is stored as an unnormalised Gaussian *site* on the inducing outputs
+    rather than as moments:
+
+    .. math::
+
+        t(u) = \exp\left(\lambda_1^{\top}\tilde u
+            - \tfrac{1}{2}\tilde u^{\top}\Lambda_2\tilde u\right),
+        \qquad q(u) \propto p_{\theta}(u)\,t(u),
+
     with $\tilde u = u - \mu_z$ the *centred* inducing outputs, giving
-    ```math
-    S = \left(\mathbf{K}_{zz}^{-1} + \Lambda_2\right)^{-1},
-    \qquad \tilde m = S\lambda_1, \qquad m = \mu_z + \tilde m .
-    ```
+
+    .. math::
+
+        S = \left(\mathbf{K}_{zz}^{-1} + \Lambda_2\right)^{-1},
+        \qquad \tilde m = S\lambda_1, \qquad m = \mu_z + \tilde m .
+
     ``dual_vector`` is $\lambda_1\in\mathbb{R}^{M\times1}$ and ``dual_matrix`` is
     $\Lambda_2\in\mathbb{R}^{M\times M}$, stored in the **precision** convention (PSD,
     no $-\tfrac{1}{2}$ factor). Both default to zero, so that $q(u) = p(u)$ and the
@@ -491,7 +552,6 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
     inverted and $\Lambda_2$ is never factorised.
 
     Example:
-    ```pycon
         >>> import jax
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
@@ -506,7 +566,6 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         ... )
         >>> bool(abs(q.prior_kl()) < 1e-10)
         True
-    ```
     """
 
     dual_vector: tp.Any
@@ -547,11 +606,10 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         """
         inducing_inputs = self._fmt_inducing_inputs()
         kernel = self.model.prior.kernel
+        jitter = self.model.prior.jitter
 
-        Kzz = add_jitter(
-            kernel.gram(inducing_inputs).as_matrix(), self.model.prior.jitter
-        )
-        return Kzz, jnp.linalg.cholesky(Kzz)
+        gram = kernel.gram(inducing_inputs).as_matrix()
+        return add_jitter(gram, jitter), stabilised_cholesky(gram, jitter)
 
     def _working_matrices(
         self,
@@ -559,12 +617,14 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         r"""Return $(\mathbf{K}_{zz},\ \mathbf{L}_K,\ \mathbf{L}_R)$.
 
         The working matrix is
-        ```math
-        \mathbf{R} = \mathbf{K}_{zz} + \mathbf{K}_{zz}\Lambda_2\mathbf{K}_{zz}
-            = \mathbf{K}_{zz}\mathbf{S}^{-1}\mathbf{K}_{zz}
-            = \mathbf{L}_K\left(\mathbf{I}
-              + \mathbf{L}_K^{\top}\Lambda_2\mathbf{L}_K\right)\mathbf{L}_K^{\top},
-        ```
+
+        .. math::
+
+            \mathbf{R} = \mathbf{K}_{zz} + \mathbf{K}_{zz}\Lambda_2\mathbf{K}_{zz}
+                = \mathbf{K}_{zz}\mathbf{S}^{-1}\mathbf{K}_{zz}
+                = \mathbf{L}_K\left(\mathbf{I}
+                  + \mathbf{L}_K^{\top}\Lambda_2\mathbf{L}_K\right)\mathbf{L}_K^{\top},
+
         and it is the right-hand form that is factorised: with
         $\mathbf{G} = \operatorname{sym}(\mathbf{L}_K^{\top}\Lambda_2\mathbf{L}_K)$,
         $\mathbf{L}_R = \mathbf{L}_K\operatorname{chol}(\mathbf{I} + \mathbf{G})$,
@@ -602,12 +662,12 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
     def moments(self) -> tuple[Float[Array, "M 1"], Float[Array, "M M"]]:
         r"""Return the implied moments $(\mathbf{m},\mathbf{S})$ of $q(u)$.
 
-        ```math
-        \mathbf{S} = \mathbf{K}_{zz}\mathbf{R}^{-1}\mathbf{K}_{zz},
-        \qquad
-        \mathbf{m} = \mu_z
-            + \mathbf{K}_{zz}\mathbf{R}^{-1}\left(\mathbf{K}_{zz}\lambda_1\right).
-        ```
+        .. math::
+
+            \mathbf{S} = \mathbf{K}_{zz}\mathbf{R}^{-1}\mathbf{K}_{zz},
+            \qquad
+            \mathbf{m} = \mu_z
+                + \mathbf{K}_{zz}\mathbf{R}^{-1}\left(\mathbf{K}_{zz}\lambda_1\right).
 
         For reporting, for interoperating with :class:`VariationalGaussian`, and for
         :meth:`condition`; the :func:`~gpjax.objectives.dual_elbo` training path
@@ -632,15 +692,15 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
     ) -> tuple[Float[Array, " P"], Float[Array, " P"]]:
         r"""Batched marginal mean and variance of $q(f(\cdot))$ at ``inputs``.
 
-        ```math
-        \mu_{\star} = \mu(X_{\star})
-            + \mathbf{K}_{\star z}\mathbf{R}^{-1}\mathbf{K}_{zz}\lambda_1,
-        \qquad
-        \sigma^2_{\star} = \operatorname{diag}(\mathbf{K}_{\star\star})
-            - \lVert\mathbf{L}_K^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
-            + \lVert\mathbf{L}_R^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
-            + \varepsilon .
-        ```
+        .. math::
+
+            \mu_{\star} = \mu(X_{\star})
+                + \mathbf{K}_{\star z}\mathbf{R}^{-1}\mathbf{K}_{zz}\lambda_1,
+            \qquad
+            \sigma^2_{\star} = \operatorname{diag}(\mathbf{K}_{\star\star})
+                - \lVert\mathbf{L}_K^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
+                + \lVert\mathbf{L}_R^{-1}\mathbf{K}_{z\star}\rVert^2_{\mathrm{col}}
+                + \varepsilon .
 
         Costs $\mathcal{O}(M^3 + PM^2)$, the same order as ``vmap``-ing :meth:`predict`
         over single inputs the way :func:`~gpjax.objectives.elbo` does -- ``vmap``
@@ -695,13 +755,14 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
     def prior_kl(self) -> ScalarFloat:
         r"""Compute $\operatorname{KL}[q(u)\mid\mid p(u)]$ from the stored sites.
 
-        ```math
-        \operatorname{KL} = \tfrac{1}{2}\left(
-            \operatorname{tr}\left(\mathbf{R}^{-1}\mathbf{K}_{zz}\right) - M
-            + \tilde m^{\top}\mathbf{K}_{zz}^{-1}\tilde m
-            + \log\lvert\mathbf{R}\rvert - \log\lvert\mathbf{K}_{zz}\rvert
-        \right),
-        ```
+        .. math::
+
+            \operatorname{KL} = \tfrac{1}{2}\left(
+                \operatorname{tr}\left(\mathbf{R}^{-1}\mathbf{K}_{zz}\right) - M
+                + \tilde m^{\top}\mathbf{K}_{zz}^{-1}\tilde m
+                + \log\lvert\mathbf{R}\rvert - \log\lvert\mathbf{K}_{zz}\rvert
+            \right),
+
         obtained from the standard Gaussian KL by substituting
         $\mathbf{S} = \mathbf{K}_{zz}\mathbf{R}^{-1}\mathbf{K}_{zz}$, which gives
         $\mathbf{K}_{zz}^{-1}\mathbf{S} = \mathbf{R}^{-1}\mathbf{K}_{zz}$ and
@@ -734,20 +795,26 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         )
         return 0.5 * (trace - self.num_inducing + mahalanobis + log_det_ratio)
 
-    def condition(self) -> SparsePosterior:
+    def condition(self, train_data: tp.Optional[Dataset]) -> SparsePosterior:
         r"""Condition the family, yielding its posterior process.
 
-        The stored sites are first converted to the implied moments
-        $(\mathbf{m}, \mathbf{S})$ via :meth:`moments`, and the Cholesky root
-        of $\mathbf{S}$ is handed to the shared sparse conditioning
-        derivation. The conversion happens afresh on every call -- nothing is
-        cached on the family -- so the implicit dependence of $q$ on the
-        kernel hyperparameters through $\mathbf{K}_{zz}$ is preserved under
-        differentiation.
+        The stored sites already summarise the data, so ``train_data`` is
+        accepted for interface uniformity and **not used**. The sites are
+        first converted to the implied moments $(\mathbf{m}, \mathbf{S})$ via
+        :meth:`moments`, and the Cholesky root of $\mathbf{S}$ is handed to
+        the shared sparse conditioning derivation. The conversion happens
+        afresh on every call -- nothing is cached on the family -- so the
+        implicit dependence of $q$ on the kernel hyperparameters through
+        $\mathbf{K}_{zz}$ is preserved under differentiation.
+
+        Args:
+            train_data (Dataset | None): Accepted for interface uniformity and
+                ignored; the fitted sites already summarise the data.
 
         Returns:
             SparsePosterior: The conditioned sparse posterior process.
         """
+        del train_data
         variational_mean, variational_covariance = self.moments()
         return SparsePosterior(
             self,
@@ -757,28 +824,32 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         )
 
     def predict(
-        self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]
+        self,
+        test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]],
+        train_data: tp.Optional[Dataset] = None,
     ) -> GaussianDistribution:
         r"""Compute the predictive distribution of the GP at the test inputs t.
 
-        ```math
+        .. math::
+
             \mathcal{N}\left(f(t);\ \mu_t
             + \mathbf{K}_{tz}\mathbf{R}^{-1}\mathbf{K}_{zz}\lambda_1,\
             \mathbf{K}_{tt} - \mathbf{K}_{tz}\mathbf{K}_{zz}^{-1}\mathbf{K}_{zt}
             + \mathbf{K}_{tz}\mathbf{R}^{-1}\mathbf{K}_{zt}\right).
-        ```
 
-        Sugar for ``self.condition()(test_inputs)``.
+        Sugar for ``self.condition(train_data)(test_inputs)``.
 
         Args:
             test_inputs (Float[Array, "N D"]): The test inputs at which we wish to
                 make a prediction.
+            train_data (Dataset | None): Accepted for interface uniformity and
+                ignored, exactly as by :meth:`condition`.
 
         Returns:
             GaussianDistribution: The predictive distribution of the low-rank GP at
                 the test inputs.
         """
-        return self.condition()(test_inputs)
+        return self.condition(train_data)(test_inputs)
 
 
 class CollapsedVariationalGaussian(AbstractVariationalGaussian[GL]):
@@ -949,6 +1020,32 @@ class HeteroscedasticVariationalFamily(AbstractVariationalFamily[HL]):
 
     def prior_kl(self) -> ScalarFloat:
         return self.signal_variational.prior_kl() + self.noise_variational.prior_kl()
+
+    def condition(self, train_data: tp.Optional[Dataset]) -> Posterior:
+        r"""Not available: the heteroscedastic family has no single posterior.
+
+        This family approximates *two* latent processes -- signal and noise --
+        so there is no one conditioned process to return, matching the
+        exclusion recorded for :class:`gpjax.gps.HeteroscedasticModel`.
+        Condition the components instead, via
+        :attr:`signal_variational` and :attr:`noise_variational`, or call
+        :meth:`predict_latents` for the two predictive distributions and
+        :meth:`predict` for their moments.
+
+        Args:
+            train_data (Dataset | None): Unused; present for interface
+                uniformity.
+
+        Raises:
+            NotImplementedError: Always.
+        """
+        del train_data
+        raise NotImplementedError(
+            "HeteroscedasticVariationalFamily has no single conditioned process: "
+            "it approximates both a signal and a noise latent. Use "
+            "`predict_latents(test_inputs)`, or condition the components "
+            "`signal_variational` / `noise_variational` individually."
+        )
 
     def predict(
         self, test_inputs: tp.Union[Int[Array, "N D"], Float[Array, "N D"]]

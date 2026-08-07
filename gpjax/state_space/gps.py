@@ -5,13 +5,23 @@ See plans/2026-04-21-state-space-gps-design.md.
 
 from __future__ import annotations
 
+from typing import Literal
+
+import beartype.typing as tp
 import jax.numpy as jnp
+from jaxtyping import (
+    Bool,
+    Num,
+)
 import lineax as lx
 import paramax
 
+from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugateModel, Prior
 from gpjax.likelihoods import Gaussian, MultiOutputGaussian
+from gpjax.state_space.conditioning import StateSpacePosterior
+from gpjax.typing import Array
 
 
 class StateSpacePrior(Prior):
@@ -69,15 +79,20 @@ class StateSpacePrior(Prior):
 
 
 class StateSpaceConjugateModel(ConjugateModel):
-    """Conjugate posterior for a state-space (Markovian) GP.
+    """Joint model for a state-space (Markovian) GP: conditioning is Kalman.
 
-    v1 prediction surface:
-      - ``predict``        : smoothed-latent prediction (Phase 10)
-      - ``predict_filter`` : causal filtered prediction (Phase 10)
-      - ``__call__``       : delegates to ``predict``
+    Conditioning returns a
+    :class:`~gpjax.state_space.conditioning.StateSpacePosterior`, whose queries
+    run the square-root Kalman recursions in :math:`O(N d^3)` time. The
+    inherited :class:`~gpjax.gps.ConjugateModel` conditioning is deliberately
+    overridden: its dense :math:`O(N^3)` Cholesky is exactly the cost this
+    model exists to avoid.
 
-    Both ``predict`` and ``predict_filter`` reject ``covariance="dense"``
-    in favour of v1's diagonal-only contract before any further dispatch.
+    v1 prediction surface, all of it sugar over ``condition``:
+      - ``condition`` / ``__or__`` : the conditioned process
+      - ``predict`` / ``__call__`` : ``condition(D)(t)``, the smoothed predictive
+      - ``predict_filter``         : ``condition(D).filtered(t)``, the causal
+        (filter-only) predictive
 
     **Predictive contract (v1):** prediction returns diagonal (marginal)
     covariance only; the marginals are exact. A dense joint predictive is not
@@ -98,14 +113,36 @@ class StateSpaceConjugateModel(ConjugateModel):
         'StateSpaceConjugateModel'
     """
 
+    def condition(
+        self,
+        train_data: Dataset,
+        *,
+        observation_mask: tp.Optional[Bool[Array, " N"]] = None,
+    ) -> StateSpacePosterior:
+        r"""Condition on data through the Kalman recursions.
+
+        Args:
+            train_data: The observations to condition on.
+            observation_mask: Optional boolean mask over the training points;
+                ``False`` entries are not conditioned on. ``None`` conditions
+                on every point.
+
+        Returns:
+            StateSpacePosterior: The conditioned process. Exposes the smoothed
+                predictive (via ``__call__``), the causal predictive (via
+                ``filtered``), and ``log_marginal_likelihood``.
+        """
+        return StateSpacePosterior(self, train_data, observation_mask=observation_mask)
+
     def __call__(
         self,
-        test_inputs,
-        train_data,
+        test_inputs: Num[Array, "M 1"],
+        train_data: Dataset,
         *,
-        covariance="diagonal",
-        observation_mask=None,
-    ):
+        covariance: Literal["dense", "diagonal"] = "diagonal",
+        observation_mask: tp.Optional[Bool[Array, " N"]] = None,
+    ) -> GaussianDistribution:
+        r"""Sugar: condition on ``train_data`` and query at ``test_inputs``."""
         return self.predict(
             test_inputs,
             train_data,
@@ -115,46 +152,74 @@ class StateSpaceConjugateModel(ConjugateModel):
 
     def predict(
         self,
-        test_inputs,
-        train_data,
+        test_inputs: Num[Array, "M 1"],
+        train_data: Dataset,
         *,
-        covariance="diagonal",
-        observation_mask=None,
-    ):
-        if covariance != "diagonal":
-            raise NotImplementedError(
-                "State-space posterior predict returns diagonal (marginal) "
-                "covariance only; a dense joint predictive is not implemented in v1 "
-                "and is tracked as a follow-up. The marginal variances returned are "
-                "exact, so for diagonal-only use pass "
-                "covariance='diagonal'."
-            )
-        from gpjax.state_space.prediction import predict_smoothed
+        covariance: Literal["dense", "diagonal"] = "diagonal",
+        observation_mask: tp.Optional[Bool[Array, " N"]] = None,
+    ) -> GaussianDistribution:
+        r"""Sugar for the smoothed predictive: ``condition(D)(t)``.
 
-        return predict_smoothed(
-            self, train_data, test_inputs, observation_mask=observation_mask
+        When making repeated predictions, condition once and reuse the
+        returned posterior.
+
+        Args:
+            test_inputs: Test timestamps of shape ``(M, 1)``.
+            train_data: The observations to condition on.
+            covariance: Must be ``"diagonal"``; the v1 state-space predictive
+                has no dense joint form.
+            observation_mask: Optional boolean mask over the training points.
+
+        Returns:
+            GaussianDistribution: The smoothed predictive.
+        """
+        return self.condition(train_data, observation_mask=observation_mask)(
+            test_inputs, covariance=covariance
         )
 
     def predict_filter(
         self,
-        test_inputs,
-        train_data,
+        test_inputs: Num[Array, "M 1"],
+        train_data: Dataset,
         *,
-        covariance="diagonal",
-        observation_mask=None,
-    ):
-        if covariance != "diagonal":
-            raise NotImplementedError(
-                "State-space posterior predict_filter returns diagonal (marginal) "
-                "covariance only; a dense joint predictive is not implemented in v1 "
-                "and is tracked as a follow-up. The marginal variances returned are "
-                "exact, so for diagonal-only use pass "
-                "covariance='diagonal'."
-            )
-        from gpjax.state_space.prediction import predict_filtered
+        covariance: Literal["dense", "diagonal"] = "diagonal",
+        observation_mask: tp.Optional[Bool[Array, " N"]] = None,
+    ) -> GaussianDistribution:
+        r"""Sugar for the causal predictive: ``condition(D).filtered(t)``.
 
-        return predict_filtered(
-            self, train_data, test_inputs, observation_mask=observation_mask
+        Each test point conditions only on training observations at timestamps
+        less than or equal to its own, rather than on the whole training set.
+
+        Args:
+            test_inputs: Test timestamps of shape ``(M, 1)``.
+            train_data: The observations to condition on.
+            covariance: Must be ``"diagonal"``; the v1 state-space predictive
+                has no dense joint form.
+            observation_mask: Optional boolean mask over the training points.
+
+        Returns:
+            GaussianDistribution: The filtered predictive.
+        """
+        return self.condition(train_data, observation_mask=observation_mask).filtered(
+            test_inputs, covariance=covariance
+        )
+
+    def sample_approx(self, num_samples, train_data, key, num_features=100):
+        r"""Not available for state-space models.
+
+        The inherited pathwise sampler is built on the dense conditioned
+        process, which state-space models never form. Raising is deliberate:
+        silently falling back would reintroduce the :math:`O(N^3)` cost this
+        model exists to avoid.
+
+        Raises:
+            NotImplementedError: Always.
+        """
+        raise NotImplementedError(
+            "sample_approx is not implemented for state-space models; the "
+            "pathwise sampler requires the dense conditioned process that the "
+            "state-space path deliberately never forms. Use predict or "
+            "predict_filter for marginals."
         )
 
 
