@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
@@ -36,7 +38,7 @@ class RBF(StationaryKernel):
     $$
     """
 
-    name: str = "RBF"
+    name: ClassVar[str] = "RBF"
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         x = self.slice_input(x) / _val(self.lengthscale)

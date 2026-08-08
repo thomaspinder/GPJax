@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import dataclasses
 from itertools import product
 from typing import Any
 
@@ -130,7 +131,13 @@ def test_init_defaults(kernel: type[StationaryKernel]):
     # Check that the parameters are set correctly
     assert isinstance(k.compute_engine, type(AbstractKernelComputation()))
     assert isinstance(k.variance, NonNegativeReal)
-    assert isinstance(k.lengthscale, PositiveReal)
+
+    # White has no lengthscale: __call__ never reads it, so it is not a
+    # real (trainable) field -- see test_white_kernel_has_no_lengthscale_leaf.
+    if kernel == White:
+        assert k.lengthscale is None
+    else:
+        assert isinstance(k.lengthscale, PositiveReal)
 
 
 @pytest.mark.parametrize("kernel", [k[0] for k in TESTED_KERNELS])
@@ -215,3 +222,35 @@ def test_cross_covariance(test_init: StationaryKernel, n_a: int, n_b: int):
     Kxy = k.cross_covariance(x, y)
     assert isinstance(Kxy, jax.Array)
     assert Kxy.shape == (n_a, n_b)
+
+
+def test_white_kernel_has_no_lengthscale_leaf():
+    """Regression test for issue #695.
+
+    `White.__call__` never reads a lengthscale, so `StationaryKernel`'s
+    lengthscale must not survive as a real (trainable) pytree leaf on
+    `White` -- previously it was hardcoded to 1.0 and silently optimised.
+    """
+    kernel = White()
+    leaves = jax.tree_util.tree_leaves(kernel)
+
+    # Only the (unconstrained) variance leaf should remain.
+    assert len(leaves) == 1
+    assert jnp.allclose(leaves[0], kernel.variance._unconstrained)
+
+
+@pytest.mark.parametrize("kernel", [k[0] for k in TESTED_KERNELS])
+def test_name_is_not_a_constructor_argument(kernel: type[StationaryKernel]):
+    """Regression test for issue #695.
+
+    `name` is a `ClassVar`, not a dataclass field: it must not appear in the
+    pytree, and passing it as a keyword argument must fail at runtime just as
+    it already did before the fix (this pins the *runtime* contract; the
+    corresponding *static* contract -- that a type checker also rejects
+    `kernel(name=...)` -- is exercised via pyright in issue #695's fix).
+    """
+    kernel_name = kernel().name
+    assert isinstance(kernel_name, str)
+    assert "name" not in [f.name for f in dataclasses.fields(kernel)]
+    with pytest.raises(TypeError):
+        kernel(name="renamed")
