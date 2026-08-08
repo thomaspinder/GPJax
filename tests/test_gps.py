@@ -42,6 +42,7 @@ from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
     Poisson,
+    StudentT,
 )
 from gpjax.mean_functions import (
     AbstractMeanFunction,
@@ -342,7 +343,38 @@ def test_nonconjugate_posterior(
 
 
 @pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
-@pytest.mark.parametrize("likelihood", [Bernoulli, Gaussian])
+@pytest.mark.parametrize("num_datapoints", [1, 10])
+@pytest.mark.parametrize("num_test_datapoints", [1, 10, 200])
+def test_nonconjugate_posterior_studentt(
+    num_datapoints: int,
+    num_test_datapoints: int,
+) -> None:
+    # Create a dataset of continuous, real-valued observations (as StudentT,
+    # unlike Bernoulli/Poisson, models a real-valued robust-regression target).
+    key = jr.key(123)
+    x = jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(num_datapoints, 1))
+    y = jnp.sin(x) + jr.normal(key=key, shape=x.shape) * 0.1
+    D = Dataset(X=x, y=y)
+
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    likelihood = StudentT()
+
+    posterior = NonConjugateModel(prior=prior, likelihood=likelihood)
+    posterior = posterior.init_latent(num_datapoints)
+    assert isinstance(posterior, NonConjugateModel)
+
+    inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
+    marginal_distribution = posterior(inputs, D)
+
+    assert isinstance(marginal_distribution, GaussianDistribution)
+    mu = marginal_distribution.mean
+    sigma = marginal_distribution.covariance()
+    assert mu.shape == (num_test_datapoints,)
+    assert sigma.shape == (num_test_datapoints, num_test_datapoints)
+
+
+@pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
+@pytest.mark.parametrize("likelihood", [Bernoulli, Gaussian, StudentT])
 @pytest.mark.parametrize("num_datapoints", [1, 10])
 @pytest.mark.parametrize("kernel", [RBF, Matern52])
 @pytest.mark.parametrize("mean_function", [Zero, Constant])
@@ -373,8 +405,9 @@ def test_posterior_construct(
     if isinstance(likelihood, Gaussian):
         assert isinstance(posterior_mul, ConjugateModel)
 
-    # If the likelihood is Bernoulli or Poisson, then the posterior should be non-conjugate.
-    if isinstance(likelihood, (Bernoulli, Poisson)):
+    # If the likelihood is Bernoulli, Poisson, or StudentT, then the posterior
+    # should be non-conjugate.
+    if isinstance(likelihood, (Bernoulli, Poisson, StudentT)):
         assert isinstance(posterior_mul, NonConjugateModel)
 
 
