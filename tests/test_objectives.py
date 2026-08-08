@@ -15,6 +15,7 @@ from gpjax.objectives import (
     dual_elbo,
     elbo,
     non_conjugate_mll,
+    with_log_prior,
 )
 from gpjax.parameters import (
     PositiveReal,
@@ -28,6 +29,7 @@ import jax.random as jr
 import jax.scipy as jsp
 import jax.tree_util as jtu
 import numpy as np
+import numpyro.distributions as dist
 import paramax
 import pytest
 
@@ -883,3 +885,101 @@ def test_pinned_elbo_is_a_lower_bound_on_the_evidence(family: str):
     """
     q, data = _pinned_uncollapsed_family(family, binary=False)
     assert elbo(q, data) <= conjugate_mll(q.model, data)
+
+
+def test_with_log_prior_matches_base_objective_when_prior_is_zero():
+    """A zero log-prior must leave both the value and the gradient of the
+    wrapped objective unchanged, i.e. `with_log_prior` does not disturb plain
+    `conjugate_mll` behaviour when no meaningful prior is supplied."""
+    key = jr.key(7)
+    D = build_data(20, 1, key, binary=False)
+
+    p = gpx.gps.Prior(
+        kernel=gpx.kernels.RBF(), mean_function=gpx.mean_functions.Constant()
+    )
+    likelihood = gpx.likelihoods.Gaussian()
+    posterior = p * likelihood
+
+    zero_log_prior = lambda model: jnp.array(0.0)
+    regularised_mll = with_log_prior(conjugate_mll, zero_log_prior)
+
+    base_value = conjugate_mll(posterior, D)
+    regularised_value = regularised_mll(posterior, D)
+    assert jnp.allclose(base_value, regularised_value)
+
+    params, static = eqx.partition(posterior, eqx.is_array)
+
+    def base_loss(params):
+        model = paramax.unwrap(eqx.combine(params, static))
+        return -conjugate_mll(model, D)
+
+    def regularised_loss(params):
+        model = paramax.unwrap(eqx.combine(params, static))
+        return -regularised_mll(model, D)
+
+    base_grad = jax.grad(base_loss)(params)
+    regularised_grad = jax.grad(regularised_loss)(params)
+    for base_leaf, regularised_leaf in zip(
+        jax.tree_util.tree_leaves(base_grad),
+        jax.tree_util.tree_leaves(regularised_grad),
+        strict=True,
+    ):
+        assert jnp.allclose(base_leaf, regularised_leaf)
+
+
+def test_with_log_prior_map_regularised_fit_prefers_prior_consistent_lengthscale():
+    """MAP-style regularisation: a strong prior favouring large lengthscales
+    should pull a gradient-descent fit away from the overfitting-prone tiny
+    lengthscale an unregularised MLE fit converges to, towards the prior
+    mean, on the same data. This is the acceptance scenario for issue #515."""
+    key = jr.key(1)
+    n_points = 60
+    X = jnp.linspace(0.0, 1.0, n_points).reshape(-1, 1)
+    y = jnp.sin(2.0 * jnp.pi * 8.0 * X) + jr.normal(key, X.shape) * 0.05
+    D = Dataset(X=X, y=y)
+
+    def build_posterior():
+        kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.3), variance=jnp.array(1.0))
+        meanf = gpx.mean_functions.Constant()
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=jnp.array(0.05))
+        posterior = gpx.gps.Prior(mean_function=meanf, kernel=kernel) * likelihood
+        # Freeze the noise so the kernel lengthscale alone must explain the
+        # high-frequency signal -- this isolates the lengthscale/overfitting
+        # trade-off the prior is meant to regularise.
+        return eqx.tree_at(
+            lambda m: m.likelihood.obs_stddev,
+            posterior,
+            replace_fn=paramax.non_trainable,
+        )
+
+    unregularised_nmll = lambda p, d: -conjugate_mll(p, d)
+    unregularised_model, _ = gpx.fit_scipy(
+        model=build_posterior(),
+        objective=unregularised_nmll,
+        train_data=D,
+        verbose=False,
+    )
+    unregularised_lengthscale = paramax.unwrap(
+        unregularised_model
+    ).prior.kernel.lengthscale
+
+    prior_mean = 3.0
+
+    def log_prior(model):
+        lengthscale = model.prior.kernel.lengthscale
+        return dist.LogNormal(jnp.log(prior_mean), 0.15).log_prob(lengthscale).sum()
+
+    regularised_nmll = lambda p, d: -with_log_prior(conjugate_mll, log_prior)(p, d)
+    regularised_model, _ = gpx.fit_scipy(
+        model=build_posterior(),
+        objective=regularised_nmll,
+        train_data=D,
+        verbose=False,
+    )
+    regularised_lengthscale = paramax.unwrap(regularised_model).prior.kernel.lengthscale
+
+    # Unregularised MLE overfits the high-frequency signal with a tiny lengthscale.
+    assert unregularised_lengthscale < 0.05
+    # The prior-regularised fit converges near the prior mean instead.
+    assert jnp.abs(regularised_lengthscale - prior_mean) < 1.0
+    assert regularised_lengthscale > unregularised_lengthscale

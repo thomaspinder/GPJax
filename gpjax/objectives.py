@@ -29,6 +29,93 @@ DVF = TypeVar("DVF", bound=DualVariationalGaussian)
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
+LogPriorFn = tpe.Callable[[eqx.Module], ScalarFloat]
+
+
+def with_log_prior(objective: Objective, log_prior: LogPriorFn) -> Objective:
+    r"""Regularise an objective with a user-supplied log-prior over the model.
+
+    Adds a scalar log-prior density, evaluated on the model's hyperparameters,
+    to an existing objective. The result is a new :data:`Objective` that can be
+    passed straight to :func:`gpjax.fit`, :func:`gpjax.fit_scipy`, or
+    :func:`gpjax.fit_lbfgs`, giving GPyTorch-style MAP-regularised fitting: the
+    optimiser still climbs the marginal log-likelihood, but is nudged towards
+    prior-consistent hyperparameters rather than whatever the data alone would
+    pick. A common motivating use is discouraging small, overfitting-prone
+    lengthscales or noise variances in high dimensions, by preferring a broad
+    prior that favours larger values.
+
+    This intentionally does not resurrect the pre-v1 ``Parameter(...,
+    prior=...)`` field (removed in #621): attaching a prior to every
+    ``Parameter`` tangled the constrained/unconstrained bijection with an
+    ambiguous "is this prior for gradient-based optimisation or for NumPyro
+    MCMC?" scope, and duplicated the fully Bayesian path. Here the prior is
+    not attached to any ``Parameter`` at all -- it is a plain function the
+    caller writes directly over the model pytree, composed with an objective
+    via ordinary addition. This keeps regularised MLE/MAP fitting completely
+    separate from the fully Bayesian, NumPyro-based path (``numpyro.sample``
+    fed straight into GPJax constructors, see ``gpjax.objectives`` usage in
+    the NumPyro integration example): no new field on ``Parameter``, no
+    change to ``fit``/``fit_scipy``/``fit_lbfgs``, and the existing
+    NumPyro path and plain (unregularised) objectives are untouched.
+
+    Note:
+        ``log_prior`` is evaluated on the *constrained* parameter values --
+        the same values ``objective`` itself receives, since both run after
+        ``paramax.unwrap``. It does not include the change-of-variables
+        Jacobian for the unconstrained space the optimiser actually moves
+        in, so the resulting mode is a useful regularised estimate rather
+        than the literal Bayesian MAP under a formal change of variables.
+        For the strongly regularising priors this feature targets, that
+        distinction rarely matters in practice.
+
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+        >>> import numpyro.distributions as dist
+        >>> import optax as ox
+        >>>
+        >>> xtrain = jnp.linspace(0, 1, 50).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+        >>>
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Gaussian()
+        >>> posterior = gpx.gps.Prior(mean_function=meanf, kernel=kernel) * likelihood
+        >>>
+        >>> def log_prior(model):
+        ...     lengthscale = model.prior.kernel.lengthscale
+        ...     return dist.LogNormal(jnp.log(5.0), 0.5).log_prob(lengthscale).sum()
+        >>>
+        >>> regularised_mll = gpx.objectives.with_log_prior(
+        ...     gpx.objectives.conjugate_mll, log_prior
+        ... )
+        >>> nmll = lambda p, d: -regularised_mll(p, d)
+        >>> trained_model, history = gpx.fit(
+        ...     model=posterior, objective=nmll, train_data=D,
+        ...     optim=ox.adam(0.01), num_iters=100, verbose=False,
+        ... )
+
+    Args:
+        objective (Objective): The objective to regularise, e.g.
+            ``conjugate_mll`` or ``elbo``. Called as ``objective(model,
+            data)`` with the model's parameters already unwrapped to their
+            constrained space.
+        log_prior (LogPriorFn): A callable that receives the same unwrapped
+            model and returns a scalar log-density. Typically built from
+            ``numpyro.distributions`` log-probabilities evaluated on
+            whichever leaves of the model the caller wants to regularise.
+
+    Returns:
+        Objective: A new objective computing
+        ``objective(model, data) + log_prior(model)``.
+    """
+
+    def _regularised_objective(model: eqx.Module, data: Dataset) -> ScalarFloat:
+        return objective(model, data) + log_prior(model)
+
+    return _regularised_objective
 
 
 def conjugate_mll(model: ConjugateModel, data: Dataset) -> ScalarFloat:
@@ -509,6 +596,7 @@ def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
 
 
 __all__ = [
+    "LogPriorFn",
     "Objective",
     "collapsed_elbo",
     "conjugate_loocv",
@@ -520,4 +608,5 @@ __all__ = [
     "log_posterior_density",
     "non_conjugate_mll",
     "variational_expectation",
+    "with_log_prior",
 ]
