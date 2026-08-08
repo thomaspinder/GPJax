@@ -166,6 +166,32 @@ def _nontrivial_moments(num_inducing: int):
     return mean, root
 
 
+def _pathwise_model() -> ConjugateModel:
+    """A conjugate model whose kernel has a well-defined spectral density.
+
+    The pathwise (Fourier-feature) sampler needs `n_dims` fixed on the
+    kernel; an ARD (array-valued) lengthscale does that implicitly, whereas
+    the scalar lengthscale used by `_conjugate_model` leaves it `None`.
+    """
+    prior = gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Constant(jnp.array(0.3)),
+        kernel=gpx.kernels.RBF(lengthscale=jnp.array([0.3]), variance=jnp.array(0.9)),
+    )
+    return prior * gpx.likelihoods.Gaussian(obs_stddev=jnp.array(0.2))
+
+
+def _pathwise_family(family_cls, variational_mean=None, variational_root=None):
+    mean, root = _nontrivial_moments(_NUM_INDUCING)
+    return family_cls(
+        model=_pathwise_model(),
+        inducing_inputs=_inducing_inputs(),
+        variational_mean=mean if variational_mean is None else variational_mean,
+        variational_root_covariance=root
+        if variational_root is None
+        else variational_root,
+    )
+
+
 def _multi_output_model():
     coregionalization = gpx.parameters.CoregionalizationMatrix(
         num_outputs=2, rank=1, key=jr.key(3)
@@ -637,6 +663,111 @@ def test_sample_approx_still_draws_for_a_single_output_posterior():
 
     assert draws.shape == (_NUM_TEST, 3)
     assert bool(jnp.all(jnp.isfinite(draws)))
+
+
+# ---------------------------------------------------------------------------
+# 3b. sample_approx on SparsePosterior (decoupled / Matheron sampling, #673)
+# ---------------------------------------------------------------------------
+
+_PATHWISE_FAMILIES = [VariationalGaussian, WhitenedVariationalGaussian]
+
+
+@pytest.mark.parametrize("family_cls", _PATHWISE_FAMILIES)
+def test_sparse_sample_approx_matches_the_analytic_predictive(family_cls):
+    """Monte-Carlo mean/covariance of the decoupled sampler must reproduce the
+    sparse posterior's closed-form predictive moments, for both the
+    unwhitened and whitened parameterisations."""
+    posterior = _pathwise_family(family_cls).condition(_regression_data())
+    grid = jnp.linspace(-0.2, 1.2, 8).reshape(-1, 1)
+
+    sample_fn = posterior.sample_approx(6000, jr.key(0), num_features=500)
+    draws = sample_fn(grid)  # [8, 6000]
+
+    empirical_mean = jnp.mean(draws, axis=-1)
+    empirical_cov = jnp.cov(draws)
+
+    exact = posterior(grid, covariance="dense")
+    np.testing.assert_allclose(
+        np.asarray(empirical_mean), np.asarray(exact.mean), atol=0.06
+    )
+
+    exact_cov = np.asarray(exact.covariance())
+    rel_frobenius = np.linalg.norm(
+        np.asarray(empirical_cov) - exact_cov
+    ) / np.linalg.norm(exact_cov)
+    assert rel_frobenius < 0.15
+
+
+@pytest.mark.parametrize("family_cls", _PATHWISE_FAMILIES)
+def test_sparse_sample_approx_is_deterministic_and_finite(family_cls):
+    posterior = _pathwise_family(family_cls).condition(_regression_data())
+    grid = _test_inputs()
+
+    draws_a = posterior.sample_approx(4, jr.key(1), num_features=32)(grid)
+    draws_b = posterior.sample_approx(4, jr.key(1), num_features=32)(grid)
+    draws_c = posterior.sample_approx(4, jr.key(2), num_features=32)(grid)
+
+    np.testing.assert_array_equal(np.asarray(draws_a), np.asarray(draws_b))
+    assert not bool(jnp.allclose(draws_a, draws_c))
+    assert draws_a.shape == (_NUM_TEST, 4)
+    assert bool(jnp.all(jnp.isfinite(draws_a)))
+
+
+def test_sparse_sample_approx_is_jittable():
+    grid = _test_inputs()
+
+    def draw(conditionable, train_data, key):
+        posterior = conditionable.condition(train_data)
+        return posterior.sample_approx(4, key, num_features=32)(grid)
+
+    family, data, key = (
+        _pathwise_family(VariationalGaussian),
+        _regression_data(),
+        jr.key(5),
+    )
+    eager = draw(family, data, key)
+    compiled = jax.jit(draw)(family, data, key)
+
+    np.testing.assert_allclose(
+        np.asarray(compiled), np.asarray(eager), rtol=1e-10, atol=1e-12
+    )
+
+
+def test_sparse_sample_approx_is_differentiable_in_the_variational_mean():
+    """Gradients must flow from the sampled functions back to q(u)'s mean."""
+    grid = _test_inputs()
+    key = jr.key(9)
+    _, root = _nontrivial_moments(_NUM_INDUCING)
+
+    def summed_draws(variational_mean):
+        posterior = _pathwise_family(
+            VariationalGaussian,
+            variational_mean=variational_mean,
+            variational_root=root,
+        ).condition(_regression_data())
+        return jnp.sum(posterior.sample_approx(3, key, num_features=32)(grid))
+
+    mean0, _ = _nontrivial_moments(_NUM_INDUCING)
+    gradient = jax.grad(summed_draws)(mean0)
+
+    assert gradient.shape == mean0.shape
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    assert bool(jnp.any(gradient != 0.0))
+
+
+def test_sparse_sample_approx_vmaps_over_keys():
+    posterior = _pathwise_family(VariationalGaussian).condition(_regression_data())
+    grid = _test_inputs()
+    keys = jr.split(jr.key(11), 4)
+
+    batched = jax.vmap(lambda k: posterior.sample_approx(3, k, num_features=32)(grid))(
+        keys
+    )
+
+    assert batched.shape == (4, _NUM_TEST, 3)
+    assert bool(jnp.all(jnp.isfinite(batched)))
+    # Independent keys must give independent draws, not a broadcast repeat.
+    assert not bool(jnp.allclose(batched[0], batched[1]))
 
 
 # ---------------------------------------------------------------------------
