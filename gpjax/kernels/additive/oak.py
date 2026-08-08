@@ -58,9 +58,9 @@ def _constrained_se_kernel(
 
 
 def _newton_girard(
-    z: Float[Array, " D"],
+    z: Float[Array, " D *trailing"],
     max_order: int,
-) -> Float[Array, " D_tilde_plus_1"]:
+) -> Float[Array, " D_tilde_plus_1 *trailing"]:
     """Compute elementary symmetric polynomials via Newton-Girard recursion.
 
     Given values z_1, ..., z_D, computes e_0, e_1, ..., e_{max_order} where:
@@ -71,33 +71,44 @@ def _newton_girard(
 
     and s_k = sum(z_i^k) are power sums.
 
+    Each z_i may itself be an array of arbitrary trailing shape (e.g. a
+    scalar per dimension for OAK's kernel evaluation, or an (N, N) matrix
+    per dimension for Sobol index computation): all arithmetic broadcasts
+    element-wise over the trailing dimensions, so the same recursion serves
+    both call sites.
+
     Uses jax.lax.fori_loop for JAX compatibility (no Python for loops).
 
     Args:
-        z: Array of D values (one per dimension).
+        z: Array of shape (D, *trailing) -- one value per dimension, each
+            value itself an array of arbitrary (possibly empty) trailing
+            shape.
         max_order: Maximum order of elementary symmetric polynomial to compute.
 
     Returns:
-        Array of shape (max_order + 1,) containing e_0 through e_{max_order}.
+        Array of shape (max_order + 1, *trailing) containing e_0 through
+        e_{max_order}.
     """
-    # Power sums: s[k] = sum_{d=1}^D z_d^{k+1}  (vectorised over k)
-    exponents = jnp.arange(1, max_order + 1)[:, None]
-    power_sums = jnp.sum(z[None, :] ** exponents, axis=1)
+    trailing_ndim = z.ndim - 1
+
+    # Power sums: s[k, ...] = sum_{d=1}^D z_d[...]^{k+1}  (vectorised over k)
+    exponents = jnp.arange(1, max_order + 1).reshape((-1,) + (1,) * z.ndim)
+    power_sums = jnp.sum(z[None] ** exponents, axis=1)
 
     # Precompute sign-alternating power sums: (-1)^{k-1} * s_k
     signs = (-1.0) ** jnp.arange(max_order)  # [+1, -1, +1, -1, ...]
-    signed_power_sums = signs * power_sums
+    signed_power_sums = signs.reshape((-1,) + (1,) * trailing_ndim) * power_sums
 
-    elem_sym = jnp.zeros(max_order + 1)
+    elem_sym = jnp.zeros((max_order + 1, *z.shape[1:]))
     elem_sym = elem_sym.at[0].set(1.0)
 
     def _recursion_step(order, elem_sym):
         # e_order = (1/order) * sum_{k=1}^{order} (-1)^{k-1} * e[order-k] * s[k-1]
         k_indices = jnp.arange(max_order)
         lookback_indices = (order - 1 - k_indices).clip(0)
-        mask = k_indices < order
+        mask = (k_indices < order).reshape((-1,) + (1,) * trailing_ndim)
         previous_values = jnp.where(mask, elem_sym[lookback_indices], 0.0)
-        value = jnp.dot(previous_values, signed_power_sums) / order
+        value = jnp.sum(previous_values * signed_power_sums, axis=0) / order
         return elem_sym.at[order].set(value)
 
     elem_sym = lax.fori_loop(1, max_order + 1, _recursion_step, elem_sym)
