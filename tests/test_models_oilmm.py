@@ -325,7 +325,7 @@ class TestOILMMPosterior:
         posterior = model.condition(gpx.Dataset(X=X, y=y))
 
         X_test = jnp.linspace(0.2, 0.8, 5).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
 
         expected_shape = (5 * P, 5 * P)
         assert pred.covariance().shape == expected_shape
@@ -350,7 +350,7 @@ class TestOILMMPosterior:
         posterior = model.condition(gpx.Dataset(X=X, y=y))
 
         X_test = jnp.linspace(0.1, 0.9, 8).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
         cov = pred.covariance()
 
         # Check PSD via eigenvalues
@@ -482,7 +482,7 @@ class TestOILMMIntegration:
         # 4. Predict at test points (train data stored internally)
         N_test = 10
         X_test = jnp.linspace(0.1, 0.9, N_test).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
 
         # 5. Verify prediction properties
         assert pred.mean.shape == (N_test * P,)
@@ -1037,6 +1037,49 @@ def test_oilmm_predict_diagonal_returns_diagonal_operator():
     pred_full = posterior.predict(X_test, covariance="dense")
     assert jnp.allclose(
         jnp.diag(pred_full.covariance()), jnp.diag(pred_diag.covariance()), atol=1e-6
+    )
+
+
+def test_oilmm_predict_default_covariance_is_diagonal():
+    """The default covariance must be "diagonal", not "dense" (issue #682): the
+    dense joint covariance is O(m n^2 p^2) and forfeits OILMM's O(mn^3 + nmp)
+    scaling, so the cheap marginal-variance path must be the default rather
+    than an opt-in."""
+    import gpjax as gpx
+    from gpjax.models.oilmm import OILMMModel
+    import lineax as lx
+
+    key = jax.random.PRNGKey(17)
+    model = OILMMModel(
+        num_outputs=3,
+        num_latent_gps=2,
+        kernel=gpx.kernels.RBF(),
+        key=key,
+    )
+
+    N, P = 8, 3
+    X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
+    y = jr.normal(key, (N, P))
+    dataset = gpx.Dataset(X=X, y=y)
+    posterior = model.condition(dataset)
+
+    X_test = jnp.linspace(0.1, 0.9, 5).reshape(-1, 1)
+
+    # Neither __call__ nor predict() takes a covariance kwarg here.
+    pred_call = posterior(X_test)
+    pred_predict = posterior.predict(X_test)
+
+    for pred in (pred_call, pred_predict):
+        assert isinstance(pred.scale, lx.DiagonalLinearOperator), (
+            f"Expected default covariance to be diagonal, got "
+            f"{type(pred.scale).__name__}"
+        )
+
+    # And it must agree with the explicit diagonal call.
+    pred_explicit_diag = posterior.predict(X_test, covariance="diagonal")
+    assert jnp.allclose(pred_predict.mean, pred_explicit_diag.mean, atol=1e-10)
+    assert jnp.allclose(
+        pred_predict.covariance(), pred_explicit_diag.covariance(), atol=1e-10
     )
 
 

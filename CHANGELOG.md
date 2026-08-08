@@ -49,6 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gradient descent in the dual coordinates. The `VariationalParametrisationSuite` ASV
   benchmark gains a `dual` axis value.
 
+### Changed (breaking)
+
+- **`OILMMPosterior.__call__`/`.predict` default to `covariance="diagonal"`**
+  (was `"dense"`) ([#682](https://github.com/JaxGaussianProcesses/GPJax/issues/682)).
+  The dense joint covariance costs `O(m n^2 p^2)` — an `np x np` matrix built
+  from `m` dense `n x n` latent covariances — which forfeits the
+  `O(mn^3 + nmp)` scaling that OILMM exists to provide, and is unaffordable
+  well before the mean/marginal-variance query is. Marginal variances are the
+  common case and are unaffected by the mixing matrix's off-diagonal
+  structure, so the cheap path is now the default; pass
+  `covariance="dense"` explicitly for the joint covariance.
+
 ### Removed
 
 - **`NaturalVariationalGaussian` and `ExpectationVariationalGaussian`.** These were
