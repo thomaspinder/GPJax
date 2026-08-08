@@ -86,6 +86,24 @@ def test_paramax_unwrap_on_module():
     assert jnp.allclose(unwrapped.b, jnp.array(-1.0))
 
 
+def test_val_unwraps_nested_wrappers():
+    """_val must resolve wrappers nested *inside* a parameter, not just the outer node.
+
+    paramax.non_trainable wraps array leaves, so freezing a parameter yields e.g.
+    PositiveReal(_unconstrained=NonTrainable(...)). A single .unwrap() call would
+    feed the NonTrainable object straight into the softplus bijection of the
+    PositiveReal.
+    """
+    from gpjax.parameters import (
+        PositiveReal,
+        _val,
+    )
+
+    p = paramax.non_trainable(PositiveReal(jnp.array(2.0)))
+    assert isinstance(p._unconstrained, paramax.NonTrainable)
+    assert jnp.equal(_val(p), jnp.array(2.0))
+
+
 def test_lower_triangular_positive_diagonal():
     """LowerTriangular enforces positive diagonal via softplus."""
     from gpjax.parameters import LowerTriangular

@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import jax.random as jr
 from numpyro.distributions import biject_to, constraints
 from numpyro.distributions.transforms import SoftplusLowerCholeskyTransform
+import paramax
 from paramax import AbstractUnwrappable
 
 # numpyro's biject_to is a ConstraintRegistry that maps constraints to
@@ -56,7 +57,7 @@ _dtype_preserving_lower_cholesky = _DtypePreservingSoftplusLowerCholeskyTransfor
 
 def _val(x):
     """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+    return paramax.unwrap(x) if isinstance(x, AbstractUnwrappable) else x
 
 
 class PositiveReal(AbstractUnwrappable):
@@ -164,12 +165,8 @@ class CoregionalizationMatrix(eqx.Module):
 
     @property
     def B(self) -> jnp.ndarray:
-        w = self.W.unwrap() if isinstance(self.W, AbstractUnwrappable) else self.W
-        k = (
-            self.kappa.unwrap()
-            if isinstance(self.kappa, AbstractUnwrappable)
-            else self.kappa
-        )
+        w = _val(self.W)
+        k = _val(self.kappa)
         return w @ w.T + jnp.diag(k)
 
 
