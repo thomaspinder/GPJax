@@ -66,11 +66,19 @@ class StateSpacePosterior(Posterior):
     gives the causal (filter-only) alternative, and
     :attr:`log_marginal_likelihood` gives the evidence from the same filter.
 
-    Predictive contract (v1): every query returns diagonal (marginal)
-    covariance only. The marginals are exact; a dense joint predictive is not
-    implemented in v1. This predictive is therefore not Liskov-substitutable
-    for a dense :class:`gpjax.conditioning.ExactPosterior` predictive, and
-    ``covariance="dense"`` raises :class:`NotImplementedError`.
+    Predictive contract: :meth:`__call__` (the smoothed predictive) supports
+    both ``covariance="diagonal"`` (marginal variances, the default) and
+    ``covariance="dense"`` (the full joint covariance across test points, via
+    the RTS smoother's cross-covariance recursion — see
+    :func:`gpjax.state_space.prediction._dense_smoothed_test_covariance`), so
+    it is Liskov-substitutable for a dense
+    :class:`gpjax.conditioning.ExactPosterior` predictive. :meth:`filtered`
+    (the causal predictive) has no dense joint form in v1 — each test point
+    conditions on a *different* information set (data up to its own
+    timestamp), so a "joint" filtered covariance is not the same kind of
+    object as the dense conjugate predictive it would otherwise be compared
+    against — and ``covariance="dense"`` there still raises
+    :class:`NotImplementedError`.
 
     Time ordering: the predictive queries merge and sort the train and test
     grids internally, so they are order-insensitive.
@@ -150,18 +158,18 @@ class StateSpacePosterior(Posterior):
 
         Args:
             test_inputs: Test timestamps of shape ``(M, 1)``.
-            covariance: Must be ``"diagonal"``; the v1 state-space predictive
-                has no dense joint form.
+            covariance: ``"diagonal"`` returns the marginal variances only;
+                ``"dense"`` returns the full ``M x M`` joint covariance, built
+                from the RTS smoother's cross-covariance recursion (Särkkä &
+                Solin 2019 §12.2) rather than a dense ``N x N`` gram over the
+                training set.
 
         Returns:
             GaussianDistribution: The smoothed predictive, carrying an
-                ``lx.DiagonalLinearOperator`` scale.
-
-        Raises:
-            NotImplementedError: If ``covariance="dense"``.
+                ``lx.DiagonalLinearOperator`` scale when ``covariance`` is
+                ``"diagonal"`` or an ``lx.MatrixLinearOperator`` when it is
+                ``"dense"``.
         """
-        if covariance != "diagonal":
-            raise _dense_not_implemented("prediction")
         from gpjax.state_space.prediction import predict_smoothed
 
         return predict_smoothed(
@@ -169,6 +177,7 @@ class StateSpacePosterior(Posterior):
             self.train_data,
             test_inputs,
             observation_mask=self.observation_mask,
+            covariance=covariance,
         )
 
     def predict(
@@ -187,7 +196,8 @@ class StateSpacePosterior(Posterior):
         Args:
             test_inputs: Test timestamps of shape ``(M, 1)``.
             train_data: Ignored.
-            covariance: Must be ``"diagonal"``.
+            covariance: ``"diagonal"`` for marginal variances or ``"dense"``
+                for the full joint covariance.
 
         Returns:
             GaussianDistribution: The smoothed predictive.

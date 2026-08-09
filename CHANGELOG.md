@@ -10,6 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dense joint predictive covariance for state-space GPs.**
+  `StateSpacePrior.predict`, `StateSpaceConjugateModel.predict`, and
+  `StateSpacePosterior.__call__` (`gpjax.state_space`) now accept
+  `covariance="dense"`, returning the full joint covariance across test
+  points rather than marginal variances only
+  ([#651](https://github.com/thomaspinder/GPJax/issues/651)). For the
+  unconditioned prior this is just the kernel's own dense gram — the
+  state-space SDE is an exact representation with no training data to
+  marginalise out. For the conditioned (smoothed) posterior it is built from
+  the RTS smoother's cross-covariance recursion (Särkkä & Solin 2019 §12.2):
+  `rts_smoother` gains an opt-in `return_gains=True` that exposes its
+  already-computed per-step smoother gains, and a new
+  `gpjax.state_space.prediction._dense_smoothed_test_covariance` chains them
+  into the `M x M` test-point covariance. This keeps the state-space
+  formulation's linear-in-`N` cost — no `N x N` gram over the training set is
+  ever formed — with the cross-covariance work landing at `O(M^2 d^3)`,
+  independent of `N` and no larger than the `O(M^2)` already required to
+  store the dense output. `StateSpacePosterior.filtered` /
+  `StateSpaceConjugateModel.predict_filter` (the *causal* predictive) keep
+  raising `NotImplementedError` for `covariance="dense"`: each of their test
+  points conditions on a different information set (observations up to its
+  own timestamp), so a "joint" filtered covariance is not the dense
+  conjugate-predictive-shaped object the smoothed path now matches, and
+  extending it is left to a future issue if there is demand for it.
+
 - **`gpjax.fit_natgrads` and the `gpjax.natural_gradients` module.** Trains a variational
   family by alternating one natural-gradient step on the variational distribution with
   one step of a supplied Optax optimiser on everything else — kernel and likelihood

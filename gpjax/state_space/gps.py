@@ -20,6 +20,7 @@ from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugateModel, Prior
 from gpjax.likelihoods import Gaussian, MultiOutputGaussian
+from gpjax.linalg.utils import add_jitter
 from gpjax.state_space.conditioning import StateSpacePosterior
 from gpjax.typing import Array
 
@@ -27,15 +28,14 @@ from gpjax.typing import Array
 class StateSpacePrior(Prior):
     """Prior for a state-space (Markovian) GP.
 
-    Identical to ``gpjax.gps.Prior`` except predictions are diagonal-only
-    (the prior is stationary in time, so off-diagonal covariance carries no
-    extra information for v1's diagonal-only predictive contract).
-
-    **Predictive contract (v1):** prediction returns diagonal (marginal)
-    covariance only; the marginals are exact. A dense joint predictive is not
-    implemented in v1 and is tracked as a follow-up. This predictive is
-    therefore not Liskov-substitutable for a dense
-    dense ``gpjax.gps.ConjugateModel`` predictive.
+    Predictions match ``gpjax.gps.Prior`` for both covariance modes.
+    ``covariance="diagonal"`` (the default) uses the SDE's stationary state
+    covariance directly rather than routing through the kernel, since the
+    prior is stationary in time; ``covariance="dense"`` returns the kernel's
+    own dense gram over the test inputs, since the state-space SDE is an
+    *exact* representation of the kernel with no training data to
+    marginalise out. Either way, this predictive is Liskov-substitutable for
+    the dense ``gpjax.gps.Prior`` predictive.
 
     Example:
         >>> import gpjax as gpx
@@ -52,13 +52,16 @@ class StateSpacePrior(Prior):
         return self.predict(test_inputs, covariance=covariance)
 
     def predict(self, test_inputs, *, covariance="diagonal"):
-        if covariance != "diagonal":
-            raise NotImplementedError(
-                "State-space prior prediction returns diagonal (marginal) covariance "
-                "only; a dense joint predictive is not implemented in v1 and is "
-                "tracked as a follow-up. The marginal variances returned are exact, "
-                "so for diagonal-only use pass covariance='diagonal'."
+        mean_at_test = self.mean_function(test_inputs)
+        loc = jnp.atleast_1d(mean_at_test.squeeze())
+
+        if covariance == "dense":
+            gram_dense = add_jitter(
+                self.kernel.gram(test_inputs).as_matrix(), self.jitter
             )
+            scale = lx.MatrixLinearOperator(gram_dense)
+            return GaussianDistribution(loc=loc, scale=scale)
+
         from gpjax.state_space.kernels import to_sde
 
         sde = to_sde(self.kernel)
@@ -68,8 +71,6 @@ class StateSpacePrior(Prior):
         marginal_variance = (H @ P_inf @ H.T).squeeze() + self.jitter
 
         n_test = test_inputs.shape[0]
-        mean_at_test = self.mean_function(test_inputs)
-        loc = jnp.atleast_1d(mean_at_test.squeeze())
         scale = lx.DiagonalLinearOperator(jnp.full(n_test, marginal_variance))
         return GaussianDistribution(loc=loc, scale=scale)
 
@@ -94,11 +95,15 @@ class StateSpaceConjugateModel(ConjugateModel):
       - ``predict_filter``         : ``condition(D).filtered(t)``, the causal
         (filter-only) predictive
 
-    **Predictive contract (v1):** prediction returns diagonal (marginal)
-    covariance only; the marginals are exact. A dense joint predictive is not
-    implemented in v1 and is tracked as a follow-up. This predictive is
-    therefore not Liskov-substitutable for a dense
-    dense ``gpjax.gps.ConjugateModel`` predictive.
+    **Predictive contract:** ``predict``/``__call__`` (the smoothed
+    predictive) supports both ``covariance="diagonal"`` (marginal variances,
+    the default) and ``covariance="dense"`` (the full joint covariance across
+    test points, via the RTS smoother's cross-covariance recursion), so it is
+    Liskov-substitutable for the dense ``gpjax.gps.ConjugateModel``
+    predictive. ``predict_filter`` (the causal predictive) has no dense joint
+    form: each test point conditions on a different information set, so
+    ``covariance="dense"`` there still raises ``NotImplementedError`` — see
+    :class:`~gpjax.state_space.conditioning.StateSpacePosterior`.
 
     Example:
         >>> import gpjax as gpx
@@ -166,8 +171,8 @@ class StateSpaceConjugateModel(ConjugateModel):
         Args:
             test_inputs: Test timestamps of shape ``(M, 1)``.
             train_data: The observations to condition on.
-            covariance: Must be ``"diagonal"``; the v1 state-space predictive
-                has no dense joint form.
+            covariance: ``"diagonal"`` for marginal variances or ``"dense"``
+                for the full joint covariance.
             observation_mask: Optional boolean mask over the training points.
 
         Returns:

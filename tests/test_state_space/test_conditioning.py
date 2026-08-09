@@ -135,6 +135,29 @@ def test_conditioned_call_matches_predict_smoothed(kernel_class):
     )
 
 
+@pytest.mark.parametrize(
+    "kernel_class",
+    [gpx.kernels.Matern12, gpx.kernels.Matern32, gpx.kernels.Matern52],
+)
+def test_conditioned_call_dense_matches_predict_smoothed(kernel_class):
+    """Same plumbing identity as above, for the dense joint covariance."""
+    model = _build_model(kernel_class)
+    train_data = _build_train_data()
+
+    conditioned = model.condition(train_data)(_TEST_INPUTS, covariance="dense")
+    reference = predict_smoothed(model, train_data, _TEST_INPUTS, covariance="dense")
+
+    assert isinstance(conditioned.scale, lx.MatrixLinearOperator)
+    np.testing.assert_allclose(
+        np.asarray(conditioned.mean), np.asarray(reference.mean), atol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.asarray(conditioned.covariance_matrix),
+        np.asarray(reference.covariance_matrix),
+        atol=1e-12,
+    )
+
+
 def test_conditioned_call_defaults_to_diagonal():
     """``covariance`` defaults to diagonal; the v1 contract has no dense form."""
     model = _build_model()
@@ -210,25 +233,49 @@ def test_condition_threads_the_observation_mask():
 
 
 # ---------------------------------------------------------------------------
-# The dense rejection
+# The dense joint predictive (smoothed), and the still-rejected filtered one
 # ---------------------------------------------------------------------------
 
 
-def test_conditioned_call_dense_raises_with_actionable_message():
+def test_conditioned_call_dense_returns_matrix_operator():
     model = _build_model()
     train_data = _build_train_data()
     conditioned = model.condition(train_data)
 
-    with pytest.raises(NotImplementedError) as excinfo:
-        conditioned(_TEST_INPUTS, covariance="dense")
+    dist = conditioned(_TEST_INPUTS, covariance="dense")
 
-    message = str(excinfo.value)
-    assert "diagonal" in message
-    assert "not implemented in v1" in message
-    assert "covariance='diagonal'" in message
+    assert isinstance(dist, GaussianDistribution)
+    assert isinstance(dist.scale, lx.MatrixLinearOperator)
+    assert dist.covariance_matrix.shape == (
+        _TEST_INPUTS.shape[0],
+        _TEST_INPUTS.shape[0],
+    )
+    np.testing.assert_allclose(
+        np.asarray(dist.covariance_matrix),
+        np.asarray(dist.covariance_matrix).T,
+        atol=1e-10,
+    )
+
+
+def test_conditioned_predict_dense_matches_call():
+    """``predict`` is sugar for ``__call__``; the dense mode is no exception."""
+    model = _build_model()
+    train_data = _build_train_data()
+    conditioned = model.condition(train_data)
+
+    sugar = conditioned.predict(_TEST_INPUTS, covariance="dense")
+    explicit = conditioned(_TEST_INPUTS, covariance="dense")
+
+    np.testing.assert_array_equal(
+        np.asarray(sugar.covariance_matrix), np.asarray(explicit.covariance_matrix)
+    )
 
 
 def test_conditioned_filtered_dense_raises_with_actionable_message():
+    """Unlike the smoothed predictive, ``filtered`` has no dense joint form:
+    each test point conditions on a different information set, so a "joint"
+    filtered covariance is not comparable to the dense conjugate predictive
+    the smoothed path now matches. See ``StateSpacePosterior``'s docstring."""
     model = _build_model()
     train_data = _build_train_data()
     conditioned = model.condition(train_data)
@@ -239,15 +286,6 @@ def test_conditioned_filtered_dense_raises_with_actionable_message():
     message = str(excinfo.value)
     assert "predict_filter" in message
     assert "covariance='diagonal'" in message
-
-
-def test_conditioned_predict_dense_raises():
-    model = _build_model()
-    train_data = _build_train_data()
-    conditioned = model.condition(train_data)
-
-    with pytest.raises(NotImplementedError, match=r"diagonal"):
-        conditioned.predict(_TEST_INPUTS, covariance="dense")
 
 
 # ---------------------------------------------------------------------------
