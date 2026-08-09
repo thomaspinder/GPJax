@@ -23,6 +23,7 @@ except ImportError:
 
 from collections.abc import Callable
 
+import equinox as eqx
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
@@ -54,6 +55,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
 from numpyro.distributions import Distribution as NumpyroDistribution
+import paramax
 import pytest
 
 # Enable Float64 for more stable matrix inversions.
@@ -693,6 +695,29 @@ def test_predict_diagonal_jit_smoke():
     for cov_type in ("dense", "diagonal"):
         fn = jax.jit(lambda t, c=cov_type: prior(t, covariance=c).mean)
         _ = fn(xtest)
+
+
+def test_frozen_parameter_predicts_without_explicit_unwrap():
+    """A model with a frozen parameter is usable on the direct-call path.
+
+    Freezing inserts stop_gradient, which is the identity in the forward pass,
+    so predictions must match the unfrozen model exactly without the caller
+    invoking paramax.unwrap.
+    """
+    X = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
+    D = Dataset(X=X, y=jnp.sin(X))
+    xtest = jnp.linspace(0.0, 1.0, 5).reshape(-1, 1)
+
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    likelihood = Gaussian()
+    frozen_likelihood = eqx.tree_at(
+        lambda lik: lik.obs_stddev, likelihood, replace_fn=paramax.non_trainable
+    )
+
+    reference = (prior * likelihood)(xtest, D).mean
+    frozen = (prior * frozen_likelihood)(xtest, D).mean
+
+    assert jnp.array_equal(reference, frozen)
 
 
 if __name__ == "__main__":
