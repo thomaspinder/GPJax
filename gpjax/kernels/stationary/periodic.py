@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import beartype.typing as tp
 import jax.numpy as jnp
 from jaxtyping import Float
@@ -46,7 +48,7 @@ class Periodic(StationaryKernel):
     Key reference is MacKay 1998 - "Introduction to Gaussian processes".
     """
 
-    name: str = "Periodic"
+    name: ClassVar[str] = "Periodic"
     period: tp.Any
 
     def __init__(

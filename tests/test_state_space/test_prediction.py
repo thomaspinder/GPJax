@@ -4,6 +4,7 @@ import gpjax as gpx
 from gpjax.distributions import GaussianDistribution
 from gpjax.state_space.gps import StateSpacePrior
 from gpjax.state_space.inference import rts_smoother
+from gpjax.state_space.kernels import TruncatedPeriodic
 from gpjax.state_space.prediction import _merge_grids
 import jax
 import jax.numpy as jnp
@@ -144,6 +145,77 @@ def test_state_space_posterior_predict_smoothed_matches_dense_gp(kernel_class, j
 
     np.testing.assert_allclose(ss_means, dense_means, atol=1e-5, rtol=1e-6)
     np.testing.assert_allclose(ss_variances, dense_variances, atol=1e-5, rtol=1e-6)
+
+
+def _build_quasi_periodic_dataset(
+    kernel, n=25, obs_stddev=0.2, minval=0.0, maxval=10.0, seed=0
+):
+    """Sample a small 1-D dataset from a dense quasi-periodic kernel."""
+    key = jr.key(seed)
+    key_x, key_eps = jr.split(key)
+    X = jnp.sort(jr.uniform(key_x, shape=(n,), minval=minval, maxval=maxval))
+    K = kernel.gram(X.reshape(-1, 1)).as_matrix()
+    L = jnp.linalg.cholesky(K + 1e-9 * jnp.eye(n))
+    y = L @ jr.normal(key_eps, shape=(n,)) + obs_stddev * jr.normal(
+        jr.fold_in(key_eps, 1), shape=(n,)
+    )
+    return X, y
+
+
+@pytest.mark.parametrize(
+    "matern_class",
+    [gpx.kernels.Matern12, gpx.kernels.Matern32, gpx.kernels.Matern52],
+)
+def test_state_space_posterior_predict_smoothed_matches_dense_gp_for_quasi_periodic_product(
+    matern_class,
+):
+    """The TruncatedPeriodic x Matern product SDE must match a dense-kernel GP."""
+    periodic_lengthscale, periodic_variance, period, truncation_order = (
+        0.6,
+        1.0,
+        2.0,
+        6,
+    )
+    matern_lengthscale, matern_variance = 3.0, 0.7
+    obs_stddev = 0.15
+    n_train = 30
+    n_test = 12
+
+    product_kernel = TruncatedPeriodic(
+        lengthscale=periodic_lengthscale,
+        variance=periodic_variance,
+        period=period,
+        truncation_order=truncation_order,
+    ) * matern_class(lengthscale=matern_lengthscale, variance=matern_variance)
+
+    X_train, y_train = _build_quasi_periodic_dataset(
+        product_kernel, n=n_train, obs_stddev=obs_stddev
+    )
+    Xtest = jnp.linspace(-0.5, 10.5, n_test).reshape(-1, 1)
+
+    ss_prior = StateSpacePrior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=product_kernel,
+    )
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
+    ss_posterior = ss_prior * likelihood
+    train_data = gpx.Dataset(X=X_train.reshape(-1, 1), y=y_train.reshape(-1, 1))
+
+    ss_dist = ss_posterior.predict(Xtest, train_data)
+    ss_means = np.asarray(ss_dist.mean)
+    ss_variances = np.asarray(ss_dist.variance)
+
+    dense_prior = gpx.gps.Prior(
+        mean_function=gpx.mean_functions.Zero(),
+        kernel=product_kernel,
+    )
+    dense_posterior = dense_prior * likelihood
+    dense_dist = dense_posterior.predict(Xtest, train_data, covariance="diagonal")
+    dense_means = np.asarray(dense_dist.mean)
+    dense_variances = np.asarray(dense_dist.variance)
+
+    np.testing.assert_allclose(ss_means, dense_means, atol=1e-4, rtol=1e-5)
+    np.testing.assert_allclose(ss_variances, dense_variances, atol=1e-4, rtol=1e-5)
 
 
 # ---------------------------------------------------------------------------

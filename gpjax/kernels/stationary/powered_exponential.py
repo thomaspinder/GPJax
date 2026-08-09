@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import beartype.typing as tp
 import jax.numpy as jnp
 from jaxtyping import Float
@@ -50,7 +52,7 @@ class PoweredExponential(StationaryKernel):
     https://en.wikipedia.org/wiki/Generalized_normal_distribution#Symmetric_version
     """
 
-    name: str = "Powered Exponential"
+    name: ClassVar[str] = "Powered Exponential"
     power: tp.Any
 
     def __init__(

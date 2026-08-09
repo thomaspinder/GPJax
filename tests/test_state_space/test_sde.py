@@ -9,6 +9,7 @@ from gpjax.state_space.sde import (
     Matern12SDE,
     Matern32SDE,
     Matern52SDE,
+    ProductSDE,
     SumSDE,
     TruncatedPeriodicSDE,
 )
@@ -429,3 +430,157 @@ def test_continuous_lyapunov_stationarity(sde_name):
         + diffusion @ spectral_density @ diffusion.T
     )
     assert jnp.allclose(residual, 0.0, atol=1e-9)
+
+
+# --- ProductSDE (quasi-periodic TruncatedPeriodic x Matern) -----------------
+
+
+@pytest.mark.parametrize(
+    "matern_cls,matern_state_dim",
+    [(Matern12SDE, 1), (Matern32SDE, 2), (Matern52SDE, 3)],
+)
+@pytest.mark.parametrize("truncation_order", [1, 3])
+def test_product_sde_state_dim_is_product_of_component_state_dims(
+    matern_cls, matern_state_dim, truncation_order
+):
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=truncation_order
+    )
+    matern = matern_cls(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+    expected_state_dim = (1 + 2 * truncation_order) * matern_state_dim
+    assert product.state_dim == expected_state_dim
+    assert product.drift_matrix.shape == (expected_state_dim, expected_state_dim)
+    assert product.observation_matrix.shape == (1, expected_state_dim)
+
+
+@pytest.mark.parametrize("matern_cls", [Matern12SDE, Matern32SDE, Matern52SDE])
+def test_product_sde_lyapunov_identity(matern_cls):
+    """F P∞ + P∞ Fᵀ + L Qc Lᵀ = 0 must hold for the Kronecker-composed product."""
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=3
+    )
+    matern = matern_cls(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+
+    drift = np.asarray(product.drift_matrix)
+    diffusion = np.asarray(product.diffusion_matrix)
+    spectral_density = np.asarray(product.process_noise_spectral_density)
+    stationary_cov = np.asarray(
+        product.stationary_state_cov_sqrt @ product.stationary_state_cov_sqrt.T
+    )
+
+    residual = (
+        drift @ stationary_cov
+        + stationary_cov @ drift.T
+        + diffusion @ spectral_density @ diffusion.T
+    )
+    np.testing.assert_allclose(residual, 0.0, atol=1e-9)
+
+
+@pytest.mark.parametrize("matern_cls", [Matern12SDE, Matern32SDE, Matern52SDE])
+def test_product_sde_A_equals_kron_of_component_transitions(matern_cls):
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = matern_cls(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+
+    dt = jnp.asarray(0.37)
+    A_product, _ = product.discretise(dt)
+    A_periodic, _ = periodic.discretise(dt)
+    A_matern, _ = matern.discretise(dt)
+    expected = jnp.kron(A_periodic, A_matern)
+    np.testing.assert_allclose(np.asarray(A_product), np.asarray(expected), atol=1e-10)
+
+
+@pytest.mark.parametrize("matern_cls", [Matern12SDE, Matern32SDE, Matern52SDE])
+def test_product_sde_A_matches_matrix_exponential_of_kronecker_sum_drift(matern_cls):
+    """A(Δt) = expm(FΔt) must hold at the product level too, not just per-factor."""
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = matern_cls(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+
+    dt = 0.29
+    A_product, _ = product.discretise(jnp.asarray(dt))
+    expected = scipy.linalg.expm(np.asarray(product.drift_matrix) * dt)
+    np.testing.assert_allclose(np.asarray(A_product), expected, atol=1e-8, rtol=1e-7)
+
+
+@pytest.mark.parametrize("matern_cls", [Matern12SDE, Matern32SDE, Matern52SDE])
+def test_product_sde_Q_equals_stationary_identity(matern_cls):
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = matern_cls(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+
+    dt = jnp.asarray(0.8)
+    A, L_Q = product.discretise(dt)
+    Q = np.asarray(L_Q @ L_Q.T)
+    P_inf = np.asarray(
+        product.stationary_state_cov_sqrt @ product.stationary_state_cov_sqrt.T
+    )
+    expected = P_inf - np.asarray(A) @ P_inf @ np.asarray(A).T
+    np.testing.assert_allclose(Q, expected, atol=1e-8, rtol=1e-7)
+
+
+def test_product_sde_zero_dt_returns_identity_and_zero_noise():
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = Matern32SDE(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+
+    A, L_Q = product.discretise(jnp.asarray(0.0))
+    np.testing.assert_allclose(np.asarray(A), np.eye(product.state_dim), atol=1e-12)
+    np.testing.assert_allclose(
+        np.asarray(L_Q), np.zeros((product.state_dim, product.state_dim)), atol=1e-12
+    )
+
+
+def test_product_sde_observation_matrix_is_kron_of_components():
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = Matern32SDE(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+    expected = jnp.kron(periodic.observation_matrix, matern.observation_matrix)
+    np.testing.assert_allclose(
+        np.asarray(product.observation_matrix), np.asarray(expected), atol=1e-14
+    )
+
+
+def test_product_sde_is_jittable_and_vmap_compatible():
+    periodic = TruncatedPeriodicSDE(
+        lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+    )
+    matern = Matern32SDE(lengthscale=1.2, variance=0.8)
+    product = ProductSDE(components=(periodic, matern))
+    state_dim = product.state_dim
+
+    discretise_jitted = eqx.filter_jit(product.discretise)
+    A, L_Q = discretise_jitted(jnp.asarray(0.5))
+    assert A.shape == (state_dim, state_dim)
+    assert L_Q.shape == (state_dim, state_dim)
+
+    dts = jnp.array([0.1, 0.5, 1.0])
+    A_batched, L_Q_batched = jax.vmap(product.discretise)(dts)
+    assert A_batched.shape == (3, state_dim, state_dim)
+    assert L_Q_batched.shape == (3, state_dim, state_dim)
+
+
+def test_product_sde_gradient_through_matern_lengthscale():
+    def loss(lengthscale):
+        periodic = TruncatedPeriodicSDE(
+            lengthscale=0.6, variance=1.1, period=1.5, truncation_order=2
+        )
+        matern = Matern32SDE(lengthscale=lengthscale, variance=0.8)
+        product = ProductSDE(components=(periodic, matern))
+        A, L_Q = product.discretise(jnp.asarray(0.5))
+        return jnp.sum(A) + jnp.sum(L_Q @ L_Q.T)
+
+    grad_value = jax.grad(loss)(jnp.asarray(1.2))
+    assert jnp.isfinite(grad_value)

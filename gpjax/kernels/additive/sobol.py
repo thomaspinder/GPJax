@@ -13,10 +13,10 @@ from __future__ import annotations
 import typing as tp
 
 import jax
-from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
+from gpjax.kernels.additive.oak import _newton_girard
 from gpjax.kernels.base import _val
 from gpjax.typing import Array
 
@@ -120,42 +120,6 @@ def _sobol_integral_matrix(
     return jnp.where(inactive, jnp.zeros((num_points, num_points)), result)
 
 
-def _newton_girard_matrices(
-    matrices: Float[Array, "D N N"],
-    max_order: int,
-) -> Float[Array, "D_tilde_plus_1 N N"]:
-    """Element-wise Newton-Girard on a stack of (D, N, N) matrices.
-
-    Computes the elementary symmetric polynomials E_0, ..., E_{max_order}
-    where E_d[i,j] = sum over all size-d subsets u of prod_{k in u} M_k[i,j].
-
-    This is the matrix-level analogue of _newton_girard in oak.py, using
-    lax.fori_loop for JAX compatibility.
-    """
-    _, num_points, _ = matrices.shape
-
-    # Power sums: S[k, i, j] = sum_{d=0}^{D-1} matrices[d, i, j]^{k+1}
-    exponents = jnp.arange(1, max_order + 1)[:, None, None, None]
-    power_sums = jnp.sum(matrices[None, :, :, :] ** exponents, axis=1)
-
-    signs = (-1.0) ** jnp.arange(max_order)
-    signed_power_sums = signs[:, None, None] * power_sums
-
-    elem_sym = jnp.zeros((max_order + 1, num_points, num_points))
-    elem_sym = elem_sym.at[0].set(jnp.ones((num_points, num_points)))
-
-    def _recursion_step(order, elem_sym):
-        k_indices = jnp.arange(max_order)
-        lookback_indices = (order - 1 - k_indices).clip(0)
-        mask = (k_indices < order)[:, None, None]
-        previous_values = jnp.where(mask, elem_sym[lookback_indices], 0.0)
-        value = jnp.sum(previous_values * signed_power_sums, axis=0) / order
-        return elem_sym.at[order].set(value)
-
-    elem_sym = lax.fori_loop(1, max_order + 1, _recursion_step, elem_sym)
-    return elem_sym
-
-
 def sobol_indices(
     kernel: OrthogonalAdditiveKernel,
     x_train: Float[Array, "N D"],
@@ -200,7 +164,7 @@ def sobol_indices(
 
     # Matrix-level Newton-Girard: E_d[i,j] = sum over size-d subsets
     # of element-wise products of integral matrices
-    elem_sym = _newton_girard_matrices(integral_matrices, max_order)
+    elem_sym = _newton_girard(integral_matrices, max_order)
 
     # Sobol index for order d: V_d = sigma^2_d * alpha^T E_d alpha
     # Skip E[0] (the offset term); use E[1:] for orders 1..max_order

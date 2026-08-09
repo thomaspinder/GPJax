@@ -64,7 +64,7 @@ class AbstractKernelComputation:
         Returns:
             The Gram covariance of the kernel function as a linear operator.
         """
-        Kxx = self.cross_covariance(kernel, x, x)
+        Kxx = self._gram(kernel, x)
         return lx.TaggedLinearOperator(
             lx.MatrixLinearOperator(Kxx), lx.positive_semidefinite_tag
         )

@@ -6,7 +6,7 @@ See plans/2026-04-21-state-space-gps-design.md §Stage 3.
 import gpjax as gpx
 from gpjax.state_space import StateSpacePrior
 from gpjax.state_space.inference import _sqrt_filter_forward, rts_smoother
-from gpjax.state_space.sde import Matern12SDE, _psd_sqrt
+from gpjax.state_space.sde import Matern12SDE, Matern32SDE, _psd_sqrt
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -73,6 +73,39 @@ def test_rts_smoother_marginals_match_dense_gp_posterior(jitter):
         dense_variances,
         atol=5e-6,
         rtol=1e-6,
+    )
+
+
+def test_rts_smoother_factors_are_lower_triangular():
+    """Square-root smoother factors must be genuine (lower-)triangular roots.
+
+    Issue #668: the previous implementation re-rooted every backward step
+    via ``_psd_sqrt`` (an ``eigh`` call), returning a non-triangular ``V·Λ^½``
+    factor. A true QR pre-array square-root smoother produces triangular
+    factors throughout, matching the docstring's "square-root" claim -- this
+    is the property a covariance-form (or eigh-based) implementation cannot
+    provide, so it is the right thing to assert beyond mean/covariance
+    agreement. Uses a state_dim=2 SDE (Matern-3/2): a state_dim=1 SDE would
+    make triangularity trivially true and miss a real off-diagonal check.
+    """
+    lengthscale, variance, obs_stddev = 1.5, 0.8, 0.2
+    n = 12
+    X, y = _build_matern12_dataset(
+        n=n, lengthscale=lengthscale, variance=variance, obs_stddev=obs_stddev
+    )
+    sigma_eff = jnp.asarray(obs_stddev)
+    sde = Matern32SDE(lengthscale=lengthscale, variance=variance)
+    time_steps = jnp.concatenate([jnp.array([0.0]), jnp.diff(X)])
+    is_observed = jnp.ones(n, dtype=bool)
+
+    forward_outputs, _ = _sqrt_filter_forward(
+        sde, y, time_steps, is_observed, sigma_eff
+    )
+    _, smoothed_Ls = rts_smoother(sde, forward_outputs, time_steps)
+
+    strictly_upper = jax.vmap(lambda L: L - jnp.tril(L))(smoothed_Ls)
+    np.testing.assert_allclose(
+        np.asarray(strictly_upper), np.zeros_like(strictly_upper), atol=1e-10
     )
 
 
@@ -216,8 +249,9 @@ def test_smoother_is_finite_under_near_noiseless_dense_sampling():
     """Robustness guard: stiff regime (tiny obs noise, dense Matern-5/2 grid)
     must stay finite.
 
-    Green both before and after the _psd_sqrt swap — documents the contract, not
-    a red→green reproduction.
+    Green under both the historical _psd_sqrt-based smoother and the current
+    QR pre-array smoother (Issue #668) — documents the contract, not a
+    red→green reproduction.
     """
     dense_times = jnp.linspace(0.0, 1.0, 200).reshape(-1, 1)
     targets = jnp.sin(20.0 * dense_times)
@@ -239,12 +273,13 @@ def test_smoother_is_finite_under_near_noiseless_dense_sampling():
 
 
 def test_psd_sqrt_handles_marginally_indefinite_where_cholesky_nans():
-    """The smoother's PSD-difference P can be marginally indefinite from round-off.
+    """A covariance built from round-off can be marginally indefinite.
 
-    jnp.linalg.cholesky NaNs on such a matrix; _psd_sqrt (used by rts_smoother
-    after this fix) clips the tiny negative eigenvalue and stays finite,
-    reconstructing the PSD part via L @ L.T. This is the failure mode Issue #3
-    fixes — green on _psd_sqrt, red on cholesky.
+    jnp.linalg.cholesky NaNs on such a matrix; _psd_sqrt (still used by the
+    Matern-3/2 and Matern-5/2 SDE discretisations in sde.py, though no longer
+    by rts_smoother -- see Issue #668) clips the tiny negative eigenvalue and
+    stays finite, reconstructing the PSD part via L @ L.T. This is the
+    failure mode Issue #3 fixes — green on _psd_sqrt, red on cholesky.
     """
     # Fixed orthogonal basis (QR of a deterministic matrix; no RNG).
     basis, _ = jnp.linalg.qr(

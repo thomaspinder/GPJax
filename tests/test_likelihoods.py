@@ -20,6 +20,7 @@ from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
     Poisson,
+    StudentT,
     inv_probit,
 )
 from jax import config
@@ -104,6 +105,36 @@ def test_poisson_likelihood(n: int):
     # Check predictive mean and variance.
     rate = jnp.exp(latent_mean)
     assert (pred_dist.mean == rate).all()
+
+
+@pytest.mark.parametrize("n", [1, 2, 10])
+@pytest.mark.parametrize("degrees_of_freedom", [2.5, 4.0, 30.0])
+def test_studentt_likelihood(n: int, degrees_of_freedom: float):
+    x = jnp.linspace(-3.0, 3.0).reshape(-1, 1)
+    likelihood = StudentT(degrees_of_freedom=degrees_of_freedom)
+
+    assert isinstance(likelihood.link_function, Callable)
+    assert isinstance(likelihood.link_function(x), npd.StudentT)
+    assert jnp.allclose(likelihood.degrees_of_freedom.unwrap(), degrees_of_freedom)
+    assert jnp.allclose(likelihood.scale.unwrap(), 1.0)
+
+    # Construct latent function distribution.
+    latent_dist, latent_mean, _latent_cov = _compute_latent_dist(n)
+    pred_dist = likelihood(latent_dist)
+    assert isinstance(pred_dist, npd.StudentT)
+
+    # Check predictive mean matches the latent mean, pushed through the link.
+    assert (pred_dist.mean == latent_mean).all()
+
+
+def test_studentt_likelihood_scale():
+    likelihood = StudentT(degrees_of_freedom=3.0, scale=0.5)
+    assert jnp.allclose(likelihood.degrees_of_freedom.unwrap(), 3.0)
+    assert jnp.allclose(likelihood.scale.unwrap(), 0.5)
+
+    f = jnp.zeros((5,))
+    dist = likelihood.link_function(f)
+    assert jnp.allclose(dist.scale, 0.5)
 
 
 class TestMultiOutputGaussian:

@@ -8,8 +8,6 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
-from gpjax.state_space.sde import _psd_sqrt
-
 
 def _sign_normalise(R):
     """Flip row signs so the diagonal of R is non-negative without changing R.T @ R.
@@ -22,6 +20,22 @@ def _sign_normalise(R):
     """
     row_signs = jnp.where(jnp.diag(R) < 0, -1.0, 1.0)
     return row_signs[:, None] * R
+
+
+def _qr_sqrt_sum(*sqrt_factors):
+    """Lower-triangular square root of a sum of outer products, via QR.
+
+    Given square-root factors ``F_1, ..., F_k``, returns lower-triangular ``L``
+    such that ``L @ L.T = sum_i F_i @ F_i.T``, computed by QR-decomposing the
+    vertically stacked ``F_i.T`` and reading off the (sign-normalised)
+    upper-triangular R factor, transposed. This never forms any of the
+    ``F_i @ F_i.T`` products explicitly -- the whole point of a square-root
+    recursion is to stay in factor space and let QR do the "squaring" via an
+    orthogonal transform instead of an explicit matrix product.
+    """
+    pre_array = jnp.concatenate([factor.T for factor in sqrt_factors], axis=0)
+    _, R = jnp.linalg.qr(pre_array, mode="reduced")
+    return _sign_normalise(R).T
 
 
 def _sqrt_predict(mean_prev, L_prev, transition_matrix, L_Q):
@@ -39,9 +53,7 @@ def _sqrt_predict(mean_prev, L_prev, transition_matrix, L_Q):
     See plans/2026-04-21-state-space-gps-design.md §Stage 2.
     """
     mean_pred = transition_matrix @ mean_prev
-    pre_array = jnp.concatenate([(transition_matrix @ L_prev).T, L_Q.T], axis=0)
-    _, R = jnp.linalg.qr(pre_array, mode="reduced")
-    L_pred = _sign_normalise(R).T
+    L_pred = _qr_sqrt_sum(transition_matrix @ L_prev, L_Q)
     return mean_pred, L_pred
 
 
@@ -312,12 +324,16 @@ def _sqrt_filter_forward(
 def rts_smoother(sde, forward_outputs, time_steps, *, return_gains: bool = False):
     r"""Square-root RTS smoother.
 
-    Runs the standard Särkkä & Solin (2019) §10.7 backward recursion on the
-    forward filter trajectory. Internally materialises ``P = L @ L.T`` for the
-    smoother gain computation and re-roots the smoothed covariance after each
-    backward step with :func:`gpjax.state_space.sde._psd_sqrt`. The returned
-    ``Ls`` are therefore non-triangular ``V·Λ^½`` square roots (neither Cholesky
-    nor symmetric); consumers must rely only on ``L @ Lᵀ``. The recursion is
+    Runs the backward recursion of Rauch, Tung & Striebel (1965) entirely in
+    square-root form, following the QR pre-array construction of Park &
+    Kailath (1996) ("New square-root smoothing algorithms") -- the natural
+    smoother-side counterpart of the forward filter's :func:`_sqrt_predict`
+    and :func:`_sqrt_update`. No step ever forms ``P = L @ L.T`` or takes an
+    eigendecomposition; every quantity is derived from QR factors of stacked
+    square-root pre-arrays, so conditioning stays at ``sqrt`` scale throughout
+    (the entire point of square-root filtering/smoothing).
+
+    Backward step derivation. The covariance-form recursion is
 
     .. math::
 
@@ -325,8 +341,39 @@ def rts_smoother(sde, forward_outputs, time_steps, *, return_gains: bool = False
         m^{\text{smooth}}_i &= m^{\text{filt}}_i + G_i (m^{\text{smooth}}_{i+1} - m^{\text{pred}}_{i+1}) \\
         P^{\text{smooth}}_i &= P^{\text{filt}}_i + G_i (P^{\text{smooth}}_{i+1} - P^{\text{pred}}_{i+1}) G_i^\top
 
-    The last step has no future, so its smoothed state equals its filtered
-    state.
+    Since :math:`P^{\text{pred}}_{i+1} = A_{i+1} P^{\text{filt}}_i A_{i+1}^\top +
+    Q_{i+1}`, the pair :math:`(G_i, P^{\text{filt}}_i - G_i P^{\text{pred}}_{i+1}
+    G_i^\top)` is *exactly* the Kalman gain and updated covariance of a
+    virtual measurement update on the filtered state, with "observation
+    matrix" :math:`A_{i+1}` and "observation noise" :math:`Q_{i+1}`. That
+    update is computed with the same generalised-Potter QR pre-array as
+    :func:`_sqrt_update` (vector/matrix form instead of scalar):
+
+    .. math::
+
+        \begin{bmatrix} L_{Q,i+1}^\top & 0 \\
+        (A_{i+1} L^{\text{filt}}_i)^\top & (L^{\text{filt}}_i)^\top
+        \end{bmatrix}
+        = Q \begin{bmatrix} R_{11} & R_{12} \\ 0 & R_{22} \end{bmatrix}
+
+    which yields :math:`R_{11} = (L^{\text{pred}}_{i+1})^\top`, smoother gain
+    :math:`G_i = R_{12}^\top R_{11}^{-\top}` (via a triangular solve), and
+    :math:`L^{\text{virtual}}_i = R_{22}^\top` such that
+    :math:`L^{\text{virtual}}_i (L^{\text{virtual}}_i)^\top = P^{\text{filt}}_i -
+    G_i P^{\text{pred}}_{i+1} G_i^\top`. The remaining additive term is itself
+    a predict-shaped combination, closed with a second QR
+    (:func:`_qr_sqrt_sum`):
+    :math:`L^{\text{smooth}}_i` such that :math:`L^{\text{smooth}}_i
+    (L^{\text{smooth}}_i)^\top = L^{\text{virtual}}_i (L^{\text{virtual}}_i)^\top
+    + (G_i L^{\text{smooth}}_{i+1})(G_i L^{\text{smooth}}_{i+1})^\top`. The
+    mean recursion is unchanged. The last step has no future, so its smoothed
+    state equals its filtered state.
+
+    ``Ls_predicted`` from ``forward_outputs`` is unused: the pre-array above
+    reconstructs the equivalent quantity (``R_11``) itself from
+    ``sde.discretise(time_step_next)``, exactly as the covariance-form
+    implementation already recomputed ``transition_matrix_next`` rather than
+    threading it through from the forward pass.
 
     The per-step gains :math:`G_i` are already computed inside the backward
     scan to produce :math:`P^{\text{smooth}}_i`; ``return_gains`` just adds
@@ -355,56 +402,52 @@ def rts_smoother(sde, forward_outputs, time_steps, *, return_gains: bool = False
     Returns:
         tuple: ``smoothed_means`` of shape ``Float[Array, "num_train state_dim"]``
             and ``smoothed_Ls`` of shape
-            ``Float[Array, "num_train state_dim state_dim"]``. If
-            ``return_gains`` is ``True``, a third element ``smoother_gains`` of
-            shape ``Float[Array, "num_train-1 state_dim state_dim"]`` is
-            appended, with ``smoother_gains[i]`` the gain :math:`G_i`
-            connecting smoothed index ``i`` to smoothed index ``i + 1``.
+            ``Float[Array, "num_train state_dim state_dim"]``, lower-triangular
+            square roots (``smoothed_Ls[i] @ smoothed_Ls[i].T`` is the smoothed
+            covariance at step ``i``). If ``return_gains`` is ``True``, a third
+            element ``smoother_gains`` of shape
+            ``Float[Array, "num_train-1 state_dim state_dim"]`` is appended,
+            with ``smoother_gains[i]`` the gain :math:`G_i` connecting smoothed
+            index ``i`` to smoothed index ``i + 1``.
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 3.
     """
-    means_updated, Ls_updated, means_predicted, Ls_predicted = forward_outputs
+    means_updated, Ls_updated, means_predicted, _ = forward_outputs
 
     def backward_step(carry, scan_input):
         mean_smoothed_next, L_smoothed_next = carry
-        (
-            mean_filtered,
-            L_filtered,
-            mean_predicted_next,
-            L_predicted_next,
-            time_step_next,
-        ) = scan_input
+        mean_filtered, L_filtered, mean_predicted_next, time_step_next = scan_input
 
-        transition_matrix_next, _ = sde.discretise(time_step_next)
-        P_filtered = L_filtered @ L_filtered.T
-        P_smoothed_next = L_smoothed_next @ L_smoothed_next.T
+        transition_matrix_next, L_Q_next = sde.discretise(time_step_next)
+        state_dim = L_filtered.shape[0]
 
-        # Smoother gain: G = P_filt @ A.T @ inv(P_pred_next), computed via the
-        # square-root factor L_predicted_next for better conditioning. Solve
-        # ``L L.T x = b`` as two triangular solves.
-        cross_cov = transition_matrix_next @ P_filtered  # shape (n, n)
-        temp = jax.scipy.linalg.solve_triangular(
-            L_predicted_next, cross_cov, lower=True
+        # Generalised (matrix-valued) Potter/Bierman QR pre-array for the
+        # virtual measurement update "A_{i+1} @ x_i observed with noise
+        # Q_{i+1}" -- see docstring derivation. Never forms L @ L.T.
+        top_block = jnp.concatenate(
+            [L_Q_next.T, jnp.zeros((state_dim, state_dim))], axis=1
         )
-        smoother_gain = jax.scipy.linalg.solve_triangular(
-            L_predicted_next.T, temp, lower=False
-        ).T
-        P_predicted_next = L_predicted_next @ L_predicted_next.T
+        bottom_block = jnp.concatenate(
+            [(transition_matrix_next @ L_filtered).T, L_filtered.T], axis=1
+        )
+        pre_array = jnp.concatenate([top_block, bottom_block], axis=0)
+        _, R = jnp.linalg.qr(pre_array, mode="reduced")
+        R = _sign_normalise(R)
+
+        R_predicted = R[:state_dim, :state_dim]
+        R_cross = R[:state_dim, state_dim:]
+        R_virtual = R[state_dim:, state_dim:]
+
+        gain_transpose = jax.scipy.linalg.solve_triangular(
+            R_predicted, R_cross, lower=False
+        )
+        smoother_gain = gain_transpose.T
+        L_virtual = R_virtual.T
 
         mean_smoothed = mean_filtered + smoother_gain @ (
             mean_smoothed_next - mean_predicted_next
         )
-        P_smoothed = (
-            P_filtered
-            + smoother_gain @ (P_smoothed_next - P_predicted_next) @ smoother_gain.T
-        )
-        # Symmetrise to kill round-off antisymmetric error, then take a
-        # gradient-safe PSD square root (cholesky NaNs on marginally-indefinite
-        # round-off; _psd_sqrt clips negative eigenvalues to zero). _psd_sqrt
-        # returns V·Λ^½ — a non-triangular root that is neither Cholesky nor
-        # symmetric; this is fine because every consumer uses L @ L.T.
-        P_smoothed = 0.5 * (P_smoothed + P_smoothed.T)
-        L_smoothed = _psd_sqrt(P_smoothed)
+        L_smoothed = _qr_sqrt_sum(smoother_gain @ L_smoothed_next, L_virtual)
 
         return (mean_smoothed, L_smoothed), (mean_smoothed, L_smoothed, smoother_gain)
 
@@ -413,13 +456,12 @@ def rts_smoother(sde, forward_outputs, time_steps, *, return_gains: bool = False
 
     # Backward scan over indices 0 .. N-2, in reverse:
     #   - filtered state at index i,
-    #   - predicted state at index i+1 (forward predict from i to i+1),
+    #   - predicted mean at index i+1 (forward predict from i to i+1),
     #   - time_step at index i+1 (dt from i to i+1).
     backward_inputs = (
         means_updated[:-1],
         Ls_updated[:-1],
         means_predicted[1:],
-        Ls_predicted[1:],
         time_steps[1:],
     )
     backward_inputs_reversed = tuple(jnp.flip(arr, axis=0) for arr in backward_inputs)

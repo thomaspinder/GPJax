@@ -256,7 +256,7 @@ shell = "asv continuous --machine $(hostname -s) -e ${1} ${2}"
 
 # Combined tasks
 [tool.poe.tasks.all-tests]
-sequence = ["lint", "docstrings", "test"]
+sequence = ["lint", "docstrings", "bench-check", "test"]
 help = "Run all checks and tests"
 
 [tool.poe.tasks.all-tests-slow]

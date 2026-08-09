@@ -112,6 +112,34 @@ class TestNewtonGirard:
         assert jnp.allclose(e[1], 10.0)
         assert jnp.allclose(e[2], 35.0)
 
+    def test_matrix_valued_broadcasts_elementwise(self):
+        """A (D, N, N) input applies the recursion element-wise per matrix.
+
+        This is the shape used by Sobol index computation: one (N, N)
+        integral matrix per dimension, in place of one scalar per dimension.
+        The merged `_newton_girard` must reduce to the same per-element
+        scalar recursion, so each (i, j) slice should match calling
+        `_newton_girard` directly on the scalars z[:, i, j].
+        """
+        key = jr.PRNGKey(0)
+        matrices = jr.normal(key, shape=(4, 3, 3))  # (D=4, N=3, N=3)
+        max_order = 3
+
+        e_matrix = _newton_girard(matrices, max_order=max_order)
+        assert e_matrix.shape == (max_order + 1, 3, 3)
+
+        for i in range(3):
+            for j in range(3):
+                e_scalar = _newton_girard(matrices[:, i, j], max_order=max_order)
+                assert jnp.allclose(e_matrix[:, i, j], e_scalar, atol=1e-10)
+
+    def test_scalar_trailing_shape_unaffected(self):
+        """Zero trailing dims (the OAK call site) still returns a 1D array."""
+        z = jnp.array([2.0, 3.0, 5.0])
+        e = _newton_girard(z, max_order=2)
+        assert e.ndim == 1
+        assert e.shape == (3,)
+
 
 class TestOrthogonalAdditiveKernelInit:
     """Tests for OAK construction."""

@@ -23,9 +23,12 @@ from gpjax.state_space.sde import (
     Matern12SDE,
     Matern32SDE,
     Matern52SDE,
+    ProductSDE,
     SumSDE,
     TruncatedPeriodicSDE,
 )
+
+_STATIONARY_MATERN_KERNELS = (Matern12, Matern32, Matern52)
 
 
 class TruncatedPeriodic(StationaryKernel):
@@ -166,10 +169,37 @@ def _to_sde_periodic(kernel: Periodic) -> LinearSDE:
     )
 
 
+def _find_quasi_periodic_factors(
+    kernels: tuple,
+) -> tuple[TruncatedPeriodic, StationaryKernel] | None:
+    """Return ``(periodic_factor, matern_factor)`` if ``kernels`` is exactly a
+    ``TruncatedPeriodic`` and a stationary Matérn factor, else ``None``.
+    """
+    if len(kernels) != 2:
+        return None
+    periodic_factor, matern_factor = None, None
+    for factor in kernels:
+        if isinstance(factor, TruncatedPeriodic):
+            periodic_factor = factor
+        elif isinstance(factor, _STATIONARY_MATERN_KERNELS):
+            matern_factor = factor
+    if periodic_factor is None or matern_factor is None:
+        return None
+    return periodic_factor, matern_factor
+
+
 @to_sde.register
 def _to_sde_product_kernel(kernel: ProductKernel) -> LinearSDE:
+    quasi_periodic_factors = _find_quasi_periodic_factors(kernel.kernels)
+    if quasi_periodic_factors is not None:
+        periodic_factor, matern_factor = quasi_periodic_factors
+        return ProductSDE(components=(to_sde(periodic_factor), to_sde(matern_factor)))
     raise NotImplementedError(
-        "ProductKernel state-space conversion is not supported in v1: state dimension "
-        "blows up Kronecker-style as the product of component state dimensions, which "
-        "defeats the O(N · d³) advantage of the state-space approach."
+        "ProductKernel state-space conversion is only supported for the "
+        "quasi-periodic TruncatedPeriodic x {Matern12, Matern32, Matern52} case "
+        "(Solin & Sarkka 2014 sec. 3), whose Kronecker state dimension is "
+        "(2K+1)*d. Generic ProductKernel conversion is not supported in v1: state "
+        "dimension blows up Kronecker-style as the product of component state "
+        "dimensions, which defeats the O(N · d³) advantage of the state-space "
+        "approach."
     )

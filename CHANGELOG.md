@@ -74,6 +74,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gradient descent in the dual coordinates. The `VariationalParametrisationSuite` ASV
   benchmark gains a `dual` axis value.
 
+### Changed (breaking)
+
+- **`OILMMPosterior.__call__`/`.predict` default to `covariance="diagonal"`**
+  (was `"dense"`) ([#682](https://github.com/JaxGaussianProcesses/GPJax/issues/682)).
+  The dense joint covariance costs `O(m n^2 p^2)` — an `np x np` matrix built
+  from `m` dense `n x n` latent covariances — which forfeits the
+  `O(mn^3 + nmp)` scaling that OILMM exists to provide, and is unaffordable
+  well before the mean/marginal-variance query is. Marginal variances are the
+  common case and are unaffected by the mixing matrix's off-diagonal
+  structure, so the cheap path is now the default; pass
+  `covariance="dense"` explicitly for the joint covariance.
+
 ### Removed
 
 - **`NaturalVariationalGaussian` and `ExpectationVariationalGaussian`.** These were
@@ -90,6 +102,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `expectation` axis values; previously recorded results for those two arms are orphaned.
 
 ### Fixed
+
+- **`gpx.kernels.RBF()` was a type error, and `White()` carried a phantom
+  trainable lengthscale**
+  ([#695](https://github.com/JaxGaussianProcesses/GPJax/issues/695)). Pyright
+  synthesises `__init__` signatures from dataclass fields for any kernel that
+  inherits its `__init__` (e.g. `RBF`, `Matern12/32/52`), and those fields had
+  no defaults, so the canonical `RBF()` call was flagged as missing arguments
+  while the nonsensical `RBF(name="xyz")` type-checked cleanly (raising
+  `TypeError` at runtime). Kernel fields now carry real defaults matching
+  their `__init__` defaults, and `name` is a `ClassVar` rather than a
+  dataclass field, so the synthesised and hand-written signatures agree.
+  Separately, `White` hardcoded `lengthscale=1.0` into
+  `StationaryKernel.__init__` even though `White.__call__` never reads it,
+  so every `White` kernel carried a real, trainable `PositiveReal` leaf with
+  zero gradient that showed up in optimiser state and MCMC traces; `White`
+  now has its own minimal `__init__` and no longer carries a lengthscale at
+  all (`White().lengthscale is None`, and it is absent from
+  `jax.tree_util.tree_flatten`). The stale `_compute_base_init` workaround in
+  `kernels/base.py`, whose docstring claimed "equinox modules are frozen
+  after `super().__init__()`" -- no longer true under the pinned Equinox
+  version -- was removed in favour of a plain `super().__init__(...)` call.
 
 - **`Zero` mean function is trainable and drifts away from zero.** Fitting a
   model with the default `Zero()` mean function moved its constant towards the
