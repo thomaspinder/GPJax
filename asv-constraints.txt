@@ -20,6 +20,6 @@ pygments==2.20.0
 rich==15.0.0
 scipy==1.17.1
 toolz==1.1.0
-tqdm==4.69.1
+tqdm==4.70.0
 typing-extensions==4.16.0
 wadler-lindig==0.1.7
