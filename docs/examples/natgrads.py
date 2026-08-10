@@ -15,43 +15,33 @@
 # ---
 
 # %% [markdown]
-# # Natural Gradients
+# # Natural Gradients in Practice
 #
 # Download this notebook: {nb-download}`natgrads.ipynb`
 #
-# Variational inference in a sparse Gaussian process asks us to optimise a
-# probability distribution $q(\mathbf{u})$, not a point in $\mathbb{R}^P$. Gradient
-# descent does not know that: it moves the *storage coordinates* of $q$ — a mean
-# vector and a Cholesky factor — as though they lived in flat Euclidean space, and so
-# the step it takes depends on how we happened to write the distribution down. The
-# natural gradient repairs this by measuring distance between distributions with the
-# Fisher information metric, which makes the update invariant to the
-# parameterisation.
-#
-# This notebook implements the recipe of
-# {cite:t}`salimbeni2018`, which is what
-# `gpjax.fit_natgrads` runs. The remarkable practical point is that for a Gaussian
-# process the natural gradient costs *no* Fisher matrix at all: the Fisher information
-# turns out to be the Jacobian $\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta}$
-# between two standard coordinate systems, so the natural gradient with respect to one
-# of them is the plain gradient with respect to the other.
+# This notebook assumes the
+# [natural gradients notebook](natural_gradients.py) throughout: the
+# exponential-family view of $q(\mathbf{u})$, the Fisher=Jacobian identity
+# that makes the natural gradient free to compute, the mirror-descent
+# reading of the step, the "one step is enough" theorem for conjugate
+# models, and the cone-safety theorem with its proof. None of that is
+# re-derived here — this notebook connects that geometry to the GPJax API
+# instead: `gpx.fit_natgrads`, the lower-level `natural_gradient_step`,
+# `partition_variational`, and `WhitenedVariationalGaussian`, on two real
+# training runs, checking the theory's predictions against what actually
+# happens on this machine.
 #
 # The route is:
 #
-# 1. write $q(\mathbf{u})$ in exponential-family form and name its two canonical
-#    coordinate systems, the natural parameters $\boldsymbol{\theta}$ and the
-#    expectation parameters $\boldsymbol{\eta}$;
-# 2. show that the Fisher matrix is
-#    $\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta}$, and check it numerically;
-# 3. read the step as mirror descent, which explains why $\gamma \le 1$ is special;
-# 4. **demo (i)** — a conjugate 1D regression where a single $\gamma=1$ step lands on
-#    the exact variational optimum (which, at the $M=20$ inducing points used there, is
-#    indistinguishable from the full GP posterior), while Adam is still crawling after
-#    two thousand;
-# 5. **demo (ii)** — a mini-batched Bernoulli classification benchmark, comparing
-#    natural gradients + Adam against Adam alone, per iteration *and* per second;
-# 6. the failure mode: what a large $\gamma$ does, and how the built-in step-size
-#    backoff behaves.
+# 1. **demo (i)** — a conjugate 1D regression where a single $\gamma=1$ step
+#    lands on the exact variational optimum, while Adam is still crawling
+#    after two thousand iterations;
+# 2. **demo (ii)** — a mini-batched Bernoulli classification benchmark,
+#    comparing natural gradients + Adam against Adam alone, per iteration
+#    *and* per second;
+# 3. the failure mode: what a large $\gamma$ does to the
+#    $\boldsymbol{\Theta}_2$ cone, and how the built-in step-size backoff
+#    behaves.
 #
 # If you have not met sparse variational GPs before, read the
 # [stochastic sparse GP notebook](uncollapsed_vi.py)
@@ -82,7 +72,6 @@ with install_import_hook("gpjax", "beartype.beartype"):
     from gpjax.natural_gradients import (
         expectation_from_moments,
         moments_from_expectation,
-        moments_from_natural,
         natural_from_moments,
         natural_gradient_step,
         partition_variational,
@@ -102,232 +91,21 @@ def negative_elbo(model, data):
 
 
 # %% [markdown]
-# ## The exponential-family view
+# ## Demo (i): conjugate regression
 #
-# The variational distribution over the inducing outputs is
-# $q(\mathbf{u}) = \mathcal{N}(\mathbf{m}, \mathbf{S})$ with $\mathbf{m}$ of shape
-# $M\times 1$ and $\mathbf{S}$ of shape $M \times M$. Written as an exponential family,
-#
-# $$\log q(\mathbf{u};\boldsymbol{\theta}) = \log h(\mathbf{u}) + \boldsymbol{\theta}^\top \mathbf{t}(\mathbf{u}) - A(\boldsymbol{\theta}), \qquad h(\mathbf{u}) = (2\pi)^{-M/2},$$
-#
-# with sufficient statistics
-# $\mathbf{t}(\mathbf{u}) = [\,\mathbf{u},\ \operatorname{vec}(\mathbf{u}\mathbf{u}^\top)\,]$.
-# Matching terms gives the **natural parameters**
-#
-# $$\boldsymbol{\theta}_1 = \mathbf{S}^{-1}\mathbf{m}, \qquad \boldsymbol{\Theta}_2 = -\tfrac{1}{2}\mathbf{S}^{-1} \prec 0,$$
-#
-# so that
-# $\boldsymbol{\theta}^\top\mathbf{t}(\mathbf{u}) = \mathbf{u}^\top\boldsymbol{\theta}_1 + \mathbf{u}^\top\boldsymbol{\Theta}_2\mathbf{u}$.
-# The **expectation parameters** are the mean of the sufficient statistics,
-# $\boldsymbol{\eta} = \mathbb{E}_q[\mathbf{t}(\mathbf{u})]$:
-#
-# $$\boldsymbol{\eta}_1 = \mathbf{m}, \qquad \mathbf{H}_2 = \mathbf{S} + \mathbf{m}\mathbf{m}^\top \succ 0 .$$
-#
-# The log normaliser is
-#
-# $$A(\boldsymbol{\theta}) = -\tfrac{1}{4}\boldsymbol{\theta}_1^\top\boldsymbol{\Theta}_2^{-1}\boldsymbol{\theta}_1 - \tfrac{1}{2}\log\lvert -2\boldsymbol{\Theta}_2\rvert = \tfrac{1}{2}\mathbf{m}^\top\mathbf{S}^{-1}\mathbf{m} + \tfrac{1}{2}\log\lvert\mathbf{S}\rvert,$$
-#
-# and differentiating it recovers the expectation parameters,
-# $\nabla_{\boldsymbol{\theta}}A(\boldsymbol{\theta}) = \boldsymbol{\eta}$ — the
-# standard duality between the two coordinate systems.
-#
-# There is a third coordinate system in play, the one GPJax actually *stores*:
-# $\boldsymbol{\xi} = (\mathbf{m}, \mathbf{L})$ with $\mathbf{S} = \mathbf{L}\mathbf{L}^\top$
-# and $\mathbf{L}$ lower triangular with a positive diagonal. That choice keeps
-# $\mathbf{S}$ positive definite under any unconstrained optimiser, but it is a
-# storage convention, not a geometry. `gpjax.natural_gradients` exposes the four maps
-# that connect the three systems — `expectation_from_moments`,
-# `natural_from_moments`, `moments_from_expectation` and `moments_from_natural` — each
-# built from Cholesky factors and triangular solves, with no explicit matrix inverse
-# anywhere.
-
-# %% [markdown]
-# ## The Fisher information is the Jacobian $\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta}$
-#
-# Differentiating $\log q$ twice with respect to $\boldsymbol{\theta}$ kills the
-# sufficient statistics and leaves only the log normaliser, so
-#
-# $$\mathbf{F}_{\boldsymbol{\theta}} := -\mathbb{E}_q\!\left[\nabla^2_{\boldsymbol{\theta}}\log q\right] = \frac{\partial\boldsymbol{\eta}}{\partial\boldsymbol{\theta}} = \nabla^2_{\boldsymbol{\theta}}A(\boldsymbol{\theta}) = \operatorname{Cov}_q\!\left[\mathbf{t}(\mathbf{u})\right].$$
-#
-# The Fisher information of an exponential family is simultaneously the Hessian of its
-# log normaliser, the Jacobian from natural to expectation parameters, and the
-# covariance of its sufficient statistics. The middle equality is the one that pays.
-# Let $\ell$ be a loss (for us, the negative ELBO). The chain rule in row-gradient form
-# reads
-# $\partial\ell/\partial\boldsymbol{\theta} = (\partial\ell/\partial\boldsymbol{\eta})(\partial\boldsymbol{\eta}/\partial\boldsymbol{\theta})$;
-# transposing to column gradients and using the self-adjointness of
-# $\mathbf{F} = \mathrm{D}\boldsymbol{\eta}$ (it is a Hessian) gives
-# $(\partial\ell/\partial\boldsymbol{\theta}) = \mathbf{F}(\partial\ell/\partial\boldsymbol{\eta})$,
-# so that
-#
-# $$\tilde\nabla_{\boldsymbol{\theta}}\ell := \mathbf{F}_{\boldsymbol{\theta}}^{-1}\frac{\partial\ell}{\partial\boldsymbol{\theta}} = \frac{\partial\ell}{\partial\boldsymbol{\eta}} .$$
-#
-# **The gradient with respect to the expectation parameters is the natural gradient
-# with respect to the natural parameters.** No Fisher matrix is built, and no linear
-# system is solved. The update is
-#
-# $$\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \gamma\,\frac{\partial\ell}{\partial\boldsymbol{\eta}},$$
-#
-# with $\gamma$ the step size, called `natgrad_lr` in GPJax.
-#
-# One technical caveat before we check this numerically. The statistic
-# $\operatorname{vec}(\mathbf{u}\mathbf{u}^\top)$ has $M^2$ entries, but $q$ depends on
-# $\boldsymbol{\Theta}_2$ only through its symmetric part, so in those redundant
-# coordinates $\mathbf{F}$ is singular and $\mathbf{F}^{-1}$ is not defined. The fix is
-# to work on the space of symmetric matrices with the trace inner product
-# $\langle \mathbf{A},\mathbf{B}\rangle = \operatorname{tr}(\mathbf{A}\mathbf{B})$;
-# concretely, flatten a symmetric matrix by stacking its lower triangle with the
-# strictly off-diagonal entries scaled by $\sqrt{2}$. In those coordinates the
-# Euclidean gradient is the correct gradient and $\mathbf{F}$ is symmetric positive
-# definite. The production step never forms $\mathbf{F}$ and so never needs any of
-# this; we need it only to *verify* the identity.
+# Recall from the natural gradients notebook that for a conditionally
+# conjugate model — here, a Gaussian likelihood — the ELBO is affine in the
+# expectation parameters, so the step collapses to
+# $\boldsymbol{\theta}_{\text{new}} = (1-\gamma)\,\boldsymbol{\theta} + \gamma\,\boldsymbol{\lambda}$
+# for a fixed $\boldsymbol{\lambda}$ that does not depend on $q$. At
+# $\gamma=1$ this is not an approximation to the optimum, it *is* the
+# optimum: $\boldsymbol{\theta}_{\text{new}} = \boldsymbol{\lambda} = \boldsymbol{\theta}^\star$,
+# reached in one step from any starting point (the "one step is enough"
+# theorem there, after Sato 2001; for the SVGP it recovers the
+# {cite:t}`titsias2009` optimum). We watch that happen, then race it against
+# Adam from the same bad start.
 
 # %%
-# A small non-conjugate model (Bernoulli likelihood, M = 3) on which to check
-# F^{-1} dl/dtheta == dl/deta directly.
-key, input_key, label_key, mean_key, root_key = jr.split(key, 5)
-
-check_inputs = jr.uniform(input_key, (30, 1), minval=-2.0, maxval=2.0)
-check_labels = (
-    jr.uniform(label_key, (30, 1)) < jax.nn.sigmoid(2.0 * check_inputs)
-).astype(jnp.float64)
-check_data = gpx.Dataset(X=check_inputs, y=check_labels)
-
-check_model = (
-    gpx.gps.Prior(mean_function=gpx.mean_functions.Zero(), kernel=jk.RBF())
-    * gpx.likelihoods.Bernoulli()
-)
-
-num_check_inducing = 3
-check_mean = 0.5 * jr.normal(mean_key, (num_check_inducing, 1))
-check_factor = 0.5 * jr.normal(root_key, (num_check_inducing, num_check_inducing))
-check_root = jnp.linalg.cholesky(
-    check_factor @ check_factor.T + jnp.eye(num_check_inducing)
-)
-check_family = gpx.variational_families.VariationalGaussian(
-    model=check_model,
-    inducing_inputs=jnp.linspace(-2.0, 2.0, num_check_inducing).reshape(-1, 1),
-    variational_mean=check_mean,
-    variational_root_covariance=check_root,
-)
-
-
-def symmetric_to_vector(matrix):
-    """Flatten a symmetric matrix isometrically: lower triangle, sqrt(2) off-diag."""
-    size = matrix.shape[0]
-    scale = jnp.where(jnp.eye(size, dtype=bool), 1.0, jnp.sqrt(2.0))
-    rows, columns = jnp.tril_indices(size)
-    return (matrix * scale)[rows, columns]
-
-
-def vector_to_symmetric(vector, size):
-    """Invert `symmetric_to_vector`."""
-    rows, columns = jnp.tril_indices(size)
-    lower = jnp.zeros((size, size)).at[rows, columns].set(vector)
-    diagonal = jnp.diag(jnp.diag(lower))
-    strictly_lower = (lower - diagonal) / jnp.sqrt(2.0)
-    return diagonal + strictly_lower + strictly_lower.T
-
-
-def pack(vector_part, matrix_part):
-    return jnp.concatenate([vector_part.ravel(), symmetric_to_vector(matrix_part)])
-
-
-def unpack(flat, size):
-    return flat[:size].reshape(-1, 1), vector_to_symmetric(flat[size:], size)
-
-
-def loss_at_moments(variational_mean, variational_root_covariance):
-    trial = eqx.tree_at(
-        lambda family: (family.variational_mean, family.variational_root_covariance),
-        check_family,
-        (Real(variational_mean), LowerTriangular(variational_root_covariance)),
-    )
-    return negative_elbo(paramax.unwrap(trial), check_data)
-
-
-def loss_of_natural(flat):
-    """The loss as a function of the flattened natural parameters."""
-    return loss_at_moments(*moments_from_natural(*unpack(flat, num_check_inducing)))
-
-
-def loss_of_expectation(flat):
-    """The loss as a function of the flattened expectation parameters."""
-    return loss_at_moments(*moments_from_expectation(*unpack(flat, num_check_inducing)))
-
-
-def expectation_of_natural(flat):
-    """The map whose Jacobian is the Fisher information."""
-    moments = moments_from_natural(*unpack(flat, num_check_inducing))
-    return pack(*expectation_from_moments(*moments))
-
-
-flat_natural = pack(*natural_from_moments(check_mean, check_root))
-flat_expectation = pack(*expectation_from_moments(check_mean, check_root))
-
-fisher = jax.jacfwd(expectation_of_natural)(flat_natural)
-natural_gradient = jnp.linalg.solve(fisher, jax.grad(loss_of_natural)(flat_natural))
-expectation_gradient = jax.grad(loss_of_expectation)(flat_expectation)
-
-print(f"asymmetry of F                    : {jnp.max(jnp.abs(fisher - fisher.T)):.3e}")
-print(f"smallest eigenvalue of F          : {jnp.min(jnp.linalg.eigvalsh(fisher)):.4f}")
-print(
-    "max |F^-1 dl/dtheta - dl/deta|    : "
-    f"{jnp.max(jnp.abs(natural_gradient - expectation_gradient)):.3e}"
-)
-
-# %% [markdown]
-# $\mathbf{F}$ is symmetric and positive definite, and the natural gradient obtained by
-# solving with it agrees with the plain gradient in expectation coordinates to machine
-# precision. Note that the solve just performed lives in the $\operatorname{vec}_s$
-# coordinates introduced above, of dimension $P = M + \tfrac{1}{2}M(M+1)$ — nine at
-# $M=3$ — and not in the $M + M^2$ coordinates, where $\mathbf{F}$ is singular.
-# Everything from here on uses the right-hand side of the identity, so that
-# $\mathcal{O}(P^3) = \mathcal{O}(M^6)$ Fisher solve never happens again.
-
-# %% [markdown]
-# ## Mirror descent
-#
-# There is a second reading of the same update that explains the role of the step size.
-# Let $\Psi = A^*$ be the convex conjugate of the log normaliser — the negative entropy
-# of $q$ — so that $\boldsymbol{\theta} = \nabla\Psi(\boldsymbol{\eta})$. Mirror ascent
-# on the ELBO $\mathcal{L}$ with mirror map $\Psi$ is
-#
-# $$\nabla\Psi(\boldsymbol{\eta}_{t+1}) = \nabla\Psi(\boldsymbol{\eta}_t) + \gamma\,\frac{\partial\mathcal{L}}{\partial\boldsymbol{\eta}}, \qquad\text{i.e.}\qquad \boldsymbol{\theta}_{t+1} = \boldsymbol{\theta}_t + \gamma\,\frac{\partial\mathcal{L}}{\partial\boldsymbol{\eta}},$$
-#
-# which is precisely the natural-gradient step. The mirror-descent view is the reason
-# $\gamma \le 1$ is not an arbitrary convention: as we will see in a moment, the step
-# is then a *convex combination* in $\boldsymbol{\theta}$-space between where $q$ is
-# and where the current data want it to be. Going beyond $\gamma = 1$ is an
-# extrapolation, and extrapolation is what breaks.
-
-# %% [markdown]
-# ## Conjugate models: one step is enough
-#
-# Suppose the ELBO can be written, for some fixed $\boldsymbol{\lambda}$ that does not
-# depend on $q$,
-#
-# $$\mathcal{L}(q) = \langle\boldsymbol{\lambda},\boldsymbol{\eta}\rangle + \mathbb{H}[q] + c,$$
-#
-# that is, $\mathbb{E}_q[\log p(\mathbf{y},\mathbf{u})]$ is affine in
-# $\boldsymbol{\eta}$. This is exactly the conditionally-conjugate case: a Gaussian
-# likelihood. Since
-# $\mathbb{H}[q] = -\mathbb{E}_q[\log h] - \boldsymbol{\theta}^\top\boldsymbol{\eta} + A(\boldsymbol{\theta})$
-# and $\partial A/\partial\boldsymbol{\theta} = \boldsymbol{\eta}$, the two Jacobian
-# terms cancel and $\partial\mathbb{H}/\partial\boldsymbol{\eta} = -\boldsymbol{\theta}$.
-# Therefore
-#
-# $$\frac{\partial\mathcal{L}}{\partial\boldsymbol{\eta}} = \boldsymbol{\lambda} - \boldsymbol{\theta} \qquad\Longrightarrow\qquad \boldsymbol{\theta}_{\text{new}} = (1-\gamma)\,\boldsymbol{\theta} + \gamma\,\boldsymbol{\lambda},$$
-#
-# and $\gamma = 1$ gives $\boldsymbol{\theta}_{\text{new}} = \boldsymbol{\lambda} = \boldsymbol{\theta}^\star$
-# **in one step, from any starting point**. This is Sato's (2001) observation that
-# natural-gradient ascent at unit step size *is* the classical variational
-# fixed-point update; for the SVGP it recovers the {cite:t}`titsias2009` optimum.
-#
-# Let us watch it happen.
-
-# %%
-# Demo (i): 1D conjugate regression.
 num_data = 200
 noise_stddev = 0.3
 
@@ -344,8 +122,9 @@ regression_inducing = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
 test_inputs = jnp.linspace(-3.2, 3.2, 300).reshape(-1, 1)
 
 # %%
-# A conjugate SVGP, deliberately initialised a long way from its optimum. The joint
-# model is prior * likelihood; the variational family approximates its posterior.
+# A conjugate SVGP, deliberately initialised a long way from its optimum. The
+# joint model is prior * likelihood; the variational family approximates its
+# posterior.
 regression_model = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Constant(),
     kernel=jk.RBF(lengthscale=0.5),
@@ -368,13 +147,13 @@ initial_family = gpx.variational_families.WhitenedVariationalGaussian(
 # We use the **whitened** family here, which reparameterises
 # $\mathbf{u} = \boldsymbol{\mu}_z + \mathbf{L}_z\mathbf{v}$ with
 # $\mathbf{L}_z\mathbf{L}_z^\top = \mathbf{K}_{zz}$ and puts a
-# $\mathcal{N}(\mathbf{0},\mathbf{I})$ prior on $\mathbf{v}$. The natural-gradient
-# machinery is untouched by this — $q(\mathbf{v})$ belongs to the same exponential
-# family, and the whitening enters only through `prior_kl` and `predict`, which the
-# loss calls polymorphically. Numerically it helps a great deal, because
-# $\mathbf{m}_w$ and $\mathbf{S}_w$ are $\mathcal{O}(1)$ regardless of the kernel
-# scale, and the conjugate optimum satisfies
-# $\mathbf{S}_w^\star \preceq \mathbf{I}$.
+# $\mathcal{N}(\mathbf{0},\mathbf{I})$ prior on $\mathbf{v}$. The
+# natural-gradient machinery is untouched by this — $q(\mathbf{v})$ belongs
+# to the same exponential family as $q(\mathbf{u})$, and the whitening enters
+# only through `prior_kl` and `predict`, which the loss calls
+# polymorphically. Numerically it helps a great deal, because $\mathbf{m}_w$
+# and $\mathbf{S}_w$ are $\mathcal{O}(1)$ regardless of the kernel scale, and
+# the conjugate optimum satisfies $\mathbf{S}_w^\star \preceq \mathbf{I}$.
 #
 # For the whitened family the closed-form optimum is, with
 # $\mathbf{A}_w = \mathbf{K}_{xz}\mathbf{L}_z^{-\top}$ and
@@ -382,6 +161,10 @@ initial_family = gpx.variational_families.WhitenedVariationalGaussian(
 #
 # $$\boldsymbol{\Lambda}_w = \mathbf{I}_M + \sigma^{-2}\mathbf{A}_w^\top\mathbf{A}_w, \qquad \mathbf{b}_w = \sigma^{-2}\mathbf{A}_w^\top(\mathbf{y}-\boldsymbol{\mu}_x),$$
 # $$\mathbf{S}_w^\star = \boldsymbol{\Lambda}_w^{-1}, \qquad \mathbf{m}_w^\star = \boldsymbol{\Lambda}_w^{-1}\mathbf{b}_w .$$
+#
+# This is used only as a reference value below, computed once with plain
+# linear algebra so that the natural-gradient step has something exact to be
+# checked against.
 
 # %%
 unwrapped_initial = paramax.unwrap(initial_family)
@@ -406,7 +189,8 @@ whitened_shift = (
 optimal_covariance = jnp.linalg.inv(whitened_precision)
 optimal_mean = jnp.linalg.solve(whitened_precision, whitened_shift)
 
-# The ELBO at the closed-form optimum, used below as the reference for both methods.
+# The ELBO at the closed-form optimum, used below as the reference for both
+# methods.
 optimal_family = eqx.tree_at(
     lambda family: (family.variational_mean, family.variational_root_covariance),
     initial_family,
@@ -418,7 +202,10 @@ reference_elbo = float(
 print(f"ELBO at the closed-form optimum: {reference_elbo:.6f}")
 
 # %%
-# One natural-gradient step at gamma = 1.
+# One natural-gradient step at gamma = 1. `partition_variational` splits the
+# family into the pytree leaves the step is allowed to touch (the
+# variational parameters) and everything else (the hyperparameters); the
+# step is exactly what `fit_natgrads` calls once per iteration.
 variational_partition, hyper_partition = partition_variational(initial_family)
 stepped_partition, loss_before = natural_gradient_step(
     variational_partition,
@@ -467,20 +254,23 @@ print(
 )
 
 # %% [markdown]
-# One step, from a random initialisation, reproduces the closed-form optimum to
-# $\sim10^{-13}$ — the float64 noise floor for a problem of this size — and a second
-# step moves nothing. Note the
-# `map_jitter=0.0`: the jitter used inside the
-# $\boldsymbol{\theta}\leftrightarrow\boldsymbol{\xi}$ maps is a *bias*, not a
-# rounding effect, since
-# $(\mathbf{S}^{-1}+\varepsilon\mathbf{I})^{-1} = \mathbf{S} - \varepsilon\mathbf{S}^2 + \mathcal{O}(\varepsilon^2)$.
-# It defaults to zero in `fit_natgrads` for that reason, and is deliberately *not*
-# inherited from the model's `Prior.jitter`, which is a different quantity applied to
-# $\mathbf{K}_{zz}$.
+# One step, from a random initialisation more than 3000 ELBO nats away, lands
+# on the closed-form optimum to $\sim10^{-13}$ in both the mean and the
+# covariance — the float64 noise floor for a problem of this size — and the
+# ELBO itself matches to all six printed decimal places. A second step moves
+# the mean by the same $\sim10^{-14}$, confirming the fixed point.
 #
-# Because this model is conjugate, we can also compare the one-step posterior against
-# the exact GP posterior, obtained by conditioning the joint model on the data with no
-# inducing-point approximation.
+# Notice the `map_jitter=0.0` keyword: the jitter used inside the
+# $\boldsymbol{\theta}\leftrightarrow\boldsymbol{\xi}$ maps is a *bias*, not
+# a rounding effect, since
+# $(\mathbf{S}^{-1}+\varepsilon\mathbf{I})^{-1} = \mathbf{S} - \varepsilon\mathbf{S}^2 + \mathcal{O}(\varepsilon^2)$.
+# It defaults to zero in `fit_natgrads` for exactly that reason, and is
+# deliberately *not* inherited from the model's `Prior.jitter`, which is a
+# different quantity applied to $\mathbf{K}_{zz}$.
+#
+# Because this model is conjugate, we can also compare the one-step
+# posterior against the exact GP posterior, obtained by conditioning the
+# joint model on the data with no inducing-point approximation at all.
 
 # %%
 exact_posterior = paramax.unwrap(regression_model).condition(regression_data)
@@ -526,25 +316,34 @@ for ax, family, title in [
     clean_legend(ax)
 axes[0].set_ylabel(r"$f(x)$")
 
+data_range_mask = (test_inputs[:, 0] >= -3.0) & (test_inputs[:, 0] <= 3.0)
 print(
-    "max |sparse mean - exact mean| : "
+    "max |sparse mean - exact mean|, full grid [-3.2,3.2]   : "
     f"{jnp.max(jnp.abs(unwrapped_stepped(test_inputs).mean - exact_mean)):.3e}"
+)
+print(
+    "max |sparse mean - exact mean|, data range [-3,3]      : "
+    f"{jnp.max(jnp.abs((unwrapped_stepped(test_inputs).mean - exact_mean)[data_range_mask])):.3e}"
 )
 
 # %% [markdown]
-# The right-hand panel is the point of the whole method: a single natural-gradient step
-# has taken a deliberately absurd $q$ onto the sparse variational optimum, which for
-# $M=20$ inducing points on this problem is not distinguishable by eye from the exact
-# posterior. The printed maximum is taken over the whole test grid $[-3.2, 3.2]$ and is
-# attained at its edge, past the last inducing input; restricted to the data range
-# $[-3, 3]$ the two means agree roughly ten times more closely again. Both gaps are a
-# fraction of a percent of the panel height, and both are a property of the sparse
-# approximation, not of the optimiser.
+# The right-hand panel is the point of the whole method: a single
+# natural-gradient step has taken a deliberately absurd $q$ onto the sparse
+# variational optimum, which for $M=20$ inducing points on this problem is
+# not distinguishable by eye from the exact posterior. The two printed
+# maxima confirm it quantitatively: restricted to the data range $[-3,3]$
+# the sparse and exact means agree about fifteen times more closely than
+# they do on the full test grid, where the largest gap sits at the grid's
+# edge, past the last inducing input. Both are a fraction of a percent of
+# the panel height, and both are a property of the sparse approximation, not
+# of the optimiser.
 #
-# Now the comparison. We freeze every hyperparameter with `paramax.non_trainable` — so
-# that both methods are solving the *same* problem, namely finding the best
-# $(\mathbf{m},\mathbf{L})$ for a fixed kernel — and run Adam on the variational
-# parameters from the same bad initialisation.
+# Now the comparison. We freeze every hyperparameter with
+# `paramax.non_trainable` — applied to `hyper_partition`, the half of the
+# pytree `partition_variational` carved off as *not* the natural gradient's
+# business — so that both methods solve the *same* problem, namely finding
+# the best $(\mathbf{m},\mathbf{L})$ for a fixed kernel, and run Adam on the
+# variational parameters from the same bad initialisation.
 
 # %%
 frozen_family = eqx.combine(
@@ -595,9 +394,19 @@ axes[0].set(
 )
 clean_legend(axes[0])
 
-axes[1].plot(iteration_index + 1, adam_gap, color=cols[0], label="Adam on $(m, L)$")
+axes[1].plot(
+    iteration_index + 1,
+    jnp.maximum(adam_gap, 1e-16),
+    color=cols[0],
+    label="Adam on $(m, L)$",
+)
 axes[1].scatter(
-    [1], [natgrad_gap], color=cols[1], zorder=5, s=45, label="Natural gradient, 1 step"
+    [1],
+    [max(natgrad_gap, 1e-16)],
+    color=cols[1],
+    zorder=5,
+    s=45,
+    label="Natural gradient, 1 step",
 )
 axes[1].set(
     xscale="log", yscale="log", xlabel="Iteration", ylabel="ELBO gap to optimum (nats)"
@@ -605,68 +414,73 @@ axes[1].set(
 clean_legend(axes[1])
 
 # %% [markdown]
-# Read the right-hand panel rather than the left. On log-log axes Adam's gap barely
-# bends over the first few tens of iterations and then falls faster and faster, its
-# slope steepest of all over the final few hundred — the opposite of the usual "fast
-# start, long crawl" picture. That shape is the optimiser's, not the problem's: Adam
-# normalises its step, so each coordinate moves by at most the learning rate however
-# large the gradient is, and from an initialisation this bad it is the *distance* to be
-# travelled that binds, not the gradient. The printed numbers say the same thing: more
-# than a thousand iterations merely to come within ten nats of the optimum, and after
-# two thousand it is still several nats short and still descending, while the single
-# natural-gradient step closed the gap to around $10^{-14}$ nats. Adam is converging;
-# it is simply converging in coordinates that put the optimum a long way away. The
-# natural gradient never travels that distance, because the Fisher metric rescales it.
+# Read the right-hand panel rather than the left. On log-log axes Adam's gap
+# barely bends over the first few tens of iterations and then falls faster
+# and faster, its slope steepest of all over the final few hundred — the
+# opposite of the usual "fast start, long crawl" picture. That shape is the
+# optimiser's, not the problem's: Adam normalises its step, so each
+# coordinate moves by at most the learning rate however large the gradient
+# is, and from an initialisation this bad it is the *distance* to be
+# travelled that binds, not the gradient. The printed numbers say the same
+# thing: it takes 867 iterations merely to come within ten nats of the
+# optimum, 1800 to come within one nat, and it never gets within a tenth of
+# a nat across the full 2000 — the ELBO gap is still $6.0\times10^{-1}$
+# nats and still shrinking, while the single natural-gradient step closed
+# the gap to zero at double precision. Adam is converging; it is simply
+# converging in coordinates that put the optimum a long way away. The
+# natural gradient never travels that distance, because the Fisher metric
+# rescales it.
 #
-# Two caveats before this is oversold. The hyperparameters were frozen, so this is the
-# problem natural gradients are best at: a pure variational optimisation. And the
-# advantage rests on conjugacy, which is what makes $\gamma=1$ a solve rather than a
-# step. Neither holds in the next demo.
+# Two caveats before this is oversold. The hyperparameters were frozen, so
+# this is the problem natural gradients are best at: a pure variational
+# optimisation. And the advantage rests on conjugacy, which is what makes
+# $\gamma=1$ a solve rather than a step. Neither holds in the next demo.
 
 # %% [markdown]
-# ## Non-conjugate models: ramping $\gamma$
+# ## Demo (ii): non-conjugate banana classification
 #
-# Outside conjugacy, $\mathbb{E}_q[\log p(\mathbf{y}\mid\mathbf{u})]$ is no longer
-# affine in $\boldsymbol{\eta}$, so $\gamma=1$ is no longer a solve — it is a large
-# step along a direction that was only computed locally. Salimbeni et al. find
-# experimentally that "the initial natural gradient step size is a small value that is
-# parameterization and likelihood dependent, but then increases to $\gamma = 1$", and
-# in the stochastic setting they adopt a two-phase schedule: a log-linear ramp
+# Outside conjugacy, $\mathbb{E}_q[\log p(\mathbf{y}\mid\mathbf{u})]$ is no
+# longer affine in $\boldsymbol{\eta}$, so $\gamma=1$ is no longer a solve —
+# it is a large step along a direction that was only computed locally.
+# Salimbeni et al. find experimentally that "the initial natural gradient
+# step size is a small value that is parameterization and likelihood
+# dependent, but then increases to $\gamma = 1$", and in the stochastic
+# setting they adopt a two-phase schedule: a log-linear ramp
 #
 # $$\gamma_t = \gamma_{\text{init}}\left(\frac{\gamma_{\text{final}}}{\gamma_{\text{init}}}\right)^{t/K} \quad (t < K), \qquad \gamma_t = \gamma_{\text{final}} \quad (t \ge K).$$
 #
 # Their reported settings are $\gamma_{\text{init}}=10^{-4}$,
-# $\gamma_{\text{final}}=10^{-1}$ with $K$ between 5 and 40 for UCI-scale problems at
-# batch size 256, and $\gamma_{\text{init}}=10^{-6}$,
-# $\gamma_{\text{final}}=2\times10^{-2}$, $K=2000$ for MNIST at batch size 1024, always
-# with $\gamma^{\text{Adam}} = 10^{-2}$ on the hyperparameters. Their conclusion is
-# that "the success of the method relies on $\gamma$ increasing to a reasonably large
-# value ($\approx 0.1$) sufficiently quickly ($<1000$ iterations)".
+# $\gamma_{\text{final}}=10^{-1}$ with $K$ between 5 and 40 for UCI-scale
+# problems at batch size 256, and $\gamma_{\text{init}}=10^{-6}$,
+# $\gamma_{\text{final}}=2\times10^{-2}$, $K=2000$ for MNIST at batch size
+# 1024, always with $\gamma^{\text{Adam}} = 10^{-2}$ on the hyperparameters.
+# Their conclusion is that "the success of the method relies on $\gamma$
+# increasing to a reasonably large value ($\approx 0.1$) sufficiently
+# quickly ($<1000$ iterations)".
 #
-# We use $K = 100$ below. Their $K$ is dataset-dependent — 5 for the smaller UCI sets,
-# 40 for NAVAL, 2000 for MNIST — and $100$ buys a little extra cone headroom (see the
-# last section) at this $M$ from the default $\mathbf{m}=\mathbf{0}$,
-# $\mathbf{S}=\mathbf{I}$ start, while still satisfying their own $<1000$-iteration
-# criterion.
+# `natgrad_lr` accepts any Optax schedule — that is the API surface for this
+# whole recommendation. We use $K = 100$ below. Their $K$ is
+# dataset-dependent — 5 for the smaller UCI sets, 40 for NAVAL, 2000 for
+# MNIST — and $100$ buys a little extra cone headroom (see the last
+# section) at this $M$ from the default $\mathbf{m}=\mathbf{0}$,
+# $\mathbf{S}=\mathbf{I}$ start, while still satisfying their own
+# $<1000$-iteration criterion.
 #
-# Why does $\gamma < 1$ help when mini-batching? The $N/B$ rescaling inside the ELBO
-# makes the stochastic gradient unbiased, and because
-# $\boldsymbol{\theta}_{\text{new}} = \boldsymbol{\theta} - \gamma\hat{\mathbf{g}}$ is
-# affine in $\hat{\mathbf{g}}$, $\boldsymbol{\theta}_{\text{new}}$ is unbiased for the
-# full-batch update at every $\gamma$, including $\gamma=1$. What degrades is
-# *variance*. The step is always a combination
+# Why does $\gamma < 1$ help when mini-batching? Recall the mirror-descent
+# reading from the natural gradients notebook: the step is always a convex
+# combination
 # $\boldsymbol{\theta}_{\text{new}} = (1-\gamma)\,\boldsymbol{\theta} + \gamma\,\boldsymbol{\theta}^{\text{tgt}}$
-# — the failure-modes section below writes its second block out explicitly — but
-# outside conjugacy $\boldsymbol{\theta}^{\text{tgt}}$ is not a fixed optimum. It
-# depends on the current $q$ as well as on the current mini-batch: it is where one
-# fixed-point iteration from *here* would land, and it moves as $q$ moves. At
-# $\gamma=1$ the step discards $\boldsymbol{\theta}_t$ entirely and jumps onto that
-# noisy, moving target, so nothing averages the mini-batch noise out of it. Taking
-# $\gamma<1$ makes the update an exponential moving average in $\boldsymbol{\theta}$
-# towards the target, and that is where the variance reduction comes from. A second,
-# smaller effect compounds it: $\boldsymbol{\theta}\mapsto(\mathbf{m},\mathbf{S})$ is
-# nonlinear, so unbiasedness in $\boldsymbol{\theta}$ does not survive the conversion
-# back to moments.
+# — the "when natural gradients fail" section below writes its second block
+# out explicitly. The $N/B$ rescaling inside the ELBO keeps the stochastic
+# gradient unbiased at every $\gamma$, including $\gamma=1$; what degrades
+# is *variance*. Outside conjugacy $\boldsymbol{\theta}^{\text{tgt}}$ is not
+# a fixed optimum — it is where one fixed-point iteration from *here* would
+# land, and it moves with both $q$ and the mini-batch. At $\gamma=1$ the
+# step discards $\boldsymbol{\theta}_t$ entirely and jumps onto that noisy,
+# moving target, so nothing averages the mini-batch noise out of it. Taking
+# $\gamma<1$ makes the update an exponential moving average in
+# $\boldsymbol{\theta}$ towards the target, which is where the variance
+# reduction comes from.
 #
 # Time for a harder problem.
 
@@ -720,7 +534,8 @@ ax.set(xlabel=r"$x_1$", ylabel=r"$x_2$", ylim=(-3.1, 3.1), title="The banana pro
 clean_legend(ax)
 
 # %%
-# Two identical models, built from the same arrays, so the comparison is fair.
+# Two identical models, built from the same arrays, so the comparison is
+# fair.
 num_banana_inducing = 50
 inducing_grid = jnp.meshgrid(jnp.linspace(-2.8, 2.8, 10), jnp.linspace(-2.8, 2.8, 5))
 banana_inducing = jnp.stack([axis.ravel() for axis in inducing_grid], axis=1)
@@ -746,7 +561,8 @@ adam_family = make_banana_family()
 print(f"inducing inputs: {banana_inducing.shape}")
 
 # %%
-# The log-linear ramp, 1e-4 -> 1e-1 over K = 100 iterations, as an Optax schedule.
+# The log-linear ramp, 1e-4 -> 1e-1 over K = 100 iterations, as an Optax
+# schedule handed straight to `natgrad_lr`.
 num_iterations = 1000
 batch_size = 256
 natgrad_schedule = ox.exponential_decay(
@@ -806,11 +622,14 @@ print(
 )
 
 # %% [markdown]
-# Both runs use `ox.adam(1e-2)` on the kernel hyperparameters and the inducing inputs,
-# so the only difference is how $(\mathbf{m},\mathbf{L})$ move. Timings are steady
-# state: each fit is called twice and only the second call is timed, so JIT
-# compilation is excluded from both. They were measured on CPU while executing this
-# notebook, and will differ on your machine.
+# Both runs use `ox.adam(1e-2)` on the kernel hyperparameters and the
+# inducing inputs, so the only difference is how $(\mathbf{m},\mathbf{L})$
+# move — `gpx.fit_natgrads` alternates a `natural_gradient_step` on those
+# with an ordinary `gpx.fit`-style Adam step on everything else; `gpx.fit`
+# moves everything with Adam. Timings are steady state: each fit is called
+# twice and only the second call is timed, so JIT compilation is excluded
+# from both. They were measured on CPU while executing this notebook, and
+# will differ on your machine.
 
 # %%
 smoothing_window = 25
@@ -827,8 +646,8 @@ smoothed_iterations = jnp.arange(smoothing_window - 1, num_iterations)
 smoothed_natgrad = smooth(natgrad_history)
 smoothed_adam = smooth(adam_banana_history)
 
-# Derive the axis limits from the curves, so nothing is silently clipped on a machine
-# whose run lands somewhere else.
+# Derive the axis limits from the curves, so nothing is silently clipped on a
+# machine whose run lands somewhere else.
 elbo_floor = 0.95 * float(jnp.minimum(smoothed_natgrad.min(), smoothed_adam.min()))
 elbo_ceiling = 1.10 * float(jnp.maximum(smoothed_natgrad.max(), smoothed_adam.max()))
 
@@ -857,8 +676,8 @@ clean_legend(axes[0])
 clean_legend(axes[1])
 
 target_value = float(smoothed_adam[-1])
-# Sentinel above every attainable iteration index, so "never crossed" is distinguishable
-# from "crossed on the last iteration".
+# Sentinel above every attainable iteration index, so "never crossed" is
+# distinguishable from "crossed on the last iteration".
 never = num_iterations + 1
 crossing = int(
     jnp.min(jnp.where(smoothed_natgrad < target_value, smoothed_iterations, never))
@@ -881,17 +700,21 @@ print(
 )
 
 # %% [markdown]
-# Both curves are mini-batch estimates and therefore noisy; they are shown as a
-# 25-iteration trailing mean. Per iteration the natural-gradient run is far ahead. Per
-# second it is still ahead, but by less, because each of its iterations does strictly
-# more work: a natural-gradient step converts $(\mathbf{m},\mathbf{L})$ to
-# $\boldsymbol{\eta}$, differentiates the loss through the inverse map, converts back
-# through $\boldsymbol{\theta}$, and *then* takes the Adam step on the
-# hyperparameters. On the CPU that rendered this page that came to roughly half again
-# the cost per iteration — see the timings printed above, which are what your machine
-# actually measured. Salimbeni et al. report a comparable ratio of about $1.5\times$,
-# and their headline experiments are on datasets far larger than this one; treat the
-# numbers here as a demonstration of the mechanism, not as a benchmark.
+# Both curves are mini-batch estimates and therefore noisy; they are shown
+# as a 25-iteration trailing mean. Per iteration the natural-gradient run is
+# far ahead: it reaches Adam's thousand-iteration bound of $335.31$ by
+# iteration $117$, and finishes at $323.98$ against Adam's $335.31$. Per
+# second it is still ahead, but by less, because each of its iterations does
+# strictly more work — a natural-gradient step converts $(\mathbf{m},\mathbf{L})$
+# to $\boldsymbol{\eta}$, differentiates the loss through the inverse map,
+# converts back through $\boldsymbol{\theta}$, and *then* takes the Adam
+# step on the hyperparameters. On the CPU that rendered this page that came
+# to roughly $1.5$–$1.7\times$ the per-iteration cost of Adam alone across
+# repeated runs — see the timings printed above, which are what your
+# machine actually measured. Salimbeni et al. report a comparable ratio of
+# about $1.5\times$ on their own hardware, and their headline experiments
+# are on datasets far larger than this one; treat the numbers here as a
+# demonstration of the mechanism, not as a benchmark.
 
 # %%
 grid_side = 64
@@ -931,8 +754,9 @@ for ax, model, name, seconds in [
     ax.plot(
         boundary_inputs, boundary_outputs, color="black", linestyle="--", linewidth=1
     )
-    # Held-out points, encoded by class in the notebook's categorical colours rather
-    # than in the contour colourmap, so they stay legible on top of the fill.
+    # Held-out points, encoded by class in the notebook's categorical colours
+    # rather than in the contour colourmap, so they stay legible on top of
+    # the fill.
     for label, colour, marker in [(0.0, cols[0], "o"), (1.0, cols[1], "^")]:
         mask = test_labels.ravel() == label
         ax.scatter(
@@ -968,65 +792,47 @@ axes[0].set_ylabel(r"$x_2$")
 colourbar = fig.colorbar(contours, ax=axes, label=r"$q(y=1 \mid x)$")
 
 # %% [markdown]
-# The solid black line is each model's $0.5$ contour and the dashed line is the
-# Bayes-optimal boundary $x_2 = 0.7x_1^2 - 1.5$; crosses mark the inducing inputs after
-# training.
+# The solid black line is each model's $0.5$ contour and the dashed line is
+# the Bayes-optimal boundary $x_2 = 0.7x_1^2 - 1.5$; crosses mark the
+# inducing inputs after training.
 #
-# The two panels are very nearly the same picture, and the two sets of printed test
-# metrics are very nearly the same numbers. That is the honest reading of this
-# experiment, and it is worth stating plainly: on a densely-sampled, easily-separated
-# problem the natural gradient buys *optimiser speed*, not final predictive quality. It
-# reached Adam's thousand-iteration bound at the crossing iteration printed under the
-# ELBO comparison above, and both models then classify the held-out points about
-# equally well. Note also
-# that both runs train the kernel and the inducing inputs with Adam and finish at
-# different hyperparameters, so whatever small difference remains between these
-# contours cannot be attributed to $\mathbf{S}$ alone. `make_banana` draws inputs
-# uniformly on $[-3,3]^2$ and the plotted grid is $[-3.1,3.1]^2$, so there is no
-# region here that is far from the data; a demonstration that natural gradients give
-# better-calibrated *extrapolative* uncertainty would need a problem built for it.
+# The two panels are very nearly the same picture, and the two sets of
+# printed test metrics are very nearly the same numbers: $93.50\%$ accuracy
+# and $0.166$ NLPD for natural gradients against $93.25\%$ and $0.169$ for
+# Adam alone. That is the honest reading of this experiment, and it is
+# worth stating plainly: on a densely-sampled, easily-separated problem the
+# natural gradient buys *optimiser speed*, not final predictive quality — it
+# reached Adam's thousand-iteration bound at the crossing iteration printed
+# above, and both models then classify the held-out points about equally
+# well. Both runs also train the kernel and the inducing inputs with Adam
+# and finish at different hyperparameters, so whatever small difference
+# remains between these contours cannot be attributed to $\mathbf{S}$ alone.
+# `make_banana` draws inputs uniformly on $[-3,3]^2$ and the plotted grid is
+# $[-3.1,3.1]^2$, so there is no region here that is far from the data; a
+# demonstration that natural gradients give better-calibrated
+# *extrapolative* uncertainty would need a problem built for it.
 
 # %% [markdown]
 # ## When natural gradients fail
 #
-# The step is
+# Recall the update is
 # $\boldsymbol{\theta}\leftarrow\boldsymbol{\theta} - \gamma\,\partial\ell/\partial\boldsymbol{\eta}$,
-# and $\boldsymbol{\Theta}_2$ must stay negative definite, because
-# $\boldsymbol{\Theta}_2 = -\tfrac12\mathbf{S}^{-1}$ and $\mathbf{S}$ is a covariance.
-# Nothing in the update enforces that. Splitting the ELBO as
-# $\mathcal{L} = \mathcal{L}_{\text{data}} - \operatorname{KL}[q\,\|\,p]$ and using
-# $\partial\operatorname{KL}/\partial\mathbf{S} = \tfrac12\mathbf{K}_{zz}^{-1} - \tfrac12\mathbf{S}^{-1}$
-# gives an exact description of what happens:
-#
-# $$\boldsymbol{\Theta}_2^{\text{new}} = (1-\gamma)\,\boldsymbol{\Theta}_2 + \gamma\,\boldsymbol{\Theta}_2^{\text{tgt}}, \qquad \boldsymbol{\Theta}_2^{\text{tgt}} := \frac{\partial\mathcal{L}_{\text{data}}}{\partial\mathbf{S}} - \tfrac{1}{2}\mathbf{K}_{zz}^{-1}$$
-#
-# (for the whitened family, replace $\mathbf{K}_{zz}^{-1}$ by $\mathbf{I}_M$). So the
-# step is a convex combination in $\boldsymbol{\theta}$-space whenever
-# $\gamma\in[0,1]$ — the mirror-descent reading, made concrete.
-#
-# **Cone-safety theorem.** If the likelihood is log-concave in $f$, then by Price's
-# theorem
-# ($\partial_{\mathbf{S}}\mathbb{E}_{\mathcal{N}(\mathbf{m},\mathbf{S})}[g] = \tfrac12\mathbb{E}[\nabla^2 g]$),
-#
-# $$\frac{\partial\mathcal{L}_{\text{data}}}{\partial\mathbf{S}} = \frac{N}{B}\sum_{n\in\mathcal{B}}\tfrac{1}{2}\,\mathbb{E}_{q(f_n)}\!\left[\frac{\partial^2\log p(y_n\mid f_n)}{\partial f_n^2}\right]\mathbf{a}_n\mathbf{a}_n^\top \preceq 0,$$
-#
-# where $\mathbf{a}_n^\top$ is row $n$ of $\mathbf{A} = \mathbf{K}_{xz}\mathbf{K}_{zz}^{-1}$.
-# Hence $\boldsymbol{\Theta}_2^{\text{tgt}} \prec 0$, and for $\gamma\in[0,1]$
-# $\boldsymbol{\Theta}_2^{\text{new}}$ is a convex combination of two negative-definite
-# matrices, so it is negative definite. **Mini-batching does not break this**, because
-# $N/B > 0$ preserves the sign. $\square$
-#
-# Two things escape the theorem: $\gamma > 1$, which extrapolates past
-# $\boldsymbol{\Theta}_2^{\text{tgt}}$; and likelihoods that are not log-concave
-# (Student-$t$, for instance), for which
-# $\partial\mathcal{L}_{\text{data}}/\partial\mathbf{S}$ can have positive eigenvalues
-# and the target itself sits outside the cone. Log-concavity here is a property of the
-# likelihood *as computed*, not as written: GPJax's `inv_probit` clips its output into
-# $[10^{-3},\,1-10^{-3}]$, which flattens the tail of $\log p$ enough to give it a
-# positive second derivative for $f \lesssim -2.44$, so even the Bernoulli model used
-# below leaves the guaranteed regime once a point is confidently mislabelled. That is
-# the behaviour the backoff below is really guarding. Below we sweep $\gamma$ from an
-# over-confident starting point — $\mathbf{S}_0 = 10^{-2}\mathbf{I}$, sharper than the
+# and that $\boldsymbol{\Theta}_2$ must stay negative definite, because
+# $\boldsymbol{\Theta}_2 = -\tfrac12\mathbf{S}^{-1}$ and $\mathbf{S}$ is a
+# covariance. Nothing in the update enforces that automatically. The
+# natural gradients notebook's **cone-safety theorem** proves — via Price's
+# theorem applied to the ELBO's data-fit term — that for any log-concave
+# likelihood and any starting point, $\gamma\in[0,1]$ keeps
+# $\boldsymbol{\Theta}_2^{\text{new}}$ inside that cone, mini-batching
+# included; the full statement and proof are there, and are not repeated
+# here. What escapes the guarantee is $\gamma>1$, which extrapolates past
+# the target, and likelihoods that are not log-concave *as computed* rather
+# than as written: GPJax's `inv_probit` clips its output into
+# $[10^{-3},\,1-10^{-3}]$, which flattens the tail of $\log p$ enough to
+# give it a positive second derivative for $f \lesssim -2.44$, so even the
+# Bernoulli model used below leaves the guaranteed regime once a point is
+# confidently mislabelled. Below we sweep $\gamma$ from an over-confident
+# starting point — $\mathbf{S}_0 = 10^{-2}\mathbf{I}$, sharper than the
 # target — which is precisely the regime where extrapolation bites.
 
 # %%
@@ -1053,7 +859,8 @@ def banana_loss_of_expectation(expectation):
 cone_gradient = jax.grad(banana_loss_of_expectation)(
     expectation_from_moments(overconfident_mean, overconfident_root)
 )
-# The matrix statistic is symmetric, so symmetrise the entrywise autodiff gradient.
+# The matrix statistic is symmetric, so symmetrise the entrywise autodiff
+# gradient.
 matrix_gradient = 0.5 * (cone_gradient[1] + cone_gradient[1].T)
 _, natural_matrix = natural_from_moments(overconfident_mean, overconfident_root)
 
@@ -1064,24 +871,26 @@ for gamma in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
     print(f"{gamma:6.2f}   {largest:+18.5f}   {status}")
 
 # %% [markdown]
-# Read that table as a statement about *this initialisation*, not about $\gamma=2$.
-# Here $\mathbf{S}_0 = 10^{-2}\mathbf{I}$ makes $\boldsymbol{\Theta}_2 = -50\,\mathbf{I}$,
-# an order of magnitude sharper than the target, so the convex combination has very
-# little room to extrapolate into. Because $\boldsymbol{\Theta}_2$ is a multiple of the
-# identity, $\lambda_{\max}(\boldsymbol{\Theta}_2^{\text{new}})$ is exactly linear in
-# $\gamma$, and interpolating the printed $\gamma=1$ and $\gamma=2$ rows puts the
-# crossing at $\gamma\approx1.1$. Where it lands is entirely a function of how far
-# $\boldsymbol{\Theta}_2$ starts from $\boldsymbol{\Theta}_2^{\text{tgt}}$: in the limit
-# where the two coincide, every $\gamma$ is safe. What the theorem actually guarantees
-# is $\gamma\in[0,1]$, for any log-concave likelihood and any starting point, and it
-# says nothing whatsoever beyond that — which is the line worth remembering.
+# Read that table as a statement about *this initialisation*, not about
+# $\gamma=2$ in general. Here $\mathbf{S}_0 = 10^{-2}\mathbf{I}$ makes
+# $\boldsymbol{\Theta}_2 = -50\,\mathbf{I}$, an order of magnitude sharper
+# than the target, so the convex combination has very little room to
+# extrapolate into: the sign flips between $\gamma=1$ ($-4.67$) and
+# $\gamma=2$ ($+40.66$), and interpolating those two rows puts the crossing
+# at $\gamma\approx1.10$. Where it lands is entirely a function of how far
+# $\boldsymbol{\Theta}_2$ starts from $\boldsymbol{\Theta}_2^{\text{tgt}}$:
+# in the limit where the two coincide, every $\gamma$ is safe. What the
+# theorem actually guarantees is $\gamma\in[0,1]$, for any log-concave
+# likelihood and any starting point, and it says nothing whatsoever beyond
+# that — which is the line worth remembering.
 #
-# When it does go wrong, `jnp.linalg.cholesky` returns `NaN` rather than raising,
-# which means validity is a *value* and the fix stays `jit`-compatible.
-# `natural_gradient_step` exploits that with a backoff: it evaluates the trial steps
-# $\{\gamma\beta^k\}_{k=0}^{K}$ under `vmap` and selects the first one whose Cholesky
-# is finite. `backoff` ($\beta$, default $0.5$) and `max_backoff` ($K$, default $5$)
-# are exposed by `fit_natgrads`.
+# When it does go wrong, `jnp.linalg.cholesky` returns `NaN` rather than
+# raising, which means validity is a *value* and the fix stays
+# `jit`-compatible. `natural_gradient_step` exploits that with a backoff: it
+# evaluates the trial steps $\{\gamma\beta^k\}_{k=0}^{K}$ under `vmap` and
+# selects the first one whose Cholesky is finite. `backoff` ($\beta$,
+# default $0.5$) and `max_backoff` ($K$, default $5$) are exposed by
+# `fit_natgrads` and by `natural_gradient_step` directly.
 
 # %%
 print("gamma = 100 from the over-confident initialisation")
@@ -1108,41 +917,46 @@ for max_backoff in [0, 3, 5, 7, 10]:
     )
 
 # %% [markdown]
-# The backoff is a safety net with a finite budget, not a licence to pick $\gamma$
-# carelessly: from this starting point it needs to shrink $\gamma=100$ by a factor of
-# $2^7$ before the Cholesky succeeds, so the default `max_backoff=5` still returns
-# `NaN`. That is the intended behaviour — a silent 32-fold reduction of a step size the
-# user chose badly would be worse than a visible failure.
+# The backoff is a safety net with a finite budget, not a licence to pick
+# $\gamma$ carelessly: from this starting point it needs to shrink
+# $\gamma=100$ by a factor of $2^7$ before the Cholesky succeeds, so the
+# default `max_backoff=5` still returns `NaN`. That is the intended
+# behaviour — a silent 32-fold reduction of a step size the user chose
+# badly would be worse than a visible failure.
 
 # %% [markdown]
 # ## Practical guidance
 #
-# * **Conjugate and full batch: use $\gamma = 1$.** One iteration is the exact
-#   solution, and further iterations are fixed points.
-# * **Non-conjugate or mini-batched: ramp $\gamma$.** Salimbeni et al. recommend
-#   starting around $10^{-4}$ and reaching $\approx 10^{-1}$ "sufficiently quickly
-#   ($<1000$ iterations)"; `natgrad_lr` accepts any Optax schedule, and defaults to
-#   $10^{-1}$.
-# * **Never exceed $\gamma = 1$.** The convex-combination guarantee stops there, and
-#   the backoff exists to catch mistakes, not to enable them.
-# * **If a mini-batched run produces `NaN`, raise the batch size before lowering
-#   $\gamma$.** Small batches make
-#   $\boldsymbol{\Theta}_2^{\text{tgt}}$ badly conditioned, which no step size fully
-#   repairs.
+# * **Conjugate and full batch: use $\gamma = 1$.** One iteration is the
+#   exact solution, and further iterations are fixed points.
+# * **Non-conjugate or mini-batched: ramp $\gamma$.** Salimbeni et al.
+#   recommend starting around $10^{-4}$ and reaching $\approx 10^{-1}$
+#   "sufficiently quickly ($<1000$ iterations)"; `natgrad_lr` accepts any
+#   Optax schedule, and defaults to $10^{-1}$.
+# * **Never exceed $\gamma = 1$.** The cone-safety theorem's guarantee stops
+#   there, and the backoff exists to catch mistakes, not to enable them.
+# * **If a mini-batched run produces `NaN`, raise the batch size before
+#   lowering $\gamma$.** Small batches make
+#   $\boldsymbol{\Theta}_2^{\text{tgt}}$ badly conditioned, which no step
+#   size fully repairs.
 # * **Prefer the whitened family.** The natural-gradient direction is
-#   parameterisation-invariant, so whitening does not change the sequence of
-#   distributions in exact arithmetic; it changes the *conditioning* of every map, and
-#   keeps $\mathbf{m}_w$, $\mathbf{S}_w$ at $\mathcal{O}(1)$.
+#   parameterisation-invariant, so whitening does not change the sequence
+#   of distributions in exact arithmetic; it changes the *conditioning* of
+#   every map, and keeps $\mathbf{m}_w$, $\mathbf{S}_w$ at $\mathcal{O}(1)$.
 # * **Leave `map_jitter` at $0$.** It biases $\mathbf{S}$ by
-#   $\approx\varepsilon\lVert\mathbf{S}\rVert^2$ independently of conditioning. Raise
-#   it to $10^{-12}$–$10^{-10}$ only when fighting an ill-conditioned $\mathbf{S}$.
-# * **Non-log-concave likelihoods have no guarantee at all.** For a Student-$t$
-#   likelihood with gross outliers the target $\boldsymbol{\Theta}_2^{\text{tgt}}$ can
-#   itself be outside the cone, so no positive $\gamma$ is provably safe.
+#   $\approx\varepsilon\lVert\mathbf{S}\rVert^2$ independently of
+#   conditioning. Raise it to $10^{-12}$–$10^{-10}$ only when fighting an
+#   ill-conditioned $\mathbf{S}$.
+# * **Non-log-concave likelihoods have no guarantee at all.** For a
+#   Student-$t$ likelihood with gross outliers the target
+#   $\boldsymbol{\Theta}_2^{\text{tgt}}$ can itself be outside the cone, so
+#   no positive $\gamma$ is provably safe.
 #
-# The companion [dual sparse GP notebook](dual_svgp.py) takes the same geometry in a
-# different direction, storing the site parameters of the variational distribution
-# rather than its moments.
+# The companion [dual sparse GP notebook](dual_svgp.py) is the applied
+# notebook for the other storage convention this geometry admits — the
+# site, or dual, parameterisation of {cite:t}`adam2021dual` — and, like this
+# one, it assumes the [natural gradients notebook](natural_gradients.py)
+# throughout rather than re-deriving anything.
 
 # %% [markdown]
 # ## System configuration
