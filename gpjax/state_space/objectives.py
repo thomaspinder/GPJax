@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import jax.numpy as jnp
-import paramax
 
+from gpjax.parameters import val
 from gpjax.state_space.inference import kalman_filter
 from gpjax.state_space.kernels import to_sde
 
@@ -52,7 +52,6 @@ def state_space_mll(
         >>> bool(jnp.isfinite(mll))
         True
     """
-    posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood
 
@@ -65,7 +64,7 @@ def state_space_mll(
     centred_targets = targets - mean_at_train
 
     sde = to_sde(prior.kernel)
-    obs_variance = likelihood.obs_stddev**2
+    obs_variance = val(likelihood.obs_stddev) ** 2
     sigma_eff = jnp.sqrt(obs_variance + prior.jitter)
 
     time_steps = jnp.concatenate([jnp.zeros(1), jnp.diff(times)])

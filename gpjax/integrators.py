@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 import numpy as np
 
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.typing import Array
 
 L = tp.TypeVar(
@@ -112,8 +112,8 @@ class GHQuadratureIntegrator(AbstractIntegrator):
         sd = jnp.sqrt(variance)
         X = mean + jnp.sqrt(2.0) * sd * gh_points
         W = gh_weights / jnp.sqrt(jnp.pi)
-        val = jnp.sum(fun(X, y) * W, axis=1)
-        return val
+        expectation = jnp.sum(fun(X, y) * W, axis=1)
+        return expectation
 
 
 class AnalyticalGaussianIntegrator(AbstractIntegrator):
@@ -149,14 +149,14 @@ class AnalyticalGaussianIntegrator(AbstractIntegrator):
         Returns:
             Float[Array, 'N']: The expected log likelihood.
         """
-        obs_stddev = _val(likelihood.obs_stddev).squeeze()
+        obs_stddev = val(likelihood.obs_stddev).squeeze()
         sq_error = jnp.square(y - mean)
         log2pi = jnp.log(2.0 * jnp.pi)
-        val = jnp.sum(
+        expectation = jnp.sum(
             log2pi + jnp.log(obs_stddev**2) + (sq_error + variance) / obs_stddev**2,
             axis=1,
         )
-        return -0.5 * val
+        return -0.5 * expectation
 
 
 __all__ = [

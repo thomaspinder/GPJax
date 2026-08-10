@@ -18,7 +18,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     ConstantDiagonalKernelComputation,
@@ -77,5 +77,5 @@ class White(StationaryKernel):
             self.variance = NonNegativeReal(variance)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        K = jnp.all(jnp.equal(x, y)) * _val(self.variance)
+        K = jnp.all(jnp.equal(x, y)) * val(self.variance)
         return K.squeeze()

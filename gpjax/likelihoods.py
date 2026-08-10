@@ -36,7 +36,7 @@ from gpjax.integrators import (
 from gpjax.parameters import (
     NonNegativeReal,
     PositiveReal,
-    _val,
+    val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
@@ -347,7 +347,7 @@ class Gaussian(AbstractLikelihood):
         Returns:
             npd.Normal: The likelihood function.
         """
-        return npd.Normal(loc=f, scale=_val(self.obs_stddev).astype(f.dtype))
+        return npd.Normal(loc=f, scale=val(self.obs_stddev).astype(f.dtype))
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
@@ -368,7 +368,7 @@ class Gaussian(AbstractLikelihood):
             GaussianDistribution: The predictive distribution with observation
             noise added to the diagonal of the covariance.
         """
-        obs_var = _val(self.obs_stddev) ** 2
+        obs_var = val(self.obs_stddev) ** 2
 
         if isinstance(dist, GaussianDistribution):
             diag = _diagonal_scale(dist.scale)
@@ -385,7 +385,7 @@ class Gaussian(AbstractLikelihood):
 
     def noise_vector(self, n: int) -> Float[Array, " N"]:
         """Per-observation noise variance vector (scalar broadcast for single-output)."""
-        return jnp.full(n, jnp.square(_val(self.obs_stddev)))
+        return jnp.full(n, jnp.square(val(self.obs_stddev)))
 
     def prepare_targets(
         self, y: Float[Array, "N 1"], mx: Float[Array, "N 1"]
@@ -420,7 +420,7 @@ class MultiOutputGaussian(Gaussian):
         Returns sigma_p^2 with each output's variance repeated N times,
         concatenated across outputs: [sigma_1^2...sigma_1^2, sigma_2^2...sigma_2^2, ...].
         """
-        per_output_var = jnp.square(_val(self.obs_stddev))  # [P]
+        per_output_var = jnp.square(val(self.obs_stddev))  # [P]
         return jnp.repeat(per_output_var, n)  # [NP]
 
     def prepare_targets(
@@ -647,9 +647,9 @@ class StudentT(AbstractLikelihood):
             npd.StudentT: The likelihood function.
         """
         return npd.StudentT(
-            df=_val(self.degrees_of_freedom),
+            df=val(self.degrees_of_freedom),
             loc=f,
-            scale=_val(self.scale).astype(f.dtype),
+            scale=val(self.scale).astype(f.dtype),
         )
 
     def predict(

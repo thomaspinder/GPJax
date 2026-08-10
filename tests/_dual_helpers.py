@@ -7,7 +7,7 @@ family's implied moments. Written once here so that a change to the site convent
 cannot be applied to one copy and missed by the other two.
 """
 
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.variational_families import (
     DualVariationalGaussian,
     VariationalGaussian,
@@ -72,7 +72,7 @@ def matched_variational_gaussian(q_dual: DualVariationalGaussian):
     mean, covariance = q_dual.moments()
     return VariationalGaussian(
         model=q_dual.model,
-        inducing_inputs=_val(q_dual.inducing_inputs),
+        inducing_inputs=val(q_dual.inducing_inputs),
         variational_mean=mean,
         variational_root_covariance=jnp.linalg.cholesky(covariance),
     )

@@ -46,7 +46,7 @@ from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.kernels import RFF
 from gpjax.linalg.utils import stabilised_cholesky
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.typing import (
     Array,
     FunctionalSample,
@@ -321,7 +321,7 @@ class ExactPosterior(Posterior):
         fourier_weights = jr.normal(weight_key, [num_samples, 2 * num_features])
 
         x = self.train_data.X
-        obs_var = _val(self.likelihood.obs_stddev) ** 2
+        obs_var = val(self.likelihood.obs_stddev) ** 2
         observation_noise = jnp.sqrt(obs_var) * jr.normal(
             noise_key, [self.train_data.n, num_samples]
         )
@@ -380,7 +380,7 @@ class LatentPosterior(Posterior):
         self.cholesky_factor = stabilised_cholesky(
             prior.kernel.gram(train_data.X).as_matrix(), prior.jitter
         )
-        self.latent = _val(latent)
+        self.latent = val(latent)
 
     def __call__(
         self,
@@ -670,7 +670,7 @@ class CollapsedPosterior(Posterior):
         model = family.model
         kernel = model.prior.kernel
         mean_function = model.prior.mean_function
-        obs_stddev = _val(model.likelihood.obs_stddev)
+        obs_stddev = val(model.likelihood.obs_stddev)
         noise_var = obs_stddev**2
 
         inducing_inputs = family._fmt_inducing_inputs()
@@ -900,7 +900,7 @@ def _build_fourier_features_fn(
 
     def eval_fourier_features(test_inputs: Float[Array, "N D"]) -> Float[Array, "N L"]:
         feature_matrix = approximate_kernel.compute_features(x=test_inputs)
-        feature_matrix *= jnp.sqrt(_val(prior.kernel.variance) / num_features)
+        feature_matrix *= jnp.sqrt(val(prior.kernel.variance) / num_features)
         return feature_matrix
 
     return eval_fourier_features

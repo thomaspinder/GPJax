@@ -101,7 +101,7 @@ with install_import_hook("gpjax", "beartype.beartype"):
         partition_variational,
     )
     from gpjax.objectives import dual_elbo, elbo
-    from gpjax.parameters import Real
+    from gpjax.parameters import Real, val
     from gpjax.variational_families import (
         DualVariationalGaussian,
         VariationalGaussian,
@@ -446,14 +446,14 @@ def exact_sites(lengthscale, inducing_inputs, dataset):
     variational, _ = natural_gradient_step(
         variational, hyper, dataset, negative_dual_elbo, 1.0
     )
-    fitted = paramax.unwrap(eqx.combine(variational, hyper))
-    return (fitted.dual_vector, fitted.dual_matrix), fitted.moments()
+    fitted = eqx.combine(variational, hyper)
+    return (val(fitted.dual_vector), val(fitted.dual_matrix)), fitted.moments()
 
 
 # %%
 # The Titsias optimum in closed form, against the same jittered K_zz the family uses.
 initial_dual = site_family(regression_lengthscale, regression_inducing)
-regression_prior = paramax.unwrap(initial_dual).model.prior
+regression_prior = initial_dual.model.prior
 regression_kernel = regression_prior.kernel
 regression_mean_function = regression_prior.mean_function
 
@@ -495,14 +495,14 @@ dual_variational, dual_hyper = partition_variational(initial_dual)
 stepped_variational, loss_before = natural_gradient_step(
     dual_variational, dual_hyper, regression_data, negative_dual_elbo, 1.0
 )
-stepped_dual = paramax.unwrap(eqx.combine(stepped_variational, dual_hyper))
+stepped_dual = eqx.combine(stepped_variational, dual_hyper)
 stepped_mean, stepped_covariance = stepped_dual.moments()
 
 # A second step must be a no-op.
 twice_stepped_variational, _ = natural_gradient_step(
     stepped_variational, dual_hyper, regression_data, negative_dual_elbo, 1.0
 )
-twice_stepped_dual = paramax.unwrap(eqx.combine(twice_stepped_variational, dual_hyper))
+twice_stepped_dual = eqx.combine(twice_stepped_variational, dual_hyper)
 twice_stepped_mean, twice_stepped_covariance = twice_stepped_dual.moments()
 
 stepped_bound = dual_elbo(stepped_dual, regression_data)
@@ -606,7 +606,7 @@ logit_model = (
 logit_dual = DualVariationalGaussian(
     model=logit_model, inducing_inputs=logit_inducing
 )
-logit_gram = paramax.unwrap(logit_model).prior.kernel.gram(
+logit_gram = logit_model.prior.kernel.gram(
     logit_inducing
 ).as_matrix() + logit_jitter * jnp.eye(num_logit_inducing)
 logit_moments = VariationalGaussian(
@@ -617,8 +617,7 @@ logit_moments = VariationalGaussian(
 )
 
 shared_bound = float(
-    dual_elbo(paramax.unwrap(logit_dual), logit_data)
-    - elbo(paramax.unwrap(logit_moments), logit_data)
+    dual_elbo(logit_dual, logit_data) - elbo(logit_moments, logit_data)
 )
 print(f"cond(K_zz)                          : {jnp.linalg.cond(logit_gram):.3e}")
 print(f"dual_elbo - elbo at the shared init : {shared_bound:.3e}")
@@ -627,11 +626,10 @@ print(f"dual_elbo - elbo at the shared init : {shared_bound:.3e}")
 # %%
 def implied_moments(family):
     """Return $(m, S)$ for either parameterisation."""
-    unwrapped = paramax.unwrap(family)
-    if isinstance(unwrapped, DualVariationalGaussian):
-        return unwrapped.moments()
-    root = unwrapped.variational_root_covariance
-    return unwrapped.variational_mean, root @ root.T
+    if isinstance(family, DualVariationalGaussian):
+        return family.moments()
+    root = val(family.variational_root_covariance)
+    return val(family.variational_mean), root @ root.T
 
 
 print("rate    max |(m, S) gap| over six full-batch steps")
@@ -741,7 +739,7 @@ banana_model = (
     * gpx.likelihoods.Bernoulli()
 )
 
-banana_gram = paramax.unwrap(banana_model).prior.kernel.gram(
+banana_gram = banana_model.prior.kernel.gram(
     banana_inducing
 ).as_matrix() + banana_jitter * jnp.eye(num_banana_inducing)
 banana_prior_root = jnp.linalg.cholesky(banana_gram)
@@ -807,7 +805,7 @@ def six_matched_steps(beta_floor):
     for _ in range(6):
         # Measured before the step, at the q both branches currently share.
         marginal_mean, curvature = price_curvature(
-            paramax.unwrap(eqx.combine(site_partition, site_hyper)), banana_train
+            eqx.combine(site_partition, site_hyper), banana_train
         )
         site_partition, _ = natural_gradient_step(
             site_partition,
@@ -1101,7 +1099,7 @@ def kernel_gradient(variational, hyper, objective, dataset):
     """Gradient of `objective` with respect to the unconstrained kernel parameters."""
 
     def loss(hyper):
-        return objective(paramax.unwrap(eqx.combine(variational, hyper)), dataset)
+        return objective(eqx.combine(variational, hyper), dataset)
 
     gradient = eqx.filter_grad(loss)(hyper)
     leaves = jtu.tree_leaves(gradient.model.prior.kernel)
@@ -1157,16 +1155,10 @@ def bound_slice(inducing_inputs, dataset, sites, moments, offsets):
     for offset in offsets:
         lengthscale = regression_lengthscale * jnp.exp(offset)
         dual_values.append(
-            dual_elbo(
-                paramax.unwrap(site_family(lengthscale, inducing_inputs, sites)),
-                dataset,
-            )
+            dual_elbo(site_family(lengthscale, inducing_inputs, sites), dataset)
         )
         moment_values.append(
-            elbo(
-                paramax.unwrap(moment_family(lengthscale, inducing_inputs, moments)),
-                dataset,
-            )
+            elbo(moment_family(lengthscale, inducing_inputs, moments), dataset)
         )
     return jnp.array(dual_values), jnp.array(moment_values)
 
@@ -1273,9 +1265,7 @@ dense_data = gpx.Dataset(X=dense_inputs, y=dense_outputs)
 dense_sites, dense_moments = exact_sites(
     regression_lengthscale, dense_inputs, dense_data
 )
-dense_prior = paramax.unwrap(
-    site_family(regression_lengthscale, dense_inputs)
-).model.prior
+dense_prior = site_family(regression_lengthscale, dense_inputs).model.prior
 dense_gram = dense_prior.kernel.gram(
     dense_inputs
 ).as_matrix() + regression_jitter * jnp.eye(dense_count)
@@ -1374,7 +1364,7 @@ def vem_joint_model(lengthscale):
     )
 
 
-vem_gram = paramax.unwrap(vem_joint_model(initial_lengthscale)).prior.kernel.gram(
+vem_gram = vem_joint_model(initial_lengthscale).prior.kernel.gram(
     banana_inducing
 ).as_matrix() + banana_jitter * jnp.eye(num_banana_inducing)
 
@@ -1412,9 +1402,7 @@ def run_vem(model, objective):
     @eqx.filter_jit
     def maximisation_step(variational, hyper, opt_state):
         def hyper_loss(hyper):
-            return objective(
-                paramax.unwrap(eqx.combine(variational, hyper)), banana_train
-            )
+            return objective(eqx.combine(variational, hyper), banana_train)
 
         def body(carry, _):
             hyper, opt_state = carry
@@ -1433,8 +1421,8 @@ def run_vem(model, objective):
     for _ in range(vem_rounds):
         variational = expectation_step(variational, hyper)
         hyper, opt_state, loss = maximisation_step(variational, hyper, opt_state)
-        combined = paramax.unwrap(eqx.combine(variational, hyper))
-        lengthscales.append(float(combined.model.prior.kernel.lengthscale))
+        combined = eqx.combine(variational, hyper)
+        lengthscales.append(float(val(combined.model.prior.kernel.lengthscale)))
         bounds.append(float(loss))
     return eqx.combine(variational, hyper), jnp.array(lengthscales), jnp.array(bounds)
 
@@ -1469,8 +1457,7 @@ axes[1].set(
 
 def test_metrics(model):
     """Held-out accuracy and negative log predictive density."""
-    unwrapped = paramax.unwrap(model)
-    probability = unwrapped.model.likelihood(unwrapped(test_inputs_2d)).mean
+    probability = model.model.likelihood(model(test_inputs_2d)).mean
     labels = test_labels.ravel()
     log_density = jnp.mean(
         labels * jnp.log(probability) + (1.0 - labels) * jnp.log1p(-probability)

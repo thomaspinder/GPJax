@@ -641,7 +641,6 @@ class TestOILMMMLL:
 
         def loss_fn(params):
             m = eqx.combine(params, static)
-            m = paramax.unwrap(m)
             return -oilmm_mll(m, data)
 
         grads = jax.grad(loss_fn)(params)
@@ -1001,9 +1000,9 @@ def test_create_oilmm_from_data_two_points_finite():
     data = Dataset(X=jnp.array([[0.0], [1.0]]), y=jnp.array([[1.0, 2.0], [3.0, 4.0]]))
     model = create_oilmm_from_data(dataset=data, num_latent_gps=2, key=jr.key(0))
     assert jnp.all(jnp.isfinite(model.mixing_matrix.U))
-    from gpjax.models.oilmm import _val
+    from gpjax.models.oilmm import val
 
-    assert jnp.all(jnp.isfinite(_val(model.mixing_matrix.S)))
+    assert jnp.all(jnp.isfinite(val(model.mixing_matrix.S)))
 
 
 def test_oilmm_predict_diagonal_returns_diagonal_operator():

@@ -23,7 +23,7 @@ import gpjax.linalg.utils
 from gpjax.parameters import (
     LowerTriangular,
     Real,
-    _val,
+    val,
 )
 import gpjax.variational_families
 from gpjax.variational_families import (
@@ -179,10 +179,10 @@ def test_variational_gaussians(
     if isinstance(q, DualVariationalGaussian):
         # The dual family stores sites, not moments, and both default to zero so that
         # q(u) = p(u) at initialisation.
-        assert _val(q.dual_vector).shape == vector_shape(n_inducing)
-        assert _val(q.dual_matrix).shape == matrix_shape(n_inducing)
-        assert (_val(q.dual_vector) == 0.0).all()
-        assert (_val(q.dual_matrix) == 0.0).all()
+        assert val(q.dual_vector).shape == vector_shape(n_inducing)
+        assert val(q.dual_matrix).shape == matrix_shape(n_inducing)
+        assert (val(q.dual_vector) == 0.0).all()
+        assert (val(q.dual_matrix) == 0.0).all()
     else:
         assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
         assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
@@ -465,8 +465,8 @@ def _textbook_gaussian_kl(mean_q, cov_q, mean_p, cov_p):
 
 def _reference_prior_kl(family):
     """Reference prior KL built from the dense covariance matrices."""
-    variational_mean = _val(family.variational_mean).reshape(-1)
-    variational_sqrt = _val(family.variational_root_covariance)
+    variational_mean = val(family.variational_mean).reshape(-1)
+    variational_sqrt = val(family.variational_root_covariance)
     cov_q = variational_sqrt @ variational_sqrt.T
     num_inducing = variational_sqrt.shape[-1]
 
@@ -474,7 +474,7 @@ def _reference_prior_kl(family):
         mean_p = jnp.zeros_like(variational_mean)
         cov_p = jnp.eye(num_inducing, dtype=variational_sqrt.dtype)
     else:
-        inducing_inputs = _val(family.inducing_inputs)
+        inducing_inputs = val(family.inducing_inputs)
         mean_p = family.model.prior.mean_function(inducing_inputs).reshape(-1)
         cov_p = family.model.prior.kernel.gram(inducing_inputs).as_matrix()
         cov_p = (
@@ -641,9 +641,9 @@ def test_prior_kl_is_jit_grad_and_vmap_compatible(family):
         model = eqx.tree_at(lambda t: t.variational_mean.value, q, mean_value)
         return model.prior_kl()
 
-    zero_mean = jnp.zeros_like(_val(q.variational_mean))
+    zero_mean = jnp.zeros_like(val(q.variational_mean))
     batch = jnp.stack(
-        [_val(q.variational_mean), _val(q.variational_mean) + 0.5, zero_mean]
+        [val(q.variational_mean), val(q.variational_mean) + 0.5, zero_mean]
     )
     batched = jax.vmap(kl_from_mean)(batch)
 
@@ -791,8 +791,8 @@ def test_dual_prior_kl_is_jit_grad_and_vmap_compatible() -> None:
         model = eqx.tree_at(lambda t: t.dual_vector.value, q, vector_value)
         return model.prior_kl()
 
-    zero_vector = jnp.zeros_like(_val(q.dual_vector))
-    batch = jnp.stack([_val(q.dual_vector), _val(q.dual_vector) + 0.5, zero_vector])
+    zero_vector = jnp.zeros_like(val(q.dual_vector))
+    batch = jnp.stack([val(q.dual_vector), val(q.dual_vector) + 0.5, zero_vector])
     batched = jax.vmap(kl_from_vector)(batch)
 
     assert batched.shape == (3,)
@@ -811,7 +811,7 @@ def test_dual_working_matrices_reconstruct_r() -> None:
     """``Lr`` is lower triangular and satisfies ``Lr Lr^T = Kzz + Kzz L2 Kzz``."""
     q = _build_dual_family(6, seed=5)
     gram, _, root_working = q._working_matrices()
-    dual_matrix = _val(q.dual_matrix)
+    dual_matrix = val(q.dual_matrix)
 
     working = gram + gram @ dual_matrix @ gram
     np.testing.assert_allclose(
@@ -869,7 +869,7 @@ def test_dual_marginals_include_jitter() -> None:
     inputs = jnp.linspace(-3.0, 3.0, 13).reshape(-1, 1)
 
     gram, root_gram, root_working = q._working_matrices()
-    cross = q.model.prior.kernel.cross_covariance(_val(q.inducing_inputs), inputs)
+    cross = q.model.prior.kernel.cross_covariance(val(q.inducing_inputs), inputs)
     diagonal = jnp.diag(q.model.prior.kernel.gram(inputs).as_matrix())
     prior_projection = jsp.linalg.solve_triangular(root_gram, cross, lower=True)
     site_projection = jsp.linalg.solve_triangular(root_working, cross, lower=True)
@@ -988,9 +988,9 @@ def _titsias_optimal_q(family: CollapsedVariationalGaussian, train_data: gpx.Dat
     model = family.model
     kernel = model.prior.kernel
     mean_function = model.prior.mean_function
-    noise_variance = _val(model.likelihood.obs_stddev) ** 2
+    noise_variance = val(model.likelihood.obs_stddev) ** 2
 
-    inducing_inputs = _val(family.inducing_inputs)
+    inducing_inputs = val(family.inducing_inputs)
     num_inducing = inducing_inputs.shape[0]
     identity = jnp.eye(num_inducing, dtype=inducing_inputs.dtype)
 

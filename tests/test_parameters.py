@@ -96,12 +96,12 @@ def test_val_unwraps_nested_wrappers():
     """
     from gpjax.parameters import (
         PositiveReal,
-        _val,
+        val,
     )
 
     p = paramax.non_trainable(PositiveReal(jnp.array(2.0)))
     assert isinstance(p._unconstrained, paramax.NonTrainable)
-    assert jnp.equal(_val(p), jnp.array(2.0))
+    assert jnp.equal(val(p), jnp.array(2.0))
 
 
 def test_lower_triangular_positive_diagonal():
