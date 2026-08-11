@@ -39,6 +39,7 @@ from gpjax.mean_functions import (
 from gpjax.parameters import (
     PositiveReal,
     Real,
+    val,
 )
 from gpjax.typing import (
     Array,
@@ -61,7 +62,6 @@ try:
 except ImportError:  # notebook downloaded and run outside the docs build
     def glue(*args, **kwargs):
         """No-op stand-in: gluing only matters when Sphinx renders this page."""
-import paramax
 from paramax import AbstractUnwrappable
 
 config.update("jax_enable_x64", True)
@@ -119,12 +119,11 @@ print(meanf)
 #
 # With a parameter instantiated, you likely wish to transform the parameter's value from
 # its constrained support onto the entire real line. In GPJax, parameters store their
-# values internally in unconstrained space. When you need the constrained value, you
-# simply call `unwrap()` on the parameter, or use `paramax.unwrap()` on an entire model
-# to resolve all parameters at once.
+# values internally in unconstrained space. When you need the constrained value, call
+# [`val`](#gpjax.parameters.val) on the parameter.
 
 # %%
-print("Constrained value:", constant_param.unwrap())
+print("Constrained value:", val(constant_param))
 print("Unconstrained (internal) value:", constant_param._unconstrained)
 glue("backend-inv-softplus-one", f"{constant_param._unconstrained:.2f}", display=False)
 
@@ -132,13 +131,19 @@ glue("backend-inv-softplus-one", f"{constant_param._unconstrained:.2f}", display
 # We see here that the Softplus bijector is applied by the `PositiveReal` parameter type.
 # Internally, the value 1.0 is stored as its inverse-softplus
 # (~{glue:text}`backend-inv-softplus-one`), and calling
-# `unwrap()` applies softplus to recover the original constrained value.
+# `val` applies softplus to recover the original constrained value.
+#
+# `val` is the single rule you need to remember: **models are always held in their
+# wrapped form** — the model you build, and the model `fit` hands back — and `val` is
+# what you call at the point where a parameter meets arithmetic. It is safe to apply to
+# anything, returning plain arrays and floats untouched, so there is never a need to
+# check whether a value is wrapped first.
 #
 # For a value closer to 0, the transformation is more pronounced.
 
 # %%
 close_to_zero_param = PositiveReal(value=1e-6)
-print("Constrained value:", close_to_zero_param.unwrap())
+print("Constrained value:", val(close_to_zero_param))
 print("Unconstrained (internal) value:", close_to_zero_param._unconstrained)
 
 # %% [markdown]
@@ -195,12 +200,23 @@ print(params)
 # %% [markdown]
 # The `params` object behaves just like a PyTree and, consequently, we may use JAX's
 # `tree_map` function to alter the values. The updated params can then be recombined
-# with the static structure using `eqx.combine`. In the below, we simply increment each
-# parameter's value by 1.
+# with the static structure using `eqx.combine`. In the below, we increment each leaf
+# by 1.
 
 # %%
 updated_params = jtu.tree_map(lambda x: x + 1, params)
 print(updated_params)
+
+# %% [markdown]
+# Note what `eqx.partition` handed us: the array leaves are the parameters'
+# **unconstrained** internals (`lengthscale._unconstrained` rather than `lengthscale`),
+# so `tree_map` operates in unconstrained space. Adding 1 to the leaf of a
+# unit lengthscale gives a constrained value of ~1.74, not 2.0, because the increment
+# lands before the softplus. This is exactly the behaviour optimisation depends on —
+# gradient steps are taken in the unconstrained space — but it does mean tree-mapping
+# arithmetic over a model is not a way to *set* parameter values. To do that, construct
+# a new parameter and swap it in with
+# [`eqx.tree_at`](inv:equinox#equinox.tree_at).
 
 # %% [markdown]
 # Let us now use Equinox's `combine` function to reconstruct the posterior distribution
@@ -211,12 +227,16 @@ updated_posterior = eqx.combine(updated_params, static)
 print(updated_posterior)
 
 # %% [markdown]
-# To resolve all constrained parameter values at once (applying each parameter's
-# bijection), we can use `paramax.unwrap` on the entire model.
+# To read a constrained parameter value out of the model, reach for `val` at the point
+# of use. Note that there is no separate step converting the model into some other
+# form: `posterior` is the same wrapped object throughout, whether you are inspecting
+# it, evaluating an objective on it, or passing it to `fit`. For a view of every
+# parameter at once, use `gpx.summarise` as above.
 
 # %%
-unwrapped_posterior = paramax.unwrap(posterior)
-print(unwrapped_posterior)
+print("lengthscale:", val(posterior.prior.kernel.lengthscale))
+print("kernel variance:", val(posterior.prior.kernel.variance))
+print("obs stddev:", val(posterior.likelihood.obs_stddev))
 
 # %% [markdown]
 # ### Fine-Scale Control
@@ -280,13 +300,7 @@ class LinearMeanFunction(AbstractMeanFunction):
             self.slope = Real(jnp.array(slope))
 
     def __call__(self, x: Num[Array, "N D"]) -> Float[Array, "N O"]:
-        # Use a helper that works whether the parameter is still wrapped
-        # (an AbstractUnwrappable) or has already been unwrapped to a plain
-        # array by paramax.unwrap().
-        def _val(p):
-            return p.unwrap() if isinstance(p, AbstractUnwrappable) else p
-
-        return _val(self.intercept) + jnp.dot(x, _val(self.slope))
+        return val(self.intercept) + jnp.dot(x, val(self.slope))
 
 
 # %% [markdown]
@@ -296,7 +310,13 @@ class LinearMeanFunction(AbstractMeanFunction):
 # used in any `partition` or `combine` call. Further, we have registered the intercept
 # and slope parameters as [`Real`](#gpjax.parameters.Real) parameter types. This registers
 # their value in the PyTree and means that they will be part of any operation applied to
-# the model e.g., unwrapping and differentiation.
+# the model e.g., differentiation.
+#
+# Note the `val` calls in `__call__`: this is the one thing you must remember when
+# writing your own kernels, mean functions and likelihoods. Every parameter read needs
+# a `val`, because the module receives the model in its wrapped form. Forgetting is not
+# a silent bug — a parameter is a PyTree node rather than an array, so the arithmetic
+# raises `TypeError` immediately.
 #
 # To check our implementation worked, let's now plot the value of our mean function for
 # a linearly spaced set of inputs ({numref}`fig-backend-linear-mean-function`).
@@ -324,13 +344,15 @@ posterior = likelihood * prior
 # %% [markdown]
 # We'll compute derivatives of the conjugate marginal log-likelihood
 # ([`conjugate_mll`](#gpjax.objectives.conjugate_mll)). With Equinox and
-# Paramax, this is straightforward: `paramax.unwrap` resolves all constrained parameters
-# inside the loss function, and `eqx.filter_value_and_grad` computes gradients with
-# respect to the array leaves of the model.
+# Paramax, this is straightforward: the loss takes the model exactly as it is, and
+# `eqx.filter_value_and_grad` computes gradients with respect to the array leaves —
+# which, as we saw above, are the parameters' unconstrained internals. The bijections
+# are applied by the `val` calls inside the kernel, mean function and likelihood, so
+# they sit on the differentiated path and are accounted for by the chain rule
+# automatically.
 
 # %%
 def loss_fn(model, data: gpx.Dataset) -> ScalarFloat:
-    model = paramax.unwrap(model)
     return -gpx.objectives.conjugate_mll(model, data)
 
 

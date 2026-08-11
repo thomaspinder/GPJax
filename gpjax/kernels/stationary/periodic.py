@@ -20,7 +20,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -88,9 +88,9 @@ class Periodic(StationaryKernel):
     ) -> Float[Array, ""]:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        period_val = _val(self.period)
+        period_val = val(self.period)
         sine_squared = (
-            jnp.sin(jnp.pi * (x - y) / period_val) / _val(self.lengthscale)
+            jnp.sin(jnp.pi * (x - y) / period_val) / val(self.lengthscale)
         ) ** 2
-        K = _val(self.variance) * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
+        K = val(self.variance) * jnp.exp(-0.5 * jnp.sum(sine_squared, axis=0))
         return K.squeeze()

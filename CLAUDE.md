@@ -60,7 +60,15 @@ Parameters are `paramax.AbstractUnwrappable` subclasses. Each class stores its v
 | `SigmoidBounded` | Sigmoid scaled to `[low, high]` | `_unconstrained` via `logit` |
 | `LowerTriangular` | Fill-triangular | `_flat` vector |
 
-Access the constrained value with `param.unwrap()`. To unwrap an entire model tree, use `paramax.unwrap(model)` which recursively resolves all `AbstractUnwrappable` leaves. To freeze parameters, wrap them with `paramax.non_trainable(param)`.
+**Models are always held in wrapped form.** Wrapping happens once, at construction; nothing unwraps a model tree, including `fit`, which returns a wrapped model. The rule is:
+
+> Call `val(param)` (from `gpjax.parameters`) wherever a parameter meets arithmetic. Pass models around untouched everywhere else.
+
+`val` is idempotent and recursive: it returns the constrained value of a parameter (resolving nested wrappers such as `paramax.non_trainable`) and returns plain arrays or floats unchanged, so it never needs an `isinstance` guard. When writing a new kernel, mean function, likelihood, or objective, every parameter read needs a `val()`.
+
+Forgetting `val()` is not silent — a parameter is a pytree node, not an array, so arithmetic raises `TypeError: unsupported operand type(s) ... 'PositiveReal'` immediately. The one quiet exception is `jax.tree_util.tree_map` over a model, which reaches the *unconstrained* leaf; that is what makes optimisation work, but it means tree-mapping arithmetic over a model is not the same as scaling its parameters.
+
+Do not add `paramax.unwrap(model)` to a loss, objective, or prediction function — that is the pre-consolidation pattern, and it reintroduces an undocumented "must be unwrapped first" precondition on user-facing extension points. `paramax.unwrap` remains correct for generic tree introspection (see `gpjax/summary.py`). To freeze parameters, wrap them with `paramax.non_trainable(param)`.
 
 ### Kernel system (`gpjax/kernels/`)
 
@@ -85,7 +93,7 @@ Optimise by negating: `nmll = lambda p, d: -conjugate_mll(p, d)`
 
 ### Fitting (`gpjax/fit.py`)
 
-Four optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (SciPy L-BFGS-B), `fit_lbfgs()` (Optax L-BFGS with `while_loop`), `fit_natgrads()` (natural-gradient steps on a variational family, alternated with Optax steps on the hyperparameters). All handle the constrained/unconstrained bijection automatically: `paramax.unwrap(model)` is called inside the loss function, and `eqx.partition`/`eqx.combine` with `eqx.is_array` manage trainable vs static parts.
+Four optimisers: `fit()` (Optax gradient descent with scan), `fit_scipy()` (SciPy L-BFGS-B), `fit_lbfgs()` (Optax L-BFGS with `while_loop`), `fit_natgrads()` (natural-gradient steps on a variational family, alternated with Optax steps on the hyperparameters). All handle the constrained/unconstrained bijection automatically, without converting the model: `eqx.partition`/`eqx.combine` with `eqx.is_array` manage trainable vs static parts, gradients are taken with respect to the internal unconstrained arrays, and the objective receives — and the optimiser returns — a wrapped model. The bijection is applied only at the `val()` call sites inside kernels, mean functions, and likelihoods.
 
 ### Variational inference (`gpjax/variational_families.py`)
 

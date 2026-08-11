@@ -41,7 +41,7 @@ from gpjax.objectives import (
 from gpjax.parameters import (
     LowerTriangular,
     Real,
-    _val,
+    val,
 )
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
@@ -143,10 +143,9 @@ def _negative_elbo(family, data):
 
 
 def _moments_of(family):
-    unwrapped = paramax.unwrap(family)
     return (
-        _val(unwrapped.variational_mean),
-        _val(unwrapped.variational_root_covariance),
+        val(family.variational_mean),
+        val(family.variational_root_covariance),
     )
 
 
@@ -161,10 +160,9 @@ def _take_step(family, data, natgrad_lr, objective=_negative_elbo, **kwargs):
 
 def _kernel_matrices(family, inputs):
     """Densify the kernel quantities entering the conjugate closed form."""
-    unwrapped = paramax.unwrap(family)
-    inducing_inputs = _val(unwrapped.inducing_inputs)
-    kernel = unwrapped.model.prior.kernel
-    mean_function = unwrapped.model.prior.mean_function
+    inducing_inputs = val(family.inducing_inputs)
+    kernel = family.model.prior.kernel
+    mean_function = family.model.prior.mean_function
     gram = add_jitter(
         kernel.gram(inducing_inputs).as_matrix(), family.model.prior.jitter
     )
@@ -450,9 +448,7 @@ def test_natgrad_conjugate_one_step_exact(family_cls) -> None:
         atol=1e-10,
     )
 
-    assert float(elbo(paramax.unwrap(stepped), dataset)) >= float(
-        elbo(paramax.unwrap(family), dataset)
-    )
+    assert float(elbo(stepped, dataset)) >= float(elbo(family, dataset))
 
     twice_stepped, _ = _take_step(stepped, dataset, 1.0)
     second_mean, _ = _moments_of(twice_stepped)
@@ -499,8 +495,8 @@ def test_whitened_and_unwhitened_optima_agree() -> None:
     stepped_unwhitened, _ = _take_step(unwhitened, dataset, 1.0)
     stepped_whitened, _ = _take_step(whitened, dataset, 1.0)
     np.testing.assert_allclose(
-        np.float64(elbo(paramax.unwrap(stepped_whitened), dataset)),
-        np.float64(elbo(paramax.unwrap(stepped_unwhitened), dataset)),
+        np.float64(elbo(stepped_whitened, dataset)),
+        np.float64(elbo(stepped_unwhitened, dataset)),
         rtol=1e-10,
     )
 
@@ -549,7 +545,6 @@ def _data_term_covariance_gradient(family, data):
             family,
             (Real(trial_mean), LowerTriangular(trial_root)),
         )
-        trial = paramax.unwrap(trial)
         full_size = data.n_total if data.n_total is not None else data.n
         scale = full_size / data.n
         return jnp.sum(variational_expectation(trial, data)) * scale
@@ -627,10 +622,10 @@ def test_natgrad_monotone_elbo_bernoulli() -> None:
     posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
     family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
 
-    trace = [float(elbo(paramax.unwrap(family), dataset))]
+    trace = [float(elbo(family, dataset))]
     for _ in range(50):
         family, _ = _take_step(family, dataset, 0.1)
-        trace.append(float(elbo(paramax.unwrap(family), dataset)))
+        trace.append(float(elbo(family, dataset)))
 
     assert bool(jnp.all(jnp.diff(jnp.asarray(trace)) >= -1e-9))
 
@@ -650,7 +645,7 @@ def _expectation_gradient(family, data):
             family,
             (Real(trial_mean), LowerTriangular(trial_root)),
         )
-        return _negative_elbo(paramax.unwrap(trial), data)
+        return _negative_elbo(trial, data)
 
     gradient = jax.grad(loss_of_expectation)(expectation)
     return gradient[0], _symmetrise(gradient[1])
@@ -692,7 +687,7 @@ def test_natgrad_backoff_recovers_from_large_step() -> None:
     assert bool(jnp.all(jnp.isfinite(updated_mean)))
     assert bool(jnp.all(jnp.isfinite(updated_root)))
     assert bool(jnp.isfinite(loss_value))
-    assert bool(jnp.isfinite(elbo(paramax.unwrap(stepped), dataset)))
+    assert bool(jnp.isfinite(elbo(stepped, dataset)))
 
     # Recover the step size actually taken: Theta_2^new = Theta_2 - s * dl/dH_2.
     updated_natural_matrix = natural_from_moments(updated_mean, updated_root)[1]
@@ -778,8 +773,8 @@ def test_natgrad_step_is_jit_and_scan_compatible() -> None:
     compiled, compiled_loss = eqx.filter_jit(step)(variational, jnp.asarray(0.5))
 
     np.testing.assert_allclose(
-        np.float64(_val(compiled.variational_mean)),
-        np.float64(_val(eager.variational_mean)),
+        np.float64(val(compiled.variational_mean)),
+        np.float64(val(eager.variational_mean)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
@@ -857,9 +852,9 @@ def test_natgrad_step_supports_graph_variational_gaussian() -> None:
     )
 
     assert bool(jnp.isfinite(loss_value))
-    assert _val(stepped.inducing_inputs).dtype == jnp.int64
+    assert val(stepped.inducing_inputs).dtype == jnp.int64
     np.testing.assert_array_equal(
-        np.asarray(_val(stepped.inducing_inputs)), np.asarray(inducing_inputs)
+        np.asarray(val(stepped.inducing_inputs)), np.asarray(inducing_inputs)
     )
 
 
@@ -1036,8 +1031,8 @@ def test_whitened_and_unwhitened_traces_agree() -> None:
     for _ in range(6):
         whitened, _ = _take_step(whitened, dataset, 0.3)
         unwhitened, _ = _take_step(unwhitened, dataset, 0.3)
-        whitened_trace.append(float(elbo(paramax.unwrap(whitened), dataset)))
-        unwhitened_trace.append(float(elbo(paramax.unwrap(unwhitened), dataset)))
+        whitened_trace.append(float(elbo(whitened, dataset)))
+        unwhitened_trace.append(float(elbo(unwhitened, dataset)))
 
     np.testing.assert_allclose(
         np.asarray(whitened_trace), np.asarray(unwhitened_trace), atol=1e-9
@@ -1072,7 +1067,7 @@ def _negative_dual_elbo(family, data):
 def _titsias_optimum(family, data):
     r"""Closed-form optimal $(\mathbf m^\star,\mathbf S^\star)$ in the u-space."""
     gram, cross, _, inducing_mean, input_mean = _kernel_matrices(family, data.X)
-    noise_variance = _val(family.model.likelihood.obs_stddev) ** 2
+    noise_variance = val(family.model.likelihood.obs_stddev) ** 2
     working = jnp.linalg.inv(gram + cross.T @ cross / noise_variance)
     residual = data.y - input_mean
     optimal_mean = inducing_mean + gram @ working @ cross.T @ residual / noise_variance
@@ -1095,7 +1090,7 @@ def _uncentred_dual_step(family, data, rate):
     uncentred = alpha + beta * mean
 
     cross = family.model.prior.kernel.cross_covariance(
-        _val(family.inducing_inputs), data.X
+        val(family.inducing_inputs), data.X
     )
     design = jsp.linalg.cho_solve((root_gram, True), cross)
     full_size = data.n_total if data.n_total is not None else data.n
@@ -1107,10 +1102,10 @@ def _uncentred_dual_step(family, data, rate):
         lambda tree: (tree.dual_vector, tree.dual_matrix),
         family,
         (
-            Real((1 - rate) * _val(family.dual_vector) + rate * scale * target_vector),
+            Real((1 - rate) * val(family.dual_vector) + rate * scale * target_vector),
             Real(
                 _symmetrise(
-                    (1 - rate) * _val(family.dual_matrix) + rate * scale * target_matrix
+                    (1 - rate) * val(family.dual_matrix) + rate * scale * target_matrix
                 )
             ),
         ),
@@ -1150,16 +1145,16 @@ def test_dual_natgrad_recovers_exact_sites():
     stepped, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
 
     gram, cross, _, _, input_mean = _kernel_matrices(family, dataset.X)
-    noise_variance = _val(posterior.likelihood.obs_stddev) ** 2
+    noise_variance = val(posterior.likelihood.obs_stddev) ** 2
 
     np.testing.assert_allclose(
-        np.asarray(gram @ _val(stepped.dual_matrix) @ gram),
+        np.asarray(gram @ val(stepped.dual_matrix) @ gram),
         np.asarray(cross.T @ cross / noise_variance),
         rtol=1e-10,
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        np.asarray(gram @ _val(stepped.dual_vector)),
+        np.asarray(gram @ val(stepped.dual_vector)),
         np.asarray(cross.T @ (dataset.y - input_mean) / noise_variance),
         rtol=1e-10,
         atol=1e-12,
@@ -1176,13 +1171,13 @@ def test_dual_natgrad_second_step_is_a_fixed_point():
     second, _ = _take_step(first, dataset, 1.0, objective=_negative_dual_elbo)
 
     np.testing.assert_allclose(
-        np.asarray(_val(second.dual_vector)),
-        np.asarray(_val(first.dual_vector)),
+        np.asarray(val(second.dual_vector)),
+        np.asarray(val(first.dual_vector)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        np.asarray(_val(second.dual_matrix)),
-        np.asarray(_val(first.dual_matrix)),
+        np.asarray(val(second.dual_matrix)),
+        np.asarray(val(first.dual_matrix)),
         atol=1e-12,
     )
 
@@ -1198,13 +1193,13 @@ def test_dual_natgrad_from_zero_scales_with_rho(rate: float):
     partial, _ = _take_step(family, dataset, rate, objective=_negative_dual_elbo)
 
     np.testing.assert_allclose(
-        np.asarray(_val(partial.dual_vector)),
-        rate * np.asarray(_val(optimal.dual_vector)),
+        np.asarray(val(partial.dual_vector)),
+        rate * np.asarray(val(optimal.dual_vector)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        np.asarray(_val(partial.dual_matrix)),
-        rate * np.asarray(_val(optimal.dual_matrix)),
+        np.asarray(val(partial.dual_matrix)),
+        rate * np.asarray(val(optimal.dual_matrix)),
         atol=1e-12,
     )
 
@@ -1257,7 +1252,7 @@ def test_dual_natgrad_preserves_psd():
         indices = jr.choice(batch_key, dataset.n, (8,), replace=False)
         batch = Dataset(X=dataset.X[indices], y=dataset.y[indices], n_total=dataset.n)
         family, _ = _take_step(family, batch, 0.8, objective=_negative_dual_elbo)
-        assert jnp.linalg.eigvalsh(_val(family.dual_matrix)).min() >= -1e-10
+        assert jnp.linalg.eigvalsh(val(family.dual_matrix)).min() >= -1e-10
 
 
 # ---------------------------------------------------------------------------
@@ -1276,7 +1271,7 @@ def test_dual_natgrad_beta_floor_is_trace_safe():
         jnp.asarray(0.8),
         beta_floor=1e-8,
     )
-    assert jnp.all(jnp.isfinite(_val(stepped.dual_matrix)))
+    assert jnp.all(jnp.isfinite(val(stepped.dual_matrix)))
 
     def scan_body(carry, _):
         carry, loss = natural_gradient_step(
@@ -1303,12 +1298,12 @@ def test_dual_natgrad_beta_floor_is_trace_safe():
     unfloored, _ = _take_step(
         concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=-jnp.inf
     )
-    assert jnp.linalg.eigvalsh(_val(unfloored.dual_matrix)).min() < -1e-6
+    assert jnp.linalg.eigvalsh(val(unfloored.dual_matrix)).min() < -1e-6
 
     floored, _ = _take_step(
         concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=1e-8
     )
-    assert jnp.linalg.eigvalsh(_val(floored.dual_matrix)).min() >= -1e-10
+    assert jnp.linalg.eigvalsh(val(floored.dual_matrix)).min() >= -1e-10
 
 
 # ---------------------------------------------------------------------------
@@ -1351,13 +1346,13 @@ def test_dual_natgrad_minibatch_is_unbiased():
     right, _ = _take_step(family, second_half, 1.0, objective=_negative_dual_elbo)
 
     np.testing.assert_allclose(
-        0.5 * np.asarray(_val(left.dual_vector) + _val(right.dual_vector)),
-        np.asarray(_val(full.dual_vector)),
+        0.5 * np.asarray(val(left.dual_vector) + val(right.dual_vector)),
+        np.asarray(val(full.dual_vector)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        0.5 * np.asarray(_val(left.dual_matrix) + _val(right.dual_matrix)),
-        np.asarray(_val(full.dual_matrix)),
+        0.5 * np.asarray(val(left.dual_matrix) + val(right.dual_matrix)),
+        np.asarray(val(full.dual_matrix)),
         atol=1e-12,
     )
 
@@ -1377,13 +1372,13 @@ def test_dual_natgrad_step_is_jit_and_scan_compatible():
         variational, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
     )
     np.testing.assert_allclose(
-        np.asarray(_val(jitted.dual_vector)),
-        np.asarray(_val(eager.dual_vector)),
+        np.asarray(val(jitted.dual_vector)),
+        np.asarray(val(eager.dual_vector)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        np.asarray(_val(jitted.dual_matrix)),
-        np.asarray(_val(eager.dual_matrix)),
+        np.asarray(val(jitted.dual_matrix)),
+        np.asarray(val(eager.dual_matrix)),
         atol=1e-12,
     )
     np.testing.assert_allclose(
@@ -1437,8 +1432,8 @@ def test_dual_natgrad_preserves_float32():
     stepped, _ = _take_step(
         family, dataset, jnp.float32(0.5), objective=_negative_dual_elbo
     )
-    assert _val(stepped.dual_vector).dtype == jnp.float32
-    assert _val(stepped.dual_matrix).dtype == jnp.float32
+    assert val(stepped.dual_vector).dtype == jnp.float32
+    assert val(stepped.dual_matrix).dtype == jnp.float32
 
 
 def test_dual_natgrad_step_rejects_non_trainable_coordinates():
@@ -1487,10 +1482,9 @@ def _six_matched_steps(posterior, dataset, inducing_inputs, beta_floor):
     worst_gap = 0.0
     smallest_beta = jnp.inf
     for _ in range(6):
-        unwrapped = paramax.unwrap(dual)
-        mean, variance = unwrapped.marginals(dataset.X)
+        mean, variance = dual.marginals(dataset.X)
         _, beta = _expected_log_likelihood_derivatives(
-            unwrapped.model.likelihood, dataset.y, mean, variance
+            dual.model.likelihood, dataset.y, mean, variance
         )
         smallest_beta = min(smallest_beta, float(jnp.min(beta)))
 

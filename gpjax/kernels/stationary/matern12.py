@@ -19,7 +19,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.stationary.base import StationaryKernel
 from gpjax.kernels.stationary.utils import (
     build_student_t_distribution,
@@ -45,9 +45,9 @@ class Matern12(StationaryKernel):
     name: ClassVar[str] = "Matérn12"
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        x = self.slice_input(x) / _val(self.lengthscale)
-        y = self.slice_input(y) / _val(self.lengthscale)
-        K = _val(self.variance) * jnp.exp(-euclidean_distance(x, y))
+        x = self.slice_input(x) / val(self.lengthscale)
+        y = self.slice_input(y) / val(self.lengthscale)
+        K = val(self.variance) * jnp.exp(-euclidean_distance(x, y))
         return K.squeeze()
 
     @property

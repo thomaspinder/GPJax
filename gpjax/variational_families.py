@@ -52,7 +52,7 @@ from gpjax.mean_functions import AbstractMeanFunction
 from gpjax.parameters import (
     LowerTriangular,
     Real,
-    _val,
+    val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
@@ -208,7 +208,7 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
     @property
     def num_inducing(self) -> int:
         """The number of inducing inputs."""
-        return _val(self.inducing_inputs).shape[0]
+        return val(self.inducing_inputs).shape[0]
 
     def _fmt_Kzt_Ktt(self, Kzt, Ktt):
         """Adapt the cross- and test-covariances before they enter ``predict``.
@@ -226,7 +226,7 @@ class AbstractVariationalGaussian(AbstractVariationalFamily[L]):
         An identity pass-through except for families whose inducing inputs are node
         indices rather than continuous coordinates.
         """
-        return _val(self.inducing_inputs)
+        return val(self.inducing_inputs)
 
 
 class VariationalGaussian(AbstractVariationalGaussian[L]):
@@ -298,8 +298,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        variational_mean = _val(self.variational_mean)
-        variational_sqrt = _val(self.variational_root_covariance)
+        variational_mean = val(self.variational_mean)
+        variational_sqrt = val(self.variational_root_covariance)
         inducing_inputs = self._fmt_inducing_inputs()
         num_inducing = self.num_inducing
 
@@ -355,8 +355,8 @@ class VariationalGaussian(AbstractVariationalGaussian[L]):
         del train_data
         return SparsePosterior(
             self,
-            _val(self.variational_mean),
-            _val(self.variational_root_covariance),
+            val(self.variational_mean),
+            val(self.variational_root_covariance),
             whitened=False,
         )
 
@@ -414,7 +414,7 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
             variational_mean,
             variational_root_covariance,
         )
-        self.inducing_inputs = _val(self.inducing_inputs).astype(jnp.int64)
+        self.inducing_inputs = val(self.inducing_inputs).astype(jnp.int64)
 
     def _fmt_Kzt_Ktt(self, Kzt, Ktt):
         Ktt = Ktt.as_matrix() if hasattr(Ktt, "as_matrix") else Ktt
@@ -431,7 +431,7 @@ class GraphVariationalGaussian(VariationalGaussian[L]):
     @property
     def num_inducing(self) -> int:
         """The number of inducing inputs."""
-        return _val(self.inducing_inputs).shape[0]
+        return val(self.inducing_inputs).shape[0]
 
 
 class WhitenedVariationalGaussian(VariationalGaussian[L]):
@@ -478,8 +478,8 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
                 approximation and the GP prior.
         """
         # Unpack variational parameters
-        mu = _val(self.variational_mean)
-        sqrt = _val(self.variational_root_covariance)
+        mu = val(self.variational_mean)
+        sqrt = val(self.variational_root_covariance)
 
         # mu^T I^{-1} mu, tr[S] = ||sqrt||_F^2 and log|S| = 2 sum log|sqrt_ii|.
         # The absolute value keeps the log-determinant valid for any square root,
@@ -510,8 +510,8 @@ class WhitenedVariationalGaussian(VariationalGaussian[L]):
         del train_data
         return SparsePosterior(
             self,
-            _val(self.variational_mean),
-            _val(self.variational_root_covariance),
+            val(self.variational_mean),
+            val(self.variational_root_covariance),
             whitened=True,
         )
 
@@ -652,7 +652,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
         """
         Kzz, Lk = self._gram_and_root()
 
-        dual_matrix = _val(self.dual_matrix)
+        dual_matrix = val(self.dual_matrix)
         inner = _symmetrise(Lk.T @ dual_matrix @ Lk) + jnp.eye(
             self.num_inducing, dtype=Kzz.dtype
         )
@@ -680,7 +680,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
                 of $q(u)$.
         """
         Kzz, _, Lr = self._working_matrices()
-        dual_vector = _val(self.dual_vector)
+        dual_vector = val(self.dual_vector)
         inducing_mean = self.model.prior.mean_function(self._fmt_inducing_inputs())
 
         covariance = _symmetrise(Kzz @ jsp.linalg.cho_solve((Lr, True), Kzz))
@@ -730,7 +730,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
                 variance at each input.
         """
         Kzz, Lk, Lr = self._working_matrices()
-        dual_vector = _val(self.dual_vector)
+        dual_vector = val(self.dual_vector)
         kernel = self.model.prior.kernel
         mean_function = self.model.prior.mean_function
         inducing_inputs = self._fmt_inducing_inputs()
@@ -780,7 +780,7 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
                 the GP prior.
         """
         Kzz, Lk, Lr = self._working_matrices()
-        dual_vector = _val(self.dual_vector)
+        dual_vector = val(self.dual_vector)
 
         # tr[R^{-1} Kzz] = tr[Lk^T R^{-1} Lk] = ||Lr^{-1} Lk||_F^2.
         trace = jnp.sum(jnp.square(_tri_solve(Lr, Lk)))

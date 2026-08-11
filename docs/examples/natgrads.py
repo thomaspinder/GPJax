@@ -87,7 +87,7 @@ with install_import_hook("gpjax", "beartype.beartype"):
         natural_gradient_step,
         partition_variational,
     )
-    from gpjax.parameters import LowerTriangular, Real
+    from gpjax.parameters import LowerTriangular, Real, val
 
 key = jr.key(123)
 
@@ -243,7 +243,7 @@ def loss_at_moments(variational_mean, variational_root_covariance):
         check_family,
         (Real(variational_mean), LowerTriangular(variational_root_covariance)),
     )
-    return negative_elbo(paramax.unwrap(trial), check_data)
+    return negative_elbo(trial, check_data)
 
 
 def loss_of_natural(flat):
@@ -384,9 +384,8 @@ initial_family = gpx.variational_families.WhitenedVariationalGaussian(
 # $$\mathbf{S}_w^\star = \boldsymbol{\Lambda}_w^{-1}, \qquad \mathbf{m}_w^\star = \boldsymbol{\Lambda}_w^{-1}\mathbf{b}_w .$$
 
 # %%
-unwrapped_initial = paramax.unwrap(initial_family)
-kernel = unwrapped_initial.model.prior.kernel
-mean_function = unwrapped_initial.model.prior.mean_function
+kernel = initial_family.model.prior.kernel
+mean_function = initial_family.model.prior.mean_function
 
 Kzz = kernel.gram(regression_inducing).as_matrix()
 Kzz = Kzz + initial_family.model.prior.jitter * jnp.eye(num_inducing)
@@ -412,9 +411,7 @@ optimal_family = eqx.tree_at(
     initial_family,
     (Real(optimal_mean), LowerTriangular(jnp.linalg.cholesky(optimal_covariance))),
 )
-reference_elbo = float(
-    gpx.objectives.elbo(paramax.unwrap(optimal_family), regression_data)
-)
+reference_elbo = float(gpx.objectives.elbo(optimal_family, regression_data))
 print(f"ELBO at the closed-form optimum: {reference_elbo:.6f}")
 
 # %%
@@ -430,12 +427,11 @@ stepped_partition, loss_before = natural_gradient_step(
 )
 stepped_family = eqx.combine(stepped_partition, hyper_partition)
 
-unwrapped_stepped = paramax.unwrap(stepped_family)
-stepped_mean = unwrapped_stepped.variational_mean
-stepped_root = unwrapped_stepped.variational_root_covariance
+stepped_mean = val(stepped_family.variational_mean)
+stepped_root = val(stepped_family.variational_root_covariance)
 stepped_covariance = stepped_root @ stepped_root.T
 
-stepped_elbo = float(gpx.objectives.elbo(unwrapped_stepped, regression_data))
+stepped_elbo = float(gpx.objectives.elbo(stepped_family, regression_data))
 
 # A second step from the same place must be a fixed point.
 twice_stepped_partition, _ = natural_gradient_step(
@@ -446,9 +442,9 @@ twice_stepped_partition, _ = natural_gradient_step(
     1.0,
     map_jitter=0.0,
 )
-twice_stepped_mean = paramax.unwrap(
-    eqx.combine(twice_stepped_partition, hyper_partition)
-).variational_mean
+twice_stepped_mean = val(
+    eqx.combine(twice_stepped_partition, hyper_partition).variational_mean
+)
 
 print(f"ELBO before the step           : {-loss_before:12.6f}")
 print(f"ELBO after one gamma=1 step    : {stepped_elbo:12.6f}")
@@ -483,15 +479,15 @@ print(
 # inducing-point approximation.
 
 # %%
-exact_posterior = paramax.unwrap(regression_model).condition(regression_data)
+exact_posterior = regression_model.condition(regression_data)
 exact_predictive = exact_posterior(test_inputs)
 exact_mean = exact_predictive.mean
 exact_stddev = jnp.sqrt(exact_predictive.variance)
 
 fig, axes = plt.subplots(ncols=2, figsize=(10, 3.0), sharey=True)
 for ax, family, title in [
-    (axes[0], unwrapped_initial, "Initialisation"),
-    (axes[1], unwrapped_stepped, "After one $\\gamma=1$ natural-gradient step"),
+    (axes[0], initial_family, "Initialisation"),
+    (axes[1], stepped_family, "After one $\\gamma=1$ natural-gradient step"),
 ]:
     predictive = family(test_inputs)
     predictive_mean = predictive.mean
@@ -528,7 +524,7 @@ axes[0].set_ylabel(r"$f(x)$")
 
 print(
     "max |sparse mean - exact mean| : "
-    f"{jnp.max(jnp.abs(unwrapped_stepped(test_inputs).mean - exact_mean)):.3e}"
+    f"{jnp.max(jnp.abs(stepped_family(test_inputs).mean - exact_mean)):.3e}"
 )
 
 # %% [markdown]
@@ -902,10 +898,9 @@ grid_points = jnp.stack([grid_x.ravel(), grid_y.ravel()], axis=1)
 
 def predictive_probability(model, inputs, num_chunks=8):
     """Bernoulli success probability, evaluated in chunks to bound memory."""
-    unwrapped = paramax.unwrap(model)
-    likelihood = unwrapped.model.likelihood
+    likelihood = model.model.likelihood
     return jnp.concatenate(
-        [likelihood(unwrapped(chunk)).mean for chunk in jnp.split(inputs, num_chunks)]
+        [likelihood(model(chunk)).mean for chunk in jnp.split(inputs, num_chunks)]
     )
 
 
@@ -945,7 +940,7 @@ for ax, model, name, seconds in [
             edgecolors="white",
             linewidths=0.3,
         )
-    inducing = paramax.unwrap(model).inducing_inputs
+    inducing = val(model.inducing_inputs)
     ax.scatter(inducing[:, 0], inducing[:, 1], marker="+", s=25, color="black")
 
     probability_test = predictive_probability(model, test_inputs_2d, num_chunks=1)
@@ -1036,8 +1031,8 @@ overconfident_family = gpx.variational_families.VariationalGaussian(
     variational_mean=jnp.zeros((num_banana_inducing, 1)),
     variational_root_covariance=0.1 * jnp.eye(num_banana_inducing),
 )
-overconfident_mean = overconfident_family.variational_mean.unwrap()
-overconfident_root = overconfident_family.variational_root_covariance.unwrap()
+overconfident_mean = val(overconfident_family.variational_mean)
+overconfident_root = val(overconfident_family.variational_root_covariance)
 
 
 def banana_loss_of_expectation(expectation):
@@ -1047,7 +1042,7 @@ def banana_loss_of_expectation(expectation):
         overconfident_family,
         (Real(variational_mean), LowerTriangular(variational_root)),
     )
-    return negative_elbo(paramax.unwrap(trial), banana_train)
+    return negative_elbo(trial, banana_train)
 
 
 cone_gradient = jax.grad(banana_loss_of_expectation)(
@@ -1098,9 +1093,9 @@ for max_backoff in [0, 3, 5, 7, 10]:
         max_backoff=max_backoff,
     )
     smallest_trial = 100.0 * 0.5**max_backoff
-    root = eqx.combine(
-        stepped, overconfident_hyper
-    ).variational_root_covariance.unwrap()
+    root = val(
+        eqx.combine(stepped, overconfident_hyper).variational_root_covariance
+    )
     outcome = "finite" if bool(jnp.all(jnp.isfinite(root))) else "NaN"
     print(
         f"  max_backoff = {max_backoff:2d}  smallest trial gamma = "

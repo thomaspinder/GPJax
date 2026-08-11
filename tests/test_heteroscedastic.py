@@ -43,7 +43,6 @@ from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
-import paramax
 import pytest
 
 config.update("jax_enable_x64", True)
@@ -296,7 +295,7 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
         params, static = eqx.partition(variational, eqx.is_array)
 
         def loss(p, static=static):
-            model = paramax.unwrap(eqx.combine(p, static))
+            model = eqx.combine(p, static)
             return -heteroscedastic_elbo(model, dataset)
 
         loss_val = loss(params)

@@ -14,13 +14,13 @@ from jaxtyping import (
     Num,
 )
 import lineax as lx
-import paramax
 
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import ConjugateModel, Prior
 from gpjax.likelihoods import Gaussian, MultiOutputGaussian
 from gpjax.linalg.utils import add_jitter
+from gpjax.parameters import val
 from gpjax.state_space.conditioning import StateSpacePosterior
 from gpjax.typing import Array
 
@@ -244,7 +244,7 @@ def _require_scalar_gaussian_likelihood(likelihood) -> None:
             f"State-space inference requires a Gaussian (conjugate) likelihood; "
             f"got {type(likelihood).__name__}."
         )
-    obs_stddev_value = paramax.unwrap(likelihood.obs_stddev)
+    obs_stddev_value = val(likelihood.obs_stddev)
     if jnp.asarray(obs_stddev_value).ndim != 0:
         raise ValueError(
             f"State-space Gaussian likelihood requires a scalar obs_stddev; "

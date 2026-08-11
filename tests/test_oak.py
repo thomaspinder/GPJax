@@ -314,7 +314,6 @@ class TestOrthogonalAdditiveKernelProperties:
     def test_gradient_flows(self):
         """Gradients w.r.t. kernel parameters are finite and non-zero."""
         import equinox as eqx
-        import paramax
 
         base_kernels = [RBF(active_dims=[i]) for i in range(3)]
         kernel = OrthogonalAdditiveKernel(base_kernels=base_kernels)
@@ -323,7 +322,7 @@ class TestOrthogonalAdditiveKernelProperties:
         params, static = eqx.partition(kernel, eqx.is_array)
 
         def loss_fn(params):
-            k = paramax.unwrap(eqx.combine(params, static))
+            k = eqx.combine(params, static)
             K = k.gram(x).as_matrix()
             return jnp.sum(K)
 

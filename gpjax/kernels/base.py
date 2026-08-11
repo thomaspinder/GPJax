@@ -29,7 +29,7 @@ from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
 )
-from gpjax.parameters import Real, _val
+from gpjax.parameters import Real, val
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
@@ -243,7 +243,7 @@ class Constant(AbstractKernel):
         Returns:
             ScalarFloat: The evaluated kernel function at the supplied inputs.
         """
-        return _val(self.constant).squeeze()
+        return val(self.constant).squeeze()
 
 
 class CombinationKernel(AbstractKernel):

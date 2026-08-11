@@ -10,10 +10,10 @@ from typing import Literal
 import jax
 import jax.numpy as jnp
 import lineax as lx
-import paramax
 
 from gpjax.distributions import GaussianDistribution
 from gpjax.linalg.utils import add_jitter
+from gpjax.parameters import val
 from gpjax.state_space.inference import _sqrt_filter_forward, rts_smoother
 from gpjax.state_space.kernels import to_sde
 
@@ -242,7 +242,6 @@ def predict_smoothed(
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4.
     """
-    posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood
 
@@ -257,7 +256,7 @@ def predict_smoothed(
     centred_targets = train_targets - mean_at_train
 
     sde = to_sde(prior.kernel)
-    obs_variance = likelihood.obs_stddev**2
+    obs_variance = val(likelihood.obs_stddev) ** 2
     sigma_eff = jnp.sqrt(obs_variance + prior.jitter)
 
     if observation_mask is None:
@@ -334,7 +333,6 @@ def predict_filtered(posterior, train_data, test_inputs, *, observation_mask=Non
 
     See plans/2026-04-21-state-space-gps-design.md §Stage 4.
     """
-    posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood
 
@@ -349,7 +347,7 @@ def predict_filtered(posterior, train_data, test_inputs, *, observation_mask=Non
     centred_targets = train_targets - mean_at_train
 
     sde = to_sde(prior.kernel)
-    obs_variance = likelihood.obs_stddev**2
+    obs_variance = val(likelihood.obs_stddev) ** 2
     sigma_eff = jnp.sqrt(obs_variance + prior.jitter)
 
     if observation_mask is None:

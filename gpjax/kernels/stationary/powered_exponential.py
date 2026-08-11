@@ -20,7 +20,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -86,8 +86,8 @@ class PoweredExponential(StationaryKernel):
     def __call__(
         self, x: Float[Array, " D"], y: Float[Array, " D"]
     ) -> Float[Array, ""]:
-        x = self.slice_input(x) / _val(self.lengthscale)
-        y = self.slice_input(y) / _val(self.lengthscale)
-        power_val = _val(self.power)
-        K = _val(self.variance) * jnp.exp(-(euclidean_distance(x, y) ** power_val))
+        x = self.slice_input(x) / val(self.lengthscale)
+        y = self.slice_input(y) / val(self.lengthscale)
+        power_val = val(self.power)
+        K = val(self.variance) * jnp.exp(-(euclidean_distance(x, y) ** power_val))
         return K.squeeze()

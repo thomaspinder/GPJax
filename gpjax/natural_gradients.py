@@ -87,7 +87,7 @@ from gpjax.objectives import Objective
 from gpjax.parameters import (
     LowerTriangular,
     Real,
-    _val,
+    val,
 )
 from gpjax.typing import (
     Array,
@@ -639,7 +639,6 @@ def natural_gradient_step(
         >>> jax.config.update("jax_enable_x64", True)
         >>> import jax.numpy as jnp
         >>> import equinox as eqx
-        >>> import paramax
         >>> import gpjax as gpx
         >>> from gpjax.natural_gradients import (
         ...     natural_gradient_step,
@@ -661,7 +660,7 @@ def natural_gradient_step(
         >>> stepped, loss = natural_gradient_step(
         ...     variational, hyper, D, negative_elbo, jnp.asarray(1.0)
         ... )
-        >>> updated = paramax.unwrap(eqx.combine(stepped, hyper))
+        >>> updated = eqx.combine(stepped, hyper)
         >>> bool(loss > -gpx.objectives.elbo(updated, D))
         True
     """
@@ -718,9 +717,8 @@ def _variational_gaussian_step(
     _reject_frozen_coordinates(variational)
 
     family = eqx.combine(variational, hyper)
-    unwrapped = paramax.unwrap(family)
-    initial_mean = _val(unwrapped.variational_mean)
-    initial_root_covariance = _val(unwrapped.variational_root_covariance)
+    initial_mean = val(family.variational_mean)
+    initial_root_covariance = val(family.variational_root_covariance)
 
     # theta_0 comes from L directly, never by round-tripping through eta_0: the
     # detour costs an extra Cholesky and passes through a cancellation site.
@@ -742,7 +740,7 @@ def _variational_gaussian_step(
             family,
             (Real(trial_mean), LowerTriangular(trial_root_covariance)),
         )
-        return objective(paramax.unwrap(trial), data)
+        return objective(trial, data)
 
     loss_value, gradient = jax.value_and_grad(loss_of_expectation)(initial_expectation)
     # H_2 is symmetric, so the gradient must be read in the trace pairing on Sym(M).
@@ -875,7 +873,7 @@ def _dual_variational_gaussian_step(
     del map_jitter, backoff, max_backoff
     _reject_frozen_coordinates(variational)
 
-    family = paramax.unwrap(eqx.combine(variational, hyper))
+    family = eqx.combine(variational, hyper)
 
     # One extra forward pass, taken deliberately: it makes `history[t]` the loss at the
     # pre-update parameters, exactly as in `fit` and in the Salimbeni branch. XLA
@@ -917,8 +915,8 @@ def _dual_variational_gaussian_step(
     target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
 
     rate = natgrad_lr
-    stored_vector = _val(family.dual_vector)
-    stored_matrix = _val(family.dual_matrix)
+    stored_vector = val(family.dual_vector)
+    stored_matrix = val(family.dual_matrix)
 
     # `add_jitter` builds its identity at the default float type, so under
     # `jax_enable_x64` everything downstream of K_zz is float64 even for a float32

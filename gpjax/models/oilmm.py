@@ -24,7 +24,7 @@ import lineax as lx
 
 from gpjax.conditioning import Posterior
 from gpjax.distributions import GaussianDistribution
-from gpjax.parameters import NonNegativeReal, PositiveReal, Real, _val
+from gpjax.parameters import NonNegativeReal, PositiveReal, Real, val
 from gpjax.typing import ScalarFloat
 
 if tp.TYPE_CHECKING:
@@ -104,18 +104,18 @@ class OrthogonalMixingMatrix(eqx.Module):
         Uses SVD to project U_latent onto the Stiefel manifold (orthonormal columns).
         This ensures U^T U = I_m exactly.
         """
-        U_svd, _, Vt_svd = jnp.linalg.svd(_val(self.U_latent), full_matrices=False)
+        U_svd, _, Vt_svd = jnp.linalg.svd(val(self.U_latent), full_matrices=False)
         return U_svd @ Vt_svd
 
     @property
     def sqrt_S(self) -> Float[Array, " M"]:
         """Square root of S diagonal: S^(1/2)."""
-        return jnp.sqrt(_val(self.S))
+        return jnp.sqrt(val(self.S))
 
     @property
     def inv_sqrt_S(self) -> Float[Array, " M"]:
         """Inverse square root of S diagonal: S^(-1/2)."""
-        return 1.0 / jnp.sqrt(_val(self.S))
+        return 1.0 / jnp.sqrt(val(self.S))
 
     @property
     def H(self) -> Float[Array, "P M"]:
@@ -158,7 +158,7 @@ class OrthogonalMixingMatrix(eqx.Module):
         Returns:
             Array of shape [M] with noise variance for each latent GP.
         """
-        return _val(self.obs_noise_variance) * self.inv_sqrt_S**2 + _val(
+        return val(self.obs_noise_variance) * self.inv_sqrt_S**2 + val(
             self.latent_noise_variance
         )
 
@@ -327,8 +327,8 @@ def _projection_correction(model: OILMMModel, data: Dataset) -> ScalarFloat:
     mix = model.mixing_matrix
 
     U = mix.U  # [P, M]
-    S = _val(mix.S)  # [M]
-    sigma2 = _val(mix.obs_noise_variance)  # scalar
+    S = val(mix.S)  # [M]
+    sigma2 = val(mix.obs_noise_variance)  # scalar
 
     # -(n/2) log|S|, with |S| = prod(S_i).
     term_log_S = -0.5 * num_data * jnp.sum(jnp.log(S))

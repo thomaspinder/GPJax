@@ -12,7 +12,7 @@ from jax import lax
 import jax.numpy as jnp
 from jaxtyping import Float
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.kernels.computations.base import AbstractKernelComputation
 from gpjax.parameters import NonNegativeReal
@@ -198,7 +198,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
     @property
     def _lengthscales(self) -> Float[Array, " D"]:
         """Stack base kernel lengthscales into a single array."""
-        return jnp.stack([_val(k.lengthscale).squeeze() for k in self.base_kernels])
+        return jnp.stack([val(k.lengthscale).squeeze() for k in self.base_kernels])
 
     @property
     def _variances(self) -> Float[Array, " D"]:
@@ -209,7 +209,7 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         """
         if self.fix_base_variance:
             return jnp.ones(len(self.base_kernels))
-        return jnp.stack([_val(k.variance).squeeze() for k in self.base_kernels])
+        return jnp.stack([val(k.variance).squeeze() for k in self.base_kernels])
 
     def __call__(
         self,
@@ -237,4 +237,4 @@ class OrthogonalAdditiveKernel(AbstractKernel):
         elem_sym = _newton_girard(per_dim_values, self.max_order)
 
         # Weighted sum: K(x,y) = sum_d sigma^2_d * e_d
-        return jnp.dot(_val(self.order_variances), elem_sym)
+        return jnp.dot(val(self.order_variances), elem_sym)

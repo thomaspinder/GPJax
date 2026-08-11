@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`gpjax.parameters.val`.** Promoted from the private `_val` helper to documented
+  public API, and now the single accessor for a parameter's constrained value:
+  `val(kernel.lengthscale)` applies the constraining bijection, while plain arrays and
+  floats pass through unchanged, so it needs no `isinstance` guard and is safe to
+  apply anywhere. It resolves nested wrappers innermost-first, so a parameter frozen
+  with `paramax.non_trainable` is read exactly like any other. This is the rule to
+  follow when writing a kernel, mean function, likelihood or objective — see the
+  "How does the parameter system work?" section of the Sharp Bits guide
+  (`docs/sharp_bits.md`).
+
 - **Dense joint predictive covariance for state-space GPs.**
   `StateSpacePrior.predict`, `StateSpaceConjugateModel.predict`, and
   `StateSpacePosterior.__call__` (`gpjax.state_space`) now accept
@@ -76,6 +86,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (breaking)
 
+- **Models are no longer unwrapped before objectives, losses and predictions run.**
+  `fit`, `fit_scipy`, `fit_lbfgs` and `fit_natgrads` no longer call
+  `paramax.unwrap(model)` inside their loss functions, and the `gpjax.state_space`
+  objectives and prediction entry points no longer unwrap on the way in. A model is
+  now *always* in its wrapped form — the model you build, and the model a fitter
+  hands back — and the constraining bijection is applied at the point of use by
+  `gpjax.parameters.val`. Previously the same function could receive either form
+  depending on how it was reached, which made "is this model wrapped?" an
+  undocumented precondition on every user-facing extension point: an objective called
+  directly received a wrapped model, while the identical function called through
+  `fit` received an unwrapped one.
+
+  Ordinary use is unaffected. `gpx.fit(...)` with built-in kernels, and calls such as
+  `conjugate_mll(posterior, D)` or `posterior(X, train_data=D)`, behave exactly as
+  before — `val` is idempotent, so GPJax's own functions still accept a model in
+  either form. What changes is code *inside* the call path: a third-party kernel,
+  mean function, likelihood or objective that reads a parameter directly
+  (`model.prior.kernel.lengthscale` rather than
+  `val(model.prior.kernel.lengthscale)`) now raises `TypeError: unsupported operand
+  type(s) ... 'PositiveReal'` when reached through a fitter. Such code was already
+  inconsistent rather than correct: because GPJax's own kernels have always resolved
+  parameters at the point of use, a bare read failed on a direct `kernel.gram(x)`
+  call before this change too, and worked only when something upstream happened to
+  unwrap first. The fix is to wrap each parameter read in `val`, which returns the
+  constrained value of a parameter and returns plain arrays and floats unchanged.
+  `paramax.unwrap` is untouched and still resolves a whole model tree.
+
+  Gradients are unchanged. The bijection sits on the differentiated path either way,
+  so the chain rule accounts for it identically whether it is applied once or at each
+  of several use sites, and parameters frozen with `paramax.non_trainable` still
+  receive exactly zero gradient — `val` resolves nested wrappers innermost-first, so
+  `lax.stop_gradient` lands on every path back to the underlying array rather than on
+  one. Under `jit` there is no runtime cost: the bijection is loop-invariant under
+  `vmap` and repeated reads of the same parameter are common-subexpression-eliminated,
+  so it is computed once per loss evaluation however many call sites read it.
+
 - **`OILMMPosterior.__call__`/`.predict` default to `covariance="diagonal"`**
   (was `"dense"`) ([#682](https://github.com/JaxGaussianProcesses/GPJax/issues/682)).
   The dense joint covariance costs `O(m n^2 p^2)` — an `np x np` matrix built
@@ -139,7 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unchanged and remains trainable.
 
   `Zero().constant` is now a `NonTrainable` wrapper rather than a bare array.
-  Read it with `paramax.unwrap(mean_function).constant` (or `_val`) if you were
+  Read it with `paramax.unwrap(mean_function).constant` (or `val`) if you were
   accessing it directly; evaluating the mean function is unaffected.
 
 ## [0.18.0] — 2026-07-26

@@ -21,7 +21,7 @@ from jaxtyping import Float
 import numpyro.distributions as npd
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -110,7 +110,7 @@ class StationaryKernel(AbstractKernel):
                 "in order to construct its spectral measure. Please specify the "
                 "n_dims argument for the kernel."
             )
-        return jnp.diag(jnp.ones(self.n_dims) / _val(self.lengthscale))
+        return jnp.diag(jnp.ones(self.n_dims) / val(self.lengthscale))
 
     @property
     def spectral_density(self) -> npd.MultivariateNormal | npd.MultivariateStudentT:
@@ -165,7 +165,7 @@ def _check_lengthscale_dims_compat(
     """
 
     if isinstance(lengthscale, AbstractUnwrappable):
-        return _check_lengthscale_dims_compat(_val(lengthscale), n_dims)
+        return _check_lengthscale_dims_compat(val(lengthscale), n_dims)
 
     lengthscale = jnp.asarray(lengthscale)
     ls_shape = jnp.shape(lengthscale)
@@ -188,7 +188,7 @@ def _check_lengthscale(lengthscale: tp.Any):
     """Check that the lengthscale is a valid value."""
 
     if isinstance(lengthscale, AbstractUnwrappable):
-        _check_lengthscale(_val(lengthscale))
+        _check_lengthscale(val(lengthscale))
         return
 
     if not isinstance(lengthscale, (int, float, jnp.ndarray, list, tuple)):

@@ -17,7 +17,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 
 from gpjax.kernels.additive.oak import _newton_girard
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.typing import Array
 
 if tp.TYPE_CHECKING:
@@ -148,7 +148,7 @@ def sobol_indices(
     """
     num_points = x_train.shape[0]
     max_order = kernel.max_order
-    order_variances = _val(kernel.order_variances)
+    order_variances = val(kernel.order_variances)
 
     # Solve alpha = (K + sigma_n^2 I)^{-1} y
     gram_matrix = kernel.gram(x_train).as_matrix()
