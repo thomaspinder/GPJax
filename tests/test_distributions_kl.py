@@ -10,6 +10,10 @@ from gpjax.distributions import (
     GaussianDistribution,
     _kl_divergence,
 )
+from gpjax.linalg import (
+    BlockDiag,
+    Kronecker,
+)
 import gpjax.linalg.utils as linalg_utils
 import jax
 import jax.numpy as jnp
@@ -277,3 +281,22 @@ def test_kl_is_jittable_for_diagonal_scale():
 
     result = jax.jit(kl_diag)(DIAG_Q, DIAG_P)
     assert jnp.abs(result - REFERENCE_KL[("diagonal", "diagonal")]) < 1e-10
+
+
+@pytest.mark.parametrize(
+    "make_scale",
+    [
+        lambda a, b: BlockDiag([a, b]),
+        lambda a, b: Kronecker(a, b),
+    ],
+    ids=["block_diag", "kronecker"],
+)
+def test_kl_divergence_supports_custom_operators(make_scale):
+    # Regression for #709: kl_divergence solves against the sqrt covariance
+    # with lx.Triangular(), which queries lx.has_unit_diagonal on the operator.
+    # BlockDiag and Kronecker did not register that predicate, so the call
+    # raised NotImplementedError instead of returning a KL value.
+    a = lx.MatrixLinearOperator(jnp.array([[2.0, 0.3], [0.3, 1.5]]))
+    b = lx.MatrixLinearOperator(jnp.array([[3.0, 0.1], [0.1, 2.0]]))
+    q = GaussianDistribution(jnp.zeros(4), make_scale(a, b))
+    assert jnp.allclose(q.kl_divergence(q), 0.0, atol=1e-5)

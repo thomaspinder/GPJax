@@ -152,3 +152,13 @@ def _is_nsd_blockdiag(op):
 @lx.is_negative_semidefinite.register(Kronecker)
 def _is_nsd_kronecker(op):
     return False
+
+
+@lx.has_unit_diagonal.register(BlockDiag)
+def _has_unit_diagonal_blockdiag(op):
+    return all(lx.has_unit_diagonal(b) for b in op.blocks)
+
+
+@lx.has_unit_diagonal.register(Kronecker)
+def _has_unit_diagonal_kronecker(op):
+    return lx.has_unit_diagonal(op.A) and lx.has_unit_diagonal(op.B)
