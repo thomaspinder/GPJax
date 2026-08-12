@@ -14,28 +14,33 @@ on:
   schedule:
     - cron: '30 4 * * 1'  # Weekly on Mondays at 4:30 AM UTC
 
-permissions:
-  contents: read
-  security-events: write
-  actions: read
+# Neither job writes back to GitHub: the dependency scan uploads its reports as
+# workflow artifacts and TruffleHog reports through the step log, so no
+# security-events scope is needed. Each job grants itself read access for its
+# own checkout.
+permissions: {}
 
 jobs:
   dependency-scan:
     name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+    permissions:
+      contents: read # checkout
+
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: Set up Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
       with:
         python-version: '3.11'
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       with:
         version: "latest"
         enable-cache: true
@@ -57,7 +62,7 @@ jobs:
         uv run bandit -r gpjax/ -f json -o bandit-report.json -ll
 
     - name: Upload dependency scan results
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       if: always()
       with:
         name: security-scan-results
@@ -70,15 +75,18 @@ jobs:
     name: Secrets Detection
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
+    permissions:
+      contents: read # checkout
+
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        fetch-depth: 0  # Fetch full history for comprehensive scanning
+        fetch-depth: 0 # Fetch full history for comprehensive scanning
+        persist-credentials: false
 
     - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
+      uses: trufflesecurity/trufflehog@96b593f460badf7a3da2ad3487e0e4986243ef03 # main
       with:
         path: ./
         # `--exclude-detectors=lob`: TruffleHog's Lob key pattern is

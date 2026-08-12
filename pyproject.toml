@@ -112,6 +112,10 @@ dev = [
   "poethepoet>=0.37.0",
   "twine>=6.2.0",
   "hypothesis>=6.148.2",
+  # Workflow security audit (`poe lint-actions`, .github/workflows/zizmor.yml).
+  # Pinned through uv.lock rather than `uvx zizmor@latest` so a new release
+  # cannot turn every open PR red without a commit.
+  "zizmor>=1.14",
   # Dev-only live-reload docs server (`poe docs-live`). Deliberately NOT in the
   # `docs` extra: CI has no use for a watcher, and keeping it out means it can
   # never affect a published build.
@@ -155,6 +159,15 @@ sequence = [
   { cmd = "ruff check --no-fix ./gpjax ./tests ./benchmarks" }
 ]
 help = "Check code formatting and style without mutating files (used by CI)"
+
+# Local counterpart of .github/workflows/zizmor.yml. The workflow renders SARIF
+# for code scanning; this renders the annotated form a human wants, and unlike
+# SARIF it exits 14 when there are findings, so it gates on its own exit code.
+# The online audits resolve action refs through the GitHub API: export
+# GH_TOKEN=$(gh auth token) to enable them, or they are skipped silently.
+[tool.poe.tasks.lint-actions]
+cmd = "zizmor ."
+help = "Audit the GitHub Actions workflows with zizmor"
 
 # Testing tasks
 [tool.poe.tasks.test]
