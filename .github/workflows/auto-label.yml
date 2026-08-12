@@ -1,6 +1,12 @@
 name: "Automatic Labeling"
 
-on:
+# `pull_request_target` is required, not incidental: labelling a PR needs write
+# access to the pull request, and the `pull_request` token is read-only for
+# fork PRs, which is most of them. The standard danger of this trigger is
+# running fork code with a privileged token, so this workflow never checks the
+# PR out and never executes anything from it — every step below talks to the
+# API only.
+on: # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     types: [opened, synchronize, reopened]
   issues:
@@ -14,20 +20,19 @@ jobs:
       issues: write
       pull-requests: write
 
+    # No checkout: `actions/labeler` reads .github/labeler.yml through the API,
+    # and nothing else here touches the working tree.
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
       - name: Auto-label based on files changed
-        if: github.event_name == 'pull_request'
-        uses: actions/labeler@v7
+        if: github.event_name == 'pull_request_target'
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
 
       - name: Size labeling for PRs
-        if: github.event_name == 'pull_request'
-        uses: codelytv/pr-size-labeler@v1
+        if: github.event_name == 'pull_request_target'
+        uses: codelytv/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9 # v1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           xs_label: 'size/xs'
@@ -45,7 +50,7 @@ jobs:
 
       - name: Label ML-specific issues
         if: github.event_name == 'issues'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const title = context.payload.issue.title.toLowerCase();
@@ -143,8 +148,8 @@ jobs:
             }
 
       - name: Label PRs based on content
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const title = context.payload.pull_request.title.toLowerCase();

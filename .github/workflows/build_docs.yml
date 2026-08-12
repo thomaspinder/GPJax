@@ -15,10 +15,10 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# Pages publication is confined to `deploy-docs`; the build job only reads the
+# repository. Keeping `pages`/`id-token` off the workflow level means the
+# notebook execution step never runs with a deployment-capable token.
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,19 +30,21 @@ jobs:
     # Full render on main executes every example notebook for real.
     timeout-minutes: 120
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout, including the asv-results branch
     steps:
       - name: Check out the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "latest"
           enable-cache: true
@@ -58,7 +60,7 @@ jobs:
         # refuses to overwrite an existing key). Combined with jupyter-cache's
         # own content-hash invalidation, this makes the cache accumulate every
         # successfully executed notebook instead of freezing partial progress.
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             docs/_build/.jupyter_cache
@@ -83,7 +85,7 @@ jobs:
         # traceback of any failed notebook to <outdir>/reports/<docname>.err.log
         # rather than aborting. Nothing else in the deploy log carries it.
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: notebook-error-logs
           path: docs/_build/html/reports
@@ -91,7 +93,7 @@ jobs:
           retention-days: 14
 
       - name: Checkout benchmark results
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: asv-results
           path: .asv-results
@@ -110,7 +112,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/_build/html
 
@@ -123,6 +125,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      pages: write # deploy to GitHub Pages
+      id-token: write # OIDC verification of the deployment
     concurrency:
       group: pages
       cancel-in-progress: false
@@ -132,4 +137,4 @@ jobs:
     steps:
       - name: Deploy documentation
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
