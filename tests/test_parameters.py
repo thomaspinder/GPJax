@@ -1,4 +1,16 @@
+import equinox as eqx
+import gpjax as gpx
+from gpjax.parameters import (
+    NonNegativeReal,
+    PositiveReal,
+    Real,
+    SigmoidBounded,
+    collect_log_prior,
+    val,
+)
+import jax
 import jax.numpy as jnp
+import numpyro.distributions as npd
 import paramax
 from paramax import AbstractUnwrappable
 import pytest
@@ -176,3 +188,113 @@ def test_coregionalization_matrix():
     # PSD check: all eigenvalues >= 0
     eigvals = jnp.linalg.eigvalsh(B)
     assert jnp.all(eigvals >= -1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Priors
+# ---------------------------------------------------------------------------
+
+PARAMETER_TYPES = [
+    (PositiveReal, 2.0),
+    (NonNegativeReal, 2.0),
+    (Real, -0.5),
+    (SigmoidBounded, 0.5),
+]
+
+
+@pytest.mark.parametrize(("cls", "value"), PARAMETER_TYPES)
+def test_prior_defaults_to_none(cls, value):
+    assert cls(jnp.asarray(value)).prior is None
+
+
+@pytest.mark.parametrize(("cls", "value"), PARAMETER_TYPES)
+def test_prior_is_read_back_unchanged(cls, value):
+    prior = npd.Normal(0.0, 1.0)
+    assert cls(jnp.asarray(value), prior=prior).prior is prior
+
+
+@pytest.mark.parametrize(("cls", "value"), PARAMETER_TYPES)
+def test_every_parameter_type_contributes_a_log_prior(cls, value):
+    prior = npd.Normal(0.0, 1.0)
+    p = cls(jnp.asarray(value), prior=prior)
+    assert jnp.equal(collect_log_prior(p), prior.log_prob(val(p)).sum())
+
+
+def test_prior_hyperparameters_are_not_pytree_leaves():
+    """The prior's own arrays must never reach the trainable partition."""
+    prior = npd.LogNormal(jnp.array(1.2345), jnp.array(6.789))
+    p = PositiveReal(jnp.array(1.0), prior=prior)
+
+    leaves = jax.tree.leaves(p)
+    assert len(leaves) == 1
+    assert jnp.allclose(leaves[0], p._unconstrained)
+
+    params, _ = eqx.partition(p, eqx.is_array)
+    assert not any(
+        jnp.allclose(leaf, 1.2345) or jnp.allclose(leaf, 6.789)
+        for leaf in jax.tree.leaves(params)
+    )
+
+
+def test_prior_survives_partition_and_combine():
+    """``fit`` splits models this way, so the prior has to come back intact."""
+    prior = npd.LogNormal(0.0, 1.0)
+    p = PositiveReal(jnp.array(2.0), prior=prior)
+    params, static = eqx.partition(p, eqx.is_array)
+    assert eqx.combine(params, static).prior is prior
+
+
+def test_prior_receives_no_gradient():
+    """Differentiating the log-prior touches the parameter, never the prior."""
+    prior = npd.LogNormal(jnp.array(0.0), jnp.array(1.0))
+    p = PositiveReal(jnp.array(2.0), prior=prior)
+
+    grads = jax.grad(collect_log_prior)(p)
+    assert len(jax.tree.leaves(grads)) == 1
+    assert grads.prior is prior
+
+
+def test_collect_log_prior_uses_the_constrained_value():
+    """A prior on a PositiveReal is evaluated at the positive value, not at the
+    unconstrained value it is stored as."""
+    prior = npd.LogNormal(0.0, 1.0)
+    p = PositiveReal(jnp.array(2.0), prior=prior)
+
+    assert jnp.equal(collect_log_prior(p), prior.log_prob(jnp.array(2.0)))
+    assert not jnp.allclose(
+        collect_log_prior(p), prior.log_prob(p._unconstrained), atol=1e-5
+    )
+
+
+def test_collect_log_prior_is_zero_without_priors():
+    assert collect_log_prior(gpx.kernels.RBF()) == 0.0
+
+
+def test_collect_log_prior_sums_over_the_model():
+    lengthscale_prior = npd.LogNormal(0.0, 1.0)
+    variance_prior = npd.LogNormal(jnp.log(2.0), 0.5)
+    kernel = gpx.kernels.RBF(
+        lengthscale=PositiveReal(1.5, prior=lengthscale_prior),
+        variance=PositiveReal(0.5, prior=variance_prior),
+    )
+    expected = lengthscale_prior.log_prob(1.5) + variance_prior.log_prob(0.5)
+    assert jnp.equal(collect_log_prior(kernel), expected)
+
+
+def test_collect_log_prior_sums_a_batched_prior_per_dimension():
+    """An ARD lengthscale takes a different prior in each dimension."""
+    lengthscale = jnp.array([0.5, 1.0, 2.0])
+    prior = npd.LogNormal(
+        loc=jnp.array([0.0, 0.7, 1.5]), scale=jnp.array([1.0, 0.5, 0.25])
+    )
+    kernel = gpx.kernels.RBF(lengthscale=PositiveReal(lengthscale, prior=prior))
+    assert jnp.equal(collect_log_prior(kernel), prior.log_prob(lengthscale).sum())
+
+
+def test_collect_log_prior_is_jittable():
+    prior = npd.LogNormal(0.0, 1.0)
+    kernel = gpx.kernels.RBF(lengthscale=PositiveReal(2.0, prior=prior))
+    assert jnp.equal(
+        eqx.filter_jit(collect_log_prior)(kernel),
+        collect_log_prior(kernel),
+    )

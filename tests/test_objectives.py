@@ -15,9 +15,11 @@ from gpjax.objectives import (
     dual_elbo,
     elbo,
     non_conjugate_mll,
+    with_log_prior,
 )
 from gpjax.parameters import (
     PositiveReal,
+    collect_log_prior,
     val,
 )
 from gpjax.variational_families import DualVariationalGaussian
@@ -28,6 +30,7 @@ import jax.random as jr
 import jax.scipy as jsp
 import jax.tree_util as jtu
 import numpy as np
+import numpyro.distributions as npd
 import pytest
 
 from tests._dual_helpers import (
@@ -882,3 +885,108 @@ def test_pinned_elbo_is_a_lower_bound_on_the_evidence(family: str):
     """
     q, data = _pinned_uncollapsed_family(family, binary=False)
     assert elbo(q, data) <= conjugate_mll(q.model, data)
+
+
+# ---------------------------------------------------------------------------
+# with_log_prior
+# ---------------------------------------------------------------------------
+
+
+def _map_data(n=30):
+    x = jnp.linspace(0.0, 1.0, n).reshape(-1, 1)
+    return Dataset(X=x, y=jnp.sin(4.0 * x))
+
+
+def _map_model(lengthscale_prior=None, lengthscale=1.0):
+    lengthscale = PositiveReal(lengthscale, prior=lengthscale_prior)
+    kernel = gpx.kernels.RBF(lengthscale=lengthscale)
+    meanf = gpx.mean_functions.Constant()
+    return Prior(mean_function=meanf, kernel=kernel) * Gaussian()
+
+
+def _svgp_model(lengthscale_prior=None):
+    """The same model behind a variational family, so the priors sit two levels
+    down and share the tree with non-Parameter variational leaves."""
+    z = jnp.linspace(0.0, 1.0, 5).reshape(-1, 1)
+    return gpx.variational_families.VariationalGaussian(
+        model=_map_model(lengthscale_prior), inducing_inputs=z
+    )
+
+
+OBJECTIVE_CASES = [(conjugate_mll, _map_model), (elbo, _svgp_model)]
+
+
+@pytest.mark.parametrize(("objective", "make_model"), OBJECTIVE_CASES)
+def test_with_log_prior_is_exactly_the_base_objective_without_priors(
+    objective, make_model
+):
+    """A model with no priors must be regularised by precisely nothing."""
+    model, D = make_model(), _map_data()
+    assert with_log_prior(objective)(model, D) == objective(model, D)
+
+
+@pytest.mark.parametrize(("objective", "make_model"), OBJECTIVE_CASES)
+def test_with_log_prior_adds_the_summed_log_prior(objective, make_model):
+    model = make_model(npd.LogNormal(jnp.log(5.0), 0.5))
+    D = _map_data()
+    expected = objective(model, D) + collect_log_prior(model)
+    assert jnp.equal(with_log_prior(objective)(model, D), expected)
+
+
+def test_with_log_prior_leaves_the_base_objective_untouched():
+    """The combinator returns a new function rather than mutating its input."""
+    model = _map_model(npd.LogNormal(jnp.log(5.0), 0.5))
+    D = _map_data()
+    before = conjugate_mll(model, D)
+    with_log_prior(conjugate_mll)(model, D)
+    assert conjugate_mll(model, D) == before
+
+
+def test_with_log_prior_shifts_the_optimum_towards_the_prior():
+    """The point of the feature: a prior favouring long lengthscales should pull
+    the MAP estimate above the unregularised MLE."""
+    D = _map_data()
+    prior = npd.LogNormal(jnp.log(10.0), 0.1)
+
+    mle_model, _ = gpx.fit_scipy(
+        model=_map_model(),
+        objective=lambda p, d: -conjugate_mll(p, d),
+        train_data=D,
+        verbose=False,
+    )
+    map_model, _ = gpx.fit_scipy(
+        model=_map_model(prior),
+        objective=lambda p, d: -with_log_prior(conjugate_mll)(p, d),
+        train_data=D,
+        verbose=False,
+    )
+
+    mle_lengthscale = val(mle_model.prior.kernel.lengthscale)
+    map_lengthscale = val(map_model.prior.kernel.lengthscale)
+    assert map_lengthscale > mle_lengthscale
+
+
+def test_with_log_prior_does_not_train_the_prior():
+    """Fitting must leave the prior's own hyperparameters exactly as supplied.
+
+    numpyro distributions are mutable, so identity alone would not catch a
+    prior whose hyperparameters had drifted in place.
+    """
+    prior = npd.LogNormal(jnp.log(5.0), 0.5)
+    trained, _ = gpx.fit_scipy(
+        model=_map_model(prior),
+        objective=lambda p, d: -with_log_prior(conjugate_mll)(p, d),
+        train_data=_map_data(),
+        verbose=False,
+    )
+    trained_prior = trained.prior.kernel.lengthscale.prior
+    assert trained_prior is prior
+    assert trained_prior.loc == jnp.log(5.0)
+    assert trained_prior.scale == 0.5
+
+
+def test_with_log_prior_is_jittable():
+    model = _map_model(npd.LogNormal(jnp.log(5.0), 0.5))
+    D = _map_data()
+    regularised = with_log_prior(conjugate_mll)
+    assert jnp.equal(eqx.filter_jit(regularised)(model, D), regularised(model, D))
