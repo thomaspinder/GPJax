@@ -9,7 +9,7 @@ jaxtyping==0.3.11
 lineax==0.1.1
 markdown-it-py==4.2.0
 mdurl==0.1.2
-ml-dtypes==0.5.4
+ml-dtypes==0.6.0
 multipledispatch==1.0.0
 numpy==2.4.6
 numpyro==0.21.0
