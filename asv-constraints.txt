@@ -16,7 +16,7 @@ numpyro==0.21.0
 opt-einsum==3.4.0
 optax==0.2.8
 paramax==0.0.5
-pygments==2.20.0
+pygments==2.21.0
 rich==15.0.0
 scipy==1.17.1
 toolz==1.1.0
