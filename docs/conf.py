@@ -295,7 +295,9 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "shibuya"
 html_title = "GPJax"
-html_baseurl = "https://docs.jaxgaussianprocesses.com/"  # for sitemap + canonical
+# Sitemap, canonical link, og:url and the absolute og:image URL all derive from
+# this, so it must match the domain GitHub Pages is actually serving (docs/CNAME).
+html_baseurl = "https://gpjax.quantclimate.com/"
 sitemap_url_scheme = "{link}"
 html_static_path = ["stylesheets"]
 html_css_files = ["extra.css"]
@@ -367,7 +369,8 @@ html_context = {
 }
 
 # -- Redirects from the retired MkDocs site (sphinx-reredirects) -------------
-# docs.jaxgaussianprocesses.com served the MkDocs site with `use_directory_urls`
+# The retired MkDocs site (then at docs.jaxgaussianprocesses.com) ran with
+# `use_directory_urls`
 # (the default), so every old page lived at `<path>/`, i.e. the file
 # `<path>/index.html`. The keys below therefore end in `/index`, which is what
 # puts the emitted meta-refresh stub exactly where the old URL pointed.
