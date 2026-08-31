@@ -13,6 +13,7 @@ from gpjax.gps import (
 from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
 )
+from gpjax.parameters import collect_log_prior
 from gpjax.typing import (
     Array,
     ScalarFloat,
@@ -29,7 +30,81 @@ DVF = TypeVar("DVF", bound=DualVariationalGaussian)
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
-LogPriorFn = tpe.Callable[[eqx.Module], ScalarFloat]
+
+
+def with_log_prior(objective: Objective) -> Objective:
+    r"""Regularise an objective with the priors attached to a model's parameters.
+
+    Returns a new :data:`Objective` computing
+    :math:`objective(model, data) + \sum_i \log p(\theta_i)`,
+    where the sum runs over every :class:`gpjax.parameters.Parameter` carrying
+    a ``prior``. The result can be passed straight to :func:`gpjax.fit`,
+    :func:`gpjax.fit_scipy`, or :func:`gpjax.fit_lbfgs`, giving MAP-regularised
+    fitting.
+
+    Parameters without a prior are left unregularised, so a prior on a single
+    hyperparameter is enough -- there is no need to specify one for every leaf.
+
+    Note:
+        Priors are evaluated on the *constrained* parameter values, so the
+        optimum is the MAP estimate under the conventional parameterisation.
+
+    Priors that are not separable over individual parameters -- a prior on a
+    derived quantity such as the signal-to-noise ratio -- do not fit on a
+    single parameter. Write those as an ordinary objective, using
+    :func:`gpjax.parameters.val` to read the parameters you need::
+
+        from gpjax.parameters import val
+
+        def snr_regularised_mll(model, data):
+            snr = val(model.prior.kernel.variance) / val(
+                model.likelihood.obs_stddev
+            ) ** 2
+            return conjugate_mll(model, data) + dist.LogNormal(
+                jnp.log(100.0), 1.0
+            ).log_prob(snr).sum()
+
+    Example:
+        >>> import gpjax as gpx
+        >>> import jax.numpy as jnp
+        >>> import numpyro.distributions as dist
+        >>> import optax as ox
+        >>>
+        >>> xtrain = jnp.linspace(0, 1, 50).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+        >>>
+        >>> kernel = gpx.kernels.RBF(
+        ...     lengthscale=gpx.parameters.PositiveReal(
+        ...         1.0, prior=dist.LogNormal(jnp.log(5.0), 0.5)
+        ...     )
+        ... )
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> likelihood = gpx.likelihoods.Gaussian()
+        >>> posterior = gpx.gps.Prior(mean_function=meanf, kernel=kernel) * likelihood
+        >>>
+        >>> regularised_mll = gpx.objectives.with_log_prior(
+        ...     gpx.objectives.conjugate_mll
+        ... )
+        >>> nmll = lambda p, d: -regularised_mll(p, d)
+        >>> trained_model, history = gpx.fit(
+        ...     model=posterior, objective=nmll, train_data=D,
+        ...     optim=ox.adam(0.01), num_iters=100, verbose=False,
+        ... )
+
+    Args:
+        objective (Objective): The objective to regularise, e.g.
+            ``conjugate_mll`` or ``elbo``.
+
+    Returns:
+        Objective: A new objective adding the summed parameter log-priors to
+        ``objective``.
+    """
+
+    def _regularised_objective(model: eqx.Module, data: Dataset) -> ScalarFloat:
+        return objective(model, data) + collect_log_prior(model)
+
+    return _regularised_objective
 
 
 def conjugate_mll(model: ConjugateModel, data: Dataset) -> ScalarFloat:
@@ -510,7 +585,6 @@ def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
 
 
 __all__ = [
-    "LogPriorFn",
     "Objective",
     "collapsed_elbo",
     "conjugate_loocv",
@@ -522,4 +596,5 @@ __all__ = [
     "log_posterior_density",
     "non_conjugate_mll",
     "variational_expectation",
+    "with_log_prior",
 ]

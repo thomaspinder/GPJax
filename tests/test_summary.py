@@ -387,3 +387,42 @@ def test_summarise_renders_prior_column_when_priors_given():
 def test_summarise_prior_column_defaults_to_dash():
     # Without a priors map the Prior column is present but unpopulated.
     assert "LogNormal" not in _capture(Prior(mean_function=Zero(), kernel=RBF()))
+
+
+def test_collect_reads_a_parameter_s_own_prior():
+    """A prior attached with ``prior=`` populates the column unaided."""
+    kernel = RBF(lengthscale=PositiveReal(1.0, prior=npd.LogNormal(0.0, 1.0)))
+    records = summary._collect(Prior(mean_function=Zero(), kernel=kernel))
+    assert isinstance(
+        _record_by_name(records, "kernel.lengthscale").prior, npd.LogNormal
+    )
+    assert _record_by_name(records, "kernel.variance").prior is None
+
+
+def test_collect_prior_map_overrides_an_attached_prior():
+    kernel = RBF(lengthscale=PositiveReal(1.0, prior=npd.LogNormal(0.0, 1.0)))
+    records = summary._collect(
+        Prior(mean_function=Zero(), kernel=kernel),
+        priors={"kernel.lengthscale": npd.Gamma(3.0, 6.0)},
+    )
+    assert isinstance(_record_by_name(records, "kernel.lengthscale").prior, npd.Gamma)
+
+
+def test_collect_reads_the_prior_of_a_frozen_parameter():
+    """Freezing wraps the parameter's array, not the parameter, so the prior
+    is still reachable."""
+    kernel = RBF(lengthscale=PositiveReal(1.0, prior=npd.LogNormal(0.0, 1.0)))
+    frozen = eqx.tree_at(
+        lambda k: k.lengthscale, kernel, replace_fn=paramax.non_trainable
+    )
+    record = _record_by_name(
+        summary._collect(Prior(mean_function=Zero(), kernel=frozen)),
+        "kernel.lengthscale",
+    )
+    assert isinstance(record.prior, npd.LogNormal)
+    assert record.trainable is False
+
+
+def test_summarise_renders_an_attached_prior():
+    kernel = RBF(lengthscale=PositiveReal(1.0, prior=npd.LogNormal(0.0, 1.0)))
+    assert "LogNormal" in _capture(Prior(mean_function=Zero(), kernel=kernel))
