@@ -27,7 +27,7 @@
 # %%
 # Enable Float64 for more stable matrix inversions.
 from utils import use_mpl_style
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.computations import DenseKernelComputation
 from gpjax.parameters import PositiveReal
 from jax import config
@@ -245,7 +245,7 @@ class Polar(gpx.kernels.AbstractKernel):
     ) -> Float[Array, "1"]:
         c = self.period / 2.0
         t = angular_distance(x, y, c)
-        tau = 4.0 + _val(self.tau)
+        tau = 4.0 + val(self.tau)
         K = (1 + tau * t / c) * jnp.clip(1 - t / c, 0, jnp.inf) ** tau
         return K.squeeze()
 
@@ -287,7 +287,7 @@ D = gpx.Dataset(X=X, y=y)
 # Define polar Gaussian process
 PKern = Polar()
 meanf = gpx.mean_functions.Zero()
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+likelihood = gpx.likelihoods.Gaussian()
 circular_posterior = gpx.gps.Prior(mean_function=meanf, kernel=PKern) * likelihood
 
 # Optimise GP's marginal log-likelihood using BFGS

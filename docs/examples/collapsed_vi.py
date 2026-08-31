@@ -121,7 +121,7 @@ plt.show()
 # %%
 meanf = gpx.mean_functions.Constant()
 kernel = gpx.kernels.RBF()  # 1-dimensional inputs
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Gaussian()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 posterior = prior * likelihood
 
@@ -135,7 +135,7 @@ posterior = prior * likelihood
 
 # %%
 q = gpx.variational_families.CollapsedVariationalGaussian(
-    posterior=posterior, inducing_inputs=z
+    model=posterior, inducing_inputs=z
 )
 
 # %% [markdown]
@@ -170,7 +170,7 @@ ax.set(xlabel="Training iterate", ylabel="ELBO")
 
 # %% mystnb={"figure": {"caption": "Predictive mean and two-standard-deviation band of the sparse posterior, shown against the observations and the latent function, with the optimised inducing point locations overlaid.", "name": "fig-collapsed-vi-predictions"}}
 latent_dist = opt_posterior(xtest, train_data=D)
-predictive_dist = opt_posterior.posterior.likelihood(latent_dist)
+predictive_dist = opt_posterior.model.likelihood(latent_dist)
 
 inducing_points = opt_posterior.inducing_inputs.unwrap()
 
@@ -242,7 +242,7 @@ plt.show()
 # %%
 full_rank_model = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Zero(), kernel=gpx.kernels.RBF()
-) * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+) * gpx.likelihoods.Gaussian()
 nmll = jit(lambda: -gpx.objectives.conjugate_mll(full_rank_model, D))
 # %timeit nmll().block_until_ready()
 

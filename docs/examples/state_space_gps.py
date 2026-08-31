@@ -178,7 +178,7 @@ prior = StateSpacePrior(
     mean_function=gpx.mean_functions.Constant(),
     kernel=kernel,
 )
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n, obs_stddev=0.5)
+likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.5)
 posterior = prior * likelihood
 
 # %% [markdown]
@@ -446,7 +446,7 @@ def make_loss_callables(num_datapoints, state_space):
     bench_prior = prior_cls(
         mean_function=gpx.mean_functions.Zero(), kernel=bench_kernel
     )
-    bench_lik = gpx.likelihoods.Gaussian(num_datapoints=num_datapoints, obs_stddev=0.1)
+    bench_lik = gpx.likelihoods.Gaussian(obs_stddev=0.1)
     model = bench_prior * bench_lik
     bench_x, bench_y = simulate_dataset(num_datapoints)
     data = gpx.Dataset(X=bench_x, y=bench_y)

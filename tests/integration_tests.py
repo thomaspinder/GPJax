@@ -46,6 +46,7 @@ class Result:
 
     def __post_init__(self):
         self.name: str = self.path.split("/")[-1].split(".")[0].replace("_", "-")
+        self.failures: list = []
 
     def _compare(
         self,
@@ -56,11 +57,14 @@ class Result:
     ):
         if variable_name == "history" and not self.compare_history:
             return
-        try:
-            value = operation(observed_variables[variable_name])
-            assert abs(true_value - value) < self.precision
-        except AssertionError as e:
-            print(e)
+        value = operation(observed_variables[variable_name])
+        if not abs(true_value - value) < self.precision:
+            message = (
+                f"{self.name}: {variable_name} drifted from golden value "
+                f"{true_value} (got {value}, precision {self.precision})"
+            )
+            print(message)
+            self.failures.append(message)
 
     def test(self):
         notebook = jupytext.read(self.path)
@@ -101,6 +105,11 @@ class Result:
             self._compare(
                 observed_variables=loc, variable_name=k, true_value=truth, operation=op
             )
+        if self.failures:
+            raise AssertionError(
+                f"{self.name}: golden-value drift detected:\n"
+                + "\n".join(self.failures)
+            )
 
 
 # %%
@@ -108,8 +117,8 @@ regression = Result(
     path="docs/examples/regression.py",
     comparisons={
         "history": (55.07405622, get_last),
-        "predictive_mean": (36.24383416, jnp.sum),
-        "predictive_std": (197.04727051, jnp.sum),
+        "predictive_mean": (37.91222107, jnp.sum),
+        "predictive_std": (202.36889441, jnp.sum),
     },
 )
 regression.test()
@@ -118,9 +127,9 @@ regression.test()
 sparse = Result(
     path="docs/examples/collapsed_vi.py",
     comparisons={
-        "history": (1924.7634809, get_last),
-        "predictive_mean": (-8.39869652, jnp.sum),
-        "predictive_std": (255.74838027, jnp.sum),
+        "history": (1851.11700608, get_last),
+        "predictive_mean": (1.37497714, jnp.sum),
+        "predictive_std": (248.32254630, jnp.sum),
     },
 )
 sparse.test()
@@ -129,9 +138,9 @@ sparse.test()
 stochastic = Result(
     path="docs/examples/uncollapsed_vi.py",
     comparisons={
-        "history": (-2678.41302494, get_last),
-        "meanf": (-54.14787028, jnp.sum),
-        "sigma": (121.4298333, jnp.sum),
+        "history": (59440.08265547, get_last),
+        "meanf": (-55.18585235, jnp.sum),
+        "sigma": (555.41381240, jnp.sum),
     },
 )
 stochastic.test()
@@ -140,7 +149,7 @@ stochastic.test()
 heteroscedastic = Result(
     path="docs/examples/heteroscedastic_inference.py",
     comparisons={
-        "history": (-141.590, get_last),
+        "history": (-139.22405213, get_last),
     },
 )
 heteroscedastic.test()

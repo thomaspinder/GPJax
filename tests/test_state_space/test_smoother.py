@@ -6,7 +6,7 @@ See plans/2026-04-21-state-space-gps-design.md §Stage 3.
 import gpjax as gpx
 from gpjax.state_space import StateSpacePrior
 from gpjax.state_space.inference import _sqrt_filter_forward, rts_smoother
-from gpjax.state_space.sde import Matern12SDE, _psd_sqrt
+from gpjax.state_space.sde import Matern12SDE, Matern32SDE, _psd_sqrt
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -56,7 +56,7 @@ def test_rts_smoother_marginals_match_dense_gp_posterior(jitter):
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = prior * likelihood
     latent_dist = posterior.predict(X.reshape(-1, 1), train_data=train_data)
     dense_means = np.asarray(latent_dist.mean)
@@ -73,6 +73,39 @@ def test_rts_smoother_marginals_match_dense_gp_posterior(jitter):
         dense_variances,
         atol=5e-6,
         rtol=1e-6,
+    )
+
+
+def test_rts_smoother_factors_are_lower_triangular():
+    """Square-root smoother factors must be genuine (lower-)triangular roots.
+
+    Issue #668: the previous implementation re-rooted every backward step
+    via ``_psd_sqrt`` (an ``eigh`` call), returning a non-triangular ``V·Λ^½``
+    factor. A true QR pre-array square-root smoother produces triangular
+    factors throughout, matching the docstring's "square-root" claim -- this
+    is the property a covariance-form (or eigh-based) implementation cannot
+    provide, so it is the right thing to assert beyond mean/covariance
+    agreement. Uses a state_dim=2 SDE (Matern-3/2): a state_dim=1 SDE would
+    make triangularity trivially true and miss a real off-diagonal check.
+    """
+    lengthscale, variance, obs_stddev = 1.5, 0.8, 0.2
+    n = 12
+    X, y = _build_matern12_dataset(
+        n=n, lengthscale=lengthscale, variance=variance, obs_stddev=obs_stddev
+    )
+    sigma_eff = jnp.asarray(obs_stddev)
+    sde = Matern32SDE(lengthscale=lengthscale, variance=variance)
+    time_steps = jnp.concatenate([jnp.array([0.0]), jnp.diff(X)])
+    is_observed = jnp.ones(n, dtype=bool)
+
+    forward_outputs, _ = _sqrt_filter_forward(
+        sde, y, time_steps, is_observed, sigma_eff
+    )
+    _, smoothed_Ls = rts_smoother(sde, forward_outputs, time_steps)
+
+    strictly_upper = jax.vmap(lambda L: L - jnp.tril(L))(smoothed_Ls)
+    np.testing.assert_allclose(
+        np.asarray(strictly_upper), np.zeros_like(strictly_upper), atol=1e-10
     )
 
 
@@ -113,6 +146,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
 
     means_smoothed = [None] * n
     covs_smoothed = [None] * n
+    gains = [None] * (n - 1)
     means_smoothed[-1] = means_filtered[-1]
     covs_smoothed[-1] = covs_filtered[-1]
     for i in range(n - 2, -1, -1):
@@ -123,6 +157,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
         smoother_gain = (
             cov_filtered @ transition_matrix_next.T @ np.linalg.inv(cov_predicted_next)
         )
+        gains[i] = smoother_gain
         means_smoothed[i] = means_filtered[i] + smoother_gain @ (
             means_smoothed[i + 1] - means_predicted[i + 1]
         )
@@ -132,7 +167,7 @@ def _numpy_rts_reference(sde, y, time_steps, obs_stddev_squared):
             @ (covs_smoothed[i + 1] - cov_predicted_next)
             @ smoother_gain.T
         )
-    return np.array(means_smoothed), np.array(covs_smoothed)
+    return np.array(means_smoothed), np.array(covs_smoothed), np.array(gains)
 
 
 def test_rts_smoother_matches_numpy_reference_to_machine_precision():
@@ -154,7 +189,7 @@ def test_rts_smoother_matches_numpy_reference_to_machine_precision():
     )
     smoothed_means, smoothed_Ls = rts_smoother(sde, forward_outputs, time_steps)
 
-    means_reference, covs_reference = _numpy_rts_reference(
+    means_reference, covs_reference, _gains_reference = _numpy_rts_reference(
         sde, y, time_steps, float(obs_stddev**2)
     )
     smoothed_covs = jax.vmap(lambda L: L @ L.T)(smoothed_Ls)
@@ -167,12 +202,56 @@ def test_rts_smoother_matches_numpy_reference_to_machine_precision():
     )
 
 
+def test_rts_smoother_return_gains_matches_numpy_reference():
+    """``return_gains=True`` exposes exactly the gains used internally; check
+    them against the same NumPy oracle used for the smoothed means/covariances,
+    and confirm the default call is unaffected (2-tuple, unchanged values)."""
+    lengthscale, variance, obs_stddev = 1.5, 0.8, 0.2
+    n = 15
+    X, y = _build_matern12_dataset(
+        n=n, lengthscale=lengthscale, variance=variance, obs_stddev=obs_stddev
+    )
+    sigma_eff = jnp.asarray(obs_stddev)
+    sde = Matern12SDE(lengthscale=lengthscale, variance=variance)
+    time_steps = jnp.concatenate([jnp.array([0.0]), jnp.diff(X)])
+    is_observed = jnp.ones(n, dtype=bool)
+
+    forward_outputs, _ = _sqrt_filter_forward(
+        sde, y, time_steps, is_observed, sigma_eff
+    )
+    smoothed_means, smoothed_Ls, smoother_gains = rts_smoother(
+        sde, forward_outputs, time_steps, return_gains=True
+    )
+    smoothed_means_default, smoothed_Ls_default = rts_smoother(
+        sde, forward_outputs, time_steps
+    )
+
+    means_reference, _covs_reference, gains_reference = _numpy_rts_reference(
+        sde, y, time_steps, float(obs_stddev**2)
+    )
+
+    assert smoother_gains.shape == (n - 1, sde.state_dim, sde.state_dim)
+    np.testing.assert_allclose(
+        np.asarray(smoother_gains), gains_reference, atol=1e-12, rtol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_means), np.asarray(smoothed_means_default), atol=0.0
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_Ls), np.asarray(smoothed_Ls_default), atol=0.0
+    )
+    np.testing.assert_allclose(
+        np.asarray(smoothed_means), means_reference, atol=1e-12, rtol=1e-12
+    )
+
+
 def test_smoother_is_finite_under_near_noiseless_dense_sampling():
     """Robustness guard: stiff regime (tiny obs noise, dense Matern-5/2 grid)
     must stay finite.
 
-    Green both before and after the _psd_sqrt swap — documents the contract, not
-    a red→green reproduction.
+    Green under both the historical _psd_sqrt-based smoother and the current
+    QR pre-array smoother (Issue #668) — documents the contract, not a
+    red→green reproduction.
     """
     dense_times = jnp.linspace(0.0, 1.0, 200).reshape(-1, 1)
     targets = jnp.sin(20.0 * dense_times)
@@ -182,7 +261,7 @@ def test_smoother_is_finite_under_near_noiseless_dense_sampling():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern52(lengthscale=0.05, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=200, obs_stddev=1e-4)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=1e-4)
     posterior = prior * likelihood
 
     test_times = jnp.linspace(0.0, 1.0, 50).reshape(-1, 1)
@@ -194,12 +273,13 @@ def test_smoother_is_finite_under_near_noiseless_dense_sampling():
 
 
 def test_psd_sqrt_handles_marginally_indefinite_where_cholesky_nans():
-    """The smoother's PSD-difference P can be marginally indefinite from round-off.
+    """A covariance built from round-off can be marginally indefinite.
 
-    jnp.linalg.cholesky NaNs on such a matrix; _psd_sqrt (used by rts_smoother
-    after this fix) clips the tiny negative eigenvalue and stays finite,
-    reconstructing the PSD part via L @ L.T. This is the failure mode Issue #3
-    fixes — green on _psd_sqrt, red on cholesky.
+    jnp.linalg.cholesky NaNs on such a matrix; _psd_sqrt (still used by the
+    Matern-3/2 and Matern-5/2 SDE discretisations in sde.py, though no longer
+    by rts_smoother -- see Issue #668) clips the tiny negative eigenvalue and
+    stays finite, reconstructing the PSD part via L @ L.T. This is the
+    failure mode Issue #3 fixes — green on _psd_sqrt, red on cholesky.
     """
     # Fixed orthogonal basis (QR of a deterministic matrix; no RNG).
     basis, _ = jnp.linalg.qr(

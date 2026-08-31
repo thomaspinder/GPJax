@@ -131,7 +131,7 @@ plt.show()
 #
 # We define a NumPyro model that samples all parameters directly using
 # ``numpyro.sample``, builds the GPJax
-# [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) from those samples, and
+# [`ConjugateModel`](#gpjax.gps.ConjugateModel) from those samples, and
 # scores it with the conjugate marginal log-likelihood
 # ([`conjugate_mll`](#gpjax.objectives.conjugate_mll)) via ``numpyro.factor``.
 # No special registration step is needed -- GPJax constructors accept raw
@@ -157,7 +157,7 @@ def model(X, Y, X_new=None):
 
     meanf = gpx.mean_functions.Constant()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_noise)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_noise)
     posterior = prior * likelihood
 
     D_resid = gpx.Dataset(X=X, y=residuals)
@@ -199,7 +199,7 @@ example_kernel = gpx.kernels.RBF(lengthscale=1.0, variance=1.0) * gpx.kernels.Pe
 )
 example_posterior = gpx.gps.Prior(
     mean_function=gpx.mean_functions.Constant(), kernel=example_kernel
-) * gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=1.0)
+) * gpx.likelihoods.Gaussian(obs_stddev=1.0)
 
 parameter_priors = {
     "prior.kernel.kernels[0].lengthscale": dist.LogNormal(0.0, 1.0),

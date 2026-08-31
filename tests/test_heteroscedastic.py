@@ -16,10 +16,8 @@ import equinox as eqx
 import gpjax as gpx
 from gpjax.dataset import Dataset
 from gpjax.gps import (
-    ChainedPosterior,
-    HeteroscedasticPosterior,
+    HeteroscedasticModel,
     Prior,
-    construct_posterior,
 )
 from gpjax.kernels import RBF
 from gpjax.likelihoods import (
@@ -45,7 +43,6 @@ from jax import config
 import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
-import paramax
 import pytest
 
 config.update("jax_enable_x64", True)
@@ -77,39 +74,39 @@ class SoftplusHeteroscedastic(HeteroscedasticGaussian):
         return False
 
 
-def test_construct_posterior_routing(prior, noise_prior):
-    likelihood = HeteroscedasticGaussian(num_datapoints=5, noise_prior=noise_prior)
-    posterior = construct_posterior(prior=prior, likelihood=likelihood)
-    assert isinstance(posterior, HeteroscedasticPosterior)
-    assert posterior.noise_prior is noise_prior
+def test_construct_model_routing(prior, noise_prior):
+    likelihood = HeteroscedasticGaussian()
+    with pytest.raises(ValueError, match="noise_prior"):
+        _ = prior * likelihood
 
-    chained_likelihood = SoftplusHeteroscedastic(
-        num_datapoints=5, noise_prior=noise_prior
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
     )
-    chained_posterior = construct_posterior(prior=prior, likelihood=chained_likelihood)
-    assert isinstance(chained_posterior, ChainedPosterior)
-    assert chained_posterior.noise_prior is noise_prior
+    assert isinstance(posterior, HeteroscedasticModel)
+    assert posterior.noise_prior is noise_prior
+    assert posterior.noise_model.prior is noise_prior
+
+    chained_posterior = HeteroscedasticModel(
+        prior=prior, likelihood=SoftplusHeteroscedastic(), noise_prior=noise_prior
+    )
+    assert isinstance(chained_posterior, HeteroscedasticModel)
 
 
 def test_likelihood_callable_compatibility(noise_prior):
     # Test that passing jnp.exp uses LogNormalTransform
-    lik_exp = HeteroscedasticGaussian(
-        num_datapoints=10, noise_prior=noise_prior, noise_transform=jnp.exp
-    )
+    lik_exp = HeteroscedasticGaussian(noise_transform=jnp.exp)
     assert isinstance(lik_exp.noise_transform, LogNormalTransform)
 
     # Test that passing a custom callable uses SoftplusTransform (default fallback logic)
     def custom_transform(x):
         return jnp.square(x)
 
-    lik_custom = HeteroscedasticGaussian(
-        num_datapoints=10, noise_prior=noise_prior, noise_transform=custom_transform
-    )
+    lik_custom = HeteroscedasticGaussian(noise_transform=custom_transform)
     assert isinstance(lik_custom.noise_transform, SoftplusTransform)
 
 
 def test_heteroscedastic_gaussian_validation(noise_prior, dataset):
-    lik = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
+    lik = HeteroscedasticGaussian()
     # Construct a valid GaussianDistribution to satisfy jaxtyping
     scale = lx.MatrixLinearOperator(jnp.eye(10))
     dist = gpx.distributions.GaussianDistribution(loc=jnp.zeros(10), scale=scale)
@@ -182,11 +179,11 @@ def test_softplus_transform_numerical_accuracy(mean: float, variance: float, see
 
 
 def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
-    posterior = prior * HeteroscedasticGaussian(
-        num_datapoints=dataset.n, noise_prior=noise_prior
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=HeteroscedasticGaussian(), noise_prior=noise_prior
     )
     variational = HeteroscedasticVariationalFamily(
-        posterior=posterior, inducing_inputs=dataset.X, inducing_inputs_g=dataset.X[::2]
+        model=posterior, inducing_inputs=dataset.X, inducing_inputs_g=dataset.X[::2]
     )
 
     mf, vf, _mg, _vg = variational.predict(dataset.X)
@@ -215,8 +212,10 @@ def test_heteroscedastic_variational_predict(prior, noise_prior, dataset):
 def test_variational_family_init_structure(n_inducing: int, offset: float):
     prior = Prior(kernel=RBF(), mean_function=Zero())
     noise_prior = Prior(kernel=RBF(), mean_function=Zero())
-    likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
-    posterior = HeteroscedasticPosterior(prior=prior, likelihood=likelihood)
+    likelihood = HeteroscedasticGaussian()
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
+    )
 
     inducing_inputs = jnp.linspace(0.0, 1.0, n_inducing, dtype=jnp.float64).reshape(
         -1, 1
@@ -227,7 +226,7 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
     noise_init = VariationalGaussianInit(inducing_inputs=noise_inducing)
 
     q = HeteroscedasticVariationalFamily(
-        posterior=posterior, signal_init=signal_init, noise_init=noise_init
+        model=posterior, signal_init=signal_init, noise_init=noise_init
     )
 
     assert jnp.allclose(q.signal_variational.inducing_inputs.unwrap(), inducing_inputs)
@@ -235,7 +234,7 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
 
     # Test initialization inference (noise inferred from signal)
     q_inferred = HeteroscedasticVariationalFamily(
-        posterior=posterior, signal_init=signal_init
+        model=posterior, signal_init=signal_init
     )
     assert jnp.allclose(
         q_inferred.noise_variational.inducing_inputs.unwrap(), inducing_inputs
@@ -243,24 +242,28 @@ def test_variational_family_init_structure(n_inducing: int, offset: float):
 
 
 def test_variational_family_init_errors(prior, noise_prior):
-    likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
-    posterior = HeteroscedasticPosterior(prior=prior, likelihood=likelihood)
+    likelihood = HeteroscedasticGaussian()
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
+    )
 
     # Case 1: No inputs provided
     with pytest.raises(
         ValueError, match="Either signal_init or inducing_inputs must be provided"
     ):
-        HeteroscedasticVariationalFamily(posterior=posterior)
+        HeteroscedasticVariationalFamily(model=posterior)
 
 
 def test_variational_family_predict_return_type(prior, noise_prior):
-    likelihood = HeteroscedasticGaussian(num_datapoints=10, noise_prior=noise_prior)
-    posterior = HeteroscedasticPosterior(prior=prior, likelihood=likelihood)
+    likelihood = HeteroscedasticGaussian()
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
+    )
 
     n_inducing = 5
     inducing_inputs = jnp.linspace(0, 1, n_inducing).reshape(-1, 1)
     q = HeteroscedasticVariationalFamily(
-        posterior=posterior, inducing_inputs=inducing_inputs
+        model=posterior, inducing_inputs=inducing_inputs
     )
 
     test_inputs = jnp.linspace(0.5, 0.6, 3).reshape(-1, 1)
@@ -279,10 +282,12 @@ def test_variational_family_predict_return_type(prior, noise_prior):
 
 def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
     def _build_variational(likelihood_cls: type[HeteroscedasticGaussian]):
-        likelihood = likelihood_cls(num_datapoints=dataset.n, noise_prior=noise_prior)
-        posterior = prior * likelihood
+        likelihood = likelihood_cls()
+        posterior = HeteroscedasticModel(
+            prior=prior, likelihood=likelihood, noise_prior=noise_prior
+        )
         return HeteroscedasticVariationalFamily(
-            posterior=posterior, inducing_inputs=dataset.X
+            model=posterior, inducing_inputs=dataset.X
         )
 
     for likelihood_cls in (HeteroscedasticGaussian, SoftplusHeteroscedastic):
@@ -290,7 +295,7 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
         params, static = eqx.partition(variational, eqx.is_array)
 
         def loss(p, static=static):
-            model = paramax.unwrap(eqx.combine(p, static))
+            model = eqx.combine(p, static)
             return -heteroscedastic_elbo(model, dataset)
 
         loss_val = loss(params)
@@ -302,11 +307,11 @@ def test_heteroscedastic_elbo_gradients(dataset, prior, noise_prior):
 
 
 def test_jit_prediction(prior, noise_prior, dataset):
-    likelihood = HeteroscedasticGaussian(
-        num_datapoints=dataset.n, noise_prior=noise_prior
+    likelihood = HeteroscedasticGaussian()
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
     )
-    posterior = prior * likelihood
-    q = HeteroscedasticVariationalFamily(posterior=posterior, inducing_inputs=dataset.X)
+    q = HeteroscedasticVariationalFamily(model=posterior, inducing_inputs=dataset.X)
 
     # JIT compile the predict call via a wrapper function
     @jax.jit
@@ -336,9 +341,7 @@ def test_jit_prediction(prior, noise_prior, dataset):
 
 def test_jit_likelihood_prediction(dataset, prior, noise_prior):
     # Separate test for likelihood prediction to keep things clean
-    likelihood = HeteroscedasticGaussian(
-        num_datapoints=dataset.n, noise_prior=noise_prior
-    )
+    likelihood = HeteroscedasticGaussian()
 
     # JIT compile likelihood prediction
     # We pass arrays and reconstruct distributions inside to ensure Pytree safety
@@ -361,11 +364,13 @@ def test_jit_likelihood_prediction(dataset, prior, noise_prior):
 
 def test_predictive_variance_tracks_noise(prior, noise_prior):
     x = jnp.array([[-1.0], [1.0]])
-    likelihood = HeteroscedasticGaussian(num_datapoints=2, noise_prior=noise_prior)
-    posterior = prior * likelihood
+    likelihood = HeteroscedasticGaussian()
+    posterior = HeteroscedasticModel(
+        prior=prior, likelihood=likelihood, noise_prior=noise_prior
+    )
 
     variational = HeteroscedasticVariationalFamily(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=x,
         inducing_inputs_g=x,
         variational_mean_g=jnp.array([[-1.0], [1.5]]),
@@ -412,7 +417,7 @@ def test_link_function_requires_the_noise_latent(noise_prior):
     Previously this silently returned N(y | f, σ²(0)) — the prior-noise density
     rather than the Lázaro-Gredilla & Titsias (2011) conditional N(y | f, σ²(g)).
     """
-    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
     f = jnp.array([0.5, -0.2, 1.0])
 
     with pytest.raises(ValueError, match="noise latent"):
@@ -421,7 +426,7 @@ def test_link_function_requires_the_noise_latent(noise_prior):
 
 def test_link_function_uses_the_supplied_noise_latent(noise_prior):
     """Given `g`, the scale must be σ(g) — the whole point of the likelihood."""
-    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
     f = jnp.array([0.5, -0.2, 1.0])
 
     for g_value in (-2.0, 0.0, 2.0):
@@ -434,7 +439,7 @@ def test_link_function_uses_the_supplied_noise_latent(noise_prior):
 
 def test_link_function_scale_varies_with_the_noise_latent(noise_prior):
     """A heteroscedastic scale that ignores g is the bug in #670."""
-    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
     f = jnp.zeros(3)
 
     low = likelihood.link_function(f, jnp.full_like(f, -2.0)).scale
@@ -458,7 +463,7 @@ def test_heteroscedastic_subclass_cannot_silently_use_prior_noise(noise_prior):
     class BareHeteroscedastic(HeteroscedasticGaussian):
         expected_log_likelihood = AbstractLikelihood.expected_log_likelihood
 
-    likelihood = BareHeteroscedastic(num_datapoints=3, noise_prior=noise_prior)
+    likelihood = BareHeteroscedastic()
     y = jnp.zeros((3, 1))
     mean = jnp.zeros((3, 1))
     variance = jnp.ones((3, 1))
@@ -469,7 +474,7 @@ def test_heteroscedastic_subclass_cannot_silently_use_prior_noise(noise_prior):
 
 def test_sanctioned_heteroscedastic_path_is_unaffected(noise_prior):
     """`HeteroscedasticGaussian.expected_log_likelihood` still works via g moments."""
-    likelihood = HeteroscedasticGaussian(num_datapoints=3, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
     y = jnp.zeros((3, 1))
     mean = jnp.zeros((3, 1))
     variance = jnp.ones((3, 1))

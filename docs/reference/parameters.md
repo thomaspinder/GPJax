@@ -13,4 +13,5 @@
    PositiveReal
    Real
    SigmoidBounded
+   val
 ```

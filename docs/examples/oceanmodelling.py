@@ -334,7 +334,7 @@ class VelocityKernel(gpx.kernels.AbstractKernel):
 def initialise_gp(kernel, mean, dataset):
     prior = gpx.gps.Prior(mean_function=mean, kernel=kernel)
     likelihood = gpx.likelihoods.Gaussian(
-        num_datapoints=dataset.n, obs_stddev=jnp.array([1.0e-3], dtype=jnp.float64)
+        obs_stddev=jnp.array([1.0e-3], dtype=jnp.float64)
     )
     posterior = prior * likelihood
     return posterior

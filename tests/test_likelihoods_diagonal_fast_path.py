@@ -2,15 +2,12 @@
 
 import gpjax as gpx
 from gpjax.distributions import GaussianDistribution
-from gpjax.gps import Prior
-from gpjax.kernels import RBF
 from gpjax.likelihoods import (
     Gaussian,
     HeteroscedasticGaussian,
     MultiOutputGaussian,
     _diagonal_scale,
 )
-from gpjax.mean_functions import Zero
 import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
@@ -50,7 +47,7 @@ def test_gaussian_predict_preserves_diagonal_scale():
     diag_scale = lx.DiagonalLinearOperator(jnp.array([0.5, 1.0, 2.0]))
     dist_in = GaussianDistribution(mean, diag_scale)
 
-    likelihood = Gaussian(num_datapoints=3, obs_stddev=0.1)
+    likelihood = Gaussian(obs_stddev=0.1)
     dist_out = likelihood.predict(dist_in)
 
     assert isinstance(dist_out, GaussianDistribution)
@@ -68,7 +65,7 @@ def test_gaussian_predict_tagged_diagonal_preserves_diagonal_scale():
     tagged = lx.TaggedLinearOperator(diag, lx.positive_semidefinite_tag)
     dist_in = GaussianDistribution(mean, tagged)
 
-    likelihood = Gaussian(num_datapoints=2, obs_stddev=0.5)
+    likelihood = Gaussian(obs_stddev=0.5)
     dist_out = likelihood.predict(dist_in)
 
     assert isinstance(dist_out, GaussianDistribution)
@@ -84,7 +81,7 @@ def test_gaussian_predict_dense_returns_gaussian_distribution_with_matrix_scale(
     dense = lx.MatrixLinearOperator(cov)
     dist_in = GaussianDistribution(mean, dense)
 
-    likelihood = Gaussian(num_datapoints=2, obs_stddev=0.1)
+    likelihood = Gaussian(obs_stddev=0.1)
     dist_out = likelihood.predict(dist_in)
 
     assert isinstance(dist_out, GaussianDistribution)
@@ -99,9 +96,7 @@ def test_gaussian_predict_is_numpyro_compatible():
     latent = GaussianDistribution(
         loc=jnp.zeros(4), scale=lx.DiagonalLinearOperator(jnp.ones(4))
     )
-    predictive = gpx.likelihoods.Gaussian(num_datapoints=4, obs_stddev=0.1).predict(
-        latent
-    )
+    predictive = gpx.likelihoods.Gaussian(obs_stddev=0.1).predict(latent)
     assert predictive.mean.shape == (4,)
     assert bool(jnp.all(predictive.variance > 0))
     sample = predictive.sample(jr.key(0))
@@ -118,19 +113,16 @@ def test_gaussian_family_predict_returns_gaussian_distribution(likelihood_cls):
         scale=lx.DiagonalLinearOperator(jnp.ones(n_points)),
     )
     if likelihood_cls is MultiOutputGaussian:
-        likelihood = likelihood_cls(
-            num_datapoints=n_points, num_outputs=1, obs_stddev=0.5
-        )
+        likelihood = likelihood_cls(num_outputs=1, obs_stddev=0.5)
     else:
-        likelihood = likelihood_cls(num_datapoints=n_points, obs_stddev=0.5)
+        likelihood = likelihood_cls(obs_stddev=0.5)
     predictive = likelihood.predict(latent)
     assert isinstance(predictive, GaussianDistribution)
 
 
 def test_heteroscedastic_predict_returns_gaussian_distribution():
     """Lock the return-type contract for HeteroscedasticGaussian.predict."""
-    noise_prior = Prior(kernel=RBF(), mean_function=Zero())
-    likelihood = HeteroscedasticGaussian(num_datapoints=2, noise_prior=noise_prior)
+    likelihood = HeteroscedasticGaussian()
 
     signal_dist = GaussianDistribution(
         loc=jnp.zeros(2), scale=lx.MatrixLinearOperator(jnp.eye(2))

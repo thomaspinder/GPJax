@@ -29,6 +29,7 @@
 import equinox as eqx
 from utils import use_mpl_style
 from gpjax.linalg import add_jitter, cholesky_factor
+from gpjax.parameters import val
 import jax
 
 # Enable Float64 for more stable matrix inversions.
@@ -45,7 +46,6 @@ import lineax as lx
 import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 import optax as ox
-import paramax
 
 config.update("jax_enable_x64", True)
 
@@ -105,7 +105,7 @@ ax.scatter(x, y)
 kernel = gpx.kernels.RBF()
 meanf = gpx.mean_functions.Constant()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Bernoulli()
 
 # %% [markdown]
 # We construct the posterior through the product of our prior and likelihood.
@@ -144,7 +144,7 @@ opt_posterior, history = gpx.fit(
 )
 
 # %% [markdown]
-# From which we can [make predictions](#gpjax.gps.NonConjugatePosterior.predict) at
+# From which we can [make predictions](#gpjax.gps.JointModel.predict) at
 # novel inputs, as illustrated in {numref}`fig-classification-map-predictive`.
 
 # %% mystnb={"figure": {"caption": "The MAP predictive mean and its one-sigma band over the binary observations.", "name": "fig-classification-map-predictive"}}
@@ -240,7 +240,7 @@ jitter = 1e-6
 Kxx = opt_posterior.prior.kernel.gram(x).as_matrix()
 Kxx = add_jitter(Kxx, jitter)
 Lx = jnp.linalg.cholesky(Kxx)
-f_hat = Lx @ opt_posterior.latent.unwrap()
+f_hat = Lx @ val(opt_posterior.latent)
 
 # Negative Hessian,  H = -∇²p_tilde(y|f):
 params, static = eqx.partition(opt_posterior, eqx.is_array)
@@ -248,7 +248,6 @@ params, static = eqx.partition(opt_posterior, eqx.is_array)
 
 def loss(params, D):
     model = eqx.combine(params, static)
-    model = paramax.unwrap(model)
     return -gpx.objectives.log_posterior_density(model, D)
 
 

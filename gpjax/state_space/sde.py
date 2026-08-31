@@ -374,6 +374,89 @@ class TruncatedPeriodicSDE(LinearSDE):
         return A, L_Q
 
 
+class ProductSDE(LinearSDE):
+    """Kronecker state-space representation of TruncatedPeriodic × stationary-Matérn.
+
+    For independent processes ``f_p ~ GP(0, k_p)`` (periodic) and
+    ``f_m ~ GP(0, k_m)`` (Matérn), the product process
+    ``f(t) = f_p(t) f_m(t)`` has covariance ``k_p(τ) k_m(τ)`` and an exact
+    finite-dimensional state-space realisation on the Kronecker-product state
+    ``x(t) = x_p(t) ⊗ x_m(t)`` (Solin & Särkkä 2014 §3):
+
+        F = F_p ⊗ I_m + I_p ⊗ F_m
+        L = S_p ⊗ L_m     (the periodic factor's own diffusion L_p is zero)
+        Qc = I_p ⊗ Qc_m
+        H = H_p ⊗ H_m
+        P_∞ = P_∞,p ⊗ P_∞,m   (sqrt: S = S_p ⊗ S_m)
+
+    where ``S_p``, ``S_m`` are the factors' ``stationary_state_cov_sqrt``.
+    This relies on ``TruncatedPeriodicSDE`` having zero own diffusion (its
+    transition is an exact rotation per harmonic, so its own discrete
+    process noise is exactly zero — see ``test_truncated_periodic_L_Q_is_zero``);
+    ``components`` must therefore be ``(periodic_factor, matern_factor)`` in
+    that order. This ordering is enforced by ``to_sde``'s ``ProductKernel``
+    dispatch, the only production caller.
+
+    The state dimension is the *product* of the two factor state
+    dimensions, so this is only used where both factors have small state
+    dimension — e.g. ``TruncatedPeriodic`` × Matérn, whose state dimension
+    is ``(2K + 1) · d`` (Solin & Särkkä 2014 §3.2) — not for arbitrary
+    products, which is why ``to_sde`` gates which kernel pairs reach here.
+
+    ``discretise`` avoids ever forming or eigendecomposing the full
+    ``state_dim × state_dim`` stationary covariance. Two exact identities
+    let it reuse each factor's own closed-form ``discretise`` instead:
+    ``A(Δt) = expm(F Δt) = A_p(Δt) ⊗ A_m(Δt)``, since ``F_p ⊗ I_m`` and
+    ``I_p ⊗ F_m`` commute; and, because the periodic factor is lossless
+    (``A_p(t) P_∞,p A_p(t)ᵀ = P_∞,p`` for all ``t``), the discrete process
+    noise factorises as ``Q(Δt) = P_∞,p ⊗ Q_m(Δt)`` with square root
+    ``L_Q(Δt) = S_p ⊗ L_Q,m(Δt)``. A generic eigendecomposition-based square
+    root of ``P_∞ − A P_∞ Aᵀ`` (as used by the Matérn SDEs) is deliberately
+    avoided here: the periodic factor's per-harmonic eigenvalues repeat in
+    pairs (cos/sin components share variance), which makes the combined
+    stationary covariance's spectrum degenerate and ``jnp.linalg.eigh``'s
+    reverse-mode gradient singular there.
+    """
+
+    components: tuple[LinearSDE, LinearSDE]
+
+    def __init__(self, components: tuple[LinearSDE, LinearSDE]):
+        periodic_factor, matern_factor = components
+        self.components = (periodic_factor, matern_factor)
+
+        eye_periodic = jnp.eye(periodic_factor.state_dim)
+        eye_matern = jnp.eye(matern_factor.state_dim)
+        stationary_cov_sqrt_periodic = periodic_factor.stationary_state_cov_sqrt
+        stationary_cov_sqrt_matern = matern_factor.stationary_state_cov_sqrt
+
+        F = jnp.kron(periodic_factor.drift_matrix, eye_matern) + jnp.kron(
+            eye_periodic, matern_factor.drift_matrix
+        )
+        L = jnp.kron(stationary_cov_sqrt_periodic, matern_factor.diffusion_matrix)
+        Qc = jnp.kron(eye_periodic, matern_factor.process_noise_spectral_density)
+        H = jnp.kron(
+            periodic_factor.observation_matrix, matern_factor.observation_matrix
+        )
+        L_inf = jnp.kron(stationary_cov_sqrt_periodic, stationary_cov_sqrt_matern)
+
+        super().__init__(
+            drift_matrix=F,
+            diffusion_matrix=L,
+            process_noise_spectral_density=Qc,
+            observation_matrix=H,
+            stationary_state_cov_sqrt=L_inf,
+            state_dim=periodic_factor.state_dim * matern_factor.state_dim,
+        )
+
+    def discretise(self, time_step):
+        periodic_factor, matern_factor = self.components
+        A_periodic, _ = periodic_factor.discretise(time_step)
+        A_matern, L_Q_matern = matern_factor.discretise(time_step)
+        A = jnp.kron(A_periodic, A_matern)
+        L_Q = jnp.kron(periodic_factor.stationary_state_cov_sqrt, L_Q_matern)
+        return A, L_Q
+
+
 class SumSDE(LinearSDE):
     """Block-diagonal sum of LinearSDE components.
 

@@ -19,5 +19,6 @@
    NonGaussian
    Poisson
    SoftplusTransform
+   StudentT
    inv_probit
 ```

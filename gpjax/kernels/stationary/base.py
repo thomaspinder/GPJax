@@ -15,12 +15,13 @@
 
 
 import beartype.typing as tp
+import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import Float
 import numpyro.distributions as npd
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _compute_base_init, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -48,8 +49,12 @@ class StationaryKernel(AbstractKernel):
     for each input dimension.
     """
 
-    lengthscale: AbstractUnwrappable
-    variance: AbstractUnwrappable
+    lengthscale: AbstractUnwrappable = eqx.field(
+        default_factory=lambda: PositiveReal(1.0)
+    )
+    variance: AbstractUnwrappable = eqx.field(
+        default_factory=lambda: NonNegativeReal(1.0)
+    )
 
     def __init__(
         self,
@@ -73,13 +78,13 @@ class StationaryKernel(AbstractKernel):
             compute_engine: The computation engine that the kernel uses to compute the
                 covariance matrix.
         """
-
-        # Compute base fields without calling super().__init__() since
-        # equinox freezes the module when any parent __init__ returns.
-        active_dims, n_dims, compute_engine = _compute_base_init(
-            active_dims, n_dims, compute_engine
+        super().__init__(
+            active_dims=active_dims, n_dims=n_dims, compute_engine=compute_engine
         )
-        n_dims = _validate_lengthscale(lengthscale, n_dims)
+        # active_dims/n_dims are validated by AbstractKernel.__init__ above; a
+        # vector lengthscale may further pin down n_dims (e.g. ARD with
+        # active_dims=slice(None)), so re-derive it from the lengthscale here.
+        self.n_dims = _validate_lengthscale(lengthscale, self.n_dims)
 
         if isinstance(lengthscale, AbstractUnwrappable):
             self.lengthscale = lengthscale
@@ -90,10 +95,6 @@ class StationaryKernel(AbstractKernel):
             self.variance = variance
         else:
             self.variance = NonNegativeReal(variance)
-
-        self.active_dims = active_dims
-        self.n_dims = n_dims
-        self.compute_engine = compute_engine
 
     def _spectral_scale_tril(self) -> Float[Array, "D D"]:
         r"""The scale matrix $\mathrm{diag}(1/\ell)$ of the spectral measure.
@@ -109,7 +110,7 @@ class StationaryKernel(AbstractKernel):
                 "in order to construct its spectral measure. Please specify the "
                 "n_dims argument for the kernel."
             )
-        return jnp.diag(jnp.ones(self.n_dims) / _val(self.lengthscale))
+        return jnp.diag(jnp.ones(self.n_dims) / val(self.lengthscale))
 
     @property
     def spectral_density(self) -> npd.MultivariateNormal | npd.MultivariateStudentT:
@@ -164,7 +165,7 @@ def _check_lengthscale_dims_compat(
     """
 
     if isinstance(lengthscale, AbstractUnwrappable):
-        return _check_lengthscale_dims_compat(lengthscale.unwrap(), n_dims)
+        return _check_lengthscale_dims_compat(val(lengthscale), n_dims)
 
     lengthscale = jnp.asarray(lengthscale)
     ls_shape = jnp.shape(lengthscale)
@@ -187,7 +188,7 @@ def _check_lengthscale(lengthscale: tp.Any):
     """Check that the lengthscale is a valid value."""
 
     if isinstance(lengthscale, AbstractUnwrappable):
-        _check_lengthscale(lengthscale.unwrap())
+        _check_lengthscale(val(lengthscale))
         return
 
     if not isinstance(lengthscale, (int, float, jnp.ndarray, list, tuple)):

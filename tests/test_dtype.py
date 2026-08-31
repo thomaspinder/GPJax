@@ -104,7 +104,7 @@ def test_posterior_predict_dtype(enable_x64):
 
     x_test = jnp.linspace(0, 1, 5, dtype=dtype)[:, None]
     prior = Prior(mean_function=Constant(), kernel=RBF())
-    likelihood = Gaussian(num_datapoints=D.n)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     dist = posterior.predict(x_test, D)
@@ -128,7 +128,7 @@ def test_conjugate_mll_dtype(enable_x64):
     D = Dataset(X=x, y=y)
 
     prior = Prior(mean_function=Constant(), kernel=RBF())
-    likelihood = Gaussian(num_datapoints=D.n)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     mll = conjugate_mll(posterior, D)

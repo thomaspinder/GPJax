@@ -175,7 +175,7 @@ def joint_model(X, Y, X_new=None):
     )
     meanf = gpx.mean_functions.Constant()
     gp_prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=N, obs_stddev=obs_noise)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_noise)
     gp_posterior = gp_prior * likelihood
 
     trend = X @ slope + intercept

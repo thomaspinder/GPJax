@@ -98,16 +98,100 @@ parameters during optimisation. Each constrained parameter — [`PositiveReal`](
 Equinox-compatible pytree node whose `unwrap()` method applies the constraining
 bijection (e.g. softplus for positivity, sigmoid for bounded parameters).
 
-During optimisation, [`fit`](#gpjax.fit.fit) calls
-[`paramax.unwrap`](inv:paramax#paramax.wrappers.unwrap) inside the loss function.
-This recursively resolves every `AbstractUnwrappable` leaf in the model tree, mapping
-internal unconstrained values to their constrained counterparts. Gradients are computed
-in the unconstrained space, and updates are applied directly to the unconstrained
-arrays — no explicit forward/inverse transform step is needed.
+Gradients are computed in the unconstrained space, and updates are applied directly to
+the internal unconstrained arrays — no explicit forward/inverse transform step is
+needed, and [`fit`](#gpjax.fit.fit) never has to convert your model into a different
+form to optimise it.
+
+### When do I need to call `val()`?
+
+Models are **always** in their wrapped form. A model you build is wrapped, and a model
+returned by `fit` is still wrapped — nothing in GPJax converts it to a plain-array
+model, and you never need to do so yourself. The single rule is:
+
+> Call [`val`](#gpjax.parameters.val) when you want a parameter's **numeric value**.
+> Everywhere else, pass the model around untouched.
+
+```python
+import jax
+import jax.numpy as jnp
+import optax as ox
+import gpjax as gpx
+from gpjax.parameters import val
+
+X = jnp.linspace(0, 1, 20).reshape(-1, 1)
+D = gpx.Dataset(X=X, y=jnp.sin(3 * X))
+prior = gpx.gps.Prior(
+    mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()
+)
+posterior, history = gpx.fit(
+    model=prior * gpx.likelihoods.Gaussian(),
+    objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
+    train_data=D,
+    optim=ox.adam(0.01),
+    num_iters=50,
+    verbose=False,
+)
+
+# Reading a parameter's value: needs val().
+lengthscale = val(posterior.prior.kernel.lengthscale)
+print(f"learnt lengthscale: {lengthscale:.3f}")
+
+# Passing the model anywhere: no val(), no unwrapping.
+mll = gpx.objectives.conjugate_mll(posterior, D)
+predictive = posterior(X, train_data=D)
+```
+
+The same rule applies when you write your own kernel. Reach for `val` at the point
+where a parameter meets the arithmetic:
+
+```python
+from gpjax.kernels.stationary.base import StationaryKernel
+from gpjax.kernels.stationary.utils import squared_distance
+
+class MyKernel(StationaryKernel):
+    def __call__(self, x, y):
+        x = self.slice_input(x) / val(self.lengthscale)
+        y = self.slice_input(y) / val(self.lengthscale)
+        return val(self.variance) * jnp.exp(-0.5 * squared_distance(x, y))
+
+MyKernel(lengthscale=jnp.array(0.5))(jnp.array([0.1]), jnp.array([0.4]))
+```
+
+`val` is safe to apply to anything: given a parameter it returns the constrained value,
+and given a plain array or float it returns it unchanged. So there is no need to check
+first, and no harm in calling it on a value that turns out not to be wrapped.
+
+Forgetting `val` is not a silent bug. A parameter is a pytree node rather than an
+array, so arithmetic on it fails immediately and loudly:
+
+```console
+TypeError: unsupported operand type(s) for /: 'ArrayImpl' and 'PositiveReal'
+```
+
+If you see that error, you have found a missing `val()`.
+
+:::{warning}
+The one place this bites quietly is `jax.tree_util.tree_map` over a model. Mapping a
+function across the tree reaches the *unconstrained* leaf, not the value you see:
+
+```python
+from gpjax.parameters import PositiveReal
+
+doubled = jax.tree.map(lambda v: v * 2, PositiveReal(jnp.array(2.0)))
+val(doubled)  # 3.733..., not 4.0 -- it doubled the pre-softplus value
+```
+
+This is exactly what makes optimisation work — `fit` moves those unconstrained leaves
+on purpose — but it means tree-mapping arithmetic over a model is not the same as
+scaling its parameters. Use `val` and rebuild the parameter if that is what you meant.
+:::
 
 To freeze parameters so they are not updated during optimisation, wrap them with
 [`paramax.non_trainable`](inv:paramax#paramax.wrappers.non_trainable). This excludes the
-wrapped subtree from gradient updates while keeping its value available at evaluation time.
+wrapped subtree from gradient updates while keeping its value available at evaluation
+time — and since `val` resolves nested wrappers too, frozen parameters are read exactly
+like any other.
 
 ## Positive-definiteness
 
@@ -213,7 +297,7 @@ Which approximation to reach for:
 
 | Data size | Objective | Variational family |
 | --- | --- | --- |
-| Up to a few thousand | [`conjugate_mll`](#gpjax.objectives.conjugate_mll) | none — use [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior) directly |
+| Up to a few thousand | [`conjugate_mll`](#gpjax.objectives.conjugate_mll) | none — use [`ConjugateModel`](#gpjax.gps.ConjugateModel) directly |
 | Up to ~50,000 | [`collapsed_elbo`](#gpjax.objectives.collapsed_elbo) | [`CollapsedVariationalGaussian`](#gpjax.variational_families.CollapsedVariationalGaussian) |
 | Beyond that, or a non-Gaussian likelihood | [`elbo`](#gpjax.objectives.elbo) | [`VariationalGaussian`](#gpjax.variational_families.VariationalGaussian) |
 :::
