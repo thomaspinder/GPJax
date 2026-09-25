@@ -141,8 +141,11 @@ def _collect(
 ) -> list[ParamRecord]:
     """Walk ``model`` and produce one :class:`ParamRecord` per parameter.
 
-    ``priors`` optionally maps a parameter's name (as shown in the Parameter
-    column) to a prior object, populating the otherwise-empty Prior column.
+    The Prior column is populated from each parameter's own
+    :attr:`~gpjax.parameters.Parameter.prior`. ``priors`` optionally maps a
+    parameter's name (as shown in the Parameter column) to a prior object,
+    overriding the attached one -- useful when the priors live outside the
+    model, as they do when sampling with NumPyro.
     """
     prior_map = priors or {}
     records: list[ParamRecord] = []
@@ -167,7 +170,7 @@ def _collect(
                 cls=cls,
                 value=value,
                 bijector=_bijector_name(leaf) if is_param else "Identity",
-                prior=prior_map.get(name),
+                prior=prior_map.get(name, getattr(leaf, "prior", None)),
                 trainable=not _is_frozen(leaf),
                 shape=tuple(getattr(value, "shape", ())),
                 dtype=_short_dtype(value.dtype) if hasattr(value, "dtype") else "?",
@@ -242,8 +245,11 @@ def summarise(
         precision: Significant figures for numeric values.
         title: Table title; defaults to the model's class name.
         priors: Optional mapping from a parameter's name (as shown in the
-            Parameter column) to a prior object (e.g. a NumPyro distribution),
-            used to populate the Prior column. Defaults to ``None`` (all ``-``).
+            Parameter column) to a prior object (e.g. a NumPyro distribution).
+            Overrides the prior attached to that parameter, and is the way to
+            show priors that live outside the model -- NumPyro ``sample`` sites,
+            for instance. Parameters absent from the mapping fall back to their
+            own ``prior``, so a model built with ``prior=`` needs no mapping.
 
     Example:
         >>> import gpjax as gpx
