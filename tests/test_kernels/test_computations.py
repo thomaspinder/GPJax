@@ -93,6 +93,42 @@ class TestBasisFunctionComputation:
         cc = rff_kernel.compute_engine.cross_covariance(rff_kernel, x, x)
         assert jnp.allclose(gram, cc, atol=1e-5)
 
+    def test_gram_computes_features_exactly_once(self, rff_kernel, monkeypatch):
+        """gram(x) should compute the feature matrix a single time.
+
+        `cross_covariance(x, x)` legitimately computes the feature matrix
+        twice (once per argument), but `gram` has its own single-pass
+        `_gram` override precisely to avoid that redundant work. If `gram`
+        ever regresses to routing through `cross_covariance`, this test
+        catches it.
+        """
+        x = jr.normal(jr.key(1), (8, 2))
+        engine = rff_kernel.compute_engine
+        original_compute_features = engine.compute_features
+        call_count = 0
+
+        def counting_compute_features(kernel, x):
+            nonlocal call_count
+            call_count += 1
+            return original_compute_features(kernel, x)
+
+        monkeypatch.setattr(engine, "compute_features", counting_compute_features)
+
+        rff_kernel.gram(x)
+
+        assert call_count == 1
+
+    def test_gram_matches_manual_feature_computation(self, rff_kernel):
+        """gram(x) should equal scaling * features @ features.T exactly."""
+        x = jr.normal(jr.key(1), (8, 2))
+        engine = rff_kernel.compute_engine
+        features = engine.compute_features(rff_kernel, x)
+        expected = engine.scaling(rff_kernel) * jnp.matmul(features, features.T)
+
+        gram = rff_kernel.gram(x).as_matrix()
+
+        assert jnp.allclose(gram, expected)
+
     def test_diagonal(self, rff_kernel):
         """Diagonal should return a linear operator."""
         x = jr.normal(jr.key(1), (8, 2))

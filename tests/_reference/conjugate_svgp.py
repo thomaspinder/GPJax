@@ -8,11 +8,10 @@ transpose correction cannot be applied to one transcription and missed by the ot
 """
 
 from gpjax.linalg import add_jitter
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.variational_families import WhitenedVariationalGaussian
 import jax.numpy as jnp
 import jax.scipy as jsp
-import paramax
 
 
 def conjugate_optimum(variational_family, data, scale=None):
@@ -41,18 +40,18 @@ def conjugate_optimum(variational_family, data, scale=None):
     tuple
         ``(optimal_mean, optimal_covariance, precision)``.
     """
-    unwrapped = paramax.unwrap(variational_family)
-    inducing_inputs = _val(unwrapped.inducing_inputs)
-    kernel = unwrapped.model.prior.kernel
-    mean_function = unwrapped.model.prior.mean_function
+    inducing_inputs = val(variational_family.inducing_inputs)
+    kernel = variational_family.model.prior.kernel
+    mean_function = variational_family.model.prior.mean_function
 
     gram = add_jitter(
-        kernel.gram(inducing_inputs).as_matrix(), unwrapped.model.prior.jitter
+        kernel.gram(inducing_inputs).as_matrix(),
+        variational_family.model.prior.jitter,
     )
     cross = kernel.cross_covariance(data.X, inducing_inputs)
     inducing_mean = mean_function(inducing_inputs)
     input_mean = mean_function(data.X)
-    noise_variance = _val(unwrapped.model.likelihood.obs_stddev) ** 2
+    noise_variance = val(variational_family.model.likelihood.obs_stddev) ** 2
     if scale is None:
         full_size = data.n_total if data.n_total is not None else data.n
         scale = full_size / data.n

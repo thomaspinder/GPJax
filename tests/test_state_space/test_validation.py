@@ -41,7 +41,9 @@ def test_kernel_construction_rejects_tuple_active_dims_upstream():
     message names the ``list[int], slice`` annotation. Either way the tuple
     cannot reach ``_validate_temporal_kernel``.
     """
-    with pytest.raises(Exception, match=r"list or slice|list\[int\], slice"):
+    with pytest.raises(
+        Exception, match=r"list or slice|list\[int\], slice|list\[int\] \| slice"
+    ):
         gpx.kernels.Matern32(active_dims=(0, 1))
 
 

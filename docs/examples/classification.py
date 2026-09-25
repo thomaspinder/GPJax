@@ -29,6 +29,7 @@
 import equinox as eqx
 from utils import use_mpl_style
 from gpjax.linalg import add_jitter, cholesky_factor
+from gpjax.parameters import val
 import jax
 
 # Enable Float64 for more stable matrix inversions.
@@ -45,7 +46,6 @@ import lineax as lx
 import matplotlib.pyplot as plt
 import numpyro.distributions as npd
 import optax as ox
-import paramax
 
 config.update("jax_enable_x64", True)
 
@@ -240,7 +240,7 @@ jitter = 1e-6
 Kxx = opt_posterior.prior.kernel.gram(x).as_matrix()
 Kxx = add_jitter(Kxx, jitter)
 Lx = jnp.linalg.cholesky(Kxx)
-f_hat = Lx @ opt_posterior.latent.unwrap()
+f_hat = Lx @ val(opt_posterior.latent)
 
 # Negative Hessian,  H = -∇²p_tilde(y|f):
 params, static = eqx.partition(opt_posterior, eqx.is_array)
@@ -248,7 +248,6 @@ params, static = eqx.partition(opt_posterior, eqx.is_array)
 
 def loss(params, D):
     model = eqx.combine(params, static)
-    model = paramax.unwrap(model)
     return -gpx.objectives.log_posterior_density(model, D)
 
 

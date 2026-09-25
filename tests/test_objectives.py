@@ -18,7 +18,7 @@ from gpjax.objectives import (
 )
 from gpjax.parameters import (
     PositiveReal,
-    _val,
+    val,
 )
 from gpjax.variational_families import DualVariationalGaussian
 import jax
@@ -28,7 +28,6 @@ import jax.random as jr
 import jax.scipy as jsp
 import jax.tree_util as jtu
 import numpy as np
-import paramax
 import pytest
 
 from tests._dual_helpers import (
@@ -91,7 +90,7 @@ def test_conjugate_mll(n_points: int, n_dims: int, key_val: int):
     params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = paramax.unwrap(eqx.combine(params, static))
+        posterior = eqx.combine(params, static)
         return -conjugate_mll(posterior, D)
 
     res_wrapped = loss(params)
@@ -131,7 +130,7 @@ def test_conjugate_loocv(n_points, n_dims, key_val):
     params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = paramax.unwrap(eqx.combine(params, static))
+        posterior = eqx.combine(params, static)
         return -conjugate_loocv(posterior, D)
 
     res_wrapped = loss(params)
@@ -171,7 +170,7 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
     params, static = eqx.partition(post, eqx.is_array)
 
     def loss(params):
-        posterior = paramax.unwrap(eqx.combine(params, static))
+        posterior = eqx.combine(params, static)
         return -non_conjugate_mll(posterior, D)
 
     res_wrapped = loss(params)
@@ -185,6 +184,49 @@ def test_non_conjugate_mll(n_points, n_dims, key_val):
     # test loss with grad
     loss_grad = jax.grad(loss)
     _ = loss_grad(params)
+
+
+@pytest.mark.parametrize("n_points", [1, 2, 10])
+@pytest.mark.parametrize("n_dims", [1, 2, 3])
+@pytest.mark.parametrize("key_val", [123, 42])
+def test_non_conjugate_mll_studentt(n_points, n_dims, key_val):
+    key = jr.key(key_val)
+    D = build_data(n_points, n_dims, key, binary=False)
+
+    # Build model
+    p = gpx.gps.Prior(
+        kernel=gpx.kernels.RBF(active_dims=list(range(n_dims))),
+        mean_function=gpx.mean_functions.Constant(),
+    )
+    likelihood = gpx.likelihoods.StudentT()
+    post = (p * likelihood).init_latent(D.n)
+
+    # test simple call
+    res_simple = -non_conjugate_mll(post, D)
+    assert isinstance(res_simple, jax.Array)
+    assert res_simple.shape == ()
+
+    # test call wrapped in loss function
+    params, static = eqx.partition(post, eqx.is_array)
+
+    def loss(params):
+        posterior = eqx.combine(params, static)
+        return -non_conjugate_mll(posterior, D)
+
+    res_wrapped = loss(params)
+    assert jnp.allclose(res_simple, res_wrapped)
+
+    # test loss with jit
+    loss_jit = jax.jit(loss)
+    res_jit = loss_jit(params)
+    assert jnp.allclose(res_simple, res_jit)
+
+    # test loss with grad
+    loss_grad = jax.grad(loss)
+    grads = loss_grad(params)
+    # Gradient should flow to the degrees-of-freedom parameter too.
+    dof_grad = grads.likelihood.degrees_of_freedom._unconstrained
+    assert jnp.isfinite(dof_grad).all()
 
 
 @pytest.mark.parametrize("n_points", [10, 20])
@@ -247,7 +289,7 @@ def test_elbo(n_points, n_dims, key_val, binary: bool):
     params, static = eqx.partition(q, eqx.is_array)
 
     def loss(params):
-        model = paramax.unwrap(eqx.combine(params, static))
+        model = eqx.combine(params, static)
         return -elbo(model, D)
 
     res_wrapped = loss(params)
@@ -338,7 +380,7 @@ def test_conjugate_loocv_multioutput_matches_brute_force():
     kernel = ICMKernel(base_kernel=RBF(), coregionalization_matrix=coreg)
     prior = Prior(mean_function=Zero(), kernel=kernel)
     lik = MultiOutputGaussian(num_outputs=P)
-    posterior = paramax.unwrap(prior * lik)
+    posterior = prior * lik
 
     # --- Independent brute-force reference on the full [NP, NP] system ---
     mx = posterior.prior.mean_function(X)
@@ -429,7 +471,7 @@ def _kernel_hyper_gradient(objective_fn, family, data):
     params, static = eqx.partition(family, eqx.is_array)
 
     def loss(trainable):
-        return objective_fn(paramax.unwrap(eqx.combine(trainable, static)), data)
+        return objective_fn(eqx.combine(trainable, static), data)
 
     grads = jax.grad(loss)(params)
     leaves = jtu.tree_leaves(grads.model.prior.kernel)
@@ -448,7 +490,7 @@ def test_dual_elbo(binary: bool):
     params, static = eqx.partition(q, eqx.is_array)
 
     def loss(params):
-        model = paramax.unwrap(eqx.combine(params, static))
+        model = eqx.combine(params, static)
         return -dual_elbo(model, data)
 
     np.testing.assert_allclose(
@@ -548,7 +590,7 @@ def test_dual_elbo_equals_titsias_collapsed_bound():
     gram = add_jitter(kernel.gram(inducing_inputs).as_matrix(), jitter)
     cross = kernel.cross_covariance(inducing_inputs, data.X)
     diagonal = jnp.diag(kernel.gram(data.X).as_matrix())
-    noise_variance = _val(posterior.likelihood.obs_stddev) ** 2
+    noise_variance = val(posterior.likelihood.obs_stddev) ** 2
     residual = (data.y - posterior.prior.mean_function(data.X)).squeeze(-1)
 
     root_gram = jnp.linalg.cholesky(gram)
@@ -638,7 +680,7 @@ def test_dual_elbo_dominates_when_inducing_equal_inputs():
     q = _dual_natgrad_step(q, data, 1.0)
     q_moment = _matched_variational_gaussian(q)
 
-    base_lengthscale = _val(posterior.prior.kernel.lengthscale)
+    base_lengthscale = val(posterior.prior.kernel.lengthscale)
     for shift in (-0.6, -0.3, 0.0, 0.3, 0.6):
         lengthscale = PositiveReal(base_lengthscale * jnp.exp(shift))
         where = lambda t: t.model.prior.kernel.lengthscale

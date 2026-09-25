@@ -77,6 +77,6 @@ Prints a regression report with significance markers. No branches touched.
 ## Notes on bench-check
 
 `bench-check` runs `asv check`, which builds an env for the commit
-referenced by `asv.conf.json`'s `branches: ["main"]`. It only succeeds
-once `benchmarks/` and `asv-constraints.txt` have landed on `main`. After
-that, it's safe to add to the `all-tests` poe sequence.
+referenced by `asv.conf.json`'s `branches: ["main"]`. It is wired into
+the `all-tests` poe sequence, so it runs on every `uv run poe all-tests`
+alongside `lint`, `docstrings` and `test`.

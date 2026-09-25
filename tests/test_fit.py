@@ -50,7 +50,7 @@ from gpjax.objectives import (
 )
 from gpjax.parameters import (
     PositiveReal,
-    _val,
+    val,
 )
 from gpjax.typing import Array
 from gpjax.variational_families import (
@@ -83,7 +83,17 @@ class LinearModel(eqx.Module):
         self.bias = bias
 
     def __call__(self, x):
-        return _val(self.weight) * x + self.bias
+        return val(self.weight) * x + self.bias
+
+
+# The mll and the elbo are both maximised, whereas fit functions minimise,
+# so optimisation is always driven by the negated quantity.
+def _negative_conjugate_mll(model, data):
+    return -conjugate_mll(model, data)
+
+
+def _negative_elbo(model, data):
+    return -elbo(model, data)
 
 
 def test_fit_simple() -> None:
@@ -206,7 +216,7 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
     # Train!
     trained_model, history = fit(
         model=posterior,
-        objective=conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.adam(0.1),
         num_iters=15,
@@ -220,8 +230,8 @@ def test_fit_gp_regression(n_data: int, verbose: bool) -> None:
     # Ensure we return a history of the correct length
     assert len(history) == 15
 
-    # Ensure we reduce the loss
-    assert conjugate_mll(trained_model, D) < conjugate_mll(posterior, D)
+    # Ensure we improve the marginal log-likelihood
+    assert conjugate_mll(trained_model, D) > conjugate_mll(posterior, D)
 
 
 @pytest.mark.parametrize("n_data", [20])
@@ -242,7 +252,7 @@ def test_fit_lbfgs_gp_regression(n_data: int) -> None:
     # Train with BFGS!
     trained_model_bfgs, _final_loss = fit_lbfgs(
         model=posterior,
-        objective=conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         max_iters=40,
     )
@@ -250,8 +260,68 @@ def test_fit_lbfgs_gp_regression(n_data: int) -> None:
     # Ensure the trained model is a Gaussian process posterior
     assert isinstance(trained_model_bfgs, ConjugateModel)
 
-    # Ensure we reduce the loss
-    assert conjugate_mll(trained_model_bfgs, D) < conjugate_mll(posterior, D)
+    # Ensure we improve the marginal log-likelihood
+    assert conjugate_mll(trained_model_bfgs, D) > conjugate_mll(posterior, D)
+
+
+@pytest.mark.parametrize(
+    "run_fit",
+    [
+        lambda model, objective, data: fit(
+            model=model,
+            objective=objective,
+            train_data=data,
+            optim=ox.adam(0.1),
+            num_iters=20,
+            key=jr.key(123),
+        )[0],
+        lambda model, objective, data: fit_scipy(
+            model=model, objective=objective, train_data=data, max_iters=20
+        )[0],
+        lambda model, objective, data: fit_lbfgs(
+            model=model, objective=objective, train_data=data, max_iters=20
+        )[0],
+    ],
+    ids=["fit", "fit_scipy", "fit_lbfgs"],
+)
+def test_fitters_hold_frozen_parameter_constant(run_fit) -> None:
+    """Every fitter honours paramax.non_trainable.
+
+    Each optimiser reaches the parameters differently -- an Optax update rule, an
+    Optax while_loop, and a raveled vector handed to SciPy -- so the guarantee is
+    worth asserting for each. Note that it is a property of the *optimiser* as
+    much as of the wrapper: ox.adamw would still shrink the frozen parameter,
+    because decoupled weight decay applies regardless of the gradient.
+    """
+    # Create dataset:
+    key = jr.key(123)
+    x = jnp.sort(jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(20, 1)), axis=0)
+    y = jnp.sin(x) + jr.normal(key=key, shape=x.shape) * 0.1
+    D = Dataset(X=x, y=y)
+
+    # Define GP model, freezing the observation noise:
+    prior = Prior(kernel=RBF(), mean_function=Constant())
+    likelihood = eqx.tree_at(
+        lambda lik: lik.obs_stddev, Gaussian(), replace_fn=paramax.non_trainable
+    )
+    posterior = prior * likelihood
+
+    # Train!
+    trained_model = run_fit(posterior, _negative_conjugate_mll, D)
+
+    # Ensure the frozen noise is held exactly
+    assert val(trained_model.likelihood.obs_stddev) == val(
+        posterior.likelihood.obs_stddev
+    )
+
+    # Ensure the remaining hyperparameters are still optimised
+    assert not jnp.allclose(
+        val(trained_model.prior.kernel.lengthscale),
+        val(posterior.prior.kernel.lengthscale),
+    )
+
+    # Ensure we improve the marginal log-likelihood
+    assert conjugate_mll(trained_model, D) > conjugate_mll(posterior, D)
 
 
 def test_fit_scipy_error_raises() -> None:
@@ -317,7 +387,7 @@ def test_fit_batch(num_iters: int, batch_size: int, n_data: int, verbose: bool) 
     # Train!
     trained_model, history = fit(
         model=q,
-        objective=elbo,
+        objective=_negative_elbo,
         train_data=D,
         optim=ox.adam(0.1),
         num_iters=num_iters,
@@ -332,8 +402,8 @@ def test_fit_batch(num_iters: int, batch_size: int, n_data: int, verbose: bool) 
     # Ensure we return a history of the correct length
     assert len(history) == num_iters
 
-    # Ensure we reduce the loss
-    assert elbo(trained_model, D) < elbo(q, D)
+    # Ensure we improve the elbo
+    assert elbo(trained_model, D) > elbo(q, D)
 
 
 def _svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
@@ -352,10 +422,6 @@ def _svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
     z = jnp.linspace(-2.0, 2.0, n_inducing).reshape(-1, 1)
     q = VariationalGaussian(model=posterior, inducing_inputs=z)
     return q, D
-
-
-def _negative_elbo(model, data):
-    return -elbo(model, data)
 
 
 def _conjugate_optimal_q(q, data):
@@ -392,8 +458,8 @@ def test_fit_natgrads_simple() -> None:
 def test_fit_natgrads_gp_regression(n_data: int, verbose: bool) -> None:
     q, D = _svgp_setup(n_data=n_data)
 
-    initial_lengthscale = _val(paramax.unwrap(q).model.prior.kernel.lengthscale)
-    initial_obs_stddev = _val(paramax.unwrap(q).model.likelihood.obs_stddev)
+    initial_lengthscale = val(q.model.prior.kernel.lengthscale)
+    initial_obs_stddev = val(q.model.likelihood.obs_stddev)
 
     trained_model, history = fit_natgrads(
         model=q,
@@ -411,12 +477,11 @@ def test_fit_natgrads_gp_regression(n_data: int, verbose: bool) -> None:
     assert bool(jnp.all(jnp.isfinite(history)))
     assert history[-1] < history[0]
 
-    unwrapped = paramax.unwrap(trained_model)
     assert not jnp.allclose(
-        _val(unwrapped.model.prior.kernel.lengthscale), initial_lengthscale
+        val(trained_model.model.prior.kernel.lengthscale), initial_lengthscale
     )
     assert not jnp.allclose(
-        _val(unwrapped.model.likelihood.obs_stddev), initial_obs_stddev
+        val(trained_model.model.likelihood.obs_stddev), initial_obs_stddev
     )
 
 
@@ -444,9 +509,8 @@ def test_fit_natgrads_batch(
     assert isinstance(trained_model, VariationalGaussian)
     assert history.shape == (num_iters,)
     assert bool(jnp.all(jnp.isfinite(history)))
-    unwrapped = paramax.unwrap(trained_model)
-    assert bool(jnp.all(jnp.isfinite(_val(unwrapped.variational_mean))))
-    assert bool(jnp.all(jnp.isfinite(_val(unwrapped.variational_root_covariance))))
+    assert bool(jnp.all(jnp.isfinite(val(trained_model.variational_mean))))
+    assert bool(jnp.all(jnp.isfinite(val(trained_model.variational_root_covariance))))
 
 
 def test_fit_natgrads_conjugate_single_step_is_exact() -> None:
@@ -464,9 +528,8 @@ def test_fit_natgrads_conjugate_single_step_is_exact() -> None:
         verbose=False,
     )
 
-    unwrapped = paramax.unwrap(trained_model)
-    trained_mean = _val(unwrapped.variational_mean)
-    trained_root = _val(unwrapped.variational_root_covariance)
+    trained_mean = val(trained_model.variational_mean)
+    trained_root = val(trained_model.variational_root_covariance)
     optimal_mean, optimal_covariance = _conjugate_optimal_q(q, D)
 
     np.testing.assert_allclose(
@@ -495,7 +558,7 @@ def test_fit_natgrads_history_matches_fit_convention() -> None:
 
     np.testing.assert_allclose(
         np.float64(history[0]),
-        np.float64(_negative_elbo(paramax.unwrap(q), D)),
+        np.float64(_negative_elbo(q, D)),
         rtol=1e-12,
     )
 
@@ -523,7 +586,7 @@ def test_fit_natgrads_accepts_optax_schedule() -> None:
 def test_fit_natgrads_rejects_unsupported_family() -> None:
     q, D = _svgp_setup(n_data=20)
     collapsed = CollapsedVariationalGaussian(
-        model=q.model, inducing_inputs=_val(q.inducing_inputs)
+        model=q.model, inducing_inputs=val(q.inducing_inputs)
     )
 
     with pytest.raises(NotImplementedError, match="CollapsedVariationalGaussian"):
@@ -535,6 +598,45 @@ def test_fit_natgrads_rejects_unsupported_family() -> None:
             num_iters=2,
             verbose=False,
         )
+
+
+def test_fit_natgrads_holds_frozen_hyperparameter_constant() -> None:
+    q, D = _svgp_setup(n_data=20)
+    frozen = eqx.tree_at(
+        lambda tree: tree.model.likelihood.obs_stddev,
+        q,
+        replace_fn=paramax.non_trainable,
+    )
+
+    trained_model, history = fit_natgrads(
+        model=frozen,
+        objective=_negative_elbo,
+        train_data=D,
+        optim=ox.adam(0.1),
+        natgrad_lr=0.5,
+        num_iters=15,
+        verbose=False,
+        key=jr.key(123),
+    )
+
+    # Ensure the frozen noise is held exactly
+    assert val(trained_model.model.likelihood.obs_stddev) == val(
+        frozen.model.likelihood.obs_stddev
+    )
+
+    # Ensure the remaining hyperparameters are still optimised by the Optax half
+    assert not jnp.allclose(
+        val(trained_model.model.prior.kernel.lengthscale),
+        val(frozen.model.prior.kernel.lengthscale),
+    )
+
+    # Ensure the variational coordinates are still optimised by the natgrad half
+    assert not jnp.allclose(
+        val(trained_model.variational_mean), val(frozen.variational_mean)
+    )
+
+    # Ensure we reduce the loss
+    assert history[-1] < history[0]
 
 
 def test_fit_natgrads_rejects_frozen_coordinates(monkeypatch) -> None:
@@ -858,21 +960,19 @@ def test_fit_freeze_kernel_variance() -> None:
 
     trained_posterior, _ = fit(
         model=frozen_posterior,
-        objective=gpx.objectives.conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.sgd(0.01),
         num_iters=10,
         verbose=False,
     )
 
-    # Use paramax.unwrap to fully resolve all wrappers for comparison
-    unwrapped = paramax.unwrap(trained_posterior)
-
     # Assert variance has not changed
-    assert jnp.allclose(unwrapped.prior.kernel.variance, initial_variance)
+    assert jnp.allclose(val(trained_posterior.prior.kernel.variance), initial_variance)
 
-    # Assert lengthscale has changed
-    assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, 1.0)
+    # Assert lengthscale has changed, and in the direction that improves the mll
+    assert not jnp.allclose(val(trained_posterior.prior.kernel.lengthscale), 1.0)
+    assert conjugate_mll(trained_posterior, D) > conjugate_mll(frozen_posterior, D)
 
 
 def test_fit_zero_mean_function_is_frozen_by_default() -> None:
@@ -895,15 +995,14 @@ def test_fit_zero_mean_function_is_frozen_by_default() -> None:
 
     trained_posterior, _ = fit(
         model=posterior,
-        objective=lambda model, data: -gpx.objectives.conjugate_mll(model, data),
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.adam(0.1),
         num_iters=50,
         verbose=False,
     )
 
-    unwrapped = paramax.unwrap(trained_posterior)
-    assert jnp.allclose(unwrapped.prior.mean_function.constant, 0.0)
+    assert jnp.allclose(val(trained_posterior.prior.mean_function.constant), 0.0)
 
 
 def test_fit_constant_mean_function_with_parameter() -> None:
@@ -928,7 +1027,7 @@ def test_fit_constant_mean_function_with_parameter() -> None:
     # Train (should train the mean function Parameter)
     trained_posterior, _ = fit(
         model=posterior,
-        objective=gpx.objectives.conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.adam(0.01),
         num_iters=20,
@@ -973,7 +1072,7 @@ def test_fit_constant_mean_function_frozen_with_non_trainable() -> None:
     # Train (constant should NOT change because it is frozen)
     trained_posterior, _ = fit(
         model=frozen_posterior,
-        objective=gpx.objectives.conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.sgd(0.1),
         num_iters=50,
@@ -981,8 +1080,9 @@ def test_fit_constant_mean_function_frozen_with_non_trainable() -> None:
     )
 
     # Assert mean function constant has NOT changed (frozen with non_trainable)
-    unwrapped = paramax.unwrap(trained_posterior)
-    assert jnp.allclose(unwrapped.prior.mean_function.constant, initial_constant)
+    assert jnp.allclose(
+        val(trained_posterior.prior.mean_function.constant), initial_constant
+    )
 
 
 def test_fit_freeze_by_non_trainable() -> None:
@@ -1018,22 +1118,26 @@ def test_fit_freeze_by_non_trainable() -> None:
 
     trained_posterior, _ = fit(
         model=frozen_posterior,
-        objective=gpx.objectives.conjugate_mll,
+        objective=_negative_conjugate_mll,
         train_data=D,
         optim=ox.sgd(0.01),
         num_iters=10,
         verbose=False,
     )
 
-    # Use paramax.unwrap to fully resolve all wrappers for comparison
-    unwrapped = paramax.unwrap(trained_posterior)
-
     # Assert that frozen parameters have not changed
-    assert jnp.allclose(unwrapped.prior.kernel.variance, initial_variance)
-    assert jnp.allclose(unwrapped.likelihood.obs_stddev, initial_obs_stddev)
+    assert jnp.allclose(val(trained_posterior.prior.kernel.variance), initial_variance)
+    assert jnp.allclose(
+        val(trained_posterior.likelihood.obs_stddev), initial_obs_stddev
+    )
+
+    # The trainable lengthscale must have moved so as to improve the mll
+    assert conjugate_mll(trained_posterior, D) > conjugate_mll(frozen_posterior, D)
 
     # Assert lengthscale has changed
-    assert not jnp.allclose(unwrapped.prior.kernel.lengthscale, initial_lengthscale)
+    assert not jnp.allclose(
+        val(trained_posterior.prior.kernel.lengthscale), initial_lengthscale
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1044,7 +1148,7 @@ def _dual_svgp_setup(n_data: int, n_inducing: int = 5, jitter: float = 1e-8):
     q, D = _svgp_setup(n_data=n_data, n_inducing=n_inducing, jitter=jitter)
     dual = DualVariationalGaussian(
         model=q.model,
-        inducing_inputs=_val(q.inducing_inputs),
+        inducing_inputs=val(q.inducing_inputs),
     )
     return dual, D
 

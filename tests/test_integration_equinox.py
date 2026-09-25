@@ -12,6 +12,7 @@ import pytest
 config.update("jax_enable_x64", True)
 
 import gpjax as gpx
+from gpjax.parameters import val
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:A JAX array is being set as static:UserWarning"
@@ -50,7 +51,7 @@ def test_full_gp_training_roundtrip():
 def test_parameter_freezing_with_non_trainable():
     """NonTrainable parameters should not change during training."""
     kernel = gpx.kernels.RBF()
-    original_variance = paramax.unwrap(kernel).variance
+    original_variance = val(kernel.variance)
 
     frozen_kernel = eqx.tree_at(
         lambda k: k.variance, kernel, replace_fn=paramax.non_trainable
@@ -75,7 +76,7 @@ def test_parameter_freezing_with_non_trainable():
         verbose=False,
     )
 
-    final_variance = paramax.unwrap(trained.prior.kernel).variance
+    final_variance = val(trained.prior.kernel.variance)
     assert jnp.allclose(final_variance, original_variance)
 
 
@@ -186,7 +187,7 @@ def test_grad_through_model():
     params, static = eqx.partition(posterior, eqx.is_array)
 
     def loss(params):
-        model = paramax.unwrap(eqx.combine(params, static))
+        model = eqx.combine(params, static)
         return -gpx.objectives.conjugate_mll(model, D)
 
     grads = jax.grad(loss)(params)

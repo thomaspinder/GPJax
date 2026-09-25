@@ -1,6 +1,7 @@
 """Tests for state_space.fit wrappers."""
 
 import gpjax as gpx
+from gpjax.parameters import val
 from gpjax.state_space.fit import (
     fit,
     fit_lbfgs,
@@ -70,14 +71,13 @@ def test_fit_scipy_recovers_matern52_hyperparameters_at_N_2000():
         max_iters=200,
         verbose=False,
     )
-    fitted = paramax.unwrap(fitted_posterior)
 
     # Loose recovery checks (within ~50% of truth).
-    assert 0.4 < float(fitted.prior.kernel.lengthscale) < 1.4, (
-        f"lengthscale recovery off: got {float(fitted.prior.kernel.lengthscale)}, true {lengthscale_true}"
+    assert 0.4 < float(val(fitted_posterior.prior.kernel.lengthscale)) < 1.4, (
+        f"lengthscale recovery off: got {float(val(fitted_posterior.prior.kernel.lengthscale))}, true {lengthscale_true}"
     )
-    assert 0.5 < float(fitted.prior.kernel.variance) < 4.0
-    assert 0.15 < float(fitted.likelihood.obs_stddev) < 0.55
+    assert 0.5 < float(val(fitted_posterior.prior.kernel.variance)) < 4.0
+    assert 0.15 < float(val(fitted_posterior.likelihood.obs_stddev)) < 0.55
 
     # Final negative-MLL strictly less than initial.
     assert history[-1] < history[0]
@@ -236,8 +236,7 @@ def test_paramax_non_trainable_freezes_lengthscale():
         max_iters=50,
         verbose=False,
     )
-    fitted = paramax.unwrap(fitted_posterior)
-    fitted_lengthscale_value = float(fitted.prior.kernel.lengthscale)
+    fitted_lengthscale_value = float(val(fitted_posterior.prior.kernel.lengthscale))
     np.testing.assert_allclose(
         fitted_lengthscale_value,
         init_lengthscale_value,
@@ -245,8 +244,8 @@ def test_paramax_non_trainable_freezes_lengthscale():
     )
 
     # Sanity: variance and/or obs_stddev DID move (otherwise the freeze test is vacuous).
-    fitted_variance = float(fitted.prior.kernel.variance)
-    fitted_obs_stddev = float(fitted.likelihood.obs_stddev)
+    fitted_variance = float(val(fitted_posterior.prior.kernel.variance))
+    fitted_obs_stddev = float(val(fitted_posterior.likelihood.obs_stddev))
     assert (
         abs(fitted_variance - init_variance) > 1e-3
         or abs(fitted_obs_stddev - init_obs_stddev) > 1e-3

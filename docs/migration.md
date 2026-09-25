@@ -357,7 +357,7 @@ function, and freezing parameters is expressed by wrapping them in
 # Before (0.13.x)
 opt_model, history = gpx.fit(
     model=posterior,
-    objective=gpx.objectives.conjugate_mll,
+    objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
     optim=ox.adam(1e-2),
     params_bijection=gpx.parameters.DEFAULT_BIJECTION,
@@ -378,7 +378,7 @@ posterior = eqx.tree_at(
 
 opt_model, history = gpx.fit(
     model=posterior,
-    objective=gpx.objectives.conjugate_mll,
+    objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
     optim=ox.adam(1e-2),
 )

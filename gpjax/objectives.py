@@ -29,6 +29,7 @@ DVF = TypeVar("DVF", bound=DualVariationalGaussian)
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
+LogPriorFn = tpe.Callable[[eqx.Module], ScalarFloat]
 
 
 def conjugate_mll(model: ConjugateModel, data: Dataset) -> ScalarFloat:
@@ -509,6 +510,7 @@ def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
 
 
 __all__ = [
+    "LogPriorFn",
     "Objective",
     "collapsed_elbo",
     "conjugate_loocv",

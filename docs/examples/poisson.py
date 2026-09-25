@@ -47,7 +47,6 @@ from jaxtyping import install_import_hook
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
-import paramax
 
 with install_import_hook("gpjax", "beartype.beartype"):
     import gpjax as gpx
@@ -197,7 +196,6 @@ params, static = eqx.partition(posterior, eqx.is_array)
 
 def logprob_fn(params):
     model = eqx.combine(params, static)
-    model = paramax.unwrap(model)
     return gpx.objectives.log_posterior_density(model, D)
 
 
@@ -274,7 +272,6 @@ key, predictive_key = jr.split(key)
 for i in range(0, num_samples, thin_factor):
     sample_params = jtu.tree_map(lambda samples, i=i: samples[i], states.position)
     model = eqx.combine(sample_params, static)
-    model = paramax.unwrap(model)
     latent_dist = model.predict(xtest, train_data=D)
     predictive_key, f_key, y_key = jr.split(predictive_key, 3)
     f_star = latent_dist.sample(key=f_key, sample_shape=(num_latent_draws,))

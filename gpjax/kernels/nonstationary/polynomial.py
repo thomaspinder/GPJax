@@ -19,7 +19,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -82,7 +82,5 @@ class Polynomial(AbstractKernel):
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        K = jnp.power(
-            _val(self.shift) + _val(self.variance) * jnp.dot(x, y), self.degree
-        )
+        K = jnp.power(val(self.shift) + val(self.variance) * jnp.dot(x, y), self.degree)
         return K.squeeze()

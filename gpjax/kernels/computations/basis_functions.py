@@ -6,7 +6,7 @@ import lineax as lx
 
 import gpjax
 from gpjax.kernels.computations.base import AbstractKernelComputation
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.typing import Array
 
 K = tp.TypeVar("K", bound="gpjax.kernels.approximations.RFF")
@@ -70,4 +70,4 @@ class BasisFunctionComputation(AbstractKernelComputation):
         Returns:
             A scalar array representing the scaling factor.
         """
-        return _val(kernel.base_kernel.variance) / kernel.num_basis_fns
+        return val(kernel.base_kernel.variance) / kernel.num_basis_fns

@@ -33,7 +33,7 @@ from gpjax.mean_functions import (
 from gpjax.objectives import conjugate_mll
 from gpjax.parameters import (
     Real,
-    _val,
+    val,
 )
 import jax
 import jax.numpy as jnp
@@ -86,7 +86,7 @@ def test_constant(constant: Float[Array, " Q"]) -> None:
 def test_zero_mean_initialises_at_zero() -> None:
     """Zero mean function should initialise its constant at 0.0."""
     meanf = Zero()
-    assert jnp.allclose(_val(meanf.constant), 0.0)
+    assert jnp.allclose(val(meanf.constant), 0.0)
 
 
 def test_zero_mean_remains_zero() -> None:
@@ -334,7 +334,7 @@ def test_zero_mean_function_constant_is_frozen():
     meanf = Zero()
 
     assert isinstance(meanf.constant, NonTrainable)
-    assert jnp.allclose(_val(meanf.constant), 0.0)
+    assert jnp.allclose(val(meanf.constant), 0.0)
 
     # The wrapper must stop gradients reaching the constant. `eqx.filter` alone
     # does not hide it -- `unwrap` is what applies `stop_gradient`.

@@ -23,6 +23,7 @@ except ImportError:
 
 from collections.abc import Callable
 
+import equinox as eqx
 from gpjax.dataset import Dataset
 from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
@@ -42,6 +43,7 @@ from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
     Poisson,
+    StudentT,
 )
 from gpjax.mean_functions import (
     AbstractMeanFunction,
@@ -53,6 +55,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import lineax as lx
 from numpyro.distributions import Distribution as NumpyroDistribution
+import paramax
 import pytest
 
 # Enable Float64 for more stable matrix inversions.
@@ -342,7 +345,38 @@ def test_nonconjugate_posterior(
 
 
 @pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
-@pytest.mark.parametrize("likelihood", [Bernoulli, Gaussian])
+@pytest.mark.parametrize("num_datapoints", [1, 10])
+@pytest.mark.parametrize("num_test_datapoints", [1, 10, 200])
+def test_nonconjugate_posterior_studentt(
+    num_datapoints: int,
+    num_test_datapoints: int,
+) -> None:
+    # Create a dataset of continuous, real-valued observations (as StudentT,
+    # unlike Bernoulli/Poisson, models a real-valued robust-regression target).
+    key = jr.key(123)
+    x = jr.uniform(key=key, minval=-2.0, maxval=2.0, shape=(num_datapoints, 1))
+    y = jnp.sin(x) + jr.normal(key=key, shape=x.shape) * 0.1
+    D = Dataset(X=x, y=y)
+
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    likelihood = StudentT()
+
+    posterior = NonConjugateModel(prior=prior, likelihood=likelihood)
+    posterior = posterior.init_latent(num_datapoints)
+    assert isinstance(posterior, NonConjugateModel)
+
+    inputs = jnp.linspace(-3.0, 3.0, num_test_datapoints).reshape(-1, 1)
+    marginal_distribution = posterior(inputs, D)
+
+    assert isinstance(marginal_distribution, GaussianDistribution)
+    mu = marginal_distribution.mean
+    sigma = marginal_distribution.covariance()
+    assert mu.shape == (num_test_datapoints,)
+    assert sigma.shape == (num_test_datapoints, num_test_datapoints)
+
+
+@pytest.mark.filterwarnings("ignore:A JAX array is being set as static:UserWarning")
+@pytest.mark.parametrize("likelihood", [Bernoulli, Gaussian, StudentT])
 @pytest.mark.parametrize("num_datapoints", [1, 10])
 @pytest.mark.parametrize("kernel", [RBF, Matern52])
 @pytest.mark.parametrize("mean_function", [Zero, Constant])
@@ -373,8 +407,9 @@ def test_posterior_construct(
     if isinstance(likelihood, Gaussian):
         assert isinstance(posterior_mul, ConjugateModel)
 
-    # If the likelihood is Bernoulli or Poisson, then the posterior should be non-conjugate.
-    if isinstance(likelihood, (Bernoulli, Poisson)):
+    # If the likelihood is Bernoulli, Poisson, or StudentT, then the posterior
+    # should be non-conjugate.
+    if isinstance(likelihood, (Bernoulli, Poisson, StudentT)):
         assert isinstance(posterior_mul, NonConjugateModel)
 
 
@@ -660,6 +695,29 @@ def test_predict_diagonal_jit_smoke():
     for cov_type in ("dense", "diagonal"):
         fn = jax.jit(lambda t, c=cov_type: prior(t, covariance=c).mean)
         _ = fn(xtest)
+
+
+def test_frozen_parameter_predicts_without_explicit_unwrap():
+    """A model with a frozen parameter is usable on the direct-call path.
+
+    Freezing inserts stop_gradient, which is the identity in the forward pass,
+    so predictions must match the unfrozen model exactly without the caller
+    invoking paramax.unwrap.
+    """
+    X = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
+    D = Dataset(X=X, y=jnp.sin(X))
+    xtest = jnp.linspace(0.0, 1.0, 5).reshape(-1, 1)
+
+    prior = Prior(mean_function=Zero(), kernel=RBF())
+    likelihood = Gaussian()
+    frozen_likelihood = eqx.tree_at(
+        lambda lik: lik.obs_stddev, likelihood, replace_fn=paramax.non_trainable
+    )
+
+    reference = (prior * likelihood)(xtest, D).mean
+    frozen = (prior * frozen_likelihood)(xtest, D).mean
+
+    assert jnp.array_equal(reference, frozen)
 
 
 if __name__ == "__main__":

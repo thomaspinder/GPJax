@@ -24,7 +24,7 @@ import lineax as lx
 
 from gpjax.conditioning import Posterior
 from gpjax.distributions import GaussianDistribution
-from gpjax.parameters import NonNegativeReal, PositiveReal, Real, _val
+from gpjax.parameters import NonNegativeReal, PositiveReal, Real, val
 from gpjax.typing import ScalarFloat
 
 if tp.TYPE_CHECKING:
@@ -104,18 +104,18 @@ class OrthogonalMixingMatrix(eqx.Module):
         Uses SVD to project U_latent onto the Stiefel manifold (orthonormal columns).
         This ensures U^T U = I_m exactly.
         """
-        U_svd, _, Vt_svd = jnp.linalg.svd(_val(self.U_latent), full_matrices=False)
+        U_svd, _, Vt_svd = jnp.linalg.svd(val(self.U_latent), full_matrices=False)
         return U_svd @ Vt_svd
 
     @property
     def sqrt_S(self) -> Float[Array, " M"]:
         """Square root of S diagonal: S^(1/2)."""
-        return jnp.sqrt(_val(self.S))
+        return jnp.sqrt(val(self.S))
 
     @property
     def inv_sqrt_S(self) -> Float[Array, " M"]:
         """Inverse square root of S diagonal: S^(-1/2)."""
-        return 1.0 / jnp.sqrt(_val(self.S))
+        return 1.0 / jnp.sqrt(val(self.S))
 
     @property
     def H(self) -> Float[Array, "P M"]:
@@ -158,7 +158,7 @@ class OrthogonalMixingMatrix(eqx.Module):
         Returns:
             Array of shape [M] with noise variance for each latent GP.
         """
-        return _val(self.obs_noise_variance) * self.inv_sqrt_S**2 + _val(
+        return val(self.obs_noise_variance) * self.inv_sqrt_S**2 + val(
             self.latent_noise_variance
         )
 
@@ -327,8 +327,8 @@ def _projection_correction(model: OILMMModel, data: Dataset) -> ScalarFloat:
     mix = model.mixing_matrix
 
     U = mix.U  # [P, M]
-    S = _val(mix.S)  # [M]
-    sigma2 = _val(mix.obs_noise_variance)  # scalar
+    S = val(mix.S)  # [M]
+    sigma2 = val(mix.obs_noise_variance)  # scalar
 
     # -(n/2) log|S|, with |S| = prod(S_i).
     term_log_S = -0.5 * num_data * jnp.sum(jnp.log(S))
@@ -413,7 +413,7 @@ class OILMMPosterior(Posterior):
         self,
         test_inputs: Float[Array, "N D"],
         *,
-        covariance: tp.Literal["dense", "diagonal"] = "dense",
+        covariance: tp.Literal["dense", "diagonal"] = "diagonal",
     ) -> GaussianDistribution:
         r"""Evaluate the conditioned OILMM at the given test inputs.
 
@@ -427,6 +427,13 @@ class OILMMPosterior(Posterior):
         processes return :math:`(N, N)`. ``covariance="diagonal"`` returns the
         :math:`NP` marginal variances, and asks the same of each latent
         process, so the dense latent covariances are never formed.
+
+        The default is ``"diagonal"``: forming the joint covariance costs
+        :math:`O(m n^2 p^2)` (an :math:`np \times np` matrix from :math:`m`
+        :math:`n \times n` latent covariances), which forfeits the
+        :math:`O(mn^3 + nmp)` scaling OILMM exists for. Marginal variances are
+        the common query and stay on the cheap path; pass
+        ``covariance="dense"`` to opt into the joint covariance explicitly.
 
         Args:
             test_inputs: Input locations of shape ``(N, D)``.
@@ -495,10 +502,12 @@ class OILMMPosterior(Posterior):
         test_inputs: Float[Array, "N D"],
         train_data: Dataset | None = None,
         *,
-        covariance: tp.Literal["dense", "diagonal"] = "dense",
+        covariance: tp.Literal["dense", "diagonal"] = "diagonal",
         return_full_cov: bool | None = None,
     ) -> GaussianDistribution:
         r"""Sugar for calling the posterior: ``predict(t) == self(t)``.
+
+        Defaults to ``covariance="diagonal"``: see :meth:`__call__` for why.
 
         Args:
             test_inputs: Input locations of shape ``(N, D)``.
