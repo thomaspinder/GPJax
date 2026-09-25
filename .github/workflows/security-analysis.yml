@@ -86,7 +86,7 @@ jobs:
         persist-credentials: false
 
     - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@96b593f460badf7a3da2ad3487e0e4986243ef03 # main
+      uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
       with:
         path: ./
         # `--exclude-detectors=lob`: TruffleHog's Lob key pattern is
