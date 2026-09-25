@@ -152,22 +152,28 @@ def test_to_sde_rejects_product_kernel_with_kronecker_blowup_message():
         (
             # Three-factor product: genuinely unsupported even though a
             # TruncatedPeriodic x Matern32 pair is embedded within it.
-            lambda: gpx.kernels.Matern32(lengthscale=1.0, variance=1.0)
-            * TruncatedPeriodic(lengthscale=0.5, variance=1.0, period=1.0)
-            * gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
+            lambda: (
+                gpx.kernels.Matern32(lengthscale=1.0, variance=1.0)
+                * TruncatedPeriodic(lengthscale=0.5, variance=1.0, period=1.0)
+                * gpx.kernels.Matern12(lengthscale=1.0, variance=1.0)
+            ),
             r"Kronecker|product|state space",
         ),
         (
             # Two periodics, no Matern factor.
-            lambda: TruncatedPeriodic(lengthscale=0.5, variance=1.0, period=1.0)
-            * TruncatedPeriodic(lengthscale=0.3, variance=1.0, period=2.0),
+            lambda: (
+                TruncatedPeriodic(lengthscale=0.5, variance=1.0, period=1.0)
+                * TruncatedPeriodic(lengthscale=0.3, variance=1.0, period=2.0)
+            ),
             r"Kronecker|product|state space",
         ),
         (
             # Non-truncated Periodic x Matern: the periodic factor itself has
             # no finite-dimensional state-space representation.
-            lambda: gpx.kernels.Periodic(lengthscale=1.0, variance=1.0)
-            * gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
+            lambda: (
+                gpx.kernels.Periodic(lengthscale=1.0, variance=1.0)
+                * gpx.kernels.Matern32(lengthscale=1.0, variance=1.0)
+            ),
             r"Kronecker|product|state space",
         ),
     ],
