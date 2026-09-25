@@ -14,14 +14,12 @@
 # ==============================================================================
 r"""Exponential-family machinery for natural-gradient variational inference.
 
-This module implements the coordinate maps and the update rule of Salimbeni,
-Eleftheriadis and Hensman (2018), *Natural Gradients in Practice: Non-Conjugate
-Variational Inference in Gaussian Process Models* (arXiv:1803.09151).
+Implements the coordinate maps and update of Salimbeni, Eleftheriadis and
+Hensman (2018), *Natural Gradients in Practice: Non-Conjugate Variational
+Inference in Gaussian Process Models* (arXiv:1803.09151).
 
-A Gaussian $q(\mathbf u)=\mathcal N(\mathbf m,\mathbf S)$ over $M$ inducing outputs is
-an exponential family with sufficient statistics
-$\mathbf t(\mathbf u)=[\mathbf u,\ \mathbf u\mathbf u^\top]$. Three coordinate systems
-are in play:
+A Gaussian $q(\mathbf u)=\mathcal N(\mathbf m,\mathbf S)$ has sufficient statistics
+$[\mathbf u,\mathbf u\mathbf u^\top]$ and three coordinate systems:
 
 .. list-table::
    :header-rows: 1
@@ -40,34 +38,25 @@ are in play:
      - $\boldsymbol\eta$
      - $(\mathbf m,\ \mathbf S+\mathbf m\mathbf m^\top)$
 
-The Fisher information in the natural coordinates is exactly the Jacobian
-$\partial\boldsymbol\eta/\partial\boldsymbol\theta$, so the natural gradient of a loss
-$\ell$ is the *ordinary* gradient with respect to the expectation parameters,
-$\tilde\nabla_{\boldsymbol\theta}\ell=\mathbf F^{-1}\partial\ell/\partial\boldsymbol\theta
-=\partial\ell/\partial\boldsymbol\eta$. No Fisher matrix is ever formed. The step is
+The Fisher information is $\partial\boldsymbol\eta/\partial\boldsymbol\theta$;
+thus $\tilde\nabla_{\boldsymbol\theta}\ell
+=\partial\ell/\partial\boldsymbol\eta$ without forming a Fisher matrix. The update
+is $\boldsymbol\theta\leftarrow\boldsymbol\theta
+-\gamma\,\partial\ell/\partial\boldsymbol\eta$. For $\gamma\in[0,1]$ it is a convex
+combination in natural coordinates; $\gamma=1$ reaches the conjugate optimum in one
+step.
 
-$$\boldsymbol\theta\leftarrow\boldsymbol\theta
--\gamma\,\partial\ell/\partial\boldsymbol\eta,$$
-
-with $\gamma$ the natural-gradient step size. For $\gamma\in[0,1]$ this is a convex
-combination in $\boldsymbol\theta$-space; for a conjugate model at $\gamma=1$ it lands
-on the exact optimum in a single step.
-
-The module also carries the dual (t-SVGP) update of Adam, Chang, Khan and Solin (2021),
-*Dual Parameterization of Sparse Variational Gaussian Processes* (arXiv:2111.03412).
-There the stored coordinates are the sites
-$(\boldsymbol\lambda_1,\boldsymbol\Lambda_2)$ of
-$\boldsymbol\eta=\boldsymbol\eta_0(\boldsymbol\theta)+\boldsymbol\lambda$, so the step
-is affine in the stored parameters and needs no
-$\boldsymbol\theta\leftrightarrow\boldsymbol\eta$ round trip. Since
-$\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, the KL is never
-differentiated and the update reduces to the convex combination
+The dual t-SVGP update of Adam, Chang, Khan and Solin (2021),
+*Dual Parameterization of Sparse Variational Gaussian Processes*
+(arXiv:2111.03412), stores sites $\boldsymbol\lambda$ with
+$\boldsymbol\eta=\boldsymbol\eta_0(\boldsymbol\theta)+\boldsymbol\lambda$.
+Since $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$, it need not
+differentiate the KL or round-trip through coordinates:
 $\boldsymbol\lambda\leftarrow(1-\rho)\boldsymbol\lambda
-+\rho\,\nabla_{\boldsymbol\mu}\mathcal L_{\text{ell}}$ --
-which is the Salimbeni step at $\gamma=\rho$, producing identical iterates -- provided
-the computed $\boldsymbol\beta$ stays non-negative, so that ``beta_floor`` is inert.
-That holds for a truly log-concave likelihood; GPJax's clipped probit link violates it
-in the far tails, where the two branches then diverge.
++\rho\,\nabla_{\boldsymbol\mu}\mathcal L_{\text{ell}}$.
+This matches Salimbeni iterates at $\gamma=\rho$ when computed
+$\boldsymbol\beta\ge0$ leaves ``beta_floor`` inert. GPJax's clipped probit link
+can violate that condition in the far tails.
 """
 
 import functools
@@ -149,9 +138,9 @@ def expectation_from_moments(
         The expectation parameters $(\boldsymbol\eta_1,\mathbf H_2)$.
 
     Notes:
-        $\boldsymbol\eta_1=\mathbf m$,
+        $\boldsymbol\eta_1=\mathbf m$ and
         $\mathbf H_2=\mathbf L\mathbf L^\top+\mathbf m\mathbf m^\top$.
-        No factorisation, no solve, no jitter; cost $\mathcal O(M^3)$ matmul.
+        No jitter or solve is needed.
 
     Example:
         >>> import jax.numpy as jnp
@@ -188,12 +177,10 @@ def natural_from_moments(
         The natural parameters $(\boldsymbol\theta_1,\boldsymbol\Theta_2)$.
 
     Notes:
-        Two triangular solves:
-        $\mathbf L^{-1}=\texttt{tril\_solve}(\mathbf L,\mathbf I)$,
-        $\mathbf P=(\mathbf L^{-1})^\top\mathbf L^{-1}$,
-        $\boldsymbol\theta_1=\mathbf P\mathbf m$,
-        $\boldsymbol\Theta_2=-\tfrac12\mathbf P$.
-        No jitter: $\mathbf L$ already has a strictly positive diagonal.
+        With $\mathbf P=(\mathbf L\mathbf L^\top)^{-1}$,
+        $\boldsymbol\theta_1=\mathbf P\mathbf m$ and
+        $\boldsymbol\Theta_2=-\tfrac12\mathbf P$. Triangular solves avoid forming
+        $\mathbf S$; no jitter is needed for a root with positive diagonal.
 
     Example:
         >>> import jax.numpy as jnp
@@ -226,26 +213,21 @@ def moments_from_expectation(
     Args:
         expectation_vector: The first expectation parameter $\boldsymbol\eta_1$.
         expectation_matrix: The second expectation parameter $\mathbf H_2$.
-        map_jitter: Jitter $\varepsilon$ added to the diagonal before the Cholesky.
-            Defaults to ``0.0``; this is deliberately *not* the model's
-            ``Prior.jitter``, because a non-zero value biases $\mathbf S$ by
-            $\approx\varepsilon\lVert\mathbf S\rVert^2$ rather than merely
-            perturbing it.
+        map_jitter: Diagonal jitter $\varepsilon$ before Cholesky (default ``0.0``).
+            Unlike ``Prior.jitter``, a non-zero value biases $\mathbf S$ by
+            $\approx\varepsilon\lVert\mathbf S\rVert^2$.
 
     Returns:
         The moment parameters $(\mathbf m,\mathbf L)$.
 
     Notes:
-        Jitter site #1:
-        $\mathbf S=\operatorname{sym}(\mathbf H_2-\boldsymbol\eta_1\boldsymbol\eta_1^\top)$,
+        $\mathbf S=\operatorname{sym}(\mathbf H_2-
+        \boldsymbol\eta_1\boldsymbol\eta_1^\top)$ and
         $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
-        The subtraction is a cancellation site when
-        $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$; prefer the whitened
-        family there. Unlike the natural route this map has no admissibility guard,
-        so in the cancellation regime it degrades quietly: at
-        $\lVert\mathbf m\rVert\sim10^4$ with $\mathbf S=10^{-8}\mathbf I$ the
-        recovered $\mathbf L$ is finite but wrong by $\mathcal O(10^{-1})$ relative
-        error before it eventually returns ``NaN``.
+        When $\lVert\mathbf m\rVert^2\gg\lVert\mathbf S\rVert$, subtraction
+        can cancel; prefer the whitened family. This map has no admissibility
+        guard: the recovered root may be finite but inaccurate before it becomes
+        ``NaN``.
 
     Example:
         >>> import jax.numpy as jnp
@@ -277,8 +259,8 @@ def moments_from_natural(
 
     Args:
         natural_vector: The first natural parameter $\boldsymbol\theta_1$.
-        natural_matrix: The second natural parameter $\boldsymbol\Theta_2$, required
-            to be negative definite for the result to be finite.
+        natural_matrix: The second natural parameter $\boldsymbol\Theta_2$;
+            its jittered precision must be positive definite for a finite result.
         map_jitter: Jitter $\varepsilon$ added to the diagonal before each Cholesky.
             Defaults to ``0.0``; see :func:`moments_from_expectation` for why it is
             not inherited from the family.
@@ -287,19 +269,12 @@ def moments_from_natural(
         The moment parameters $(\mathbf m,\mathbf L)$.
 
     Notes:
-        Route A (jitter site #2):
-        $\mathbf P=\operatorname{sym}(-2\boldsymbol\Theta_2)$,
-        $\mathbf L_P=\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$,
-        $\mathbf X=\texttt{tril\_solve}(\mathbf L_P,\mathbf I)$,
-        $\mathbf S=\operatorname{sym}(\mathbf X^\top\mathbf X)$,
-        $\mathbf m=\texttt{triu\_solve}(\mathbf L_P^\top,
-        \texttt{tril\_solve}(\mathbf L_P,\boldsymbol\theta_1))$,
-        $\mathbf L=\operatorname{chol}(\mathbf S+\varepsilon\mathbf I)$.
-
-        Route B (the reverse/anti-diagonal Cholesky) is *not* used: the two are
-        numerically equivalent and route A needs no exchange matrix. Returns ``NaN``
-        rather than raising when $\boldsymbol\Theta_2\not\prec0$ -- that is what
-        makes the step-size backoff ``jit``-clean.
+        Set $\mathbf P_\varepsilon=\operatorname{sym}(-2\boldsymbol\Theta_2)
+        +\varepsilon\mathbf I$. Cholesky and triangular solves give
+        $\mathbf m=\mathbf P_\varepsilon^{-1}\boldsymbol\theta_1$ and
+        $\mathbf S=\mathbf P_\varepsilon^{-1}$; a second Cholesky of
+        $\mathbf S+\varepsilon\mathbf I$ gives $\mathbf L$. Failed Cholesky
+        returns ``NaN`` rather than raising, permitting ``jit``-compatible backoff.
 
     Example:
         >>> import jax.numpy as jnp
@@ -370,14 +345,9 @@ def _variational_gaussian_coordinates(
 ) -> tp.Callable[[VariationalGaussian], tuple[tp.Any, ...]]:
     r"""Select $(\mathbf m,\mathbf L)$ on the Salimbeni-family Gaussians.
 
-    This registration also covers ``WhitenedVariationalGaussian`` and
-    ``GraphVariationalGaussian``, which subclass ``VariationalGaussian`` and store the
-    same two fields. That is deliberate: the whitened $q(\mathbf v)$ belongs to the
-    same exponential family, so the coordinate maps are identical. The graph family
-    is usable end to end since ``variational_expectation`` switched from a
-    per-point ``vmap`` to the conditioned posterior's diagonal path; the smoke
-    test in ``tests/test_natural_gradients.py`` predates that and drives the
-    graph family with ``prior_kl``.
+    Also covers ``WhitenedVariationalGaussian`` and
+    ``GraphVariationalGaussian``, subclasses storing the same two coordinates;
+    whitening changes the loss, not the coordinate maps.
 
     Args:
         variational_family: The family being partitioned. Unused; dispatch is on its
@@ -419,15 +389,12 @@ def partition_variational(variational_family: VF) -> tuple[VF, VF]:
         variational_family: The variational family to split.
 
     Returns:
-        The variational partition (holding only the exponential-family coordinates)
-        and the hyperparameter partition (holding everything else, including the
-        inducing inputs, which Salimbeni et al. count as hyperparameters).
+        The coordinate partition and the hyperparameter partition (including
+        inducing inputs).
 
     Notes:
-        Uses a **prefix** filter spec so the split is independent of the parameter
-        wrapper's internal field names (``.value`` versus ``._flat``), composes with
-        ``paramax.non_trainable``, and raises loudly (``AttributeError``) if a field
-        is renamed.
+        A prefix filter spec supports different parameter-wrapper fields and
+        ``paramax.non_trainable``; renamed coordinates raise ``AttributeError``.
 
     Example:
         >>> import jax
@@ -469,10 +436,8 @@ def _contains_non_trainable(node: tp.Any) -> bool:
         ``True`` if any part of ``node`` is frozen.
 
     Notes:
-        ``paramax.non_trainable`` wraps *leaves*, not whole nodes, so a frozen
-        ``variational_mean`` is a ``Real`` whose ``value`` is a ``NonTrainable``. The
-        ``is_leaf`` predicate stops the traversal at those wrappers so they are
-        visible.
+        ``paramax.non_trainable`` wraps leaves within parameter nodes; ``is_leaf``
+        exposes those wrappers to the traversal.
     """
     is_frozen = lambda leaf: isinstance(leaf, paramax.NonTrainable)
     return any(map(is_frozen, jtu.tree_leaves(node, is_leaf=is_frozen)))
@@ -488,16 +453,9 @@ def _reject_frozen_coordinates(variational_family: VF) -> None:
         ValueError: If a coordinate is wrapped in ``paramax.NonTrainable``.
 
     Notes:
-        A partial natural-gradient step on $\boldsymbol\theta$ is not meaningful.
-        This is a Python-level ``isinstance`` check on a static tree node, executed
-        at trace time, so it never branches on a traced value.
-
-        The offending coordinates are located by re-walking the tree with the
-        *selector* itself as the ``is_leaf`` predicate, rather than by matching the
-        selected nodes against top-level dataclass fields. A future registration
-        whose ``where`` picks a nested node --
-        ``tree.signal_variational.variational_mean``, say -- is then still reported,
-        with its full key path, instead of silently passing the guard.
+        Partial natural-gradient steps are not meaningful. The static tree check
+        runs at trace time; the selector finds nested coordinates and reports
+        their full key paths.
     """
     where = variational_coordinates(variational_family)
     coordinates = where(variational_family)
@@ -549,26 +507,14 @@ def _first_valid_trial(
         The moment parameters of the accepted trial.
 
     Notes:
-        ``jnp.linalg.cholesky`` returns ``NaN`` rather than raising, so admissibility
-        is a *value*: ``vmap`` over the $K+1$ trials, mask on ``jnp.isfinite`` and
-        select with ``jnp.argmax``, which returns the first ``True`` and ``0`` when
-        all are ``False`` so that ``NaN`` propagates rather than silently returning a
-        wrong answer.
+        ``vmap`` probes $K+1$ trials for a finite precision Cholesky and mean;
+        only the accepted trial completes the covariance map. ``argmax`` selects
+        the first valid step; if none is valid it selects the first trial, allowing
+        ``NaN`` to propagate instead of silently accepting an invalid step.
 
-        Only the *probe* is replicated, not the whole
-        $\boldsymbol\theta\to\boldsymbol\xi$ map. Admissibility of a trial is decided
-        by $\operatorname{chol}(\mathbf P+\varepsilon\mathbf I)$ and the two
-        triangular solves for $\mathbf m$; the $\mathcal O(M^3)$ inversion, the
-        $\mathbf X^\top\mathbf X$ product and the second Cholesky of
-        :func:`moments_from_natural` cannot turn an admissible
-        $\boldsymbol\Theta_2$ inadmissible, so they run once, at the accepted step
-        size. Replicating them instead measured 13% of total training wall clock at
-        $M=200$, which is not the negligible cost the plan assumed.
-
-        The trial ladder is cast to the dtype of $\boldsymbol\Theta_2$: under
-        ``jax_enable_x64`` the exponent ``jnp.arange(K + 1)`` is ``int64``, so
-        $\beta^{k}$ would otherwise be a non-weak ``float64`` that silently promotes
-        a ``float32`` model and breaks the ``lax.scan`` carry.
+        Step sizes use $\boldsymbol\Theta_2$'s dtype: under ``jax_enable_x64``,
+        an ``int64`` exponent could otherwise promote ``float32`` and break the
+        ``lax.scan`` carry.
     """
     step_sizes = (natgrad_lr * backoff ** jnp.arange(max_backoff + 1)).astype(
         natural_matrix.dtype
@@ -627,12 +573,10 @@ def natural_gradient_step(
             Salimbeni-family updates.
 
     Returns:
-        The updated **variational partition** and the loss evaluated at the
-        *pre-update* coordinates, so that ``history[t]`` matches ``fit()``'s
-        convention. The reported loss is evaluated at
-        $\boldsymbol\xi(\boldsymbol\eta_t)$, so a non-zero ``map_jitter`` biases it by
-        $\mathcal O(\varepsilon)$; at the default of ``0.0`` it is exactly
-        $\ell(\boldsymbol\xi_t,\boldsymbol\phi_t)$.
+        The updated variational partition and pre-update loss (as in ``fit()``).
+        For the Salimbeni branch, the loss uses
+        $\boldsymbol\xi(\boldsymbol\eta_t)$: ``map_jitter=0.0`` preserves the stored
+        coordinates, while non-zero jitter biases it by $\mathcal O(\varepsilon)$.
 
     Example:
         >>> import jax
@@ -686,15 +630,9 @@ def _variational_gaussian_step(
 ) -> tuple[VariationalGaussian, ScalarFloat]:
     r"""Salimbeni update (N) for the Gaussian variational families.
 
-    Performs $\boldsymbol\theta\leftarrow\boldsymbol\theta
-    -\gamma\,\partial\ell/\partial\boldsymbol\eta$ and writes the resulting moment
-    parameters back into the variational partition. Also covers
-    ``WhitenedVariationalGaussian`` and ``GraphVariationalGaussian``: the whitened
-    $q(\mathbf v)$ is a member of the same exponential family, and the whitening
-    enters only through ``prior_kl``/``condition``, which the loss calls
-    polymorphically.
-
-    ``beta_floor`` is accepted for a uniform dispatch contract and ignored here.
+    Updates $\boldsymbol\theta\leftarrow\boldsymbol\theta
+    -\gamma\,\partial\ell/\partial\boldsymbol\eta$, then stores moment parameters.
+    Also handles whitened and graph Gaussians, whose coordinate maps are identical.
 
     Args:
         variational: The variational partition.
@@ -708,11 +646,9 @@ def _variational_gaussian_step(
         beta_floor: Unused.
 
     Returns:
-        The updated variational partition and the pre-update loss. That loss is read
-        off the differentiated closure, hence evaluated at
-        $\boldsymbol\xi(\boldsymbol\eta_t)$ rather than at the stored $\mathbf L$: with
-        ``map_jitter=0.0`` the two agree exactly, and a non-zero ``map_jitter`` shifts
-        the reported value by $\mathcal O(\varepsilon)$.
+        The updated variational partition and pre-update loss, evaluated at
+        $\boldsymbol\xi(\boldsymbol\eta_t)$. Non-zero ``map_jitter`` shifts that
+        loss by $\mathcal O(\varepsilon)$.
     """
     del beta_floor
     _reject_frozen_coordinates(variational)
@@ -722,18 +658,15 @@ def _variational_gaussian_step(
     initial_mean = _val(unwrapped.variational_mean)
     initial_root_covariance = _val(unwrapped.variational_root_covariance)
 
-    # theta_0 comes from L directly, never by round-tripping through eta_0: the
-    # detour costs an extra Cholesky and passes through a cancellation site.
+    # Map theta_0 directly from L to avoid cancellation in a round trip via eta_0.
     initial_natural = natural_from_moments(initial_mean, initial_root_covariance)
     initial_expectation = expectation_from_moments(
         initial_mean, initial_root_covariance
     )
 
     def loss_of_expectation(expectation):
-        # The direct map xi(eta) is used rather than xi(theta(eta)): one Cholesky
-        # instead of three, with identical gradients. The LowerTriangular round trip
-        # is softplus o softplus_inv = identity and lets us call GPJax's own
-        # objectives unmodified.
+        # Map eta directly to moments; wrapping the root lets the existing
+        # objective consume the family unchanged.
         trial_mean, trial_root_covariance = moments_from_expectation(
             *expectation, map_jitter
         )
@@ -783,14 +716,11 @@ def _expected_log_likelihood_derivatives(
         The vectors $\boldsymbol\alpha$ and $\boldsymbol\beta$.
 
     Notes:
-        Bonnet's and Price's theorems give
         $\alpha_i=\partial_{m_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$
         and
-        $\beta_i=-2\,\partial_{v_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$,
-        so one ``jax.grad`` of the likelihood's existing ``expected_log_likelihood``
-        suffices -- **no second derivatives of the likelihood are needed**, and the
-        routine works for closed-form and quadrature likelihoods alike. Note that
-        GPJax's argument order is ``(y, mean, variance)``, with the response first.
+        $\beta_i=-2\,\partial_{v_i}\mathbb E_{\mathcal N(m_i,v_i)}[\log p(y_i\mid f_i)]$.
+        One gradient of ``expected_log_likelihood(y, mean, variance)`` suffices
+        for closed-form and quadrature likelihoods; no second derivative is needed.
     """
 
     def total_expectation(mean_, variance_):
@@ -832,42 +762,28 @@ def _dual_variational_gaussian_step(
     (\mathbf m_{\mathcal B}-\mu(\mathbf X_{\mathcal B}))$ and
     $\mathbf g_2=\boldsymbol\beta$.
 
-    Because $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, this
-    *is* the Salimbeni step at $\gamma=\rho$: started from the same $q$ the two
-    branches produce identical iterates, and the KL is never differentiated. The
-    identity holds provided the computed $\boldsymbol\beta$ stays non-negative, so that
-    ``beta_floor`` never engages -- true for a genuinely log-concave likelihood, and
-    violated by GPJax's clipped probit link in the far tails.
-
-    ``map_jitter``, ``backoff`` and ``max_backoff`` are accepted for a uniform dispatch
-    contract and ignored. The update is affine and, for $\rho\in[0,1]$ and
-    $\boldsymbol\beta\ge0$, never leaves the positive semi-definite cone, so the
-    Salimbeni branch's backoff -- which exists to rescue
-    $\operatorname{chol}(\mathbf S)$ after an overshoot in $\boldsymbol\theta$ -- has
-    nothing to guard here. The step does still factorise $\mathbf K_{zz}$ and, inside
-    the objective and ``marginals``, $\mathbf R$; those are properties of the *current*
-    sites rather than of the step, and
-    :meth:`~gpjax.variational_families.DualVariationalGaussian._working_matrices`
-    factorises $\mathbf R$ in a basis where it cannot fail.
+    This matches Salimbeni at $\gamma=\rho$ when computed $\boldsymbol\beta\ge0$
+    leaves ``beta_floor`` inert; otherwise the branches can diverge. Since
+    $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$, the KL is not
+    differentiated. For $\rho\in[0,1]$
+    and non-negative $\boldsymbol\beta$, the affine update stays in the PSD cone
+    and needs no step-size backoff. Current-site factorisations of $\mathbf K_{zz}$
+    and $\mathbf R$ still occur; :meth:`~gpjax.variational_families.DualVariationalGaussian._working_matrices`
+    factorises $\mathbf R$ in a safe basis.
 
     Args:
         variational: The variational partition, holding the two dual sites.
         hyper: The hyperparameter partition.
         data: The batch at which the sites' target is evaluated.
-        objective: The loss being minimised. Evaluated once at the pre-update sites
-            so that ``history[t]`` means the same thing in both dispatch branches.
+        objective: The minimised loss, evaluated at pre-update sites.
         natgrad_lr: The step size $\rho\in(0,1]$.
         map_jitter: Unused.
         backoff: Unused.
         max_backoff: Unused.
-        beta_floor: Lower clip applied to $\boldsymbol\beta$ before it enters
-            $\boldsymbol\Lambda_2$. A no-op for likelihoods that are log-concave *as
-            computed*; it keeps the update inside the PSD cone for those (Student-t,
-            some heteroscedastic models) whose expected negative curvature can go
-            negative. GPJax's Bernoulli is in the latter group in the far tails:
-            ``inv_probit`` clips its output away from $0$ and $1$, which flattens
-            $\log p$ and makes $\beta_i<0$ for a confidently mislabelled point, so
-            the clip does engage there.
+        beta_floor: Lower clip on $\boldsymbol\beta$ before the matrix-site update;
+            ensures a PSD target even when computed expected negative curvature is
+            negative. In GPJax's clipped-probit Bernoulli this can happen in the
+            far tails; the clip is inert when computed $\boldsymbol\beta\ge0$.
 
     Returns:
         The updated variational partition and the pre-update loss.
@@ -877,29 +793,20 @@ def _dual_variational_gaussian_step(
 
     family = paramax.unwrap(eqx.combine(variational, hyper))
 
-    # One extra forward pass, taken deliberately: it makes `history[t]` the loss at the
-    # pre-update parameters, exactly as in `fit` and in the Salimbeni branch. XLA
-    # commonly common-subexpression-eliminates it against the `marginals` call below.
+    # Report the pre-update loss, consistently with fit and the Salimbeni branch.
     loss_value = objective(family, data)
 
-    # Only the Cholesky of K_zz is needed for the target, which is built from
-    # A = K_zz^{-1} K_zb; `_gram_and_root` therefore stops short of factorising R.
-    # `marginals` below does factorise it, and so does `objective` above; under `jit`
-    # -- which is how `fit_natgrads` always runs -- XLA folds the repeats down to one
-    # chol(K_zz) and one chol(R) for the whole step.
+    # The site target needs only chol(K_zz); marginals and the objective use R.
     _, root_gram = family._gram_and_root()
     mean, variance = family.marginals(data.X)
 
     alpha, beta = _expected_log_likelihood_derivatives(
         family.model.likelihood, data.y, mean, variance
     )
-    # Clip beta, never Lambda_2: `jnp.maximum` is trace-safe, whereas jittering or
-    # projecting Lambda_2 would need a factorisation it never otherwise requires.
+    # Clip beta rather than factorising and projecting the matrix site.
     beta = jnp.maximum(beta, beta_floor)
 
-    # Centred sites (Adam et al. section on non-zero mean functions). The reference
-    # implementation shifts by `predict_f(Z)`, which already includes the mean
-    # function, and is therefore wrong for any non-zero mean function.
+    # Centred sites subtract the prior mean for non-zero mean functions.
     prior_mean = family.model.prior.mean_function(data.X).squeeze(-1)
     natural_gradient_vector = alpha + beta * (mean - prior_mean)
 
@@ -908,10 +815,8 @@ def _dual_variational_gaussian_step(
     )
     design = jsp.linalg.cho_solve((root_gram, True), cross_covariance)
 
-    # N / B. The paper prints the mini-batch update with no such factor; taken
-    # literally the sites converge to B/N of their correct value. `get_batch` stamps
-    # the full-dataset size onto each minibatch as `Dataset.n_total`, which
-    # `Dataset.full_size` reads back (falling through to `n` for a whole dataset).
+    # Scale minibatch sites by N/B; the unscaled paper formula would converge
+    # to B/N of the full-data target.
     scale = data.full_size / data.n
     target_vector = (design @ natural_gradient_vector)[:, None]
     target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
@@ -920,14 +825,11 @@ def _dual_variational_gaussian_step(
     stored_vector = _val(family.dual_vector)
     stored_matrix = _val(family.dual_matrix)
 
-    # `add_jitter` builds its identity at the default float type, so under
-    # `jax_enable_x64` everything downstream of K_zz is float64 even for a float32
-    # model. Cast back, or the `lax.scan` carry changes dtype between iterations.
+    # Preserve the stored dtype across steps despite K_zz jitter promotion.
     updated_vector = (
         (1.0 - rate) * stored_vector + rate * (scale * target_vector)
     ).astype(stored_vector.dtype)
-    # Symmetrise after the update: it costs nothing and removes the O(eps) asymmetry
-    # that would otherwise make `cholesky(R)` backend-nondeterministic.
+    # Symmetrise to avoid backend-dependent Cholesky behavior from roundoff.
     updated_matrix = _symmetrise(
         (1.0 - rate) * stored_matrix + rate * (scale * target_matrix)
     ).astype(stored_matrix.dtype)
