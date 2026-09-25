@@ -23,7 +23,7 @@ from jaxtyping import (
 import paramax
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     EigenKernelComputation,
@@ -119,7 +119,7 @@ class GraphKernel(StationaryKernel):
         x_idx = self._prepare_indices(x)
         y_idx = self._prepare_indices(y)
         S = calculate_heat_semigroup(self)
-        eigenvectors = _val(self.eigenvectors)
+        eigenvectors = val(self.eigenvectors)
         Kxx = (jax_gather_nd(eigenvectors, x_idx) * S.squeeze()) @ jnp.transpose(
             jax_gather_nd(eigenvectors, y_idx)
         )  # shape (n,n)

@@ -264,3 +264,19 @@ def test_kronecker_structures():
     kron = Kronecker(A=A, B=B)
     assert kron.in_structure().shape == (6,)
     assert kron.out_structure().shape == (6,)
+
+
+def test_stabilised_cholesky_identity():
+    from gpjax.linalg.utils import stabilised_cholesky
+
+    factor = stabilised_cholesky(jnp.eye(3), 1e-2)
+    assert jnp.allclose(factor, jnp.sqrt(1.01) * jnp.eye(3), atol=1e-12)
+
+
+def test_stabilised_cholesky_reconstructs():
+    from gpjax.linalg.utils import stabilised_cholesky
+
+    root = jnp.array([[1.0, 0.0], [0.4, 0.8]])
+    psd = root @ root.T
+    factor = stabilised_cholesky(psd, 1e-3)
+    assert jnp.allclose(factor @ factor.T, psd + 1e-3 * jnp.eye(2), atol=1e-10)

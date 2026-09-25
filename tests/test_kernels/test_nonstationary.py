@@ -24,7 +24,7 @@ from gpjax.kernels.nonstationary import (
     Linear,
     Polynomial,
 )
-from gpjax.parameters import NonNegativeReal
+from gpjax.parameters import NonNegativeReal, val
 import jax
 from jax import config
 import jax.numpy as jnp
@@ -194,12 +194,6 @@ def test_arccosine_special_case(order: int):
     assert jnp.max(Kab_approx - Kab_exact) < 1e-4
 
 
-def _val_or_unwrap(v):
-    from paramax import AbstractUnwrappable
-
-    return v.unwrap() if isinstance(v, AbstractUnwrappable) else v
-
-
 def test_arccosine_variances_wrapped_and_trainable():
     """All three ArcCosine variances must be NonNegativeReal so they are
     trainable (not silently frozen) and constrained (cannot go negative)."""
@@ -223,19 +217,17 @@ def test_arccosine_variances_wrapped_and_trainable():
 def test_arccosine_variance_stays_positive_under_optimisation():
     """A gradient step that would push weight_variance negative must instead
     leave the constrained value positive and the Gram finite/PSD."""
-    import paramax
-
     x = jnp.linspace(-1.0, 1.0, 6).reshape(-1, 1)
     kernel = ArcCosine(order=1, n_dims=1, weight_variance=jnp.array(0.05))
     params, static = eqx.partition(kernel, eqx.is_array)
 
     def loss(p):
-        k = paramax.unwrap(eqx.combine(p, static))
+        k = eqx.combine(p, static)
         return jnp.sum(k.gram(x).as_matrix())  # gradient pushes variances down
 
     grads = jax.grad(loss)(params)
     stepped = jax.tree_util.tree_map(lambda leaf, g: leaf - 100.0 * g, params, grads)
-    k_new = paramax.unwrap(eqx.combine(stepped, static))
-    assert _val_or_unwrap(k_new.weight_variance) > 0.0
+    k_new = eqx.combine(stepped, static)
+    assert val(k_new.weight_variance) > 0.0
     gram = k_new.gram(x).as_matrix()
     assert jnp.all(jnp.isfinite(gram))

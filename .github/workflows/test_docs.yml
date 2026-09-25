@@ -30,17 +30,17 @@ jobs:
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
     steps:
       - name: Check out the code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "latest"
           enable-cache: true
@@ -79,7 +79,7 @@ jobs:
         # actions/cache always re-saves, with restore-keys picking up the newest
         # previous cache. Both directories are carried because the smoke and full
         # renders keep separate jupyter-cache stores.
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             docs/_build/.jupyter_cache
@@ -100,7 +100,7 @@ jobs:
           echo "version=$(uv run --extra docs python -c 'from importlib.metadata import version; print(version("playwright"))')" >> "$GITHUB_OUTPUT"
 
       - name: Restore the Playwright browser cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
@@ -124,7 +124,7 @@ jobs:
         # deployments are unsupported on this plan and silently deploy to the
         # production URL, so the job that used to live here was replacing the
         # published docs with a PR's smoke render.
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: docs-smoke-render
           path: docs/_build/html
@@ -152,7 +152,7 @@ jobs:
 
       - name: Comment the preview URL on the PR
         if: steps.netlify.outputs.url != ''
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           header: docs-preview
           message: |

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import jax.numpy as jnp
-import paramax
 
+from gpjax.parameters import val
 from gpjax.state_space.inference import kalman_filter
 from gpjax.state_space.kernels import to_sde
 
@@ -45,14 +45,13 @@ def state_space_mll(
         ...     mean_function=gpx.mean_functions.Zero(),
         ...     kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         ... )
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=20, obs_stddev=0.1)
+        >>> likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
         >>> posterior = prior * likelihood
         >>> train_data = gpx.Dataset(X=X, y=y)
         >>> mll = state_space_mll(posterior, train_data)
         >>> bool(jnp.isfinite(mll))
         True
     """
-    posterior = paramax.unwrap(posterior)
     prior = posterior.prior
     likelihood = posterior.likelihood
 
@@ -65,7 +64,7 @@ def state_space_mll(
     centred_targets = targets - mean_at_train
 
     sde = to_sde(prior.kernel)
-    obs_variance = likelihood.obs_stddev**2
+    obs_variance = val(likelihood.obs_stddev) ** 2
     sigma_eff = jnp.sqrt(obs_variance + prior.jitter)
 
     time_steps = jnp.concatenate([jnp.zeros(1), jnp.diff(times)])

@@ -6,6 +6,7 @@ from gpjax.linalg.utils import (
     cholesky_factor,
     logdet,
     logdet_from_factor,
+    stabilised_cholesky,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "cholesky_factor",
     "logdet",
     "logdet_from_factor",
+    "stabilised_cholesky",
 ]

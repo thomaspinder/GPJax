@@ -10,11 +10,9 @@
    AbstractVariationalFamily
    AbstractVariationalGaussian
    CollapsedVariationalGaussian
-   ExpectationVariationalGaussian
    GraphVariationalGaussian
    HeteroscedasticPrediction
    HeteroscedasticVariationalFamily
-   NaturalVariationalGaussian
    VariationalGaussian
    VariationalGaussianInit
    WhitenedVariationalGaussian

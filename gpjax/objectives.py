@@ -1,42 +1,38 @@
 from typing import TypeVar
 
 import equinox as eqx
-from jax import vmap
 import jax.numpy as jnp
-import jax.scipy as jsp
 from jaxtyping import Float
-import lineax as lx
-import numpyro.distributions as npd
 import typing_extensions as tpe
 
 from gpjax.dataset import Dataset
-from gpjax.distributions import GaussianDistribution
 from gpjax.gps import (
-    ConjugatePosterior,
-    NonConjugatePosterior,
+    ConjugateModel,
+    NonConjugateModel,
 )
 from gpjax.likelihoods import (
     AbstractHeteroscedasticLikelihood,
 )
-from gpjax.linalg.utils import add_jitter
-from gpjax.parameters import _val
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
 from gpjax.variational_families import (
     AbstractVariationalFamily,
+    DualVariationalGaussian,
     HeteroscedasticVariationalFamily,
 )
 
 VF = TypeVar("VF", bound=AbstractVariationalFamily)
 HVF = TypeVar("HVF", bound=HeteroscedasticVariationalFamily)
+DVF = TypeVar("DVF", bound=DualVariationalGaussian)
 
 
 Objective = tpe.Callable[[eqx.Module, Dataset], ScalarFloat]
+LogPriorFn = tpe.Callable[[eqx.Module], ScalarFloat]
 
 
-def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
+def conjugate_mll(model: ConjugateModel, data: Dataset) -> ScalarFloat:
     r"""Evaluate the marginal log-likelihood of the Gaussian process.
 
     Compute the marginal log-likelihood function of the Gaussian process.
@@ -70,11 +66,11 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function = meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = prior * likelihood
 
-        >>> gpx.objectives.conjugate_mll(posterior, D)
+        >>> gpx.objectives.conjugate_mll(model, D)
 
         Our goal is to maximise the marginal log-likelihood. Therefore, when optimising
         the model's parameters with respect to the parameters, we use the negative
@@ -83,46 +79,18 @@ def conjugate_mll(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
         >>> nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
 
     Args:
-        posterior (ConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (ConjugateModel): The joint model for which we want to compute
+            the marginal log-likelihood.
         data: The training dataset used to compute the
             marginal log-likelihood.
 
     Returns:
         ScalarFloat: The marginal log-likelihood of the Gaussian process.
     """
-
-    from gpjax.kernels.multioutput.base import MultiOutputKernel
-
-    x, y = data.X, data.y
-    kernel = posterior.prior.kernel
-    mx = posterior.prior.mean_function(x)
-
-    # Validation for multi-output models (user-facing error messages)
-    if isinstance(kernel, MultiOutputKernel):
-        if not data.multi_output:
-            raise ValueError("MultiOutputKernel requires multi-output data.")
-        if data.num_outputs != kernel.num_outputs:
-            raise ValueError(
-                f"Dataset has {data.num_outputs} outputs "
-                f"but kernel expects {kernel.num_outputs}."
-            )
-
-    # Unified path -- prepare_targets is identity for single-output,
-    # output-major reshape for multi-output
-    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
-    noise = posterior.likelihood.noise_vector(data.n)
-
-    Kxx = kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
-    Sigma_dense = Kxx_dense + jnp.diag(noise)
-    Sigma = lx.MatrixLinearOperator(Sigma_dense)
-
-    mll = GaussianDistribution(jnp.atleast_1d(mx_flat.squeeze()), Sigma)
-    return mll.log_prob(jnp.atleast_1d(y_flat.squeeze())).squeeze()
+    return model.condition(data).log_marginal_likelihood
 
 
-def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat:
+def conjugate_loocv(model: ConjugateModel, data: Dataset) -> ScalarFloat:
     r"""Evaluate the leave-one-out log predictive probability of the Gaussian process following
     section 5.4.2 of Rasmussen et al. 2006 - Gaussian Processes for Machine Learning. This metric
     calculates the average performance of all models that can be obtained by training on all but one
@@ -138,8 +106,8 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
     given here enables exact estimation of the Gaussian process' latent
     function values.
 
-    For a given ``ConjugatePosterior`` object, the following code snippet shows
-    how the leave-one-out log predicitive probability can be evaluated.
+    For a given :class:`~gpjax.gps.ConjugateModel`, the following code snippet
+    shows how the leave-one-out log predictive probability can be evaluated.
 
     Example:
         >>> import gpjax as gpx
@@ -150,11 +118,11 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
         ...
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function = meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = prior * likelihood
         ...
-        >>> gpx.objectives.conjugate_loocv(posterior, D)
+        >>> gpx.objectives.conjugate_loocv(model, D)
 
         Our goal is to maximise the leave-one-out log predictive probability. Therefore, when
         optimising the model's parameters with respect to the parameters, we use the negative
@@ -163,48 +131,18 @@ def conjugate_loocv(posterior: ConjugatePosterior, data: Dataset) -> ScalarFloat
         >>> nloocv = lambda p, d: -gpx.objectives.conjugate_loocv(p, d)
 
     Args:
-        posterior (ConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (ConjugateModel): The joint model for which we want to compute
+            the leave-one-out predictive probability.
         data: The training dataset used to compute the
-            marginal log-likelihood.
+            leave-one-out predictive probability.
 
     Returns:
-        ScalarFloat: The marginal log-likelihood of the Gaussian process.
+        ScalarFloat: The leave-one-out log predictive probability.
     """
-
-    x, y = data.X, data.y
-
-    mx = posterior.prior.mean_function(x)
-    # Likelihood protocol: identity for single-output, output-major flatten +
-    # per-output noise for multi-output (mirrors conjugate_mll).
-    y_flat, mx_flat = posterior.likelihood.prepare_targets(y, mx)
-    noise = posterior.likelihood.noise_vector(data.n)
-
-    # Sigma = Kxx + diag(noise) (+ jitter)
-    Kxx_dense = add_jitter(
-        posterior.prior.kernel.gram(x).as_matrix(), posterior.prior.jitter
-    )
-    Sigma_dense = Kxx_dense + jnp.diag(noise)
-    L = jnp.linalg.cholesky(Sigma_dense)
-
-    # diag(Sigma^-1) straight from L (R&W eq. 5.12) — no separate jnp.linalg.inv
-    # (folds in audit #662).
-    Linv = jsp.linalg.solve_triangular(L, jnp.eye(Sigma_dense.shape[0]), lower=True)
-    Sigma_inv_diag = jnp.sum(Linv**2, axis=0).reshape(-1, 1)  # [NP, 1]
-
-    resid = (y_flat - mx_flat).reshape(-1, 1)
-    Sigma_inv_y = jsp.linalg.cho_solve((L, True), resid)  # [NP, 1]
-
-    loocv_means = mx_flat.reshape(-1, 1) + resid - Sigma_inv_y / Sigma_inv_diag
-    loocv_stds = jnp.sqrt(1.0 / Sigma_inv_diag)
-
-    loocv_posterior = npd.Normal(loc=loocv_means, scale=loocv_stds)
-    return jnp.sum(loocv_posterior.log_prob(y_flat.reshape(-1, 1)))
+    return jnp.sum(model.condition(data).loo())
 
 
-def log_posterior_density(
-    posterior: NonConjugatePosterior, data: Dataset
-) -> ScalarFloat:
+def log_posterior_density(model: NonConjugateModel, data: Dataset) -> ScalarFloat:
     r"""The log-posterior density of a non-conjugate Gaussian process. This is
     sometimes referred to as the marginal log-likelihood.
 
@@ -215,13 +153,17 @@ def log_posterior_density(
     of the model's parameters or for model comparison. The implementation given
     here is general and will work for any likelihood support by GPJax.
 
-    Unlike the marginal_log_likelihood function of the `ConjugatePosterior` object,
-    the marginal_log_likelihood function of the `NonConjugatePosterior` object does
-    not provide an exact marginal log-likelihood function. Instead, the
-    `NonConjugatePosterior` object represents the posterior distributions as a
-    function of the model's hyperparameters and the latent function. Markov chain
-    Monte Carlo, variational inference, or Laplace approximations can then be used
-    to sample from, or optimise an approximation to, the posterior distribution.
+    Conditioning a :class:`~gpjax.gps.ConjugateModel` yields an
+    :class:`~gpjax.conditioning.ExactPosterior`, whose
+    :attr:`~gpjax.conditioning.ExactPosterior.log_marginal_likelihood` is available
+    in closed form. Conditioning a :class:`~gpjax.gps.NonConjugateModel` instead
+    yields a :class:`~gpjax.conditioning.LatentPosterior`, which has no exact
+    marginal log-likelihood: it represents the posterior as a function of the
+    model's hyperparameters and the latent function, and exposes the unnormalised
+    :attr:`~gpjax.conditioning.LatentPosterior.log_posterior_density` in its place.
+    Markov chain Monte Carlo, variational inference, or Laplace approximations can
+    then be used to sample from, or optimise an approximation to, the posterior
+    distribution.
 
     Example:
         >>> import gpjax as gpx
@@ -233,44 +175,27 @@ def log_posterior_density(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        >>> posterior = prior * likelihood
+        >>> model = (prior * likelihood).init_latent(D.n)
 
-        >>> gpx.objectives.log_posterior_density(posterior, D)
+        >>> gpx.objectives.log_posterior_density(model, D)
 
     Args:
-        posterior (NonConjugatePosterior): The posterior distribution for which
-            we want to compute the marginal log-likelihood.
+        model (NonConjugateModel): The joint model for which we want to
+            compute the log-posterior density.
         data: The training dataset used to compute the
-            marginal log-likelihood.
+            log-posterior density.
 
     Returns:
         ScalarFloat: The log-posterior density of the Gaussian process.
     """
-
-    x, y = data.X, data.y
-
-    # Gram matrix
-    Kxx = posterior.prior.kernel.gram(x)
-    Kxx_dense = add_jitter(Kxx.as_matrix(), posterior.prior.jitter)
-    Lx = jnp.linalg.cholesky(Kxx_dense)
-
-    # Compute the prior mean function
-    mx = posterior.prior.mean_function(x)
-
-    # Whitened function values, wx, corresponding to the inputs, x
-    wx = _val(posterior.latent)
-
-    # f(x) = mx + Lx wx
-    fx = mx + Lx @ wx
-
-    # p(y | f(x), theta), where theta are the model hyperparameters
-    likelihood = posterior.likelihood.link_function(fx)
-
-    # Whitened latent function values prior, p(wx | theta) = N(0, I)
-    latent_prior = npd.Normal(loc=0.0, scale=1.0)
-    return likelihood.log_prob(y).sum() + latent_prior.log_prob(wx).sum()
+    if model.latent is None:
+        raise ValueError(
+            "NonConjugateModel.latent is uninitialised: fit the model or call "
+            "model.init_latent(data.n) first."
+        )
+    return model.condition(data).log_posterior_density
 
 
 non_conjugate_mll = log_posterior_density
@@ -295,13 +220,13 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.elbo(q, D)
@@ -323,12 +248,7 @@ def elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     var_exp = variational_expectation(variational_family, data)
 
     # For batch size b, we compute  n/b * sum_i[ int log(p(y|f(xi))) q(f(xi)) df(xi)] - KL[q(f(.)) || p(f(.))]
-    return (
-        jnp.sum(var_exp)
-        * variational_family.posterior.likelihood.num_datapoints
-        / data.n
-        - kl
-    )
+    return jnp.sum(var_exp) * data.full_size / data.n - kl
 
 
 def variational_expectation(
@@ -350,13 +270,13 @@ def variational_expectation(
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Bernoulli()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.VariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.variational_expectation(q, D)
@@ -368,7 +288,7 @@ def variational_expectation(
 
     Returns:
         Array: The expectation of the model's log-likelihood under our
-            variational distribution.
+        variational distribution.
     """
     # Unpack training batch
     x, y = data.X, data.y
@@ -376,24 +296,109 @@ def variational_expectation(
     # Variational distribution q(f(.)) = N(f(.); mu(.), Sigma(., .))
     q = variational_family
 
-    # TODO: This needs cleaning up! We are squeezing then broadcasting `mean` and `variance`, which is not ideal.
-
-    # Compute variational mean, mu(x), and variance, diag(Sigma(x, x)), at the training
-    # inputs, x
-    def q_moments(x):
-        qx = q(x)
-        return qx.mean.squeeze(), qx.covariance().squeeze()
-
-    mean, variance = vmap(q_moments)(x[:, None])
+    # Marginal moments mu(x) and diag(Sigma(x, x)) at the training inputs,
+    # through the conditioned posterior's diagonal path. `train_data` is passed
+    # for interface uniformity; the sparse families carry q(u) internally and
+    # ignore it.
+    qx = q.condition(data)(x, covariance="diagonal")
+    mean, variance = qx.mean[:, None], qx.variance[:, None]
 
     # approx int[log(p(y|f(x))) q(f(x))] df(x)
-    expectation = q.posterior.likelihood.expected_log_likelihood(
-        y, mean[:, None], variance[:, None]
-    )
+    expectation = q.model.likelihood.expected_log_likelihood(y, mean, variance)
     return expectation
 
 
-# TODO: Replace code within CollapsedELBO to using (low rank structure of) LinOps and the GaussianDistribution object to be as succinct as e.g., the `ConjugateMLL`.
+def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
+    r"""Compute the evidence lower bound of a dual (t-SVGP) approximation.
+
+    The *same functional* as :func:`elbo`, but evaluated as a function of the stored
+    dual sites and the kernel hyperparameters, never of $(m, S)$:
+
+    .. math::
+
+        \mathcal{L}_{\text{dual}}(\lambda_1, \Lambda_2;\theta)
+            = \frac{N}{B}\sum_{i\in\mathcal{B}}
+              \mathbb{E}_{q(f_i)}\left[\log p(y_i\mid f_i)\right]
+              - \operatorname{KL}\left[q(u)\mid\mid p_{\theta}(u)\right],
+        \qquad
+        S = \left(\mathbf{K}_{zz}(\theta)^{-1} + \Lambda_2\right)^{-1}.
+
+    Following Adam, Chang, Khan and Solin (2021),
+    `arXiv:2111.03412 <https://arxiv.org/abs/2111.03412>`_.
+
+    Example:
+        >>> import jax
+        >>> jax.config.update("jax_enable_x64", True)
+        >>> import jax.numpy as jnp
+        >>> import gpjax as gpx
+
+        >>> xtrain = jnp.linspace(0, 1).reshape(-1, 1)
+        >>> ytrain = jnp.sin(xtrain)
+        >>> D = gpx.Dataset(X=xtrain, y=ytrain)
+
+        >>> meanf = gpx.mean_functions.Constant()
+        >>> kernel = gpx.kernels.RBF()
+        >>> likelihood = gpx.likelihoods.Bernoulli()
+        >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
+        >>> posterior = prior * likelihood
+
+        >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        >>> q = gpx.variational_families.DualVariationalGaussian(
+        ...     model=posterior, inducing_inputs=z
+        ... )
+
+        >>> gpx.objectives.dual_elbo(q, D).shape
+        ()
+
+    Args:
+        variational_family: The dual variational approximation whose sites and
+            hyperparameters the bound is evaluated at.
+        data: The training data, or a mini-batch of it.
+
+    Returns:
+        ScalarFloat: The evidence lower bound of the dual variational approximation.
+
+    Notes:
+        Its **value** equals :func:`elbo` at the implied moments for any sites and
+        any $\theta$; its **hyperparameter gradient** differs, because $q$ moves
+        with $\theta$ through $\mathbf{K}_{zz}$ while the sites stay frozen. The
+        extra term,
+        $\langle\nabla_{\eta}\mathcal{L},\ \partial\eta_0(\theta)/\partial\theta\rangle$,
+        vanishes at a converged E-step and is the source of the tighter M-step
+        behaviour Adam et al. report. Do **not** wrap $\mathbf{K}_{zz}$ in
+        ``lax.stop_gradient``, and do not cache the implied moments on the family:
+        that implicit dependence is the entire point, and removing it is a silent
+        bug -- identical values, wrong gradients.
+
+        The marginals are computed in one batched
+        :meth:`~gpjax.variational_families.DualVariationalGaussian.marginals` call
+        directly from the working matrix $\mathbf{R}$, rather than through the
+        moment conversion that :func:`elbo` performs when it conditions the
+        family. Both are $\mathcal{O}(M^3 + NM^2)$, but this path skips forming
+        and factorising $\mathbf{S}$. :func:`elbo` called directly on a
+        ``DualVariationalGaussian`` is still correct and returns the same value and
+        the same gradients; ``dual_elbo`` is the fast path, not a different bound.
+
+        Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this
+        objective remains valid -- it is ordinary gradient descent in the dual
+        coordinates. It gives *different* dynamics from :func:`~gpjax.fit.fit` on a
+        ``VariationalGaussian``, because the two parameterisations induce different
+        metrics. :func:`~gpjax.fit.fit_natgrads` is the parameterisation-invariant
+        alternative.
+    """
+    # KL[q(u) || p(u)], evaluated through R = Kzz + Kzz Lambda_2 Kzz.
+    kl = variational_family.prior_kl()
+
+    # Batched marginals of q(f(x)); O(M^3 + N M^2).
+    mean, variance = variational_family.marginals(data.X)
+
+    likelihood = variational_family.model.likelihood
+    expectation = likelihood.expected_log_likelihood(
+        data.y, mean[:, None], variance[:, None]
+    )
+
+    # For batch size b, n/b * sum_i E_q[log p(y_i | f(x_i))] - KL[q(u) || p(u)].
+    return jnp.sum(expectation) * data.full_size / data.n - kl
 
 
 def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
@@ -405,6 +410,10 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     to the prior. This collapsed bound is evaluated on the full dataset supplied in
     ``data`` and does not apply minibatch scaling.
 
+    The bound is the ``elbo_bound`` view of the conditioned
+    :class:`~gpjax.conditioning.CollapsedPosterior` — this objective is not a
+    second derivation.
+
     Example:
         >>> import gpjax as gpx
         >>> import jax.numpy as jnp
@@ -415,13 +424,13 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
 
         >>> meanf = gpx.mean_functions.Constant()
         >>> kernel = gpx.kernels.RBF()
-        >>> likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+        >>> likelihood = gpx.likelihoods.Gaussian()
         >>> prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
         >>> posterior = prior * likelihood
 
         >>> z = jnp.linspace(0, 1, 10).reshape(-1, 1)
         >>> q = gpx.variational_families.CollapsedVariationalGaussian(
-        ...     posterior=posterior, inducing_inputs=z
+        ...     model=posterior, inducing_inputs=z
         ... )
 
         >>> gpx.objectives.collapsed_elbo(q, D)
@@ -436,88 +445,14 @@ def collapsed_elbo(variational_family: VF, data: Dataset) -> ScalarFloat:
     Returns:
         ScalarFloat: The evidence lower bound of the variational approximation.
     """
-    # Unpack training data
-    x, y, n = data.X, data.y, data.n
-
-    # Unpack mean function and kernel
-    mean_function = variational_family.posterior.prior.mean_function
-    kernel = variational_family.posterior.prior.kernel
-
-    m = variational_family.num_inducing
-
-    noise = _val(variational_family.posterior.likelihood.obs_stddev) ** 2
-    z = _val(variational_family.inducing_inputs)
-    Kzz = kernel.gram(z)
-    Kzz_dense = add_jitter(Kzz.as_matrix(), variational_family.jitter)
-    Kzx = kernel.cross_covariance(z, x)
-    Kxx_diag = vmap(kernel, in_axes=(0, 0))(x, x)
-    mux = mean_function(x)
-
-    Lz = jnp.linalg.cholesky(Kzz_dense)
-
-    # Notation and derivation:
-    #
-    # Let Q = KxzKzz^{-1}Kzx, we must compute the log normal pdf:
-    #
-    #   log N(y; mux, o^2 I + Q) = -n pi - n/2 log|o^2 I + Q|
-    #   - 1/2 (y - mux)^T (o^2 I + Q)^{-1} (y - mux).
-    #
-    # The log determinant |o^2 I + Q| is computed via applying the matrix determinant
-    #   lemma
-    #
-    #   |o^2 I + Q| = log|o^2 I| + log|I + Lz^{-1} Kzx (o^2 I)^{-1} Kxz Lz^{-1}| = log(o^2) + log|B|,
-    #
-    #   with B = I + AA^T and A = Lz^{-1} Kzx / o.
-    #
-    # Similarly we apply matrix inversion lemma to invert o^2 I + Q
-    #
-    #   (o^2 I + Q)^{-1} = (I o^2)^{-1} - (I o^2)^{-1} Kxz Lz^{-T} (I + Lz^{-1} Kzx (I o^2)^{-1} Kxz Lz^{-T})^{-1} Lz^{-1} Kzx (I o^2)^{-1}
-    #               = (I o^2)^{-1} - (I o^2)^{-1} o A^T (I + o A (I o^2)^{-1} o A^T)^{-1} o A (I o^2)^{-1}
-    #               = I/o^2 - A^T B^{-1} A / o^2,
-    #
-    # giving the quadratic term as
-    #
-    #   (y - mux)^T (o^2 I + Q)^{-1} (y - mux) = [(y - mux)^T(y - mux) - (y - mux)^T A^T B^{-1} A (y - mux)] / o^2,
-    #
-    #   with A and B defined as above.
-
-    A = jsp.linalg.solve_triangular(Lz, Kzx, lower=True) / jnp.sqrt(noise)
-
-    # AA^T
-    AAT = jnp.matmul(A, A.T)
-
-    # B = I + AA^T
-    B = jnp.eye(m) + AAT
-
-    # LL^T = I + AA^T
-    L = jnp.linalg.cholesky(B)
-
-    # log|B| = 2 trace(log|L|) = 2 sum_i log L_ii
-    log_det_B = 2.0 * jnp.sum(jnp.log(jnp.diagonal(L)))
-
-    diff = y - mux
-
-    # L^{-1} A (y - mux)
-    L_inv_A_diff = jsp.linalg.solve_triangular(L, jnp.matmul(A, diff), lower=True)
-
-    # (y - mux)^T (I o^2 + Q)^{-1} (y - mux)
-    quad = (jnp.sum(diff**2) - jnp.sum(L_inv_A_diff**2)) / noise
-
-    # 2 * log N(y; mux, I o^2 + Q)
-    two_log_prob = -n * jnp.log(2.0 * jnp.pi * noise) - log_det_B - quad
-
-    # 1/o^2 tr(Kxx - Q)
-    two_trace = jnp.sum(Kxx_diag) / noise - jnp.trace(AAT)
-
-    # log N(y; mux, I o^2 + Kxz Kzz^{-1} Kzx) - 1/(2 o^2) tr(Kxx - Kxz Kzz^{-1} Kzx)
-    return (two_log_prob - two_trace).squeeze() / 2.0
+    return variational_family.condition(data).elbo_bound
 
 
 def heteroscedastic_elbo_conjugate(
     variational_family: HVF, data: Dataset
 ) -> ScalarFloat:
     r"""Tight bound from Lazaro-Gredilla & Titsias (2011) for heteroscedastic Gaussian likelihoods."""
-    likelihood = variational_family.posterior.likelihood
+    likelihood = variational_family.model.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
 
     expected_ll, _ = likelihood.expected_log_likelihood(
@@ -529,15 +464,13 @@ def heteroscedastic_elbo_conjugate(
         return_parts=True,
     )
 
-    scale = likelihood.num_datapoints / data.n
+    scale = data.full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 
 def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> ScalarFloat:
     r"""Generic chained bound for heteroscedastic likelihoods."""
-    likelihood: AbstractHeteroscedasticLikelihood = (
-        variational_family.posterior.likelihood
-    )
+    likelihood: AbstractHeteroscedasticLikelihood = variational_family.model.likelihood
     mean_f, var_f, mean_g, var_g = variational_family.predict(data.X)
     noise_stats = likelihood.noise_statistics(mean_g, var_g)
 
@@ -550,18 +483,34 @@ def heteroscedastic_elbo_chained(variational_family: HVF, data: Dataset) -> Scal
         noise_stats=noise_stats,
     )
 
-    scale = likelihood.num_datapoints / data.n
+    scale = data.full_size / data.n
     return scale * jnp.sum(expected_ll) - variational_family.prior_kl()
 
 
 def heteroscedastic_elbo(variational_family: HVF, data: Dataset) -> ScalarFloat:
-    likelihood = variational_family.posterior.likelihood
+    r"""Compute the evidence lower bound of a heteroscedastic approximation.
+
+    Dispatches on the likelihood: those that admit the tight Lazaro-Gredilla &
+    Titsias (2011) bound use :func:`heteroscedastic_elbo_conjugate`, and every
+    other heteroscedastic likelihood uses the generic chained bound,
+    :func:`heteroscedastic_elbo_chained`.
+
+    Args:
+        variational_family: The heteroscedastic variational approximation whose
+            parameters the bound is evaluated at.
+        data: The training data, or a mini-batch of it.
+
+    Returns:
+        ScalarFloat: The evidence lower bound of the variational approximation.
+    """
+    likelihood = variational_family.model.likelihood
     if likelihood.supports_tight_bound():
         return heteroscedastic_elbo_conjugate(variational_family, data)
     return heteroscedastic_elbo_chained(variational_family, data)
 
 
 __all__ = [
+    "LogPriorFn",
     "Objective",
     "collapsed_elbo",
     "conjugate_loocv",

@@ -1,0 +1,1570 @@
+# Copyright 2023 The thomaspinder Contributors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""Tests for the Salimbeni et al. (2018) natural-gradient machinery."""
+
+from pathlib import Path
+import re
+
+import equinox as eqx
+import gpjax
+from gpjax.dataset import Dataset
+from gpjax.likelihoods import inv_probit
+from gpjax.linalg import add_jitter
+from gpjax.natural_gradients import (
+    _expected_log_likelihood_derivatives,
+    _first_valid_trial,
+    _symmetrise,
+    expectation_from_moments,
+    moments_from_expectation,
+    moments_from_natural,
+    natural_from_moments,
+    natural_gradient_step,
+    partition_variational,
+)
+from gpjax.objectives import (
+    dual_elbo,
+    elbo,
+    variational_expectation,
+)
+from gpjax.parameters import (
+    LowerTriangular,
+    Real,
+    val,
+)
+from gpjax.variational_families import (
+    CollapsedVariationalGaussian,
+    GraphVariationalGaussian,
+    VariationalGaussian,
+    WhitenedVariationalGaussian,
+)
+from hypothesis import (
+    given,
+    strategies as st,
+)
+import jax
+import jax.numpy as jnp
+import jax.random as jr
+import jax.scipy as jsp
+import jax.tree_util as jtu
+import networkx as nx
+import numpy as np
+import paramax
+import pytest
+
+from tests._dual_helpers import (
+    build_dual as _build_dual,
+    matched_variational_gaussian as _matched_variational_gaussian,
+)
+from tests._reference.conjugate_svgp import (
+    conjugate_optimum as _conjugate_optimum,
+)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:A JAX array is being set as static:UserWarning"
+)
+
+_NUM_INDUCING = 5
+_NUM_DATA = 30
+_FAMILY_JITTER = 1e-8
+
+_SALIMBENI_FAMILIES = [VariationalGaussian, WhitenedVariationalGaussian]
+
+
+# ---------------------------------------------------------------------------
+# Shared setups
+# ---------------------------------------------------------------------------
+def _conjugate_setup(
+    num_inducing: int = _NUM_INDUCING,
+    num_data: int = _NUM_DATA,
+    jitter: float = _FAMILY_JITTER,
+):
+    """Build a Gaussian-likelihood SVGP setup with a non-zero mean function.
+
+    Returns the same 4-tuple shape as :func:`_bernoulli_setup`; the observation noise
+    is recoverable from ``posterior.likelihood.obs_stddev`` where a test needs it.
+    """
+    key_inputs, key_noise = jr.split(jr.key(42))
+    inputs = jr.uniform(key_inputs, (num_data, 1), minval=-2.0, maxval=2.0)
+    outputs = jnp.sin(3.0 * inputs) + 0.1 * jr.normal(key_noise, (num_data, 1))
+    dataset = Dataset(X=inputs, y=outputs)
+
+    kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3))
+    mean_function = gpjax.mean_functions.Constant(jnp.array(0.4))
+    noise_stddev = 0.37
+    likelihood = gpjax.likelihoods.Gaussian(obs_stddev=jnp.array(noise_stddev))
+    prior = gpjax.gps.Prior(mean_function=mean_function, kernel=kernel, jitter=jitter)
+    posterior = prior * likelihood
+    inducing_inputs = jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
+    return posterior, dataset, inducing_inputs, jitter
+
+
+def _bernoulli_setup(
+    num_inducing: int = _NUM_INDUCING,
+    num_data: int = _NUM_DATA,
+    jitter: float = _FAMILY_JITTER,
+):
+    """Build a Bernoulli-likelihood SVGP setup -- a genuinely non-conjugate model."""
+    key_inputs, key_labels = jr.split(jr.key(7))
+    inputs = jr.uniform(key_inputs, (num_data, 1), minval=-2.0, maxval=2.0)
+    outputs = (jr.bernoulli(key_labels, 0.5, (num_data, 1))).astype(jnp.float64)
+    dataset = Dataset(X=inputs, y=outputs)
+
+    kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.9), variance=jnp.array(1.1))
+    mean_function = gpjax.mean_functions.Constant(jnp.array(0.2))
+    likelihood = gpjax.likelihoods.Bernoulli()
+    prior = gpjax.gps.Prior(mean_function=mean_function, kernel=kernel, jitter=jitter)
+    posterior = prior * likelihood
+    inducing_inputs = jnp.linspace(-2.0, 2.0, num_inducing).reshape(-1, 1)
+    return posterior, dataset, inducing_inputs, jitter
+
+
+def _random_moments(seed: int, num_inducing: int):
+    """Draw a random mean and a random well-conditioned Cholesky factor."""
+    key_mean, key_root = jr.split(jr.key(seed))
+    raw = jr.normal(key_root, (num_inducing, num_inducing))
+    covariance = raw @ raw.T + jnp.eye(num_inducing)
+    return jr.normal(key_mean, (num_inducing, 1)), jnp.linalg.cholesky(covariance)
+
+
+def _negative_elbo(family, data):
+    return -elbo(family, data)
+
+
+def _moments_of(family):
+    return (
+        val(family.variational_mean),
+        val(family.variational_root_covariance),
+    )
+
+
+def _take_step(family, data, natgrad_lr, objective=_negative_elbo, **kwargs):
+    """Run one natural-gradient step and recombine the partitions."""
+    variational, hyper = partition_variational(family)
+    updated, loss_value = natural_gradient_step(
+        variational, hyper, data, objective, jnp.asarray(natgrad_lr), **kwargs
+    )
+    return eqx.combine(updated, hyper), loss_value
+
+
+def _kernel_matrices(family, inputs):
+    """Densify the kernel quantities entering the conjugate closed form."""
+    inducing_inputs = val(family.inducing_inputs)
+    kernel = family.model.prior.kernel
+    mean_function = family.model.prior.mean_function
+    gram = add_jitter(
+        kernel.gram(inducing_inputs).as_matrix(), family.model.prior.jitter
+    )
+    cross = kernel.cross_covariance(inputs, inducing_inputs)
+    return (
+        gram,
+        cross,
+        jnp.linalg.cholesky(gram),
+        mean_function(inducing_inputs),
+        mean_function(inputs),
+    )
+
+
+# ---------------------------------------------------------------------------
+# A standalone non-conjugate loss, used for the exponential-family identities.
+# Mirrors spec-salimbeni section 9.1: a Bernoulli/Gauss-Hermite SVGP bound with
+# M = 3, written from scratch so it is independent of GPJax.
+# ---------------------------------------------------------------------------
+_IDENTITY_M = 3
+_IDENTITY_N = 11
+
+_gh_nodes, _gh_weights = np.polynomial.hermite_e.hermegauss(21)
+_GH_NODES = jnp.asarray(_gh_nodes)
+_GH_WEIGHTS = jnp.asarray(_gh_weights) / jnp.sqrt(2.0 * jnp.pi)
+
+_key_design, _key_residual, _key_labels, _key_prior = jr.split(jr.key(0), 4)
+_DESIGN = jr.normal(_key_design, (_IDENTITY_N, _IDENTITY_M)) / jnp.sqrt(_IDENTITY_M)
+_RESIDUAL_VARIANCE = 0.3 + 0.2 * jr.uniform(_key_residual, (_IDENTITY_N,))
+_LABELS = jnp.sign(jr.normal(_key_labels, (_IDENTITY_N,)))
+_raw_prior = jr.normal(_key_prior, (_IDENTITY_M, _IDENTITY_M))
+_PRIOR_PRECISION = jnp.linalg.inv(_raw_prior @ _raw_prior.T + jnp.eye(_IDENTITY_M))
+
+_ROW, _COL = jnp.tril_indices(_IDENTITY_M)
+_SCALE = jnp.where(_ROW == _COL, 1.0, jnp.sqrt(2.0))
+
+
+def _vec_s(matrix):
+    """Isometric flattening of a symmetric matrix: ``tr(XY) = vec_s(X).vec_s(Y)``."""
+    return matrix[_ROW, _COL] * _SCALE
+
+
+def _unvec_s(vector):
+    lower = jnp.zeros((_IDENTITY_M, _IDENTITY_M)).at[_ROW, _COL].set(vector / _SCALE)
+    return lower + lower.T - jnp.diag(jnp.diag(lower))
+
+
+def _flatten(vector, matrix):
+    return jnp.concatenate([vector.reshape(-1), _vec_s(matrix)])
+
+
+def _unflatten(flat):
+    return flat[:_IDENTITY_M].reshape(_IDENTITY_M, 1), _unvec_s(flat[_IDENTITY_M:])
+
+
+def _reference_loss(mean, covariance):
+    """Negative ELBO of a Bernoulli (logit) SVGP-style bound."""
+    latent_mean = (_DESIGN @ mean).reshape(-1)
+    latent_variance = _RESIDUAL_VARIANCE + jnp.sum(
+        (_DESIGN @ covariance) * _DESIGN, axis=1
+    )
+    nodes = (
+        latent_mean[:, None] + jnp.sqrt(latent_variance)[:, None] * _GH_NODES[None, :]
+    )
+    log_likelihood = -jnp.logaddexp(0.0, -_LABELS[:, None] * nodes)
+    expected_log_likelihood = jnp.sum(log_likelihood @ _GH_WEIGHTS)
+
+    _, logdet_covariance = jnp.linalg.slogdet(covariance)
+    kl = 0.5 * (
+        jnp.trace(_PRIOR_PRECISION @ covariance)
+        + (mean.T @ _PRIOR_PRECISION @ mean).squeeze()
+        - _IDENTITY_M
+        - logdet_covariance
+        - jnp.linalg.slogdet(_PRIOR_PRECISION)[1]
+    )
+    return -(expected_log_likelihood - kl)
+
+
+def _reference_loss_of_moments(mean, root_covariance):
+    return _reference_loss(mean, root_covariance @ root_covariance.T)
+
+
+def _reference_loss_of_expectation(flat):
+    return _reference_loss_of_moments(*moments_from_expectation(*_unflatten(flat)))
+
+
+def _reference_loss_of_natural(flat):
+    return _reference_loss_of_moments(*moments_from_natural(*_unflatten(flat)))
+
+
+def _identity_point():
+    return _random_moments(3, _IDENTITY_M)
+
+
+# ---------------------------------------------------------------------------
+# T1 -- coordinate-map round trips
+# ---------------------------------------------------------------------------
+@given(
+    num_inducing=st.sampled_from([1, 2, 5]),
+    seed=st.integers(min_value=0, max_value=2**16 - 1),
+)
+def test_moment_maps_round_trip(num_inducing: int, seed: int) -> None:
+    """Every composition of the four maps is the identity at ``map_jitter=0``."""
+    mean, root_covariance = _random_moments(seed, num_inducing)
+
+    expectation = expectation_from_moments(mean, root_covariance)
+    natural = natural_from_moments(mean, root_covariance)
+
+    via_expectation = moments_from_expectation(*expectation)
+    via_natural = moments_from_natural(*natural)
+    via_both = moments_from_natural(*natural_from_moments(*via_expectation))
+    natural_round_trip = natural_from_moments(
+        *moments_from_expectation(*expectation_from_moments(*via_natural))
+    )
+
+    for recovered in (via_expectation, via_natural, via_both):
+        np.testing.assert_allclose(
+            np.float64(recovered[0]), np.float64(mean), atol=1e-10
+        )
+        np.testing.assert_allclose(
+            np.float64(recovered[1]), np.float64(root_covariance), atol=1e-10
+        )
+
+    np.testing.assert_allclose(
+        np.float64(natural_round_trip[0]), np.float64(natural[0]), atol=1e-10
+    )
+    np.testing.assert_allclose(
+        np.float64(natural_round_trip[1]), np.float64(natural[1]), atol=1e-10
+    )
+
+
+# ---------------------------------------------------------------------------
+# T2 -- the closed form for the expectation gradient
+# ---------------------------------------------------------------------------
+def test_expectation_gradient_matches_closed_form() -> None:
+    r"""$\partial\ell/\partial\eta_1=\partial\ell/\partial m-2(\partial\ell/\partial S)m$."""
+    mean, root_covariance = _identity_point()
+    covariance = root_covariance @ root_covariance.T
+    expectation = expectation_from_moments(mean, root_covariance)
+
+    def loss_of_expectation(pair):
+        return _reference_loss_of_moments(*moments_from_expectation(*pair))
+
+    gradient = jax.grad(loss_of_expectation)(expectation)
+    grad_mean, grad_covariance = jax.grad(_reference_loss, argnums=(0, 1))(
+        mean, covariance
+    )
+    grad_covariance = _symmetrise(grad_covariance)
+
+    np.testing.assert_allclose(
+        np.float64(gradient[0]),
+        np.float64(grad_mean - 2.0 * grad_covariance @ mean),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.float64(gradient[1]), np.float64(grad_covariance), atol=1e-12
+    )
+
+
+# ---------------------------------------------------------------------------
+# T3 -- the Fisher identity
+# ---------------------------------------------------------------------------
+def test_fisher_identity() -> None:
+    r"""$F$ is symmetric positive definite and $F^{-1}\partial_\theta\ell=\partial_\eta\ell$."""
+    mean, root_covariance = _identity_point()
+    expectation_flat = _flatten(*expectation_from_moments(mean, root_covariance))
+    natural_flat = _flatten(*natural_from_moments(mean, root_covariance))
+
+    def expectation_of_natural(flat):
+        return _flatten(
+            *expectation_from_moments(*moments_from_natural(*_unflatten(flat)))
+        )
+
+    fisher = jax.jacfwd(expectation_of_natural)(natural_flat)
+    grad_natural = jax.grad(_reference_loss_of_natural)(natural_flat)
+    grad_expectation = jax.grad(_reference_loss_of_expectation)(expectation_flat)
+
+    assert float(jnp.max(jnp.abs(fisher - fisher.T))) < 1e-10
+    assert float(jnp.linalg.eigvalsh(_symmetrise(fisher)).min()) > 0.0
+
+    natural_gradient = jnp.linalg.solve(fisher, grad_natural)
+    assert float(jnp.max(jnp.abs(natural_gradient - grad_expectation))) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# T4 -- the Fisher information is the covariance of the sufficient statistics
+# ---------------------------------------------------------------------------
+def test_fisher_equals_sufficient_statistic_covariance() -> None:
+    """``F == Cov_q[t(u)]``, built in closed form by Isserlis' theorem."""
+    mean, root_covariance = _identity_point()
+    natural_flat = _flatten(*natural_from_moments(mean, root_covariance))
+
+    def expectation_of_natural(flat):
+        return _flatten(
+            *expectation_from_moments(*moments_from_natural(*_unflatten(flat)))
+        )
+
+    fisher = jax.jacfwd(expectation_of_natural)(natural_flat)
+
+    covariance = root_covariance @ root_covariance.T
+    flat_mean = mean.reshape(-1)
+    cross = jnp.einsum("j,ik->ijk", flat_mean, covariance) + jnp.einsum(
+        "k,ij->ijk", flat_mean, covariance
+    )
+    quadratic = (
+        jnp.einsum("ik,jl->ijkl", covariance, covariance)
+        + jnp.einsum("il,jk->ijkl", covariance, covariance)
+        + jnp.einsum("i,k,jl->ijkl", flat_mean, flat_mean, covariance)
+        + jnp.einsum("i,l,jk->ijkl", flat_mean, flat_mean, covariance)
+        + jnp.einsum("j,k,il->ijkl", flat_mean, flat_mean, covariance)
+        + jnp.einsum("j,l,ik->ijkl", flat_mean, flat_mean, covariance)
+    )
+    cross_flat = cross[:, _ROW, _COL] * _SCALE
+    quadratic_flat = (
+        quadratic[_ROW, _COL][:, _ROW, _COL] * _SCALE[:, None] * _SCALE[None, :]
+    )
+    statistic_covariance = jnp.block(
+        [[covariance, cross_flat], [cross_flat.T, quadratic_flat]]
+    )
+
+    np.testing.assert_allclose(
+        np.float64(fisher), np.float64(statistic_covariance), atol=1e-10
+    )
+
+
+# ---------------------------------------------------------------------------
+# T7 -- the map_jitter regression guard (written before the headline test)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "family_cls", _SALIMBENI_FAMILIES, ids=lambda cls: cls.__name__
+)
+def test_map_jitter_biases_the_conjugate_step(family_cls) -> None:
+    r"""``map_jitter`` biases $S$ by $\approx\varepsilon\lVert S\rVert^2$.
+
+    The jitter added to $-2\Theta_2 = S^{-1}$ is a bias, not a rounding effect, so the
+    headline exactness bound of :func:`test_natgrad_conjugate_one_step_exact` fails by
+    orders of magnitude at ``map_jitter=1e-6``. This test exists to stop anyone
+    "tidying" the default to the model's ``Prior.jitter``.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    mean, root_covariance = _random_moments(11, _NUM_INDUCING)
+    family = family_cls(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=mean,
+        variational_root_covariance=root_covariance,
+    )
+
+    stepped, _ = _take_step(family, dataset, 1.0, map_jitter=1e-6)
+    _, updated_root = _moments_of(stepped)
+    _, optimal_covariance, _ = _conjugate_optimum(family, dataset)
+
+    error = float(jnp.max(jnp.abs(updated_root @ updated_root.T - optimal_covariance)))
+    assert error > 1e-8
+
+
+# ---------------------------------------------------------------------------
+# T5 -- the headline conjugate exactness test
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "family_cls", _SALIMBENI_FAMILIES, ids=lambda cls: cls.__name__
+)
+def test_natgrad_conjugate_one_step_exact(family_cls) -> None:
+    r"""One $\gamma=1$ full-batch step reaches the exact optimal $q$."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    mean, root_covariance = _random_moments(11, _NUM_INDUCING)
+    family = family_cls(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=mean,
+        variational_root_covariance=root_covariance,
+    )
+
+    stepped, _ = _take_step(family, dataset, 1.0)
+    updated_mean, updated_root = _moments_of(stepped)
+    optimal_mean, optimal_covariance, _ = _conjugate_optimum(family, dataset)
+
+    np.testing.assert_allclose(
+        np.float64(updated_mean), np.float64(optimal_mean), atol=1e-10
+    )
+    np.testing.assert_allclose(
+        np.float64(updated_root @ updated_root.T),
+        np.float64(optimal_covariance),
+        atol=1e-10,
+    )
+
+    assert float(elbo(stepped, dataset)) >= float(elbo(family, dataset))
+
+    twice_stepped, _ = _take_step(stepped, dataset, 1.0)
+    second_mean, _ = _moments_of(twice_stepped)
+    np.testing.assert_allclose(
+        np.float64(second_mean), np.float64(updated_mean), atol=1e-10
+    )
+
+
+# ---------------------------------------------------------------------------
+# T6 -- the whitened and unwhitened optima are the same distribution
+# ---------------------------------------------------------------------------
+def test_whitened_and_unwhitened_optima_agree() -> None:
+    r"""$m^\star=\mu_z+L_z m_w^\star$ and $S^\star=L_z S_w^\star L_z^\top$."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    mean, root_covariance = _random_moments(11, _NUM_INDUCING)
+    families = {
+        cls.__name__: cls(
+            model=posterior,
+            inducing_inputs=inducing_inputs,
+            variational_mean=mean,
+            variational_root_covariance=root_covariance,
+        )
+        for cls in _SALIMBENI_FAMILIES
+    }
+
+    unwhitened = families["VariationalGaussian"]
+    whitened = families["WhitenedVariationalGaussian"]
+    _, _, root_gram, inducing_mean, _ = _kernel_matrices(unwhitened, dataset.X)
+
+    optimal_mean, optimal_covariance, _ = _conjugate_optimum(unwhitened, dataset)
+    whitened_mean, whitened_covariance, _ = _conjugate_optimum(whitened, dataset)
+
+    np.testing.assert_allclose(
+        np.float64(inducing_mean + root_gram @ whitened_mean),
+        np.float64(optimal_mean),
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.float64(root_gram @ whitened_covariance @ root_gram.T),
+        np.float64(optimal_covariance),
+        atol=1e-10,
+    )
+
+    stepped_unwhitened, _ = _take_step(unwhitened, dataset, 1.0)
+    stepped_whitened, _ = _take_step(whitened, dataset, 1.0)
+    np.testing.assert_allclose(
+        np.float64(elbo(stepped_whitened, dataset)),
+        np.float64(elbo(stepped_unwhitened, dataset)),
+        rtol=1e-10,
+    )
+
+
+# ---------------------------------------------------------------------------
+# T8 -- the natural-parameter target is minus half the posterior precision
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "family_cls", _SALIMBENI_FAMILIES, ids=lambda cls: cls.__name__
+)
+def test_theta2_target_equals_minus_half_precision(family_cls) -> None:
+    r"""$\Theta_2^{\rm tgt}=\partial\mathcal L_{\rm data}/\partial S-\tfrac12 K_{zz}^{-1}=-\tfrac12\Lambda$."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    mean, root_covariance = _random_moments(11, _NUM_INDUCING)
+    family = family_cls(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=mean,
+        variational_root_covariance=root_covariance,
+    )
+
+    data_gradient = _data_term_covariance_gradient(family, dataset)
+    gram, _, _, _, _ = _kernel_matrices(family, dataset.X)
+    prior_precision = (
+        jnp.eye(_NUM_INDUCING)
+        if isinstance(family, WhitenedVariationalGaussian)
+        else jnp.linalg.inv(gram)
+    )
+    target = data_gradient - 0.5 * prior_precision
+
+    _, _, precision = _conjugate_optimum(family, dataset)
+    np.testing.assert_allclose(
+        np.float64(target), np.float64(-0.5 * precision), atol=1e-10
+    )
+
+
+def _data_term_covariance_gradient(family, data):
+    r"""$\partial\mathcal L_{\rm data}/\partial S$ by autodiff through GPJax."""
+    mean, root_covariance = _moments_of(family)
+    expectation = expectation_from_moments(mean, root_covariance)
+
+    def data_term(pair):
+        trial_mean, trial_root = moments_from_expectation(*pair)
+        trial = eqx.tree_at(
+            lambda tree: (tree.variational_mean, tree.variational_root_covariance),
+            family,
+            (Real(trial_mean), LowerTriangular(trial_root)),
+        )
+        full_size = data.n_total if data.n_total is not None else data.n
+        scale = full_size / data.n
+        return jnp.sum(variational_expectation(trial, data)) * scale
+
+    return _symmetrise(jax.grad(data_term)(expectation)[1])
+
+
+# ---------------------------------------------------------------------------
+# T9 -- the step is a convex combination in the natural coordinates
+# ---------------------------------------------------------------------------
+def test_natgrad_step_is_a_convex_combination_in_theta() -> None:
+    r"""$\Theta_2^{\rm new}=(1-\gamma)\Theta_2+\gamma\Theta_2^{\rm tgt}$."""
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    mean, root_covariance = _random_moments(5, _NUM_INDUCING)
+    family = VariationalGaussian(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=mean,
+        variational_root_covariance=root_covariance,
+    )
+    natgrad_lr = 0.37
+
+    gram, _, _, _, _ = _kernel_matrices(family, dataset.X)
+    target = _data_term_covariance_gradient(family, dataset) - 0.5 * jnp.linalg.inv(
+        gram
+    )
+    _, initial_natural_matrix = natural_from_moments(mean, root_covariance)
+
+    stepped, _ = _take_step(family, dataset, natgrad_lr)
+    _, updated_natural_matrix = natural_from_moments(*_moments_of(stepped))
+
+    np.testing.assert_allclose(
+        np.float64(updated_natural_matrix),
+        np.float64((1.0 - natgrad_lr) * initial_natural_matrix + natgrad_lr * target),
+        atol=1e-10,
+    )
+
+
+# ---------------------------------------------------------------------------
+# T10 -- a gamma = 1 step on a mini-batch hits the mini-batch optimum
+# ---------------------------------------------------------------------------
+def test_natgrad_minibatch_hits_minibatch_optimum() -> None:
+    """The ``N/B`` factor lives inside the loss, not in the step size."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    batch_size = 8
+    batch = Dataset(X=dataset.X[:batch_size], y=dataset.y[:batch_size])
+
+    mean, root_covariance = _random_moments(11, _NUM_INDUCING)
+    family = VariationalGaussian(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=mean,
+        variational_root_covariance=root_covariance,
+    )
+
+    stepped, _ = _take_step(family, batch, 1.0)
+    updated_mean, updated_root = _moments_of(stepped)
+    optimal_mean, optimal_covariance, _ = _conjugate_optimum(family, batch)
+
+    np.testing.assert_allclose(
+        np.float64(updated_mean), np.float64(optimal_mean), atol=1e-10
+    )
+    np.testing.assert_allclose(
+        np.float64(updated_root @ updated_root.T),
+        np.float64(optimal_covariance),
+        atol=1e-10,
+    )
+
+
+# ---------------------------------------------------------------------------
+# T11 -- monotone ELBO on a non-conjugate model
+# ---------------------------------------------------------------------------
+def test_natgrad_monotone_elbo_bernoulli() -> None:
+    """Fifty full-batch steps at a small step size never decrease the ELBO."""
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+
+    trace = [float(elbo(family, dataset))]
+    for _ in range(50):
+        family, _ = _take_step(family, dataset, 0.1)
+        trace.append(float(elbo(family, dataset)))
+
+    assert bool(jnp.all(jnp.diff(jnp.asarray(trace)) >= -1e-9))
+
+
+# ---------------------------------------------------------------------------
+# T12 -- the step-size backoff
+# ---------------------------------------------------------------------------
+def _expectation_gradient(family, data):
+    r"""$\partial\ell/\partial\boldsymbol\eta$ of the negative ELBO, symmetrised."""
+    mean, root_covariance = _moments_of(family)
+    expectation = expectation_from_moments(mean, root_covariance)
+
+    def loss_of_expectation(pair):
+        trial_mean, trial_root = moments_from_expectation(*pair)
+        trial = eqx.tree_at(
+            lambda tree: (tree.variational_mean, tree.variational_root_covariance),
+            family,
+            (Real(trial_mean), LowerTriangular(trial_root)),
+        )
+        return _negative_elbo(trial, data)
+
+    gradient = jax.grad(loss_of_expectation)(expectation)
+    return gradient[0], _symmetrise(gradient[1])
+
+
+def test_natgrad_backoff_recovers_from_large_step() -> None:
+    """A wildly over-sized step is shrunk until it lands back in the cone.
+
+    The initial covariance is deliberately tight (``S_0 = 0.01 I``) so that the target
+    precision is *smaller* than the current one. Extrapolating past the target then
+    genuinely leaves the negative-definite cone, which the default zero-mean,
+    identity-root initialisation does not do at any step size.
+    """
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    family = VariationalGaussian(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_root_covariance=0.1 * jnp.eye(_NUM_INDUCING),
+    )
+    natgrad_lr = 100.0
+
+    # The un-shrunk step must genuinely fail, or the test proves nothing.
+    initial_natural = natural_from_moments(*_moments_of(family))
+    gradient = _expectation_gradient(family, dataset)
+    unshrunk = moments_from_natural(
+        initial_natural[0] - natgrad_lr * gradient[0],
+        initial_natural[1] - natgrad_lr * gradient[1],
+    )
+    assert not bool(jnp.all(jnp.isfinite(unshrunk[1])))
+
+    # With no shrink attempts the NaN reaches the caller ...
+    exhausted, _ = _take_step(family, dataset, natgrad_lr, max_backoff=0)
+    assert not bool(jnp.all(jnp.isfinite(_moments_of(exhausted)[1])))
+
+    # ... and with them, the step is shrunk back into the cone.
+    stepped, loss_value = _take_step(family, dataset, natgrad_lr, max_backoff=20)
+    updated_mean, updated_root = _moments_of(stepped)
+
+    assert bool(jnp.all(jnp.isfinite(updated_mean)))
+    assert bool(jnp.all(jnp.isfinite(updated_root)))
+    assert bool(jnp.isfinite(loss_value))
+    assert bool(jnp.isfinite(elbo(stepped, dataset)))
+
+    # Recover the step size actually taken: Theta_2^new = Theta_2 - s * dl/dH_2.
+    updated_natural_matrix = natural_from_moments(updated_mean, updated_root)[1]
+    difference = initial_natural[1] - updated_natural_matrix
+    accepted_step_size = float(
+        jnp.sum(difference * gradient[1]) / jnp.sum(gradient[1] * gradient[1])
+    )
+    assert accepted_step_size < natgrad_lr
+    np.testing.assert_allclose(
+        accepted_step_size,
+        natgrad_lr * 0.5 ** round(np.log2(natgrad_lr / accepted_step_size)),
+        rtol=1e-8,
+    )
+
+
+def test_first_valid_trial_selects_the_largest_admissible_step() -> None:
+    """``_first_valid_trial`` returns exactly the first finite trial of the vmap."""
+    # S = I, so the precision -2 * Theta2 is the identity and a step of size s in the
+    # direction -I leaves the cone exactly when s >= 1/2.
+    mean = jr.normal(jr.key(2), (4, 1))
+    natural_vector, natural_matrix = natural_from_moments(mean, jnp.eye(4))
+    gradient_vector = jnp.zeros_like(natural_vector)
+    gradient_matrix = -jnp.eye(4)
+
+    natgrad_lr, backoff, max_backoff = 8.0, 0.5, 5
+    accepted = None
+    accepted_index = None
+    for index in range(max_backoff + 1):
+        step_size = natgrad_lr * backoff**index
+        candidate = moments_from_natural(
+            natural_vector - step_size * gradient_vector,
+            natural_matrix - step_size * gradient_matrix,
+        )
+        if bool(jnp.all(jnp.isfinite(candidate[1]))):
+            accepted = candidate
+            accepted_index = index
+            break
+
+    assert accepted is not None, "the reference sweep found no admissible step"
+    assert accepted_index > 0, "the backoff was never exercised"
+    selected = _first_valid_trial(
+        natural_vector,
+        natural_matrix,
+        gradient_vector,
+        gradient_matrix,
+        jnp.asarray(natgrad_lr),
+        0.0,
+        backoff,
+        max_backoff,
+    )
+    np.testing.assert_allclose(np.float64(selected[0]), np.float64(accepted[0]))
+    np.testing.assert_allclose(np.float64(selected[1]), np.float64(accepted[1]))
+
+    # With no shrink attempts left, the NaN propagates rather than being hidden.
+    exhausted = _first_valid_trial(
+        natural_vector,
+        natural_matrix,
+        gradient_vector,
+        gradient_matrix,
+        jnp.asarray(natgrad_lr),
+        0.0,
+        backoff,
+        0,
+    )
+    assert not bool(jnp.all(jnp.isfinite(exhausted[1])))
+
+
+# ---------------------------------------------------------------------------
+# T13 -- jit, scan and carry-structure compatibility
+# ---------------------------------------------------------------------------
+def test_natgrad_step_is_jit_and_scan_compatible() -> None:
+    """The step compiles, scans, and leaves the carry treedef untouched."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    def step(partition, natgrad_lr):
+        return natural_gradient_step(
+            partition, hyper, dataset, _negative_elbo, natgrad_lr
+        )
+
+    eager, eager_loss = step(variational, jnp.asarray(0.5))
+    compiled, compiled_loss = eqx.filter_jit(step)(variational, jnp.asarray(0.5))
+
+    np.testing.assert_allclose(
+        np.float64(val(compiled.variational_mean)),
+        np.float64(val(eager.variational_mean)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.float64(compiled_loss), np.float64(eager_loss), atol=1e-12
+    )
+
+    def body(carry, _):
+        return step(carry, jnp.asarray(0.5))
+
+    scanned, history = jax.lax.scan(body, variational, None, length=3)
+    assert history.shape == (3,)
+    assert jtu.tree_structure(scanned) == jtu.tree_structure(variational)
+
+
+@pytest.mark.filterwarnings("ignore:X is not of type float64")
+@pytest.mark.filterwarnings("ignore:y is not of type float64")
+def test_natgrad_step_is_dtype_preserving() -> None:
+    """A float32 family stays float32, so the ``lax.scan`` carry type is stable.
+
+    The trial ladder is the trap: under ``jax_enable_x64`` the exponent
+    ``jnp.arange(K + 1)`` is ``int64``, so an uncast ``backoff ** arange`` promotes the
+    whole update to float64 and ``lax.scan`` rejects the carry.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    cast = lambda leaf: jnp.asarray(leaf, dtype=jnp.float32)
+    family = jtu.tree_map(cast, family)
+    dataset = Dataset(X=cast(dataset.X), y=cast(dataset.y))
+
+    stepped, loss_value = _take_step(family, dataset, jnp.float32(0.1))
+    updated_mean, updated_root = _moments_of(stepped)
+
+    # The coordinates are the scan carry and must keep their dtype. The loss is a scan
+    # output, so its dtype only has to be stable across iterations, and GPJax's own
+    # objectives promote it to the default float type regardless.
+    assert updated_mean.dtype == jnp.float32
+    assert updated_root.dtype == jnp.float32
+    assert bool(jnp.isfinite(loss_value))
+
+
+# ---------------------------------------------------------------------------
+# T14 -- graph-structured inducing inputs
+# ---------------------------------------------------------------------------
+@pytest.mark.filterwarnings("ignore:X is not of type float64")
+def test_natgrad_step_supports_graph_variational_gaussian() -> None:
+    """The graph family steps without error and keeps its int64 inducing inputs.
+
+    The objective is the prior KL rather than the ELBO: ``elbo`` routes through
+    ``variational_expectation``, whose per-point ``vmap`` makes
+    ``KernelComputation.gram`` raise ``ValueError:
+    `MatrixLinearOperator(matrix=...)` should be 2-dimensional`` for a single graph
+    node. That break is pre-existing -- it reproduces unchanged on ``main`` -- and is
+    orthogonal to natural gradients, so the smoke test avoids it.
+    """
+    graph = nx.barbell_graph(10, 0)
+    laplacian = nx.laplacian_matrix(graph).toarray()
+    num_nodes = graph.number_of_nodes()
+
+    kernel = gpjax.kernels.GraphKernel(
+        laplacian=laplacian, lengthscale=2.3, variance=3.2, smoothness=6.1
+    )
+    posterior = (
+        gpjax.gps.Prior(mean_function=gpjax.mean_functions.Constant(), kernel=kernel)
+        * gpjax.likelihoods.Bernoulli()
+    )
+
+    inducing_inputs = jnp.arange(0, num_nodes, 4).reshape(-1, 1).astype(jnp.int64)
+    inputs = jnp.arange(num_nodes).reshape(-1, 1).astype(jnp.int64)
+    outputs = jr.bernoulli(jr.key(3), 0.5, (num_nodes, 1)).astype(jnp.float64)
+    dataset = Dataset(X=inputs, y=outputs)
+
+    family = GraphVariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    stepped, loss_value = _take_step(
+        family, dataset, 0.1, objective=lambda tree, _: tree.prior_kl()
+    )
+
+    assert bool(jnp.isfinite(loss_value))
+    assert val(stepped.inducing_inputs).dtype == jnp.int64
+    np.testing.assert_array_equal(
+        np.asarray(val(stepped.inducing_inputs)), np.asarray(inducing_inputs)
+    )
+
+
+# ---------------------------------------------------------------------------
+# T15 / T16 / T17 -- partitioning and guards
+# ---------------------------------------------------------------------------
+def _leaf_paths(tree):
+    return {jtu.keystr(path) for path, _ in jtu.tree_flatten_with_path(tree)[0]}
+
+
+def test_partition_variational_leaf_sets() -> None:
+    """The split is exactly the two exponential-family coordinates."""
+    posterior, _, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    assert _leaf_paths(variational) == {
+        ".variational_mean.value",
+        ".variational_root_covariance._flat",
+    }
+    assert _leaf_paths(hyper) == {
+        ".model.prior.kernel.lengthscale._unconstrained",
+        ".model.prior.kernel.variance._unconstrained",
+        ".model.prior.mean_function.constant",
+        ".model.likelihood.obs_stddev._unconstrained",
+        ".inducing_inputs.value",
+    }
+
+    recombined = eqx.combine(variational, hyper)
+    assert jtu.tree_structure(recombined) == jtu.tree_structure(family)
+    for original, restored in zip(
+        jtu.tree_leaves(family), jtu.tree_leaves(recombined), strict=True
+    ):
+        np.testing.assert_array_equal(np.asarray(original), np.asarray(restored))
+
+
+def test_partition_variational_rejects_unknown_family() -> None:
+    """Families without exponential-family coordinates raise ``NotImplementedError``."""
+    posterior, _, inducing_inputs, _ = _conjugate_setup()
+    family = CollapsedVariationalGaussian(
+        model=posterior, inducing_inputs=inducing_inputs
+    )
+    with pytest.raises(NotImplementedError, match="CollapsedVariationalGaussian"):
+        partition_variational(family)
+
+
+def test_natgrad_step_rejects_non_trainable_coordinates() -> None:
+    """A frozen coordinate makes a natural-gradient step meaningless."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    family = eqx.tree_at(
+        lambda tree: tree.variational_mean,
+        family,
+        paramax.non_trainable(family.variational_mean),
+    )
+    with pytest.raises(ValueError, match="variational_mean"):
+        _take_step(family, dataset, 0.1)
+
+
+# ---------------------------------------------------------------------------
+# T18 / T19 -- factorisation budget and the absence of explicit inverses
+# ---------------------------------------------------------------------------
+def _count_cholesky_calls(monkeypatch, thunk) -> int:
+    """Count dense Cholesky factorisations performed while evaluating ``thunk``."""
+    counts = {"dense_cholesky": 0}
+    original_dense_cholesky = jnp.linalg.cholesky
+
+    def counting_dense_cholesky(matrix):
+        counts["dense_cholesky"] += 1
+        return original_dense_cholesky(matrix)
+
+    monkeypatch.setattr(jnp.linalg, "cholesky", counting_dense_cholesky)
+    thunk()
+    return counts["dense_cholesky"]
+
+
+@pytest.mark.parametrize("max_backoff", [0, 5, 20])
+def test_natgrad_step_cholesky_budget(monkeypatch, max_backoff: int) -> None:
+    """One step traces exactly six dense Choleskys, whatever ``max_backoff`` is.
+
+    The six are: one in ``moments_from_expectation`` inside the loss, two in the
+    ``elbo`` forward pass, one in the vmapped admissibility probe, and two in the
+    single ``moments_from_natural`` at the accepted step size. ``jax.vmap`` traces its
+    body once, so this Python-level count is independent of the number of trials --
+    the width is pinned by :func:`test_natgrad_step_replicates_only_the_probe`.
+    A regression to the ``xi(theta(eta))`` round trip that the design rejects would
+    show up here as eight.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+
+    count = _count_cholesky_calls(
+        monkeypatch,
+        lambda: _take_step(family, dataset, 1.0, max_backoff=max_backoff),
+    )
+    assert count == 6
+
+
+def _cholesky_call_shapes(lowered_text: str) -> list[tuple[int, ...]]:
+    """Leading-argument shapes of every ``cholesky`` call site in lowered StableHLO."""
+    shapes = []
+    for match in re.finditer(
+        r"= call @cholesky\w*\([^)]*\) : \(tensor<([^>]*)>", lowered_text
+    ):
+        dimensions = match.group(1).split("x")[:-1]
+        shapes.append(tuple(int(dimension) for dimension in dimensions))
+    return shapes
+
+
+@pytest.mark.parametrize("max_backoff", [0, 5])
+def test_natgrad_step_replicates_only_the_probe(max_backoff: int) -> None:
+    """Exactly one factorisation is replicated across the ``K + 1`` trial steps.
+
+    Counting at the Python level cannot see the ``vmap`` width, so the budget is read
+    off the lowered computation instead: the batched Cholesky must have a leading
+    dimension of ``max_backoff + 1`` and every other Cholesky must be unbatched.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = VariationalGaussian(model=posterior, inducing_inputs=inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    def step(partition):
+        return natural_gradient_step(
+            partition,
+            hyper,
+            dataset,
+            _negative_elbo,
+            jnp.asarray(1.0),
+            max_backoff=max_backoff,
+        )
+
+    shapes = _cholesky_call_shapes(eqx.filter_jit(step).lower(variational).as_text())
+
+    assert shapes, "no cholesky call sites found -- has the JAX lowering changed?"
+    batched = [shape for shape in shapes if len(shape) > 2]
+    unbatched = [shape for shape in shapes if len(shape) == 2]
+    assert batched == [(max_backoff + 1, _NUM_INDUCING, _NUM_INDUCING)]
+    assert unbatched == [(_NUM_INDUCING, _NUM_INDUCING)] * len(unbatched)
+    assert len(shapes) == 7
+
+
+def test_natural_gradients_module_has_no_explicit_inverse() -> None:
+    """The coordinate maps must use triangular solves, never ``jnp.linalg.inv``."""
+    source = Path(gpjax.natural_gradients.__file__).read_text()
+    assert "jnp.linalg.inv" not in source
+
+
+# ---------------------------------------------------------------------------
+# T20 -- parameterisation invariance of the natural-gradient trace
+# ---------------------------------------------------------------------------
+def test_whitened_and_unwhitened_traces_agree() -> None:
+    """Matched initialisations give the same ELBO trace in both parameterisations."""
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    whitened_mean, whitened_root = _random_moments(13, _NUM_INDUCING)
+
+    whitened = WhitenedVariationalGaussian(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=whitened_mean,
+        variational_root_covariance=whitened_root,
+    )
+    _, _, root_gram, inducing_mean, _ = _kernel_matrices(whitened, dataset.X)
+    unwhitened = VariationalGaussian(
+        model=posterior,
+        inducing_inputs=inducing_inputs,
+        variational_mean=inducing_mean + root_gram @ whitened_mean,
+        variational_root_covariance=jnp.linalg.cholesky(
+            root_gram @ whitened_root @ whitened_root.T @ root_gram.T
+        ),
+    )
+
+    whitened_trace = []
+    unwhitened_trace = []
+    for _ in range(6):
+        whitened, _ = _take_step(whitened, dataset, 0.3)
+        unwhitened, _ = _take_step(unwhitened, dataset, 0.3)
+        whitened_trace.append(float(elbo(whitened, dataset)))
+        unwhitened_trace.append(float(elbo(unwhitened, dataset)))
+
+    np.testing.assert_allclose(
+        np.asarray(whitened_trace), np.asarray(unwhitened_trace), atol=1e-9
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR#3 -- the dual (t-SVGP) branch, Adam et al. (2021), arXiv:2111.03412
+# ---------------------------------------------------------------------------
+class _NegativeCurvatureLikelihood(gpjax.likelihoods.AbstractLikelihood):
+    r"""A synthetic likelihood with $\beta_i=-\tfrac12$ everywhere.
+
+    $\mathbb E_q[\log p] = \tfrac14 v_i - (y_i-m_i)^2$, so Price's identity gives
+    $\beta_i=-2\,\partial_{v_i}\mathbb E_q[\log p]=-\tfrac12<0$. No real GPJax
+    likelihood does this -- it exists purely to exercise the ``beta_floor`` guard.
+    """
+
+    def predict(self, dist):
+        return dist
+
+    def link_function(self, f):
+        raise NotImplementedError
+
+    def expected_log_likelihood(self, y, mean, variance, **_):
+        return (0.25 * variance - jnp.square(y - mean)).squeeze(-1)
+
+
+def _negative_dual_elbo(family, data):
+    return -dual_elbo(family, data)
+
+
+def _titsias_optimum(family, data):
+    r"""Closed-form optimal $(\mathbf m^\star,\mathbf S^\star)$ in the u-space."""
+    gram, cross, _, inducing_mean, input_mean = _kernel_matrices(family, data.X)
+    noise_variance = val(family.model.likelihood.obs_stddev) ** 2
+    working = jnp.linalg.inv(gram + cross.T @ cross / noise_variance)
+    residual = data.y - input_mean
+    optimal_mean = inducing_mean + gram @ working @ cross.T @ residual / noise_variance
+    return optimal_mean, gram @ working @ gram
+
+
+def _uncentred_dual_step(family, data, rate):
+    """The reference implementation's uncentred ``g_1``; a control, not the update.
+
+    ``tsvgp.py::natgrad_step`` shifts by ``predict_f(Z)``, which already includes the
+    mean function, so its ``g_1`` is ``alpha + beta * m`` instead of
+    ``alpha + beta * (m - mu(x))``. Reproduced here only so that the recovery test in
+    :func:`test_dual_natgrad_handles_non_zero_mean_function` cannot pass vacuously.
+    """
+    _, root_gram, _ = family._working_matrices()
+    mean, variance = family.marginals(data.X)
+    alpha, beta = _expected_log_likelihood_derivatives(
+        family.model.likelihood, data.y, mean, variance
+    )
+    uncentred = alpha + beta * mean
+
+    cross = family.model.prior.kernel.cross_covariance(
+        val(family.inducing_inputs), data.X
+    )
+    design = jsp.linalg.cho_solve((root_gram, True), cross)
+    full_size = data.n_total if data.n_total is not None else data.n
+    scale = full_size / data.n
+    target_vector = (design @ uncentred)[:, None]
+    target_matrix = _symmetrise(design @ (beta[:, None] * design.T))
+
+    return eqx.tree_at(
+        lambda tree: (tree.dual_vector, tree.dual_matrix),
+        family,
+        (
+            Real((1 - rate) * val(family.dual_vector) + rate * scale * target_vector),
+            Real(
+                _symmetrise(
+                    (1 - rate) * val(family.dual_matrix) + rate * scale * target_matrix
+                )
+            ),
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# N1 -- one rho = 1 step lands on the Titsias optimum
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_rho_one_conjugate_recovery():
+    """The conjugate targets do not depend on q, so rho = 1 is a one-step solve."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    stepped, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+
+    mean, covariance = stepped.moments()
+    optimal_mean, optimal_covariance = _titsias_optimum(family, dataset)
+
+    np.testing.assert_allclose(np.asarray(mean), np.asarray(optimal_mean), atol=1e-10)
+    np.testing.assert_allclose(
+        np.asarray(covariance), np.asarray(optimal_covariance), atol=1e-10
+    )
+
+
+# ---------------------------------------------------------------------------
+# N2 -- the flanked sites match the exact likelihood projections
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_recovers_exact_sites():
+    r"""Test $K_{zz}\Lambda_2 K_{zz}$ and $K_{zz}\lambda_1$, never $\Lambda_2$ itself.
+
+    The stored sites carry the round trip through $K_{zz}^{-1}$, so entrywise
+    assertions on them are meaningless at high $\operatorname{cond}(K_{zz})$; the
+    flanked quantities are what the algebra actually determines.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    stepped, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+
+    gram, cross, _, _, input_mean = _kernel_matrices(family, dataset.X)
+    noise_variance = val(posterior.likelihood.obs_stddev) ** 2
+
+    np.testing.assert_allclose(
+        np.asarray(gram @ val(stepped.dual_matrix) @ gram),
+        np.asarray(cross.T @ cross / noise_variance),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(gram @ val(stepped.dual_vector)),
+        np.asarray(cross.T @ (dataset.y - input_mean) / noise_variance),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N3 -- idempotence of the conjugate step
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_second_step_is_a_fixed_point():
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    first, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    second, _ = _take_step(first, dataset, 1.0, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        np.asarray(val(second.dual_vector)),
+        np.asarray(val(first.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(val(second.dual_matrix)),
+        np.asarray(val(first.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N4 -- from zero sites, one rate-rho step gives exactly rho * lambda^*
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("rate", [0.3, 0.7])
+def test_dual_natgrad_from_zero_scales_with_rho(rate: float):
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    optimal, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    partial, _ = _take_step(family, dataset, rate, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        np.asarray(val(partial.dual_vector)),
+        rate * np.asarray(val(optimal.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(val(partial.dual_matrix)),
+        rate * np.asarray(val(optimal.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N5 -- the dual step IS the Salimbeni step
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("rate", [0.3, 0.8, 1.0])
+def test_dual_natgrad_matches_salimbeni_step(rate: float):
+    r"""Started from the same $q$, the two branches produce identical iterates.
+
+    Because $\nabla_{\boldsymbol\mu}\operatorname{KL}=\boldsymbol\lambda$ exactly, the
+    tied site update rearranges to
+    $\boldsymbol\eta\leftarrow\boldsymbol\eta+\rho\nabla_{\boldsymbol\mu}\mathcal L$ --
+    Salimbeni's step at $\gamma=\rho$. This pins the dual update against an
+    independently implemented parameterisation rather than against itself, and is the
+    strongest correctness handle available on the E-step.
+    """
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    dual = _build_dual(posterior, inducing_inputs, seed=11)
+    moment = _matched_variational_gaussian(dual)
+
+    for _ in range(6):
+        dual, _ = _take_step(dual, dataset, rate, objective=_negative_dual_elbo)
+        moment, _ = _take_step(moment, dataset, rate)
+
+        dual_mean, dual_covariance = dual.moments()
+        moment_mean, moment_root = _moments_of(moment)
+        np.testing.assert_allclose(
+            np.asarray(dual_mean), np.asarray(moment_mean), atol=1e-10
+        )
+        np.testing.assert_allclose(
+            np.asarray(dual_covariance),
+            np.asarray(moment_root @ moment_root.T),
+            atol=1e-10,
+        )
+
+
+# ---------------------------------------------------------------------------
+# N6 -- the PSD cone is preserved over a long mini-batch run
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_preserves_psd():
+    """A convex combination of PSD matrices stays PSD; 50 steps must not drift out."""
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs)
+
+    key = jr.key(0)
+    for _ in range(50):
+        key, batch_key = jr.split(key)
+        indices = jr.choice(batch_key, dataset.n, (8,), replace=False)
+        batch = Dataset(X=dataset.X[indices], y=dataset.y[indices], n_total=dataset.n)
+        family, _ = _take_step(family, batch, 0.8, objective=_negative_dual_elbo)
+        assert jnp.linalg.eigvalsh(val(family.dual_matrix)).min() >= -1e-10
+
+
+# ---------------------------------------------------------------------------
+# N7 -- the beta floor is trace-safe and rescues a negative-curvature likelihood
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_beta_floor_is_trace_safe():
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    stepped, _ = eqx.filter_jit(natural_gradient_step)(
+        variational,
+        hyper,
+        dataset,
+        _negative_dual_elbo,
+        jnp.asarray(0.8),
+        beta_floor=1e-8,
+    )
+    assert jnp.all(jnp.isfinite(val(stepped.dual_matrix)))
+
+    def scan_body(carry, _):
+        carry, loss = natural_gradient_step(
+            carry,
+            hyper,
+            dataset,
+            _negative_dual_elbo,
+            jnp.asarray(0.8),
+            beta_floor=1e-8,
+        )
+        return carry, loss
+
+    _, history = jax.lax.scan(scan_body, variational, jnp.arange(3))
+    assert jnp.all(jnp.isfinite(history))
+
+    # A likelihood whose expected curvature is negative everywhere: `beta` is a
+    # constant -0.5, so without the floor the very first step would push Lambda_2
+    # out of the PSD cone.
+    concave = eqx.tree_at(
+        lambda tree: tree.model.likelihood,
+        family,
+        _NegativeCurvatureLikelihood(),
+    )
+    unfloored, _ = _take_step(
+        concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=-jnp.inf
+    )
+    assert jnp.linalg.eigvalsh(val(unfloored.dual_matrix)).min() < -1e-6
+
+    floored, _ = _take_step(
+        concave, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=1e-8
+    )
+    assert jnp.linalg.eigvalsh(val(floored.dual_matrix)).min() >= -1e-10
+
+
+# ---------------------------------------------------------------------------
+# N8 -- the centred site convention, against the reference implementation's bug
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_handles_non_zero_mean_function():
+    """A non-zero mean function must not shift the recovered optimum.
+
+    The setup carries a ``Constant(0.4)`` mean, so the uncentred variant that the
+    reference implementation computes is measurably wrong -- asserted here so that the
+    recovery assertion cannot pass for the wrong reason.
+    """
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    assert float(jnp.abs(posterior.prior.mean_function(dataset.X)).max()) > 0.1
+
+    family = _build_dual(posterior, inducing_inputs)
+    centred, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    uncentred = _uncentred_dual_step(family, dataset, 1.0)
+    optimal_mean, _ = _titsias_optimum(family, dataset)
+
+    np.testing.assert_allclose(
+        np.asarray(centred.moments()[0]), np.asarray(optimal_mean), atol=1e-10
+    )
+    assert jnp.max(jnp.abs(uncentred.moments()[0] - optimal_mean)) > 1e-6
+
+
+# ---------------------------------------------------------------------------
+# N9 -- the N/B scaling makes the mini-batch target unbiased
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_minibatch_is_unbiased():
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+
+    half = dataset.n // 2
+    first_half = Dataset(X=dataset.X[:half], y=dataset.y[:half], n_total=dataset.n)
+    second_half = Dataset(X=dataset.X[half:], y=dataset.y[half:], n_total=dataset.n)
+
+    full, _ = _take_step(family, dataset, 1.0, objective=_negative_dual_elbo)
+    left, _ = _take_step(family, first_half, 1.0, objective=_negative_dual_elbo)
+    right, _ = _take_step(family, second_half, 1.0, objective=_negative_dual_elbo)
+
+    np.testing.assert_allclose(
+        0.5 * np.asarray(val(left.dual_vector) + val(right.dual_vector)),
+        np.asarray(val(full.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        0.5 * np.asarray(val(left.dual_matrix) + val(right.dual_matrix)),
+        np.asarray(val(full.dual_matrix)),
+        atol=1e-12,
+    )
+
+
+# ---------------------------------------------------------------------------
+# N10 -- jit and scan compatibility of the dual branch
+# ---------------------------------------------------------------------------
+def test_dual_natgrad_step_is_jit_and_scan_compatible():
+    posterior, dataset, inducing_inputs, _ = _bernoulli_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    eager, eager_loss = natural_gradient_step(
+        variational, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+    )
+    jitted, jitted_loss = eqx.filter_jit(natural_gradient_step)(
+        variational, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+    )
+    np.testing.assert_allclose(
+        np.asarray(val(jitted.dual_vector)),
+        np.asarray(val(eager.dual_vector)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.asarray(val(jitted.dual_matrix)),
+        np.asarray(val(eager.dual_matrix)),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        np.float64(jitted_loss), np.float64(eager_loss), rtol=1e-12
+    )
+
+    def scan_body(carry, _):
+        carry, loss = natural_gradient_step(
+            carry, hyper, dataset, _negative_dual_elbo, jnp.asarray(0.5)
+        )
+        return carry, loss
+
+    scanned, history = jax.lax.scan(scan_body, variational, jnp.arange(3))
+    assert history.shape == (3,)
+    assert jnp.all(jnp.isfinite(history))
+    assert jtu.tree_structure(scanned) == jtu.tree_structure(variational)
+
+
+# ---------------------------------------------------------------------------
+# N11 -- the partition picks exactly the two sites
+# ---------------------------------------------------------------------------
+def test_dual_variational_coordinates_partition():
+    posterior, _, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    variational, hyper = partition_variational(family)
+
+    assert sorted(
+        jtu.keystr(path) for path, _ in jtu.tree_flatten_with_path(variational)[0]
+    ) == [".dual_matrix.value", ".dual_vector.value"]
+    assert ".inducing_inputs.value" in [
+        jtu.keystr(path) for path, _ in jtu.tree_flatten_with_path(hyper)[0]
+    ]
+
+    recombined = eqx.combine(variational, hyper)
+    assert jtu.tree_structure(recombined) == jtu.tree_structure(family)
+
+
+# ---------------------------------------------------------------------------
+# Dtype preservation and the non-trainable guard on the dual branch
+# ---------------------------------------------------------------------------
+@pytest.mark.filterwarnings("ignore:X is not of type float64")
+@pytest.mark.filterwarnings("ignore:y is not of type float64")
+def test_dual_natgrad_preserves_float32():
+    """A float32 model must not be silently promoted by the step."""
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    cast = lambda leaf: jnp.asarray(leaf, dtype=jnp.float32)
+    family = jtu.tree_map(cast, family)
+    dataset = Dataset(X=cast(dataset.X), y=cast(dataset.y))
+
+    stepped, _ = _take_step(
+        family, dataset, jnp.float32(0.5), objective=_negative_dual_elbo
+    )
+    assert val(stepped.dual_vector).dtype == jnp.float32
+    assert val(stepped.dual_matrix).dtype == jnp.float32
+
+
+def test_dual_natgrad_step_rejects_non_trainable_coordinates():
+    posterior, dataset, inducing_inputs, _ = _conjugate_setup()
+    family = _build_dual(posterior, inducing_inputs)
+    family = eqx.tree_at(
+        lambda tree: tree.dual_matrix, family, paramax.non_trainable(family.dual_matrix)
+    )
+    with pytest.raises(ValueError, match="dual_matrix"):
+        _take_step(family, dataset, 0.5, objective=_negative_dual_elbo)
+
+
+# ---------------------------------------------------------------------------
+# N12 -- the clipped probit link is what breaks the rho = gamma identity
+# ---------------------------------------------------------------------------
+def _mislabelled_bernoulli_setup(flip: bool):
+    r"""A Bernoulli SVGP whose labels are cleanly separated, or not.
+
+    With ``flip`` the two points at $x=\pm 1.077$ carry the label of the *opposite*
+    side. The prior is smooth enough (lengthscale $0.7$, variance $4$, eight inducing
+    points) that the fit cannot bend around them, so within a couple of steps their
+    marginal means sit deep in the tail the probit clip flattens.
+    """
+    inputs = jnp.linspace(-2.0, 2.0, 40).reshape(-1, 1)
+    labels = (inputs[:, 0] > 0.0).astype(jnp.float64)
+    if flip:
+        labels = labels.at[30].set(0.0).at[9].set(1.0)
+
+    kernel = gpjax.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(4.0))
+    posterior = (
+        gpjax.gps.Prior(mean_function=gpjax.mean_functions.Zero(), kernel=kernel)
+        * gpjax.likelihoods.Bernoulli()
+    )
+    return (
+        posterior,
+        Dataset(X=inputs, y=labels[:, None]),
+        jnp.linspace(-2.0, 2.0, 8).reshape(-1, 1),
+    )
+
+
+def _six_matched_steps(posterior, dataset, inducing_inputs, beta_floor):
+    """Six matched rho = 0.8 steps; return the worst gap and the smallest beta seen."""
+    dual = _build_dual(posterior, inducing_inputs)
+    moment = _matched_variational_gaussian(dual)
+
+    worst_gap = 0.0
+    smallest_beta = jnp.inf
+    for _ in range(6):
+        mean, variance = dual.marginals(dataset.X)
+        _, beta = _expected_log_likelihood_derivatives(
+            dual.model.likelihood, dataset.y, mean, variance
+        )
+        smallest_beta = min(smallest_beta, float(jnp.min(beta)))
+
+        dual, _ = _take_step(
+            dual, dataset, 0.8, objective=_negative_dual_elbo, beta_floor=beta_floor
+        )
+        moment, _ = _take_step(moment, dataset, 0.8)
+
+        dual_mean, dual_covariance = dual.moments()
+        moment_mean, moment_root = _moments_of(moment)
+        worst_gap = max(
+            worst_gap,
+            float(jnp.max(jnp.abs(dual_mean - moment_mean))),
+            float(jnp.max(jnp.abs(dual_covariance - moment_root @ moment_root.T))),
+        )
+    return worst_gap, smallest_beta
+
+
+def test_beta_floor_not_conditioning_breaks_the_dual_salimbeni_identity():
+    r"""``inv_probit``'s clip, not arithmetic, is what separates the two branches.
+
+    ``inv_probit`` squashes its output into $[10^{-3},\,1-10^{-3}]$, so the *computed*
+    Bernoulli log-likelihood is not log-concave in the tails: its second derivative
+    turns positive for $f \lesssim -2.44$. A confidently mislabelled point therefore
+    contributes $\beta_i<0$, the dual branch clips it at ``beta_floor`` and the
+    Salimbeni branch does not, and the iterates part company.
+
+    The three arms isolate the cause. Only the clip is varied between the first two,
+    and only the data between the first and third, so a conditioning or cancellation
+    explanation cannot account for the pattern -- neither of those responds to
+    ``beta_floor``.
+    """
+    posterior, dataset, inducing_inputs = _mislabelled_bernoulli_setup(flip=True)
+
+    # (1) Default floor: beta goes negative, the clip engages, the branches diverge.
+    floored_gap, smallest_beta = _six_matched_steps(
+        posterior, dataset, inducing_inputs, beta_floor=1e-8
+    )
+    assert smallest_beta < -0.1, (
+        "the mislabelled points must drive the computed beta negative for this test "
+        f"to be exercising the clip at all; smallest beta was {smallest_beta}"
+    )
+    assert floored_gap > 1e-3
+
+    # (2) Same model, same data, clip disabled: back to the arithmetic noise floor.
+    unfloored_gap, unfloored_smallest = _six_matched_steps(
+        posterior, dataset, inducing_inputs, beta_floor=-jnp.inf
+    )
+    assert unfloored_smallest == pytest.approx(smallest_beta)
+    assert unfloored_gap < 1e-10
+
+    # (3) Clean labels, default floor: beta never goes negative, so the clip is inert
+    #     and the identity holds exactly -- the mislabelling, not the model, is what
+    #     reaches the non-log-concave tail.
+    clean_posterior, clean_dataset, clean_inducing = _mislabelled_bernoulli_setup(
+        flip=False
+    )
+    clean_gap, clean_smallest = _six_matched_steps(
+        clean_posterior, clean_dataset, clean_inducing, beta_floor=1e-8
+    )
+    assert clean_smallest > 0.0
+    assert clean_gap < 1e-10
+
+
+def test_clipped_probit_log_likelihood_is_not_log_concave_in_the_tail():
+    """The upstream cause, pinned directly on ``inv_probit``.
+
+    Without the clip $\\log\\Phi$ is concave everywhere. With it the tail flattens onto
+    $\\log(10^{-3})$, so the second derivative must return to zero from below and is
+    positive well before it gets there.
+    """
+    second_derivative = jax.grad(jax.grad(lambda f: jnp.log(inv_probit(f))))
+
+    # Concave where the clip is nowhere near binding.
+    for latent in [-2.0, -1.0, 0.0, 1.0, 2.0]:
+        assert float(second_derivative(jnp.asarray(latent))) < 0.0
+
+    # Convex once the clip has flattened the tail.
+    for latent in [-3.0, -3.5, -4.0]:
+        assert float(second_derivative(jnp.asarray(latent))) > 0.0
+
+    # The clip is the reason: the probability has bottomed out on the floor.
+    assert float(inv_probit(jnp.asarray(-6.0))) == pytest.approx(1e-3, rel=1e-4)

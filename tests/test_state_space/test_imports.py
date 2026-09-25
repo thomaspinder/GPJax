@@ -5,7 +5,7 @@ def test_state_space_package_imports():
     import gpjax.state_space as gpx_ss
 
     expected_public = {
-        "StateSpaceConjugatePosterior",
+        "StateSpaceConjugateModel",
         "StateSpacePrior",
         "TruncatedPeriodic",
         "fit",

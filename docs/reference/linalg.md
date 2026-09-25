@@ -13,4 +13,5 @@
    cholesky_factor
    logdet
    logdet_from_factor
+   stabilised_cholesky
 ```

@@ -4,7 +4,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import paramax
 import pytest
 
 jax.config.update("jax_enable_x64", True)
@@ -151,7 +150,7 @@ class TestOILMMModel:
         expected = T @ y.T  # [M, P] @ [P, N] = [M, N]
         assert jnp.allclose(y_projected, expected, atol=1e-10)
 
-    def test_condition_on_observations(self):
+    def test_condition(self):
         """Test conditioning creates M independent posteriors."""
         import gpjax as gpx
         from gpjax.models.oilmm import OILMMModel, OILMMPosterior
@@ -173,7 +172,7 @@ class TestOILMMModel:
         dataset = gpx.Dataset(X=X, y=y)
 
         # Condition
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         # Check type
         assert isinstance(posterior, OILMMPosterior)
@@ -219,7 +218,7 @@ class TestOILMMModel:
         y = jr.normal(key, (N, 6))
         dataset = gpx.Dataset(X=X, y=y)
 
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         # Verify each posterior has correct noise.
         # Gaussian likelihood wraps obs_stddev in NonNegativeReal, so
@@ -259,7 +258,7 @@ class TestOILMMPosterior:
         y_train = jr.normal(key, (N_train, P))
         train_data = gpx.Dataset(X=X_train, y=y_train)
 
-        posterior = model.condition_on_observations(train_data)
+        posterior = model.condition(train_data)
 
         # Predict at test points
         N_test = 10
@@ -290,7 +289,7 @@ class TestOILMMPosterior:
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, P))
         dataset = gpx.Dataset(X=X, y=y)
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         # Predict
         X_test = jnp.linspace(0.2, 0.8, 5).reshape(-1, 1)
@@ -298,14 +297,7 @@ class TestOILMMPosterior:
 
         # Manually compute expected mean using each latent posterior + its dataset
         latent_means = jnp.array(
-            [
-                post.predict(X_test, ds).mean
-                for post, ds in zip(
-                    posterior.latent_posteriors,
-                    posterior.latent_datasets,
-                    strict=True,
-                )
-            ]
+            [post(X_test).mean for post in posterior.latent_posteriors]
         )  # [M, N_test]
         H = model.mixing_matrix.H  # [P, M]
         expected_mean = jnp.einsum("pm,mn->pn", H, latent_means)  # [P, N_test]
@@ -329,10 +321,10 @@ class TestOILMMPosterior:
         N, P = 12, 3
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, P))
-        posterior = model.condition_on_observations(gpx.Dataset(X=X, y=y))
+        posterior = model.condition(gpx.Dataset(X=X, y=y))
 
         X_test = jnp.linspace(0.2, 0.8, 5).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
 
         expected_shape = (5 * P, 5 * P)
         assert pred.covariance().shape == expected_shape
@@ -354,10 +346,10 @@ class TestOILMMPosterior:
         N, P = 10, 4
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, P))
-        posterior = model.condition_on_observations(gpx.Dataset(X=X, y=y))
+        posterior = model.condition(gpx.Dataset(X=X, y=y))
 
         X_test = jnp.linspace(0.1, 0.9, 8).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
         cov = pred.covariance()
 
         # Check PSD via eigenvalues
@@ -480,7 +472,7 @@ class TestOILMMIntegration:
         train_data = gpx.Dataset(X=X_train, y=y_train)
 
         # 3. Condition on observations
-        posterior = model.condition_on_observations(train_data)
+        posterior = model.condition(train_data)
 
         # Verify posterior type
         assert isinstance(posterior, gpx.models.OILMMPosterior)
@@ -489,7 +481,7 @@ class TestOILMMIntegration:
         # 4. Predict at test points (train data stored internally)
         N_test = 10
         X_test = jnp.linspace(0.1, 0.9, N_test).reshape(-1, 1)
-        pred = posterior.predict(X_test)
+        pred = posterior.predict(X_test, covariance="dense")
 
         # 5. Verify prediction properties
         assert pred.mean.shape == (N_test * P,)
@@ -523,7 +515,7 @@ class TestOILMMIntegration:
         dataset = gpx.Dataset(X=X, y=y)
 
         # Condition and predict
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
         pred = posterior.predict(X[:10])
 
         # Basic sanity: predictions should be finite and reasonable scale
@@ -550,7 +542,7 @@ class TestOILMMIntegration:
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, 4))
         dataset = gpx.Dataset(X=X, y=y)
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         # JIT a function that returns raw arrays (not GaussianDistribution)
         @jax.jit
@@ -600,7 +592,6 @@ class TestOILMMMLL:
         """Correction terms make MLL differ from naive latent sum."""
         import gpjax as gpx
         from gpjax.models.oilmm import OILMMModel, oilmm_mll
-        from gpjax.objectives import conjugate_mll
 
         key = jax.random.PRNGKey(123)
         model = OILMMModel(
@@ -618,14 +609,9 @@ class TestOILMMMLL:
         full_mll = oilmm_mll(model, data)
 
         # Compute just the sum of latent MLLs
-        posterior = model.condition_on_observations(data)
+        posterior = model.condition(data)
         naive_sum = sum(
-            conjugate_mll(post, ds)
-            for post, ds in zip(
-                posterior.latent_posteriors,
-                posterior.latent_datasets,
-                strict=True,
-            )
+            post.log_marginal_likelihood for post in posterior.latent_posteriors
         )
 
         # They should differ due to correction terms
@@ -654,7 +640,6 @@ class TestOILMMMLL:
 
         def loss_fn(params):
             m = eqx.combine(params, static)
-            m = paramax.unwrap(m)
             return -oilmm_mll(m, data)
 
         grads = jax.grad(loss_fn)(params)
@@ -913,11 +898,11 @@ class TestCovarianceEquivalence:
         X_train = jnp.linspace(0, 1, 10).reshape(-1, 1)
         y_train = jr.normal(key, (10, 3))
         dataset = gpx.Dataset(X=X_train, y=y_train)
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         X_test = jnp.linspace(0.1, 0.9, 6).reshape(-1, 1)
-        pred_full = posterior.predict(X_test, return_full_cov=True)
-        pred_diag = posterior.predict(X_test, return_full_cov=False)
+        pred_full = posterior.predict(X_test, covariance="dense")
+        pred_diag = posterior.predict(X_test, covariance="diagonal")
 
         full_diag = jnp.diag(pred_full.covariance())
         diag_only = jnp.diag(pred_diag.covariance())
@@ -943,25 +928,18 @@ class TestCovarianceEquivalence:
         y = jr.normal(key, (N, P))
         dataset = gpx.Dataset(X=X, y=y)
 
-        posterior = model.condition_on_observations(dataset)
+        posterior = model.condition(dataset)
 
         # Get einsum result from current implementation
         X_test = jnp.linspace(0.1, 0.9, 5).reshape(-1, 1)
-        pred = posterior.predict(X_test, return_full_cov=True)
+        pred = posterior.predict(X_test, covariance="dense")
         einsum_cov = pred.covariance()
 
         # Compute reference via old Kronecker method
         N_test = X_test.shape[0]
         H = model.mixing_matrix.H
 
-        latent_preds = [
-            post.predict(X_test, ds)
-            for post, ds in zip(
-                posterior.latent_posteriors,
-                posterior.latent_datasets,
-                strict=True,
-            )
-        ]
+        latent_preds = [post(X_test) for post in posterior.latent_posteriors]
         latent_covs = [pred.covariance() for pred in latent_preds]
 
         latent_cov_block = jax.scipy.linalg.block_diag(*latent_covs)
@@ -1021,9 +999,9 @@ def test_create_oilmm_from_data_two_points_finite():
     data = Dataset(X=jnp.array([[0.0], [1.0]]), y=jnp.array([[1.0, 2.0], [3.0, 4.0]]))
     model = create_oilmm_from_data(dataset=data, num_latent_gps=2, key=jr.key(0))
     assert jnp.all(jnp.isfinite(model.mixing_matrix.U))
-    from gpjax.models.oilmm import _val
+    from gpjax.models.oilmm import val
 
-    assert jnp.all(jnp.isfinite(_val(model.mixing_matrix.S)))
+    assert jnp.all(jnp.isfinite(val(model.mixing_matrix.S)))
 
 
 def test_oilmm_predict_diagonal_returns_diagonal_operator():
@@ -1045,16 +1023,162 @@ def test_oilmm_predict_diagonal_returns_diagonal_operator():
     X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
     y = jr.normal(key, (N, P))
     dataset = gpx.Dataset(X=X, y=y)
-    posterior = model.condition_on_observations(dataset)
+    posterior = model.condition(dataset)
 
     X_test = jnp.linspace(0.1, 0.9, 5).reshape(-1, 1)
-    pred_diag = posterior.predict(X_test, return_full_cov=False)
+    pred_diag = posterior.predict(X_test, covariance="diagonal")
 
     assert isinstance(pred_diag.scale, lx.DiagonalLinearOperator), (
         f"Expected DiagonalLinearOperator, got {type(pred_diag.scale).__name__}"
     )
     # Entries must still match the full-cov diagonal
-    pred_full = posterior.predict(X_test, return_full_cov=True)
+    pred_full = posterior.predict(X_test, covariance="dense")
     assert jnp.allclose(
         jnp.diag(pred_full.covariance()), jnp.diag(pred_diag.covariance()), atol=1e-6
     )
+
+
+def test_oilmm_predict_default_covariance_is_diagonal():
+    """The default covariance must be "diagonal", not "dense" (issue #682): the
+    dense joint covariance is O(m n^2 p^2) and forfeits OILMM's O(mn^3 + nmp)
+    scaling, so the cheap marginal-variance path must be the default rather
+    than an opt-in."""
+    import gpjax as gpx
+    from gpjax.models.oilmm import OILMMModel
+    import lineax as lx
+
+    key = jax.random.PRNGKey(17)
+    model = OILMMModel(
+        num_outputs=3,
+        num_latent_gps=2,
+        kernel=gpx.kernels.RBF(),
+        key=key,
+    )
+
+    N, P = 8, 3
+    X = jnp.linspace(0.0, 1.0, N).reshape(-1, 1)
+    y = jr.normal(key, (N, P))
+    dataset = gpx.Dataset(X=X, y=y)
+    posterior = model.condition(dataset)
+
+    X_test = jnp.linspace(0.1, 0.9, 5).reshape(-1, 1)
+
+    # Neither __call__ nor predict() takes a covariance kwarg here.
+    pred_call = posterior(X_test)
+    pred_predict = posterior.predict(X_test)
+
+    for pred in (pred_call, pred_predict):
+        assert isinstance(pred.scale, lx.DiagonalLinearOperator), (
+            f"Expected default covariance to be diagonal, got "
+            f"{type(pred.scale).__name__}"
+        )
+
+    # And it must agree with the explicit diagonal call.
+    pred_explicit_diag = posterior.predict(X_test, covariance="diagonal")
+    assert jnp.allclose(pred_predict.mean, pred_explicit_diag.mean, atol=1e-10)
+    assert jnp.allclose(
+        pred_predict.covariance(), pred_explicit_diag.covariance(), atol=1e-10
+    )
+
+
+# --- Conformance with the v1.0 conditioning contract ---------------------------
+#
+# OILMM joined the contract at v1.0: `model.condition(D)` (sugar `model | D`)
+# returns a `gpjax.conditioning.Posterior`, which owns the evidence and caches
+# each latent factorisation. These pin that it behaves like every other
+# conditionable object in the library.
+
+
+def _oilmm_fixture(num_data: int = 20):
+    import gpjax as gpx
+    from gpjax.models import create_oilmm
+
+    inputs = jnp.linspace(0.0, 5.0, num_data).reshape(-1, 1)
+    outputs = jnp.hstack([jnp.sin(inputs), jnp.cos(inputs), jnp.sin(2.0 * inputs)])
+    data = gpx.Dataset(X=inputs, y=outputs)
+    model = create_oilmm(
+        num_outputs=3, num_latent_gps=2, kernel=gpx.kernels.RBF(), key=jr.key(0)
+    )
+    return model, data
+
+
+def test_condition_returns_a_conditioning_posterior():
+    from gpjax.conditioning import Posterior
+
+    model, data = _oilmm_fixture()
+    assert isinstance(model.condition(data), Posterior)
+
+
+def test_or_operator_is_sugar_for_condition():
+    model, data = _oilmm_fixture()
+    test_inputs = data.X[:4]
+    assert jnp.allclose(
+        (model | data)(test_inputs).mean, model.condition(data)(test_inputs).mean
+    )
+
+
+def test_predict_is_sugar_over_condition():
+    """CONTEXT.md: sugar is never a second implementation."""
+    model, data = _oilmm_fixture()
+    test_inputs = data.X[:4]
+    posterior = model.condition(data)
+    assert jnp.allclose(
+        posterior.predict(test_inputs).mean, posterior(test_inputs).mean
+    )
+
+
+def test_evidence_lives_on_the_posterior():
+    from gpjax.models import oilmm_mll
+
+    model, data = _oilmm_fixture()
+    assert jnp.allclose(
+        model.condition(data).log_marginal_likelihood, oilmm_mll(model, data)
+    )
+
+
+@pytest.mark.parametrize("num_data", [12, 20])
+def test_diagonal_covariance_matches_the_dense_diagonal(num_data):
+    model, data = _oilmm_fixture(num_data)
+    posterior = model.condition(data)
+    test_inputs = data.X[:5]
+    dense = posterior(test_inputs, covariance="dense")
+    diagonal = posterior(test_inputs, covariance="diagonal")
+    assert jnp.allclose(dense.mean, diagonal.mean, atol=1e-10)
+    assert jnp.allclose(jnp.diag(dense.covariance()), diagonal.variance, atol=1e-8)
+
+
+def test_posterior_survives_a_pytree_round_trip():
+    model, data = _oilmm_fixture()
+    posterior = model.condition(data)
+    leaves, treedef = jax.tree_util.tree_flatten(posterior)
+    restored = jax.tree_util.tree_unflatten(treedef, leaves)
+    test_inputs = data.X[:4]
+    assert jnp.allclose(restored(test_inputs).mean, posterior(test_inputs).mean)
+    assert jnp.allclose(
+        restored.log_marginal_likelihood, posterior.log_marginal_likelihood
+    )
+
+
+def test_conditioning_is_jittable():
+    model, data = _oilmm_fixture()
+    evidence = jax.jit(lambda m, d: m.condition(d).log_marginal_likelihood)(model, data)
+    assert jnp.isfinite(evidence)
+
+
+def test_condition_on_observations_is_deprecated():
+    model, data = _oilmm_fixture()
+    with pytest.warns(DeprecationWarning, match="condition"):
+        deprecated = model.condition_on_observations(data)
+    assert jnp.allclose(
+        deprecated.log_marginal_likelihood,
+        model.condition(data).log_marginal_likelihood,
+    )
+
+
+def test_return_full_cov_is_deprecated():
+    model, data = _oilmm_fixture()
+    posterior = model.condition(data)
+    test_inputs = data.X[:4]
+    with pytest.warns(DeprecationWarning, match="covariance"):
+        legacy = posterior.predict(test_inputs, return_full_cov=False)
+    assert jnp.allclose(legacy.mean, posterior(test_inputs, covariance="diagonal").mean)

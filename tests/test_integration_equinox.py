@@ -12,6 +12,7 @@ import pytest
 config.update("jax_enable_x64", True)
 
 import gpjax as gpx
+from gpjax.parameters import val
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:A JAX array is being set as static:UserWarning"
@@ -27,7 +28,7 @@ def test_full_gp_training_roundtrip():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -50,7 +51,7 @@ def test_full_gp_training_roundtrip():
 def test_parameter_freezing_with_non_trainable():
     """NonTrainable parameters should not change during training."""
     kernel = gpx.kernels.RBF()
-    original_variance = paramax.unwrap(kernel).variance
+    original_variance = val(kernel.variance)
 
     frozen_kernel = eqx.tree_at(
         lambda k: k.variance, kernel, replace_fn=paramax.non_trainable
@@ -58,7 +59,7 @@ def test_parameter_freezing_with_non_trainable():
 
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=frozen_kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=10)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     X = jnp.linspace(0, 1, 10)[:, None]
@@ -75,7 +76,7 @@ def test_parameter_freezing_with_non_trainable():
         verbose=False,
     )
 
-    final_variance = paramax.unwrap(trained.prior.kernel).variance
+    final_variance = val(trained.prior.kernel.variance)
     assert jnp.allclose(final_variance, original_variance)
 
 
@@ -89,7 +90,7 @@ def test_non_conjugate_gp_training():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Bernoulli(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Bernoulli()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.non_conjugate_mll(p, d)
@@ -114,7 +115,7 @@ def test_lbfgs_training():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -132,7 +133,7 @@ def test_kernel_composition():
     kernel = gpx.kernels.RBF() + gpx.kernels.Matern32()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     nmll = lambda p, d: -gpx.objectives.conjugate_mll(p, d)
@@ -158,7 +159,7 @@ def test_jit_prediction():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     @jax.jit
@@ -180,13 +181,13 @@ def test_grad_through_model():
     kernel = gpx.kernels.RBF()
     meanf = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = prior * likelihood
 
     params, static = eqx.partition(posterior, eqx.is_array)
 
     def loss(params):
-        model = paramax.unwrap(eqx.combine(params, static))
+        model = eqx.combine(params, static)
         return -gpx.objectives.conjugate_mll(model, D)
 
     grads = jax.grad(loss)(params)

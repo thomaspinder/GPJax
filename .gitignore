@@ -157,7 +157,6 @@ docs/api
 local_libs/
 local_papers/
 GEMINI.md
-AGENTS.md
 plans/
 *.ipynb
 reports/

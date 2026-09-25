@@ -126,7 +126,7 @@ class TestPosteriorPredictionStability:
         """Standard prediction should produce finite mean and covariance."""
         kernel = _make_kernel(kernel_cls)
         prior = gpx.gps.Prior(mean_function=Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=20)
+        likelihood = gpx.likelihoods.Gaussian()
         posterior = prior * likelihood
 
         x_train = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
@@ -148,7 +148,7 @@ class TestPosteriorPredictionStability:
         """Prediction with noisy data should stay finite."""
         kernel = _make_kernel(kernel_cls)
         prior = gpx.gps.Prior(mean_function=Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=30)
+        likelihood = gpx.likelihoods.Gaussian()
         posterior = prior * likelihood
 
         key = jr.key(42)
@@ -167,7 +167,7 @@ class TestPosteriorPredictionStability:
         """Predictions far from training data should stay finite."""
         kernel = _make_kernel(kernel_cls)
         prior = gpx.gps.Prior(mean_function=Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=10)
+        likelihood = gpx.likelihoods.Gaussian()
         posterior = prior * likelihood
 
         x_train = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
@@ -186,7 +186,7 @@ class TestPosteriorPredictionStability:
         """Diagonal covariance prediction should stay finite."""
         kernel = _make_kernel(kernel_cls)
         prior = gpx.gps.Prior(mean_function=Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=20)
+        likelihood = gpx.likelihoods.Gaussian()
         posterior = prior * likelihood
 
         x_train = jnp.linspace(0.0, 1.0, 20).reshape(-1, 1)
@@ -194,7 +194,7 @@ class TestPosteriorPredictionStability:
         D = gpx.Dataset(X=x_train, y=y_train)
 
         x_test = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
-        pred_dist = posterior.predict(x_test, D, return_covariance_type="diagonal")
+        pred_dist = posterior.predict(x_test, D, covariance="diagonal")
 
         assert jnp.all(jnp.isfinite(pred_dist.mean))
         assert jnp.all(jnp.isfinite(pred_dist.covariance()))
@@ -204,7 +204,7 @@ class TestPosteriorPredictionStability:
         """Diagonal of predictive covariance should be non-negative."""
         kernel = _make_kernel(kernel_cls)
         prior = gpx.gps.Prior(mean_function=Zero(), kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=15)
+        likelihood = gpx.likelihoods.Gaussian()
         posterior = prior * likelihood
 
         x_train = jnp.linspace(0.0, 1.0, 15).reshape(-1, 1)

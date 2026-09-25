@@ -16,29 +16,37 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: write
-  id-token: write # For PyPI trusted publishing
+# Every job below grants itself the narrowest scope it needs. Only
+# `create-release` writes contents, and only `publish-pypi` gets an OIDC token,
+# so the test, scan and build jobs — the ones that execute repository code —
+# run with a read-only token.
+permissions: {}
 
 jobs:
   validate-release:
     name: "Release Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read # checkout
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Extract version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
           else
             VERSION=${GITHUB_REF#refs/tags/}
           fi
@@ -46,8 +54,9 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Validate version format
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
             echo "Invalid version format: $VERSION"
             echo "Expected format: v1.2.3 or v1.2.3-alpha1"
@@ -71,20 +80,27 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    permissions:
+      contents: read # checkout
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          enable-cache: true
+          # No cache on a release run: a tag push is a publishing event, so
+          # anything it writes to the shared cache would be restored by later
+          # branch builds. The release path runs once, so the saving is noise.
+          enable-cache: false
 
       - name: Install dependencies
         run: |
@@ -110,20 +126,24 @@ jobs:
     needs: validate-release
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read # checkout
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          enable-cache: true
+          enable-cache: false # see the note in multi-platform-tests
 
       - name: Install dependencies
         run: |
@@ -139,7 +159,7 @@ jobs:
           uv run bandit -r gpjax/ -f json -o bandit-report.json || echo "Bandit scan completed with warnings"
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: security-reports
           path: |
@@ -151,20 +171,24 @@ jobs:
     needs: [validate-release, multi-platform-tests, security-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read # checkout
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
-          enable-cache: true
+          enable-cache: false # see the note in multi-platform-tests
 
       - name: Build package
         run: |
@@ -176,7 +200,7 @@ jobs:
           uv run twine check dist/*
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dist-packages
           path: dist/
@@ -187,21 +211,25 @@ jobs:
     needs: validate-release
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read # checkout
     outputs:
       changelog: ${{ steps.changelog.outputs.changelog }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Generate changelog
         id: changelog
+        env:
+          CURRENT_TAG: ${{ needs.validate-release.outputs.version }}
         run: |
           # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          CURRENT_TAG="${{ needs.validate-release.outputs.version }}"
 
           echo "Generating changelog from $PREVIOUS_TAG to $CURRENT_TAG"
 
@@ -270,35 +298,55 @@ jobs:
     needs: [validate-release, build-package, generate-changelog]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write # create the release
+      actions: read # download the build artifacts
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist-packages
           path: dist/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.validate-release.outputs.version }}
-          name: "GPJax ${{ needs.validate-release.outputs.version }}"
-          body: ${{ needs.generate-changelog.outputs.changelog }}
-          draft: ${{ github.event.inputs.draft == 'true' }}
-          prerelease: ${{ contains(needs.validate-release.outputs.version, '-') }}
-          files: |
-            dist/*.tar.gz
-            dist/*.whl
-          generate_release_notes: true
+        # `gh` ships on the runner, so the release is cut with the same token
+        # and no third-party action in the publishing path.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.validate-release.outputs.version }}
+          CHANGELOG: ${{ needs.generate-changelog.outputs.changelog }}
+          DRAFT: ${{ github.event.inputs.draft == 'true' }}
+          PRERELEASE: ${{ contains(needs.validate-release.outputs.version, '-') }}
+        run: |
+          printf '%s\n' "$CHANGELOG" > release-notes.md
+          args=(
+            --title "GPJax $VERSION"
+            --notes-file release-notes.md
+            --generate-notes
+            --target "$GITHUB_SHA"
+          )
+          if [ "$DRAFT" = "true" ]; then
+            args+=(--draft)
+          fi
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$VERSION" "${args[@]}" dist/*.tar.gz dist/*.whl
 
   publish-pypi:
     name: "Publish to PyPI"
     needs: [validate-release, create-release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      id-token: write # PyPI trusted publishing
+      actions: read # download the build artifacts
     # Only publish on actual tag push, not workflow_dispatch
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment:
@@ -307,12 +355,12 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist-packages
           path: dist/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           print-hash: true

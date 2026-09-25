@@ -59,7 +59,7 @@ def test_quadrature(jit: bool, num_points: int):
 )
 def test_analytical_gaussian(jit: bool, params: tuple[float, float]):
     obs_stddev, expected = params
-    likelihood = Gaussian(num_datapoints=1, obs_stddev=jnp.array([obs_stddev]))
+    likelihood = Gaussian(obs_stddev=jnp.array([obs_stddev]))
     mu = jnp.array([[0.0]])
     variance = jnp.array([[1.0]])
     y = jnp.array([[1.0]])
@@ -81,7 +81,7 @@ def test_bernoulli_quadrature(jit: bool, params: tuple[float, float]):
     mu, variance, expected = params
     mu = jnp.atleast_2d(mu)
     variance = jnp.atleast_2d(variance)
-    likelihood = Bernoulli(num_datapoints=1)
+    likelihood = Bernoulli()
     y = jnp.array([[1.0]])
 
     @jax.jit

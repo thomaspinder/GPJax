@@ -132,7 +132,7 @@ cols = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 # ## Dataset
 #
 # We'll simulate five datasets and develop a Gaussian process
-# [posterior](#gpjax.gps.ConjugatePosterior) before
+# [posterior](#gpjax.gps.ConjugateModel) before
 # identifying the Gaussian process barycentre at a set of test points. Each dataset
 # will be a sine function with a different vertical shift, periodicity, and quantity
 # of noise.
@@ -184,7 +184,7 @@ def fit_gp(x: jax.Array, y: jax.Array) -> gpx.distributions.GaussianDistribution
         y = y.reshape(-1, 1)
     D = gpx.Dataset(X=x, y=y)
 
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+    likelihood = gpx.likelihoods.Gaussian()
     posterior = (
         gpx.gps.Prior(
             mean_function=gpx.mean_functions.Constant(), kernel=gpx.kernels.RBF()

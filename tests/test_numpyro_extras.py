@@ -25,7 +25,7 @@ def test_numpyro_sample_into_gpjax_conjugate_mll():
         kernel = gpx.kernels.RBF(lengthscale=lengthscale, variance=variance)
         meanf = gpx.mean_functions.Constant()
         prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=10, obs_stddev=obs_noise)
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_noise)
         posterior = prior * likelihood
 
         mll_value = gpx.objectives.conjugate_mll(posterior, D)

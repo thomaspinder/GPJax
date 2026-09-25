@@ -9,6 +9,7 @@
 
    fit
    fit_lbfgs
+   fit_natgrads
    fit_scipy
    get_batch
 ```

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import beartype.typing as tp
 import equinox as eqx
@@ -36,16 +35,14 @@ from gpjax.integrators import (
 )
 from gpjax.parameters import (
     NonNegativeReal,
-    _val,
+    PositiveReal,
+    val,
 )
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
     ScalarFloat,
 )
-
-if TYPE_CHECKING:
-    from gpjax.gps import Prior
 
 
 def _diagonal_scale(op):
@@ -85,22 +82,18 @@ class AbstractLikelihood(_SummaryMixin, eqx.Module):
     `link_function` methods.
     """
 
-    num_datapoints: int = eqx.field(static=True)
     integrator: AbstractIntegrator = eqx.field(static=True)
 
     def __init__(
         self,
-        num_datapoints: int,
         integrator: AbstractIntegrator = GHQuadratureIntegrator(),
     ):
         """Initializes the likelihood.
 
         Args:
-            num_datapoints (int): the number of data points.
             integrator (AbstractIntegrator): The integrator to be used for computing expected log
                 likelihoods. Must be an instance of `AbstractIntegrator`.
         """
-        self.num_datapoints = num_datapoints
         self.integrator = integrator
 
     def __call__(
@@ -254,21 +247,16 @@ class SoftplusTransform(AbstractNoiseTransform):
 class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
     r"""Base class for heteroscedastic likelihoods with latent noise processes."""
 
-    noise_prior: tp.Any
     noise_transform: AbstractNoiseTransform
 
     def __init__(
         self,
-        num_datapoints: int,
-        noise_prior: Prior,
         noise_transform: tp.Union[
             AbstractNoiseTransform,
             tp.Callable[[Float[Array, ...]], Float[Array, ...]],
         ] = SoftplusTransform(),
         integrator: AbstractIntegrator = GHQuadratureIntegrator(),
     ):
-        self.noise_prior = noise_prior
-
         if isinstance(noise_transform, AbstractNoiseTransform):
             self.noise_transform = noise_transform
         else:
@@ -281,7 +269,7 @@ class AbstractHeteroscedasticLikelihood(AbstractLikelihood):
                 # Users should implement AbstractNoiseTransform for custom transforms.
                 self.noise_transform = SoftplusTransform()
 
-        super().__init__(num_datapoints=num_datapoints, integrator=integrator)
+        super().__init__(integrator=integrator)
 
     def __call__(
         self,
@@ -331,14 +319,12 @@ class Gaussian(AbstractLikelihood):
 
     def __init__(
         self,
-        num_datapoints: int,
         obs_stddev: tp.Union[ScalarFloat, Float[Array, "#N"], NonNegativeReal] = 1.0,
         integrator: AbstractIntegrator = AnalyticalGaussianIntegrator(),
     ):
         r"""Initializes the Gaussian likelihood.
 
         Args:
-            num_datapoints (int): the number of data points.
             obs_stddev (Union[ScalarFloat, Float[Array, "#N"]]): the standard deviation
                 of the Gaussian observation noise.
             integrator (AbstractIntegrator): The integrator to be used for computing expected log
@@ -350,7 +336,7 @@ class Gaussian(AbstractLikelihood):
         self.obs_stddev = obs_stddev
         self.num_outputs = 1
 
-        super().__init__(num_datapoints, integrator)
+        super().__init__(integrator)
 
     def link_function(self, f: Float[Array, ...]) -> npd.Normal:
         r"""The link function of the Gaussian likelihood.
@@ -361,7 +347,7 @@ class Gaussian(AbstractLikelihood):
         Returns:
             npd.Normal: The likelihood function.
         """
-        return npd.Normal(loc=f, scale=_val(self.obs_stddev).astype(f.dtype))
+        return npd.Normal(loc=f, scale=val(self.obs_stddev).astype(f.dtype))
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
@@ -382,7 +368,7 @@ class Gaussian(AbstractLikelihood):
             GaussianDistribution: The predictive distribution with observation
             noise added to the diagonal of the covariance.
         """
-        obs_var = _val(self.obs_stddev) ** 2
+        obs_var = val(self.obs_stddev) ** 2
 
         if isinstance(dist, GaussianDistribution):
             diag = _diagonal_scale(dist.scale)
@@ -399,7 +385,7 @@ class Gaussian(AbstractLikelihood):
 
     def noise_vector(self, n: int) -> Float[Array, " N"]:
         """Per-observation noise variance vector (scalar broadcast for single-output)."""
-        return jnp.full(n, jnp.square(_val(self.obs_stddev)))
+        return jnp.full(n, jnp.square(val(self.obs_stddev)))
 
     def prepare_targets(
         self, y: Float[Array, "N 1"], mx: Float[Array, "N 1"]
@@ -412,21 +398,18 @@ class MultiOutputGaussian(Gaussian):
     """Gaussian likelihood with per-output noise variance.
 
     Args:
-        num_datapoints: Total number of observations (N, not N*P).
         num_outputs: Number of output dimensions (P).
         obs_stddev: Per-output noise standard deviation. Scalar broadcasts to [P].
     """
 
     def __init__(
         self,
-        num_datapoints: int,
         num_outputs: int,
         obs_stddev: tp.Union[float, Float[Array, " P"]] = 1.0,
     ):
         if isinstance(obs_stddev, (int, float)):
             obs_stddev = jnp.full(num_outputs, float(obs_stddev))
         super().__init__(
-            num_datapoints=num_datapoints,
             obs_stddev=NonNegativeReal(jnp.asarray(obs_stddev)),
         )
         self.num_outputs = num_outputs
@@ -437,7 +420,7 @@ class MultiOutputGaussian(Gaussian):
         Returns sigma_p^2 with each output's variance repeated N times,
         concatenated across outputs: [sigma_1^2...sigma_1^2, sigma_2^2...sigma_2^2, ...].
         """
-        per_output_var = jnp.square(_val(self.obs_stddev))  # [P]
+        per_output_var = jnp.square(val(self.obs_stddev))  # [P]
         return jnp.repeat(per_output_var, n)  # [NP]
 
     def prepare_targets(
@@ -606,6 +589,90 @@ class Poisson(AbstractLikelihood):
         return self.link_function(dist.mean)
 
 
+class StudentT(AbstractLikelihood):
+    r"""Student's t likelihood object for robust regression.
+
+    Replaces the Gaussian likelihood's light-tailed noise model with a
+    heavy-tailed Student's t distribution, so that outlying observations pull
+    the posterior mean less strongly (Jylanki, Vanhatalo & Vehtari, 2011).
+    Since the Student's t distribution is not conjugate to a Gaussian prior,
+    the expected log likelihood has no closed form and is instead computed by
+    Gauss-Hermite quadrature via `GHQuadratureIntegrator`.
+    """
+
+    degrees_of_freedom: tp.Any
+    scale: tp.Any
+
+    def __init__(
+        self,
+        degrees_of_freedom: tp.Union[ScalarFloat, PositiveReal] = 4.0,
+        scale: tp.Union[ScalarFloat, PositiveReal] = 1.0,
+        integrator: AbstractIntegrator = GHQuadratureIntegrator(num_points=20),
+    ):
+        r"""Initializes the Student's t likelihood.
+
+        Args:
+            degrees_of_freedom (Union[ScalarFloat, PositiveReal]): the degrees
+                of freedom of the Student's t distribution. Lower values give
+                heavier tails and hence more robustness to outliers; as the
+                degrees of freedom grow large the distribution approaches a
+                Gaussian.
+            scale (Union[ScalarFloat, PositiveReal]): the scale of the
+                Student's t observation noise. Note this is not the
+                observation standard deviation: for `degrees_of_freedom > 2`
+                the variance is `scale**2 * degrees_of_freedom /
+                (degrees_of_freedom - 2)`.
+            integrator (AbstractIntegrator): The integrator to be used for computing expected log
+                likelihoods. Must be an instance of `AbstractIntegrator`. Defaults to the
+                `GHQuadratureIntegrator`, as the Student's t expected log likelihood has no
+                closed form.
+        """
+        if not isinstance(degrees_of_freedom, PositiveReal):
+            degrees_of_freedom = PositiveReal(jnp.asarray(degrees_of_freedom))
+        self.degrees_of_freedom = degrees_of_freedom
+
+        if not isinstance(scale, PositiveReal):
+            scale = PositiveReal(jnp.asarray(scale))
+        self.scale = scale
+
+        super().__init__(integrator)
+
+    def link_function(self, f: Float[Array, ...]) -> npd.StudentT:
+        r"""The link function of the Student's t likelihood.
+
+        Args:
+            f (Float[Array, "..."]): Function values.
+
+        Returns:
+            npd.StudentT: The likelihood function.
+        """
+        return npd.StudentT(
+            df=val(self.degrees_of_freedom),
+            loc=f,
+            scale=val(self.scale).astype(f.dtype),
+        )
+
+    def predict(
+        self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
+    ) -> npd.StudentT:
+        r"""Evaluate the pointwise predictive distribution.
+
+        Evaluate the pointwise predictive distribution, given a Gaussian
+        process posterior and likelihood parameters. As with `Poisson`, the
+        Student's t distribution is not conjugate to a Gaussian latent, so
+        this evaluates the link function at the posterior mean rather than
+        marginalising the latent uncertainty.
+
+        Args:
+            dist (tp.Union[npd.MultivariateNormal, GaussianDistribution]): The Gaussian
+                process posterior, evaluated at a finite set of test points.
+
+        Returns:
+            npd.StudentT: The pointwise predictive distribution.
+        """
+        return self.link_function(dist.mean)
+
+
 def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
     r"""Compute the inverse probit function.
 
@@ -619,7 +686,7 @@ def inv_probit(x: Float[Array, " *N"]) -> Float[Array, " *N"]:
     return 0.5 * (1.0 + jsp.special.erf(x / jnp.sqrt(2.0))) * (1 - 2 * jitter) + jitter
 
 
-NonGaussian = tp.Union[Poisson, Bernoulli]
+NonGaussian = tp.Union[Poisson, Bernoulli, StudentT]
 
 __all__ = [
     "AbstractHeteroscedasticLikelihood",
@@ -634,5 +701,6 @@ __all__ = [
     "NonGaussian",
     "Poisson",
     "SoftplusTransform",
+    "StudentT",
     "inv_probit",
 ]

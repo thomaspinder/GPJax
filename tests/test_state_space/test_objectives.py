@@ -29,7 +29,7 @@ def test_state_space_mll_matches_conjugate_mll_on_matern12(jitter):
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     ss_posterior = ss_prior * likelihood
 
     ss_mll = state_space_mll(ss_posterior, train_data)
@@ -51,7 +51,7 @@ def test_state_space_mll_returns_scalar():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=10, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = ss_prior * likelihood
     X, y = _build_matern12_dataset(n=10, lengthscale=1.0, variance=1.0, obs_stddev=0.3)
     train_data = gpx.Dataset(X=X.reshape(-1, 1), y=y.reshape(-1, 1))
@@ -78,7 +78,7 @@ def test_state_space_mll_residualises_constant_mean():
         mean_function=gpx.mean_functions.Constant(constant=jnp.array(constant_offset)),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
     ss_mll = state_space_mll(posterior, train_data)
 
@@ -113,7 +113,7 @@ def test_state_space_mll_observation_mask_equivalent_to_dropping():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = ss_prior * likelihood
 
     masked_mll = state_space_mll(posterior, train_data, observation_mask=is_observed)
@@ -123,9 +123,7 @@ def test_state_space_mll_observation_mask_equivalent_to_dropping():
     X_kept = X[keep_mask]
     y_kept = y[keep_mask]
     train_data_kept = gpx.Dataset(X=X_kept.reshape(-1, 1), y=y_kept.reshape(-1, 1))
-    likelihood_kept = gpx.likelihoods.Gaussian(
-        num_datapoints=int(keep_mask.sum()), obs_stddev=obs_stddev
-    )
+    likelihood_kept = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior_kept = ss_prior * likelihood_kept
     dropped_mll = state_space_mll(posterior_kept, train_data_kept)
 
@@ -165,7 +163,7 @@ def test_state_space_mll_gradient_through_kernel_hyperparameters_is_finite(
             mean_function=gpx.mean_functions.Zero(),
             kernel=kernel,
         )
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
         posterior = prior * likelihood
         return -state_space_mll(posterior, train_data)
 
@@ -189,9 +187,7 @@ def test_state_space_mll_gradient_through_obs_stddev_is_finite():
             mean_function=gpx.mean_functions.Zero(),
             kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         )
-        likelihood = gpx.likelihoods.Gaussian(
-            num_datapoints=n, obs_stddev=obs_stddev_value
-        )
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev_value)
         posterior = prior * likelihood
         return -state_space_mll(posterior, train_data)
 

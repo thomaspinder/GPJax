@@ -17,9 +17,11 @@ def test_common_imports():
     assert hasattr(gpjax, "likelihoods")
     assert hasattr(gpjax, "Dataset")
     assert hasattr(gpjax, "fit")
+    assert hasattr(gpjax, "natural_gradients")
 
     # Test callable functions
     assert callable(gpjax.fit)
     assert callable(gpjax.fit_lbfgs)
+    assert callable(gpjax.fit_natgrads)
     assert callable(gpjax.fit_scipy)
     assert callable(gpjax.cite)

@@ -18,20 +18,19 @@ from collections.abc import Callable
 import equinox as eqx
 import gpjax as gpx
 import gpjax.distributions
-from gpjax.gps import AbstractPosterior
+from gpjax.gps import JointModel
 import gpjax.linalg.utils
 from gpjax.parameters import (
     LowerTriangular,
     Real,
-    _val,
+    val,
 )
 import gpjax.variational_families
 from gpjax.variational_families import (
     AbstractVariationalFamily,
     CollapsedVariationalGaussian,
-    ExpectationVariationalGaussian,
+    DualVariationalGaussian,
     GraphVariationalGaussian,
-    NaturalVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
 )
@@ -39,6 +38,7 @@ import jax
 from jax import config
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
 from jaxtyping import (
     Array,
     Float,
@@ -48,6 +48,12 @@ import numpy as np
 import numpyro.distributions as npd
 from numpyro.distributions import Distribution as NumpyroDistribution
 import pytest
+
+from tests._dual_helpers import (
+    DUAL_JITTER,
+    build_dual,
+    matched_variational_gaussian as _matched_variational_gaussian,
+)
 
 # Enable Float64 for more stable matrix inversions.
 config.update("jax_enable_x64", True)
@@ -66,14 +72,44 @@ def test_abstract_variational_family():
     class DummyPosterior:
         @property
         def __class__(self) -> type:
-            return AbstractPosterior
+            return JointModel
 
     class DummyVariationalFamily(AbstractVariationalFamily):
         def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
             return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
 
+        def prior_kl(self) -> Float[Array, ""]:
+            return jnp.array(0.0)
+
+        def condition(self, train_data):
+            return None
+
+    # A family that forgets `prior_kl` must not be instantiable: every
+    # ELBO-style objective subtracts it, so the base class declares it.
+    class KLFreeVariationalFamily(AbstractVariationalFamily):
+        def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
+            return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
+
+        def condition(self, train_data):
+            return None
+
+    with pytest.raises(TypeError):
+        KLFreeVariationalFamily(model=DummyPosterior())
+
+    # `condition` is part of the same contract: `q | D` must work for every
+    # family, so a class that omits it is not a variational family either.
+    class ConditionFreeVariationalFamily(AbstractVariationalFamily):
+        def predict(self, x: Float[Array, "N D"]) -> npd.MultivariateNormal:
+            return npd.MultivariateNormal(loc=x, covariance_matrix=jnp.eye(x.shape[1]))
+
+        def prior_kl(self) -> Float[Array, ""]:
+            return jnp.array(0.0)
+
+    with pytest.raises(TypeError):
+        ConditionFreeVariationalFamily(model=DummyPosterior())
+
     # Test that the dummy variational family can be instantiated.
-    dummy_variational_family = DummyVariationalFamily(posterior=DummyPosterior())
+    dummy_variational_family = DummyVariationalFamily(model=DummyPosterior())
     assert isinstance(dummy_variational_family, AbstractVariationalFamily)
 
 
@@ -116,8 +152,7 @@ def diag_matrix_val(
     [
         VariationalGaussian,
         WhitenedVariationalGaussian,
-        NaturalVariationalGaussian,
-        ExpectationVariationalGaussian,
+        DualVariationalGaussian,
     ],
 )
 def test_variational_gaussians(
@@ -129,19 +164,26 @@ def test_variational_gaussians(
     prior = gpx.gps.Prior(
         kernel=gpx.kernels.RBF(), mean_function=gpx.mean_functions.Constant()
     )
-    likelihood = gpx.likelihoods.Gaussian(123)
+    likelihood = gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-5.0, 5.0, n_inducing).reshape(-1, 1)
 
     test_inputs = jnp.linspace(-5.0, 5.0, n_test).reshape(-1, 1)
 
     posterior = prior * likelihood
-    q = variational_family(posterior=posterior, inducing_inputs=inducing_inputs)
+    q = variational_family(model=posterior, inducing_inputs=inducing_inputs)
 
     # Test init:
     assert q.num_inducing == n_inducing
     assert isinstance(q, AbstractVariationalFamily)
 
-    if isinstance(q, (VariationalGaussian, WhitenedVariationalGaussian)):
+    if isinstance(q, DualVariationalGaussian):
+        # The dual family stores sites, not moments, and both default to zero so that
+        # q(u) = p(u) at initialisation.
+        assert val(q.dual_vector).shape == vector_shape(n_inducing)
+        assert val(q.dual_matrix).shape == matrix_shape(n_inducing)
+        assert (val(q.dual_vector) == 0.0).all()
+        assert (val(q.dual_matrix) == 0.0).all()
+    else:
         assert q.variational_mean.unwrap().shape == vector_shape(n_inducing)
         assert q.variational_root_covariance.unwrap().shape == matrix_shape(n_inducing)
         assert (q.variational_mean.unwrap() == vector_val(0.0)(n_inducing)).all()
@@ -149,23 +191,13 @@ def test_variational_gaussians(
             q.variational_root_covariance.unwrap() == diag_matrix_val(1.0)(n_inducing)
         ).all()
 
-    elif isinstance(q, NaturalVariationalGaussian):
-        assert q.natural_vector.unwrap().shape == vector_shape(n_inducing)
-        assert q.natural_matrix.unwrap().shape == matrix_shape(n_inducing)
-        assert (q.natural_vector.unwrap() == vector_val(0.0)(n_inducing)).all()
-        assert (q.natural_matrix.unwrap() == diag_matrix_val(-0.5)(n_inducing)).all()
-
-    elif isinstance(q, ExpectationVariationalGaussian):
-        assert q.expectation_vector.unwrap().shape == vector_shape(n_inducing)
-        assert q.expectation_matrix.unwrap().shape == matrix_shape(n_inducing)
-        assert (q.expectation_vector.unwrap() == vector_val(0.0)(n_inducing)).all()
-        assert (q.expectation_matrix.unwrap() == diag_matrix_val(1.0)(n_inducing)).all()
-
     # Test KL
     kl = q.prior_kl()
     assert isinstance(kl, jnp.ndarray)
     assert kl.shape == ()
-    assert kl >= 0.0
+    # The dual family initialises exactly at q(u) = p(u), where the KL is zero up to
+    # the round-off of tr(R^{-1} Kzz) - M; the moment families start strictly inside.
+    assert kl >= (-1e-10 if isinstance(q, DualVariationalGaussian) else 0.0)
 
     # Test predictions
     predictive_dist = q(test_inputs)
@@ -178,6 +210,32 @@ def test_variational_gaussians(
     assert isinstance(sigma, jnp.ndarray)
     assert mu.shape == (n_test,)
     assert sigma.shape == (n_test, n_test)
+
+
+@pytest.mark.parametrize(
+    "removed_name",
+    ["NaturalVariationalGaussian", "ExpectationVariationalGaussian"],
+)
+def test_removed_families_are_gone(removed_name: str) -> None:
+    """The natural/expectation parameterisations were superseded by `fit_natgrads`.
+
+    They were parameterisation-only classes with no optimiser attached; natural-gradient
+    steps are now taken directly on `VariationalGaussian` and
+    `WhitenedVariationalGaussian`. This guards against them creeping back in.
+    """
+    assert not hasattr(gpjax.variational_families, removed_name)
+    assert removed_name not in gpjax.variational_families.__all__
+
+
+def test_psd_helper_is_gone() -> None:
+    """`_psd`'s only callers lived inside the two deleted classes.
+
+    Checked separately from the class names because `_psd` was private and never
+    exported, so the `__all__` assertion above would be vacuous for it. The guard is
+    against the dead helper returning alongside the classes, not a reservation of the
+    name for all time.
+    """
+    assert not hasattr(gpjax.variational_families, "_psd")
 
 
 @pytest.mark.parametrize("n_test", [10, 20])
@@ -204,7 +262,7 @@ def test_graph_variational_gaussian(
     )
     meanf = gpx.mean_functions.Constant()
     prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
-    likelihood = gpx.likelihoods.Bernoulli(num_datapoints=G.number_of_nodes())
+    likelihood = gpx.likelihoods.Bernoulli()
 
     inducing_inputs = jnp.array(
         np.random.randint(low=1, high=100, size=(n_inducing, 1))
@@ -215,7 +273,7 @@ def test_graph_variational_gaussian(
     )
 
     posterior = prior * likelihood
-    q = variational_family(posterior=posterior, inducing_inputs=inducing_inputs)
+    q = variational_family(model=posterior, inducing_inputs=inducing_inputs)
     # Test KL
     kl = q.prior_kl()
     assert isinstance(kl, jnp.ndarray)
@@ -256,24 +314,24 @@ def test_collapsed_variational_gaussian(
     test_inputs = jnp.linspace(-5.0, 5.0, n_test).reshape(-1, 1)
     test_inputs = jnp.hstack([test_inputs] * point_dim)
 
-    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=D.n)
+    posterior = prior * gpx.likelihoods.Gaussian()
 
     variational_family = CollapsedVariationalGaussian(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=inducing_inputs,
     )
 
     # We should raise an error for non-Gaussian likelihoods:
     with pytest.raises(TypeError):
         CollapsedVariationalGaussian(
-            posterior=prior * gpx.likelihoods.Bernoulli(num_datapoints=D.n),
+            model=prior * gpx.likelihoods.Bernoulli(),
             inducing_inputs=inducing_inputs,
         )
 
     # Test init
     assert variational_family.num_inducing == n_inducing
     assert (variational_family.inducing_inputs.unwrap() == inducing_inputs).all()
-    assert variational_family.posterior.likelihood.obs_stddev.unwrap() == 1.0
+    assert variational_family.model.likelihood.obs_stddev.unwrap() == 1.0
 
     # Test predictions
     predictive_dist = variational_family(test_inputs, D)
@@ -322,10 +380,10 @@ def _build_kl_family(
     kernel = gpx.kernels.RBF(lengthscale=jnp.array(0.7), variance=jnp.array(1.3))
     mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function)
-    posterior = prior * gpx.likelihoods.Gaussian(num_datapoints=20)
+    posterior = prior * gpx.likelihoods.Gaussian()
     inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
     return family(
-        posterior=posterior,
+        model=posterior,
         inducing_inputs=inducing_inputs,
         variational_mean=_kl_variational_mean(num_inducing),
         variational_root_covariance=_kl_variational_root(num_inducing),
@@ -407,8 +465,8 @@ def _textbook_gaussian_kl(mean_q, cov_q, mean_p, cov_p):
 
 def _reference_prior_kl(family):
     """Reference prior KL built from the dense covariance matrices."""
-    variational_mean = _val(family.variational_mean).reshape(-1)
-    variational_sqrt = _val(family.variational_root_covariance)
+    variational_mean = val(family.variational_mean).reshape(-1)
+    variational_sqrt = val(family.variational_root_covariance)
     cov_q = variational_sqrt @ variational_sqrt.T
     num_inducing = variational_sqrt.shape[-1]
 
@@ -416,10 +474,12 @@ def _reference_prior_kl(family):
         mean_p = jnp.zeros_like(variational_mean)
         cov_p = jnp.eye(num_inducing, dtype=variational_sqrt.dtype)
     else:
-        inducing_inputs = _val(family.inducing_inputs)
-        mean_p = family.posterior.prior.mean_function(inducing_inputs).reshape(-1)
-        cov_p = family.posterior.prior.kernel.gram(inducing_inputs).as_matrix()
-        cov_p = cov_p + jnp.eye(num_inducing, dtype=cov_p.dtype) * family.jitter
+        inducing_inputs = val(family.inducing_inputs)
+        mean_p = family.model.prior.mean_function(inducing_inputs).reshape(-1)
+        cov_p = family.model.prior.kernel.gram(inducing_inputs).as_matrix()
+        cov_p = (
+            cov_p + jnp.eye(num_inducing, dtype=cov_p.dtype) * family.model.prior.jitter
+        )
 
     return _textbook_gaussian_kl(variational_mean, cov_q, mean_p, cov_p)
 
@@ -531,11 +591,10 @@ def _count_cholesky_calls(monkeypatch, thunk) -> dict[str, int]:
         counts["dense_cholesky"] += 1
         return original_dense_cholesky(matrix)
 
-    for module in (
-        gpjax.linalg.utils,
-        gpjax.distributions,
-        gpjax.variational_families,
-    ):
+    # ``gpjax.variational_families`` is deliberately absent: its only
+    # ``cholesky_factor`` call site lived in the removed
+    # ``ExpectationVariationalGaussian``, so the module no longer imports the name.
+    for module in (gpjax.linalg.utils, gpjax.distributions):
         monkeypatch.setattr(module, "cholesky_factor", counting_cholesky_factor)
     monkeypatch.setattr(jnp.linalg, "cholesky", counting_dense_cholesky)
 
@@ -582,9 +641,9 @@ def test_prior_kl_is_jit_grad_and_vmap_compatible(family):
         model = eqx.tree_at(lambda t: t.variational_mean.value, q, mean_value)
         return model.prior_kl()
 
-    zero_mean = jnp.zeros_like(_val(q.variational_mean))
+    zero_mean = jnp.zeros_like(val(q.variational_mean))
     batch = jnp.stack(
-        [_val(q.variational_mean), _val(q.variational_mean) + 0.5, zero_mean]
+        [val(q.variational_mean), val(q.variational_mean) + 0.5, zero_mean]
     )
     batched = jax.vmap(kl_from_mean)(batch)
 
@@ -630,3 +689,459 @@ def test_prior_kl_is_non_negative(family, seed):
         (Real(jr.normal(key_mean, (num_inducing, 1))), LowerTriangular(root)),
     )
     assert q.prior_kl() >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# DualVariationalGaussian -- the t-SVGP site parameterisation (arXiv:2111.03412)
+# ---------------------------------------------------------------------------
+_DUAL_JITTER = DUAL_JITTER
+
+
+def _build_dual_family(
+    num_inducing: int,
+    seed: int | None = None,
+    jitter: float = _DUAL_JITTER,
+    variance: float = 1.3,
+) -> DualVariationalGaussian:
+    """Build a dual family, optionally at random positive semi-definite sites."""
+    kernel = gpx.kernels.RBF(
+        lengthscale=jnp.array(0.7), variance=jnp.array(float(variance))
+    )
+    mean_function = gpx.mean_functions.Constant(jnp.array([0.4]))
+    prior = gpx.gps.Prior(kernel=kernel, mean_function=mean_function, jitter=jitter)
+    posterior = prior * gpx.likelihoods.Gaussian()
+    inducing_inputs = jnp.linspace(-3.0, 3.0, num_inducing).reshape(-1, 1)
+
+    return build_dual(posterior, inducing_inputs, seed=seed)
+
+
+@pytest.mark.parametrize("num_inducing", [1, 4, 9])
+def test_dual_prior_kl_zero_at_initialisation(num_inducing: int) -> None:
+    """Zero sites mean q(u) = p(u), so R = Kzz and the KL vanishes."""
+    q = _build_dual_family(num_inducing)
+    np.testing.assert_allclose(np.float64(q.prior_kl()), 0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("seed", list(range(10)))
+def test_dual_prior_kl_non_negative(seed: int) -> None:
+    q = _build_dual_family(6, seed=seed)
+    assert q.prior_kl() >= -1e-12
+
+
+@pytest.mark.parametrize("seed", list(range(10)))
+def test_dual_prior_kl_matches_the_moment_family(seed: int) -> None:
+    """The dual KL must equal the moment family's KL at the same q(u).
+
+    Non-negativity alone rules out very little: a dropped term or a doubled
+    trace stays non-negative. ``VariationalGaussian.prior_kl`` is pinned to a
+    dense textbook reference by
+    ``test_prior_kl_matches_textbook_reference``, so evaluating it at the
+    dual family's implied moments turns the site parameterisation into a
+    checked quantity rather than a merely finite one.
+    """
+    q_dual = _build_dual_family(6, seed=seed)
+    q_moment = _matched_variational_gaussian(q_dual)
+    np.testing.assert_allclose(
+        np.float64(q_dual.prior_kl()),
+        np.float64(q_moment.prior_kl()),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+
+
+@pytest.mark.parametrize("n_test", [1, 7])
+@pytest.mark.parametrize("seed", [0, 3])
+def test_dual_predict_matches_variational_gaussian_at_matched_moments(
+    n_test: int, seed: int
+) -> None:
+    """The dual predictive must agree with the moment family it is equivalent to."""
+    q_dual = _build_dual_family(5, seed=seed)
+    q_moment = _matched_variational_gaussian(q_dual)
+    test_inputs = jnp.linspace(-3.0, 3.0, n_test).reshape(-1, 1)
+
+    dual_dist = q_dual.predict(test_inputs)
+    moment_dist = q_moment.predict(test_inputs)
+
+    np.testing.assert_allclose(
+        np.asarray(dual_dist.mean),
+        np.asarray(moment_dist.mean),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(dual_dist.covariance()),
+        np.asarray(moment_dist.covariance()),
+        rtol=1e-9,
+        atol=1e-10,
+    )
+
+
+def test_dual_prior_kl_is_jit_grad_and_vmap_compatible() -> None:
+    q = _build_dual_family(4, seed=1)
+    eager = q.prior_kl()
+
+    jitted = eqx.filter_jit(lambda model: model.prior_kl())
+    np.testing.assert_allclose(np.float64(jitted(q)), np.float64(eager), rtol=1e-12)
+
+    grads = eqx.filter_grad(lambda model: model.prior_kl())(q)
+    assert jnp.all(jnp.isfinite(grads.dual_vector.value))
+    assert jnp.all(jnp.isfinite(grads.dual_matrix.value))
+
+    def kl_from_vector(vector_value):
+        model = eqx.tree_at(lambda t: t.dual_vector.value, q, vector_value)
+        return model.prior_kl()
+
+    zero_vector = jnp.zeros_like(val(q.dual_vector))
+    batch = jnp.stack([val(q.dual_vector), val(q.dual_vector) + 0.5, zero_vector])
+    batched = jax.vmap(kl_from_vector)(batch)
+
+    assert batched.shape == (3,)
+    np.testing.assert_allclose(
+        np.float64(batched[0]), np.float64(eager), rtol=1e-12, atol=1e-14
+    )
+    np.testing.assert_allclose(
+        np.float64(batched[2]),
+        np.float64(kl_from_vector(zero_vector)),
+        rtol=1e-12,
+        atol=1e-14,
+    )
+
+
+def test_dual_working_matrices_reconstruct_r() -> None:
+    """``Lr`` is lower triangular and satisfies ``Lr Lr^T = Kzz + Kzz L2 Kzz``."""
+    q = _build_dual_family(6, seed=5)
+    gram, _, root_working = q._working_matrices()
+    dual_matrix = val(q.dual_matrix)
+
+    working = gram + gram @ dual_matrix @ gram
+    np.testing.assert_allclose(
+        np.asarray(root_working @ root_working.T), np.asarray(working), rtol=1e-10
+    )
+    np.testing.assert_array_equal(
+        np.asarray(jnp.triu(root_working, 1)), np.zeros((6, 6))
+    )
+
+
+@pytest.mark.parametrize(("variance", "num_inducing"), [(1e4, 80), (1e3, 50)])
+def test_dual_working_matrices_survive_a_large_variance_kernel(
+    variance: float, num_inducing: int
+) -> None:
+    """A badly scaled Kzz must not make chol(R) return NaN.
+
+    Forming ``R = Kzz + Kzz L2 Kzz`` explicitly carries a rounding error of order
+    ``||Kzz||^2 ||L2|| eps``, which for these settings dwarfs
+    ``lambda_min(R) ~ jitter`` and made ``jnp.linalg.cholesky`` return NaN silently --
+    poisoning every later ``fit_natgrads`` iterate. Factorising in the Kzz basis
+    instead is unconditionally safe. The default 1e-6 jitter is used deliberately;
+    the failure is invisible at the 1e-8 the other dual tests run at.
+    """
+    q = _build_dual_family(num_inducing, seed=6, jitter=1e-6, variance=float(variance))
+    inputs = jnp.linspace(-3.0, 3.0, 9).reshape(-1, 1)
+
+    _, _, root_working = q._working_matrices()
+    assert jnp.all(jnp.isfinite(root_working))
+    assert jnp.isfinite(q.prior_kl())
+    assert jnp.all(jnp.isfinite(jnp.stack(q.marginals(inputs))))
+
+
+def test_dual_family_cholesky_budget(monkeypatch) -> None:
+    """Both routines factorise Kzz and R once each, and nothing else."""
+    q = _build_dual_family(4, seed=2)
+    inputs = jnp.linspace(-3.0, 3.0, 11).reshape(-1, 1)
+
+    kl_counts = _count_cholesky_calls(monkeypatch, q.prior_kl)
+    assert kl_counts["dense_cholesky"] == 2
+    assert kl_counts["cholesky_factor"] == 0
+
+    marginal_counts = _count_cholesky_calls(monkeypatch, lambda: q.marginals(inputs))
+    assert marginal_counts["dense_cholesky"] == 2
+    assert marginal_counts["cholesky_factor"] == 0
+
+
+def test_dual_marginals_include_jitter() -> None:
+    """``marginals`` must inflate every variance by exactly ``jitter``.
+
+    ``VariationalGaussian.predict`` runs ``add_jitter`` on its output covariance, so
+    the per-point variances ``elbo`` sees carry the same offset. Without it,
+    ``dual_elbo`` misses ``elbo`` at matched moments by ``N * jitter / (2 sigma^2)``.
+    """
+    q = _build_dual_family(5, seed=4)
+    inputs = jnp.linspace(-3.0, 3.0, 13).reshape(-1, 1)
+
+    gram, root_gram, root_working = q._working_matrices()
+    cross = q.model.prior.kernel.cross_covariance(val(q.inducing_inputs), inputs)
+    diagonal = jnp.diag(q.model.prior.kernel.gram(inputs).as_matrix())
+    prior_projection = jsp.linalg.solve_triangular(root_gram, cross, lower=True)
+    site_projection = jsp.linalg.solve_triangular(root_working, cross, lower=True)
+    analytic = (
+        diagonal
+        - jnp.sum(jnp.square(prior_projection), axis=0)
+        + jnp.sum(jnp.square(site_projection), axis=0)
+    )
+    del gram
+
+    _, variance = q.marginals(inputs)
+    np.testing.assert_allclose(
+        np.asarray(variance - analytic), q.model.prior.jitter, rtol=0.0, atol=1e-15
+    )
+
+
+# ---------------------------------------------------------------------------
+# CollapsedPosterior.prior_kl -- oracle tests
+#
+# ``CollapsedPosterior.prior_kl`` evaluates the KL from Titsias' analytically
+# optimal q*(u) to the prior p(u) through the factorisation the collapsed
+# bound already holds: S* = Lz B^-1 Lz^T and a centred mean
+# sigma^-1 Lz B^-1 A (y - m(x)). Asserting only that the result is finite
+# would pass for a sign error, a dropped term or a factor of two, so the
+# reference below is built along a route that shares no algebra with it:
+# q*(u) is re-derived by Bayes' rule in the projected (DTC) linear model and
+# handed to the same dense textbook Gaussian KL used by the uncollapsed
+# families above.
+# ---------------------------------------------------------------------------
+
+_COLLAPSED_KERNELS = {
+    "rbf": lambda: gpx.kernels.RBF(lengthscale=jnp.array(0.8), variance=jnp.array(1.3)),
+    "matern32": lambda: gpx.kernels.Matern32(
+        lengthscale=jnp.array(0.6), variance=jnp.array(0.9)
+    ),
+    "matern12": lambda: gpx.kernels.Matern12(
+        lengthscale=jnp.array(1.1), variance=jnp.array(2.0)
+    ),
+}
+
+# Inducing configurations: a coarse grid, a finer grid whose points sit within
+# a lengthscale of each other (so Kzz is genuinely correlated), a scattered
+# two-dimensional set, and the M = 1 edge case where ``tr(B^-1) - M`` is a
+# single scalar.
+_COLLAPSED_INDUCING = {
+    "grid-4-1d": lambda: jnp.linspace(-2.0, 2.0, 4).reshape(-1, 1),
+    "grid-9-1d": lambda: jnp.linspace(-3.0, 3.0, 9).reshape(-1, 1),
+    "scatter-6-2d": lambda: jr.uniform(
+        jr.key(11), (6, 2), minval=-2.5, maxval=2.5, dtype=jnp.float64
+    ),
+    "single-1d": lambda: jnp.array([[0.3]]),
+}
+
+
+def _collapsed_train_data(num_dims: int, num_data: int = 17) -> gpx.Dataset:
+    """Deterministic training data of the requested input dimension."""
+    inputs = jr.uniform(
+        jr.key(5), (num_data, num_dims), minval=-3.0, maxval=3.0, dtype=jnp.float64
+    )
+    outputs = jnp.sin(1.3 * inputs[:, :1]) + 0.15 * jr.normal(
+        jr.key(7), (num_data, 1), dtype=jnp.float64
+    )
+    return gpx.Dataset(X=inputs, y=outputs)
+
+
+def _build_collapsed_family(
+    kernel_name: str, inducing_name: str, observation_noise: float
+) -> tuple[CollapsedVariationalGaussian, gpx.Dataset]:
+    """Build a collapsed family and matching data, fully deterministically."""
+    inducing_inputs = _COLLAPSED_INDUCING[inducing_name]()
+    prior = gpx.gps.Prior(
+        kernel=_COLLAPSED_KERNELS[kernel_name](),
+        mean_function=gpx.mean_functions.Constant(jnp.array(0.4)),
+    )
+    model = prior * gpx.likelihoods.Gaussian(
+        obs_stddev=jnp.array(float(observation_noise))
+    )
+    family = CollapsedVariationalGaussian(model=model, inducing_inputs=inducing_inputs)
+    return family, _collapsed_train_data(inducing_inputs.shape[-1])
+
+
+def _titsias_optimal_q(family: CollapsedVariationalGaussian, train_data: gpx.Dataset):
+    r"""Titsias' optimal :math:`q^{\star}(u)`, re-derived rather than quoted.
+
+    The collapsed bound is maximised by the exact posterior over :math:`u` of
+    the projected ("DTC") Gaussian linear model
+
+    .. math::
+
+        u \sim \mathcal{N}(m_z, K_{zz}), \qquad
+        y \mid u \sim \mathcal{N}\big(m_x + W(u - m_z),\, \sigma^2 I\big),
+        \qquad W = K_{xz}K_{zz}^{-1},
+
+    so its moments follow from the textbook conjugate Gaussian update alone:
+
+    .. math::
+
+        S^{\star} = \big(K_{zz}^{-1} + \sigma^{-2}W^{\top}W\big)^{-1},
+        \qquad
+        \mu^{\star} = m_z + \sigma^{-2}S^{\star}W^{\top}(y - m_x).
+
+    Neither :math:`L_z`, nor :math:`A`, nor :math:`B` appears: the whole
+    factorisation the implementation is built on is bypassed, which is what
+    makes the comparison evidence rather than a restatement. ``K_zz`` is read
+    throughout as the stabilised ``K_zz + jitter I`` that conditioning
+    actually uses, so the two routes describe the same prior.
+
+    Args:
+        family: The collapsed variational family.
+        train_data: The data the optimal distribution is solved against.
+
+    Returns:
+        tuple: ``(mean_q, cov_q, mean_p, cov_p)`` as dense arrays, with the
+        means flattened to one dimension.
+    """
+    model = family.model
+    kernel = model.prior.kernel
+    mean_function = model.prior.mean_function
+    noise_variance = val(model.likelihood.obs_stddev) ** 2
+
+    inducing_inputs = val(family.inducing_inputs)
+    num_inducing = inducing_inputs.shape[0]
+    identity = jnp.eye(num_inducing, dtype=inducing_inputs.dtype)
+
+    prior_cov = kernel.gram(inducing_inputs).as_matrix() + model.prior.jitter * identity
+    prior_mean = mean_function(inducing_inputs).reshape(-1)
+
+    # W = Kxz Kzz^{-1}, the DTC projection of u onto the training inputs.
+    cross_cov = kernel.cross_covariance(inducing_inputs, train_data.X)
+    projection = jnp.linalg.solve(prior_cov, cross_cov).T
+    residual = (train_data.y - mean_function(train_data.X)).reshape(-1)
+
+    precision = jnp.linalg.inv(prior_cov) + projection.T @ projection / noise_variance
+    optimal_cov = jnp.linalg.inv(precision)
+    optimal_mean = prior_mean + optimal_cov @ (projection.T @ residual) / noise_variance
+    return optimal_mean, optimal_cov, prior_mean, prior_cov
+
+
+def _oracle_collapsed_prior_kl(
+    family: CollapsedVariationalGaussian, train_data: gpx.Dataset
+) -> Float[Array, ""]:
+    """KL[q*(u) || p(u)] from the re-derived moments and the textbook formula."""
+    optimal_mean, optimal_cov, prior_mean, prior_cov = _titsias_optimal_q(
+        family, train_data
+    )
+    return _textbook_gaussian_kl(optimal_mean, optimal_cov, prior_mean, prior_cov)
+
+
+@pytest.mark.parametrize("observation_noise", [0.37, 1.2])
+@pytest.mark.parametrize("inducing_name", list(_COLLAPSED_INDUCING))
+@pytest.mark.parametrize("kernel_name", list(_COLLAPSED_KERNELS))
+def test_collapsed_prior_kl_matches_gaussian_kl_oracle(
+    kernel_name: str, inducing_name: str, observation_noise: float
+) -> None:
+    """The collapsed KL must equal KL[q*(u) || p(u)] computed densely.
+
+    This is the only assertion that constrains the *value* of
+    ``CollapsedPosterior.prior_kl``: a sign flip on any of its four terms, a
+    dropped ``- M``, or a factor of two moves the result far outside the
+    tolerance below.
+    """
+    family, train_data = _build_collapsed_family(
+        kernel_name, inducing_name, observation_noise
+    )
+    optimal_mean, optimal_cov, prior_mean, prior_cov = _titsias_optimal_q(
+        family, train_data
+    )
+
+    # Guard against a degenerate configuration in which q* has collapsed onto
+    # the prior and every term of the KL is separately zero.
+    assert jnp.linalg.norm(optimal_mean - prior_mean) > 1e-2
+    assert jnp.max(jnp.abs(optimal_cov - prior_cov)) > 1e-2
+
+    reference = _textbook_gaussian_kl(optimal_mean, optimal_cov, prior_mean, prior_cov)
+    assert reference > 1e-2
+
+    np.testing.assert_allclose(
+        np.float64(family.condition(train_data).prior_kl),
+        np.float64(reference),
+        rtol=1e-11,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("inducing_name", list(_COLLAPSED_INDUCING))
+@pytest.mark.parametrize("kernel_name", list(_COLLAPSED_KERNELS))
+def test_collapsed_optimal_q_moments_match_the_dtc_posterior(
+    kernel_name: str, inducing_name: str
+) -> None:
+    r"""The cached factors must encode the moments the KL claims they do.
+
+    ``prior_kl`` reads :math:`S^{\star} = L_z B^{-1} L_z^{\top}` and
+    :math:`\tilde m^{\star} = \sigma^{-1} L_z B^{-1} A (y - m(x))` off the
+    conditioning cache. Reassembling both from that cache and comparing them
+    with the conjugate update splits a KL failure into "the moments are
+    wrong" and "the KL of correct moments is assembled wrong", which the
+    value test alone cannot distinguish.
+    """
+    family, train_data = _build_collapsed_family(kernel_name, inducing_name, 0.37)
+    posterior = family.condition(train_data)
+
+    num_inducing = posterior.cholesky_b.shape[0]
+    inverse_b = jsp.linalg.cho_solve(
+        (posterior.cholesky_b, True), jnp.eye(num_inducing, dtype=jnp.float64)
+    )
+    cached_cov = posterior.cholesky_kzz @ inverse_b @ posterior.cholesky_kzz.T
+    cached_centred_mean = (
+        posterior.cholesky_kzz
+        @ jsp.linalg.cho_solve(
+            (posterior.cholesky_b, True), posterior.scaled_cross @ posterior.residual
+        )
+    ).reshape(-1) / jnp.sqrt(posterior.observation_variance)
+
+    optimal_mean, optimal_cov, prior_mean, _ = _titsias_optimal_q(family, train_data)
+
+    np.testing.assert_allclose(
+        np.asarray(cached_cov), np.asarray(optimal_cov), rtol=1e-10, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        np.asarray(prior_mean + cached_centred_mean),
+        np.asarray(optimal_mean),
+        rtol=1e-10,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("inducing_name", ["grid-9-1d", "scatter-6-2d"])
+@pytest.mark.parametrize("kernel_name", ["rbf", "matern32"])
+def test_collapsed_prior_kl_gradients_match_the_oracle(
+    kernel_name: str, inducing_name: str
+) -> None:
+    """``collapsed_elbo`` differentiates the KL, so its gradient must be right too.
+
+    A value test cannot see an error that cancels at the evaluation point but
+    not in the derivative -- for instance a term differentiated through the
+    wrong factor.
+    """
+    family, train_data = _build_collapsed_family(kernel_name, inducing_name, 0.5)
+
+    grads = eqx.filter_grad(lambda model: model.prior_kl(train_data))(family)
+    reference_grads = eqx.filter_grad(
+        lambda model: _oracle_collapsed_prior_kl(model, train_data)
+    )(family)
+
+    leaves = jax.tree.leaves(eqx.filter(grads, eqx.is_inexact_array))
+    reference_leaves = jax.tree.leaves(
+        eqx.filter(reference_grads, eqx.is_inexact_array)
+    )
+
+    assert leaves and len(leaves) == len(reference_leaves)
+    for leaf, reference_leaf in zip(leaves, reference_leaves, strict=True):
+        np.testing.assert_allclose(
+            np.asarray(leaf), np.asarray(reference_leaf), rtol=1e-8, atol=1e-10
+        )
+
+
+def test_collapsed_prior_kl_is_sugar_over_the_conditioned_posterior() -> None:
+    """``family.prior_kl(D)`` must be exactly ``family.condition(D).prior_kl``."""
+    family, train_data = _build_collapsed_family("rbf", "grid-9-1d", 0.37)
+    np.testing.assert_array_equal(
+        np.asarray(family.prior_kl(train_data)),
+        np.asarray(family.condition(train_data).prior_kl),
+    )
+
+
+def test_collapsed_prior_kl_vanishes_when_the_data_are_uninformative() -> None:
+    """As sigma grows, q*(u) returns to p(u) and the KL must fall to zero.
+
+    An anchor that does not go through the dense oracle at all: with a huge
+    observation noise ``B -> I``, every term of the KL vanishes separately,
+    and any surviving constant (a mislaid ``- M``, say) shows up as a
+    non-zero limit.
+    """
+    family, train_data = _build_collapsed_family("rbf", "grid-9-1d", 1e6)
+    assert 0.0 <= family.prior_kl(train_data) < 1e-8

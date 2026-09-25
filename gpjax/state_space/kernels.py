@@ -15,7 +15,7 @@ from gpjax.kernels.stationary.matern12 import Matern12
 from gpjax.kernels.stationary.matern32 import Matern32
 from gpjax.kernels.stationary.matern52 import Matern52
 from gpjax.kernels.stationary.periodic import Periodic
-from gpjax.parameters import PositiveReal
+from gpjax.parameters import PositiveReal, val
 from gpjax.state_space._bessel import _stable_scaled_ive
 from gpjax.state_space._validation import _validate_temporal_kernel
 from gpjax.state_space.sde import (
@@ -23,9 +23,12 @@ from gpjax.state_space.sde import (
     Matern12SDE,
     Matern32SDE,
     Matern52SDE,
+    ProductSDE,
     SumSDE,
     TruncatedPeriodicSDE,
 )
+
+_STATIONARY_MATERN_KERNELS = (Matern12, Matern32, Matern52)
 
 
 class TruncatedPeriodic(StationaryKernel):
@@ -80,9 +83,9 @@ class TruncatedPeriodic(StationaryKernel):
     def __call__(self, x, y):
         tau = self.slice_input(x) - self.slice_input(y)
         tau_scalar = jnp.squeeze(tau)
-        lengthscale = paramax.unwrap(self.lengthscale)
-        variance = paramax.unwrap(self.variance)
-        period = paramax.unwrap(self.period)
+        lengthscale = val(self.lengthscale)
+        variance = val(self.variance)
+        period = val(self.period)
         truncation_order = self.truncation_order
 
         bessel_argument = 1.0 / (4.0 * lengthscale**2)
@@ -118,8 +121,8 @@ def to_sde(kernel) -> LinearSDE:
 def _to_sde_matern12(kernel: Matern12) -> Matern12SDE:
     _validate_temporal_kernel(kernel)
     return Matern12SDE(
-        lengthscale=paramax.unwrap(kernel.lengthscale),
-        variance=paramax.unwrap(kernel.variance),
+        lengthscale=val(kernel.lengthscale),
+        variance=val(kernel.variance),
     )
 
 
@@ -127,8 +130,8 @@ def _to_sde_matern12(kernel: Matern12) -> Matern12SDE:
 def _to_sde_matern32(kernel: Matern32) -> Matern32SDE:
     _validate_temporal_kernel(kernel)
     return Matern32SDE(
-        lengthscale=paramax.unwrap(kernel.lengthscale),
-        variance=paramax.unwrap(kernel.variance),
+        lengthscale=val(kernel.lengthscale),
+        variance=val(kernel.variance),
     )
 
 
@@ -136,8 +139,8 @@ def _to_sde_matern32(kernel: Matern32) -> Matern32SDE:
 def _to_sde_matern52(kernel: Matern52) -> Matern52SDE:
     _validate_temporal_kernel(kernel)
     return Matern52SDE(
-        lengthscale=paramax.unwrap(kernel.lengthscale),
-        variance=paramax.unwrap(kernel.variance),
+        lengthscale=val(kernel.lengthscale),
+        variance=val(kernel.variance),
     )
 
 
@@ -145,9 +148,9 @@ def _to_sde_matern52(kernel: Matern52) -> Matern52SDE:
 def _to_sde_truncated_periodic(kernel: TruncatedPeriodic) -> TruncatedPeriodicSDE:
     _validate_temporal_kernel(kernel)
     return TruncatedPeriodicSDE(
-        lengthscale=paramax.unwrap(kernel.lengthscale),
-        variance=paramax.unwrap(kernel.variance),
-        period=paramax.unwrap(kernel.period),
+        lengthscale=val(kernel.lengthscale),
+        variance=val(kernel.variance),
+        period=val(kernel.period),
         truncation_order=kernel.truncation_order,
     )
 
@@ -166,10 +169,37 @@ def _to_sde_periodic(kernel: Periodic) -> LinearSDE:
     )
 
 
+def _find_quasi_periodic_factors(
+    kernels: tuple,
+) -> tuple[TruncatedPeriodic, StationaryKernel] | None:
+    """Return ``(periodic_factor, matern_factor)`` if ``kernels`` is exactly a
+    ``TruncatedPeriodic`` and a stationary Matérn factor, else ``None``.
+    """
+    if len(kernels) != 2:
+        return None
+    periodic_factor, matern_factor = None, None
+    for factor in kernels:
+        if isinstance(factor, TruncatedPeriodic):
+            periodic_factor = factor
+        elif isinstance(factor, _STATIONARY_MATERN_KERNELS):
+            matern_factor = factor
+    if periodic_factor is None or matern_factor is None:
+        return None
+    return periodic_factor, matern_factor
+
+
 @to_sde.register
 def _to_sde_product_kernel(kernel: ProductKernel) -> LinearSDE:
+    quasi_periodic_factors = _find_quasi_periodic_factors(kernel.kernels)
+    if quasi_periodic_factors is not None:
+        periodic_factor, matern_factor = quasi_periodic_factors
+        return ProductSDE(components=(to_sde(periodic_factor), to_sde(matern_factor)))
     raise NotImplementedError(
-        "ProductKernel state-space conversion is not supported in v1: state dimension "
-        "blows up Kronecker-style as the product of component state dimensions, which "
-        "defeats the O(N · d³) advantage of the state-space approach."
+        "ProductKernel state-space conversion is only supported for the "
+        "quasi-periodic TruncatedPeriodic x {Matern12, Matern32, Matern52} case "
+        "(Solin & Sarkka 2014 sec. 3), whose Kronecker state dimension is "
+        "(2K+1)*d. Generic ProductKernel conversion is not supported in v1: state "
+        "dimension blows up Kronecker-style as the product of component state "
+        "dimensions, which defeats the O(N · d³) advantage of the state-space "
+        "approach."
     )

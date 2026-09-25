@@ -1,6 +1,7 @@
 """Tests for state_space.fit wrappers."""
 
 import gpjax as gpx
+from gpjax.parameters import val
 from gpjax.state_space.fit import (
     fit,
     fit_lbfgs,
@@ -61,7 +62,7 @@ def test_fit_scipy_recovers_matern52_hyperparameters_at_N_2000():
             lengthscale=init_lengthscale, variance=init_variance
         ),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=init_obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=init_obs_stddev)
     posterior = prior * likelihood
 
     fitted_posterior, history = fit_scipy(
@@ -70,14 +71,13 @@ def test_fit_scipy_recovers_matern52_hyperparameters_at_N_2000():
         max_iters=200,
         verbose=False,
     )
-    fitted = paramax.unwrap(fitted_posterior)
 
     # Loose recovery checks (within ~50% of truth).
-    assert 0.4 < float(fitted.prior.kernel.lengthscale) < 1.4, (
-        f"lengthscale recovery off: got {float(fitted.prior.kernel.lengthscale)}, true {lengthscale_true}"
+    assert 0.4 < float(val(fitted_posterior.prior.kernel.lengthscale)) < 1.4, (
+        f"lengthscale recovery off: got {float(val(fitted_posterior.prior.kernel.lengthscale))}, true {lengthscale_true}"
     )
-    assert 0.5 < float(fitted.prior.kernel.variance) < 4.0
-    assert 0.15 < float(fitted.likelihood.obs_stddev) < 0.55
+    assert 0.5 < float(val(fitted_posterior.prior.kernel.variance)) < 4.0
+    assert 0.15 < float(val(fitted_posterior.likelihood.obs_stddev)) < 0.55
 
     # Final negative-MLL strictly less than initial.
     assert history[-1] < history[0]
@@ -91,9 +91,9 @@ def test_fit_scipy_returns_state_space_posterior_type():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
-    from gpjax.state_space.gps import StateSpaceConjugatePosterior
+    from gpjax.state_space.gps import StateSpaceConjugateModel
 
     fitted_posterior, _ = fit_scipy(
         model=posterior,
@@ -101,7 +101,7 @@ def test_fit_scipy_returns_state_space_posterior_type():
         max_iters=10,
         verbose=False,
     )
-    assert isinstance(fitted_posterior, StateSpaceConjugatePosterior)
+    assert isinstance(fitted_posterior, StateSpaceConjugateModel)
 
 
 def test_fit_scipy_warns_on_unsorted_input_and_sorts_internally():
@@ -116,7 +116,7 @@ def test_fit_scipy_warns_on_unsorted_input_and_sorts_internally():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
     with pytest.warns(UserWarning, match=r"unsorted|sort"):
         fit_scipy(model=posterior, train_data=train_data, max_iters=10, verbose=False)
@@ -139,16 +139,16 @@ def test_fit_lbfgs_returns_state_space_posterior_type():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
-    from gpjax.state_space.gps import StateSpaceConjugatePosterior
+    from gpjax.state_space.gps import StateSpaceConjugateModel
 
     fitted_posterior, _ = fit_lbfgs(
         model=posterior,
         train_data=train_data,
         max_iters=10,
     )
-    assert isinstance(fitted_posterior, StateSpaceConjugatePosterior)
+    assert isinstance(fitted_posterior, StateSpaceConjugateModel)
 
 
 def test_fit_optax_runs_full_batch():
@@ -160,9 +160,9 @@ def test_fit_optax_runs_full_batch():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
-    from gpjax.state_space.gps import StateSpaceConjugatePosterior
+    from gpjax.state_space.gps import StateSpaceConjugateModel
 
     fitted_posterior, history = fit(
         model=posterior,
@@ -171,7 +171,7 @@ def test_fit_optax_runs_full_batch():
         num_iters=10,
         verbose=False,
     )
-    assert isinstance(fitted_posterior, StateSpaceConjugatePosterior)
+    assert isinstance(fitted_posterior, StateSpaceConjugateModel)
     assert history.shape == (10,)
 
 
@@ -183,7 +183,7 @@ def test_fit_rejects_minibatch_with_value_error():
         mean_function=gpx.mean_functions.Zero(),
         kernel=gpx.kernels.Matern12(lengthscale=1.0, variance=1.0),
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.3)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.3)
     posterior = prior * likelihood
     with pytest.raises(ValueError, match=r"batch_size|full[- ]batch"):
         fit(
@@ -227,7 +227,7 @@ def test_paramax_non_trainable_freezes_lengthscale():
         mean_function=gpx.mean_functions.Zero(),
         kernel=frozen_kernel,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=init_obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=init_obs_stddev)
     posterior = prior * likelihood
 
     fitted_posterior, _ = fit_scipy(
@@ -236,8 +236,7 @@ def test_paramax_non_trainable_freezes_lengthscale():
         max_iters=50,
         verbose=False,
     )
-    fitted = paramax.unwrap(fitted_posterior)
-    fitted_lengthscale_value = float(fitted.prior.kernel.lengthscale)
+    fitted_lengthscale_value = float(val(fitted_posterior.prior.kernel.lengthscale))
     np.testing.assert_allclose(
         fitted_lengthscale_value,
         init_lengthscale_value,
@@ -245,8 +244,8 @@ def test_paramax_non_trainable_freezes_lengthscale():
     )
 
     # Sanity: variance and/or obs_stddev DID move (otherwise the freeze test is vacuous).
-    fitted_variance = float(fitted.prior.kernel.variance)
-    fitted_obs_stddev = float(fitted.likelihood.obs_stddev)
+    fitted_variance = float(val(fitted_posterior.prior.kernel.variance))
+    fitted_obs_stddev = float(val(fitted_posterior.likelihood.obs_stddev))
     assert (
         abs(fitted_variance - init_variance) > 1e-3
         or abs(fitted_obs_stddev - init_obs_stddev) > 1e-3
