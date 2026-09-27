@@ -544,7 +544,10 @@ class DualVariationalGaussian(AbstractVariationalGaussian[L]):
 
     Neither field is wrapped in a constraining bijection: positive semi-definiteness
     of $\Lambda_2$ comes from the convex-combination structure of the natural-gradient
-    update, and a bijection here would destroy that affine step.
+    update, and a bijection here would destroy that affine step. That guarantee holds
+    only under :func:`~gpjax.fit.fit_natgrads`; plain :func:`~gpjax.fit.fit` can step
+    $\Lambda_2$ out of the PSD cone and produce NaNs, so use ``fit_natgrads`` to
+    train this family.
 
     Everything routes through the working matrix
     $\mathbf{R} = \mathbf{K}_{zz} + \mathbf{K}_{zz}\Lambda_2\mathbf{K}_{zz}

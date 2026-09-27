@@ -379,12 +379,13 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
         ``DualVariationalGaussian`` is still correct and returns the same value and
         the same gradients; ``dual_elbo`` is the fast path, not a different bound.
 
-        Plain :func:`~gpjax.fit.fit` on a ``DualVariationalGaussian`` with this
-        objective remains valid -- it is ordinary gradient descent in the dual
-        coordinates. It gives *different* dynamics from :func:`~gpjax.fit.fit` on a
-        ``VariationalGaussian``, because the two parameterisations induce different
-        metrics. :func:`~gpjax.fit.fit_natgrads` is the parameterisation-invariant
-        alternative.
+        Train a ``DualVariationalGaussian`` with :func:`~gpjax.fit.fit_natgrads`.
+        Plain :func:`~gpjax.fit.fit` computes the right gradients, but it takes
+        unconstrained steps on ``dual_matrix``, and nothing then keeps
+        $\Lambda_2$ positive semi-definite. A step that leaves the PSD cone makes
+        the Cholesky factorisation of $\mathbf{R}$ fail and the objective return
+        NaN (`#751 <https://github.com/thomaspinder/GPJax/issues/751>`_). Only
+        the natural-gradient update keeps the dual parameters valid.
     """
     # KL[q(u) || p(u)], evaluated through R = Kzz + Kzz Lambda_2 Kzz.
     kl = variational_family.prior_kl()
