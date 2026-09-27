@@ -28,6 +28,17 @@ python -c 'import gpjax; print(gpjax.__version__)'
 ```
 :::
 
+## Optional extras
+
+To read gridded, labelled data with [`gpjax.xarray`](reference/xarray.md), install
+the `xarray` extra:
+
+```bash
+pip install "gpjax[xarray]"
+```
+
+`import gpjax` never imports xarray, so the core install is unaffected.
+
 ## GPU/TPU support
 
 Fancy using GPJax on GPU/TPU? Then you'll need to install JAX with the relevant

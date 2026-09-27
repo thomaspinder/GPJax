@@ -87,3 +87,11 @@ when the object is a minibatch view (stamped by `get_batch`); the minibatch
 ELBO scale is derived from it, never supplied by hand. Read it through
 `full_size`, which falls back to `n` for a whole dataset — production code
 uses `data.full_size / data.n` and never re-spells the fallback inline.
+
+**GridSpec** — the record of how a labelled xarray grid was flattened into a
+**Dataset** by `gpjax.xarray.from_xarray`: which inputs fill which columns, the
+grid's dims and coordinates, which cells were dropped for NaN, and the time
+origin of each datetime input. It lives next to the model, never inside it:
+`inputs_for` builds prediction inputs on a new grid, and `to_xarray` maps a
+predictive distribution back onto the labelled grid. The **Dataset** itself
+carries no grid metadata.

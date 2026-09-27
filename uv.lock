@@ -837,6 +837,10 @@ docs = [
     { name = "sphinxext-opengraph" },
     { name = "ucimlrepo" },
     { name = "watermark" },
+    { name = "xarray" },
+]
+xarray = [
+    { name = "xarray" },
 ]
 
 [package.dev-dependencies]
@@ -860,6 +864,7 @@ dev = [
     { name = "ruff" },
     { name = "sphinx-autobuild" },
     { name = "twine" },
+    { name = "xarray" },
     { name = "xdoctest" },
     { name = "zizmor" },
 ]
@@ -903,8 +908,10 @@ requires-dist = [
     { name = "tqdm", specifier = ">4.66.2" },
     { name = "ucimlrepo", marker = "extra == 'docs'", specifier = ">=0.0.7" },
     { name = "watermark", marker = "extra == 'docs'", specifier = ">=2.3.1" },
+    { name = "xarray", marker = "extra == 'docs'", specifier = ">=2024.1" },
+    { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2024.1" },
 ]
-provides-extras = ["docs"]
+provides-extras = ["docs", "xarray"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -927,6 +934,7 @@ dev = [
     { name = "ruff", specifier = ">=0.6" },
     { name = "sphinx-autobuild", specifier = ">=2024.10" },
     { name = "twine", specifier = ">=6.2.0" },
+    { name = "xarray", specifier = ">=2024.1" },
     { name = "xdoctest", specifier = ">=1.1.1" },
     { name = "zizmor", specifier = ">=1.14" },
 ]
@@ -4009,6 +4017,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/60/bc7a980fc78837d6ef8f5940cca4cadc433364503a4c4d42e2a7a0de3231/widgetsnbextension-4.0.16.tar.gz", hash = "sha256:adeea0ae78f0856ee4945f413299801b82a0a01416303301f39a704282a37b73", size = 1111094, upload-time = "2026-08-18T08:52:55.859Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/95/40e17e20046b7bc820d29d09ae84ec157ec8dd6e6f6cd722626292c31b2e/widgetsnbextension-4.0.16-py3-none-any.whl", hash = "sha256:a31a8774885b96fe825462f5d6496166f0c7cae111195b6465c801d230eb5a4e", size = 2225148, upload-time = "2026-08-18T08:52:53.736Z" },
+]
+
+[[package]]
+name = "xarray"
+version = "2026.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ea/96/3f7bdd00e505ec3698903415b30135024703e017b28c6b61f98da3193b0d/xarray-2026.7.0.tar.gz", hash = "sha256:361b495928fdbf5b58d0969bb6775339019da5e93ca74d61ddf4eb5edd6ce604", size = 3145348, upload-time = "2026-07-09T17:38:26.515Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/5b/28365212062939d213802e5e5fe855cdb231e1c2a93254ba1690066504e3/xarray-2026.7.0-py3-none-any.whl", hash = "sha256:bf9dd130b93806dc78e90c1b7ac24851b31557b888674c53622235691cf21824", size = 1426778, upload-time = "2026-07-09T17:38:24.224Z" },
 ]
 
 [[package]]
