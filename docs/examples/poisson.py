@@ -15,7 +15,7 @@
 # ---
 
 # %% [markdown]
-# # Count data regression
+# # Count Data Regression
 #
 # Download this notebook: {nb-download}`poisson.ipynb`
 #

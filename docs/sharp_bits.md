@@ -1,4 +1,4 @@
-# The sharp bits
+# The Sharp Bits
 
 ## Pseudo-randomness
 

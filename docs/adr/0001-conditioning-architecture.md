@@ -1,4 +1,4 @@
-# ADR-0001: The v1.0 conditioning architecture
+# ADR-0001: The v1.0 Conditioning Architecture
 
 - **Status:** accepted
 - **Date:** 2026-08-06

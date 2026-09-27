@@ -15,7 +15,7 @@
 # ---
 
 # %% [markdown]
-# # Likelihood guide
+# # Likelihood Guide
 #
 # Download this notebook: {nb-download}`likelihoods_guide.ipynb`
 #

@@ -62,22 +62,42 @@ GPJax into the package it is today.
 
 ## Notebook examples
 
-> - [**Conjugate Inference**](https://docs.jaxgaussianprocesses.com/examples/regression.html)
-> - [**Classification**](https://docs.jaxgaussianprocesses.com/examples/classification.html)
-> - [**Sparse Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/collapsed_vi.html)
-> - [**Stochastic Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/uncollapsed_vi.html)
-> - [**Laplace Approximation**](https://docs.jaxgaussianprocesses.com/examples/classification.html#laplace-approximation)
-> - [**Inference on Non-Euclidean Spaces**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html#custom-kernel)
-> - [**Inference on Graphs**](https://docs.jaxgaussianprocesses.com/examples/graph_kernels.html)
-> - [**Heteroscedastic Inference**](https://docs.jaxgaussianprocesses.com/examples/heteroscedastic_inference.html)
-> - [**Learning Gaussian Process Barycentres**](https://docs.jaxgaussianprocesses.com/examples/barycentres.html)
-> - [**Deep Kernel Regression**](https://docs.jaxgaussianprocesses.com/examples/deep_kernels.html)
-> - [**Poisson Regression**](https://docs.jaxgaussianprocesses.com/examples/poisson.html)
+### Getting started
 
-## Guides for customisation
->
-> - [**Custom kernels**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html#custom-kernel)
-> - [**UCI regression**](https://docs.jaxgaussianprocesses.com/examples/yacht.html)
+> - [**New to Gaussian Processes?**](https://docs.jaxgaussianprocesses.com/examples/intro_to_gps.html)
+> - [**Introduction to Kernels**](https://docs.jaxgaussianprocesses.com/examples/intro_to_kernels.html)
+> - [**Regression**](https://docs.jaxgaussianprocesses.com/examples/regression.html)
+> - [**Classification**](https://docs.jaxgaussianprocesses.com/examples/classification.html)
+> - [**Count Data Regression**](https://docs.jaxgaussianprocesses.com/examples/poisson.html)
+> - [**Natural Gradients**](https://docs.jaxgaussianprocesses.com/examples/natural_gradients.html)
+
+### Accelerating Gaussian processes
+
+> - [**Sparse Gaussian Process Regression**](https://docs.jaxgaussianprocesses.com/examples/collapsed_vi.html)
+> - [**Sparse Stochastic Variational Inference**](https://docs.jaxgaussianprocesses.com/examples/uncollapsed_vi.html)
+> - [**Natural Gradients in Practice**](https://docs.jaxgaussianprocesses.com/examples/natgrads.html)
+> - [**Dual Parameterisation of Sparse GPs (t-SVGP)**](https://docs.jaxgaussianprocesses.com/examples/dual_svgp.html)
+> - [**State-Space (Markovian) Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/state_space_gps.html)
+> - [**Scalable Multi-Output GPs with OILMM**](https://docs.jaxgaussianprocesses.com/examples/oilmm.html)
+
+### Applied modelling
+
+> - [**Gaussian Processes Barycentres**](https://docs.jaxgaussianprocesses.com/examples/barycentres.html)
+> - [**Graph Kernels**](https://docs.jaxgaussianprocesses.com/examples/graph_kernels.html)
+> - [**Heteroscedastic Inference**](https://docs.jaxgaussianprocesses.com/examples/heteroscedastic_inference.html)
+> - [**Multi-Output Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/multioutput.html)
+> - [**Orthogonal Additive Kernels**](https://docs.jaxgaussianprocesses.com/examples/oak.html)
+> - [**Gaussian Processes for Vector Fields and Ocean Current Modelling**](https://docs.jaxgaussianprocesses.com/examples/oceanmodelling.html)
+> - [**Spatial Modelling with Composable Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/spatial_linear_gp.html)
+> - [**UCI Data Benchmarking**](https://docs.jaxgaussianprocesses.com/examples/yacht.html)
+
+### Guides for customisation
+
+> - [**Kernel Guide**](https://docs.jaxgaussianprocesses.com/examples/constructing_new_kernels.html)
+> - [**Likelihood Guide**](https://docs.jaxgaussianprocesses.com/examples/likelihoods_guide.html)
+> - [**Deep Kernel Learning**](https://docs.jaxgaussianprocesses.com/examples/deep_kernels.html)
+> - [**Joint Inference with Numpyro**](https://docs.jaxgaussianprocesses.com/examples/numpyro_integration.html)
+> - [**Backend Module Design**](https://docs.jaxgaussianprocesses.com/examples/backend.html)
 
 ## Conversion between `.ipynb` and `.py`
 Above examples are stored in [examples](docs/examples) directory in the double
