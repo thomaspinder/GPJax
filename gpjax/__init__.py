@@ -56,7 +56,7 @@ __license__ = "MIT"
 __description__ = "Gaussian processes in JAX"
 __url__ = "https://github.com/thomaspinder/GPJax"
 __contributors__ = "https://github.com/thomaspinder/GPJax/graphs/contributors"
-__version__ = "0.18.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "ConjugateModel",
