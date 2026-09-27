@@ -285,7 +285,7 @@ jobs:
           CHANGELOG="$CHANGELOG- Model validation results available in CI artifacts\n\n"
 
           CHANGELOG="$CHANGELOG### 🔍 What's Changed\n"
-          CHANGELOG="$CHANGELOG- Full diff: https://github.com/thomaspinder/GPJax/compare/$PREVIOUS_TAG...$CURRENT_TAG\n\n"
+          CHANGELOG="$CHANGELOG- Full diff: https://github.com/QuantClimate/GPJax/compare/$PREVIOUS_TAG...$CURRENT_TAG\n\n"
 
           # Escape for GitHub output
           EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)

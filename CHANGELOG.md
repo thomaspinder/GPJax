@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`gpjax.xarray`: labelled gridded data in and out
-  ([#782](https://github.com/thomaspinder/GPJax/issues/782)).**
+  ([#782](https://github.com/QuantClimate/GPJax/issues/782)).**
   `from_xarray(ds, target=..., inputs=[...])` flattens an `xr.Dataset` into an
   ordinary `Dataset`. Inputs can be coordinates or other data variables; datetime
   inputs become days since the first timestamp, and NaN cells are dropped. It
@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `StateSpacePosterior.__call__` (`gpjax.state_space`) now accept
   `covariance="dense"`, returning the full joint covariance across test
   points rather than marginal variances only
-  ([#651](https://github.com/thomaspinder/GPJax/issues/651)). For the
+  ([#651](https://github.com/QuantClimate/GPJax/issues/651)). For the
   unconditioned prior this is just the kernel's own dense gram — the
   state-space SDE is an exact representation with no training data to
   marginalise out. For the conditioned (smoothed) posterior it is built from
@@ -463,9 +463,9 @@ instructions.
 - Added: `equinox>=0.11`, `paramax>=0.0.5`, `lineax`.
 - Removed: `flax`, `cola-ml`.
 
-[1.0.0]: https://github.com/thomaspinder/GPJax/releases/tag/v1.0.0
-[0.18.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.18.0
-[0.16.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.16.0
-[0.17.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.17.0
-[0.15.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.15.0
-[0.14.0]: https://github.com/thomaspinder/GPJax/releases/tag/v0.14.0
+[1.0.0]: https://github.com/QuantClimate/GPJax/releases/tag/v1.0.0
+[0.18.0]: https://github.com/QuantClimate/GPJax/releases/tag/v0.18.0
+[0.16.0]: https://github.com/QuantClimate/GPJax/releases/tag/v0.16.0
+[0.17.0]: https://github.com/QuantClimate/GPJax/releases/tag/v0.17.0
+[0.15.0]: https://github.com/QuantClimate/GPJax/releases/tag/v0.15.0
+[0.14.0]: https://github.com/QuantClimate/GPJax/releases/tag/v0.14.0

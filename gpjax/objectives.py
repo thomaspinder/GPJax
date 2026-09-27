@@ -384,7 +384,7 @@ def dual_elbo(variational_family: DVF, data: Dataset) -> ScalarFloat:
         unconstrained steps on ``dual_matrix``, and nothing then keeps
         $\Lambda_2$ positive semi-definite. A step that leaves the PSD cone makes
         the Cholesky factorisation of $\mathbf{R}$ fail and the objective return
-        NaN (`#751 <https://github.com/thomaspinder/GPJax/issues/751>`_). Only
+        NaN (`#751 <https://github.com/QuantClimate/GPJax/issues/751>`_). Only
         the natural-gradient update keeps the dual parameters valid.
     """
     # KL[q(u) || p(u)], evaluated through R = Kzz + Kzz Lambda_2 Kzz.

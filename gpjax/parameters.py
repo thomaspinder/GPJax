@@ -37,7 +37,7 @@ class _DtypePreservingSoftplusLowerCholeskyTransform(SoftplusLowerCholeskyTransf
     ``x.dtype``. The inverse is already dtype-preserving upstream.
 
     Remove this class once the upstream allocations accept ``dtype``.
-    See https://github.com/thomaspinder/GPJax/discussions/628.
+    See https://github.com/QuantClimate/GPJax/discussions/628.
     """
 
     def __call__(self, x):

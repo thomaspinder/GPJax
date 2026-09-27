@@ -54,7 +54,7 @@ This version is possibly unstable and may contain bugs.
 The latest development version of `GPJax` can be installed via running following:
 
 ```bash
-git clone https://github.com/thomaspinder/GPJax.git
+git clone https://github.com/QuantClimate/GPJax.git
 cd GPJax
 uv sync
 ```

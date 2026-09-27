@@ -134,8 +134,8 @@ dev = [
 
 [project.urls]
 Documentation = "https://gpjax.quantclimate.com/"
-Issues = "https://github.com/thomaspinder/GPJax/issues"
-Source = "https://github.com/thomaspinder/GPJax"
+Issues = "https://github.com/QuantClimate/GPJax/issues"
+Source = "https://github.com/QuantClimate/GPJax"
 
 [tool.hatch.version]
 path = "gpjax/__init__.py"

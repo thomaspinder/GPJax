@@ -133,13 +133,13 @@ myst_url_schemes = {
     "https": None,
     "mailto": None,
     "ftp": None,
-    "gh": {"url": "https://github.com/thomaspinder/GPJax/{{path}}"},
+    "gh": {"url": "https://github.com/QuantClimate/GPJax/{{path}}"},
     "gh-issue": {
-        "url": "https://github.com/thomaspinder/GPJax/issues/{{path}}",
+        "url": "https://github.com/QuantClimate/GPJax/issues/{{path}}",
         "title": "Issue #{{path}}",
     },
     "gh-pr": {
-        "url": "https://github.com/thomaspinder/GPJax/pull/{{path}}",
+        "url": "https://github.com/QuantClimate/GPJax/pull/{{path}}",
         "title": "PR #{{path}}",
     },
 }
@@ -331,7 +331,7 @@ html_theme_options = {
     # is pinned over `--accent-9` in stylesheets/extra.css.
     "accent_color": "red",
     "color_mode": "auto",  # follow the reader's light/dark preference
-    "github_url": "https://github.com/thomaspinder/GPJax",
+    "github_url": "https://github.com/QuantClimate/GPJax",
     "nav_links": [
         {"title": "PyPI", "url": "https://pypi.org/project/gpjax"},
     ],
@@ -369,7 +369,7 @@ ogp_enable_meta_description = True
 ogp_social_cards = {"enable": True, "line_color": "#7a2e2a"}
 
 html_context = {
-    "github_user": "thomaspinder",
+    "github_user": "QuantClimate",
     "github_repo": "GPJax",
     "github_version": "main",
     "doc_path": "docs",
