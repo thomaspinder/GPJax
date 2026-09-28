@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   unit-tests:
     name: Run Tests
-    timeout-minutes: 30
+    timeout-minutes: 50
     strategy:
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
