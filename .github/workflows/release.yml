@@ -207,7 +207,7 @@ jobs:
           retention-days: 90
 
   generate-changelog:
-    name: "Generate Release Changelog"
+    name: "Extract Release Notes"
     needs: validate-release
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -223,75 +223,47 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Generate changelog
+      # The release notes are the hand-written CHANGELOG.md section for this
+      # version, not a list of commit subjects: release branches land on main
+      # as one squashed commit, so commit history cannot describe a release.
+      - name: Extract this version's CHANGELOG section
         id: changelog
         env:
           CURRENT_TAG: ${{ needs.validate-release.outputs.version }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
-          # Get the previous tag
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          VERSION="${CURRENT_TAG#v}"
 
-          echo "Generating changelog from $PREVIOUS_TAG to $CURRENT_TAG"
+          # Everything between "## [<version>]" and the next "## [" heading.
+          # index() matches the heading literally, so the dots in the version
+          # are not regex wildcards.
+          SECTION=$(awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)
 
-          # Generate changelog based on conventional commits
-          CHANGELOG=""
-
-          if [ -n "$PREVIOUS_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"%s" $PREVIOUS_TAG..HEAD)
-          else
-            COMMITS=$(git log --pretty=format:"%s")
-          fi
-
-          # Parse conventional commits
-          FEATURES=""
-          FIXES=""
-          BREAKING=""
-          OTHERS=""
-
-          while IFS= read -r commit; do
-            if [[ $commit =~ ^feat(\(.+\))?: ]]; then
-              FEATURES="$FEATURES\n- ${commit#feat*: }"
-            elif [[ $commit =~ ^fix(\(.+\))?: ]]; then
-              FIXES="$FIXES\n- ${commit#fix*: }"
-            elif [[ $commit =~ BREAKING ]]; then
-              BREAKING="$BREAKING\n- $commit"
+          if [ -z "$(printf '%s' "$SECTION" | tr -d '[:space:]')" ]; then
+            if [[ "$VERSION" == *-* ]]; then
+              SECTION="Pre-release of the changes listed under [Unreleased] in CHANGELOG.md."
             else
-              OTHERS="$OTHERS\n- $commit"
+              echo "::error file=CHANGELOG.md::No '## [$VERSION]' section found. Add release notes to CHANGELOG.md before tagging $CURRENT_TAG."
+              exit 1
             fi
-          done <<< "$COMMITS"
-
-          # Build changelog
-          CHANGELOG="## Release $CURRENT_TAG\n\n"
-
-          if [ -n "$BREAKING" ]; then
-            CHANGELOG="$CHANGELOG### 🚨 Breaking Changes\n$BREAKING\n\n"
           fi
 
-          if [ -n "$FEATURES" ]; then
-            CHANGELOG="$CHANGELOG### ✨ New Features\n$FEATURES\n\n"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "$CURRENT_TAG^" 2>/dev/null || echo "")
+          NOTES="$SECTION"
+          if [ -n "$PREVIOUS_TAG" ]; then
+            NOTES="$NOTES"$'\n\n'"**Full diff:** $REPO_URL/compare/$PREVIOUS_TAG...$CURRENT_TAG"
           fi
 
-          if [ -n "$FIXES" ]; then
-            CHANGELOG="$CHANGELOG### 🐛 Bug Fixes\n$FIXES\n\n"
-          fi
-
-          if [ -n "$OTHERS" ]; then
-            CHANGELOG="$CHANGELOG### 📝 Other Changes\n$OTHERS\n\n"
-          fi
-
-          # Add performance and ML-specific sections
-          CHANGELOG="$CHANGELOG### 📊 Performance & ML Improvements\n"
-          CHANGELOG="$CHANGELOG- See performance regression tests in this release\n"
-          CHANGELOG="$CHANGELOG- Model validation results available in CI artifacts\n\n"
-
-          CHANGELOG="$CHANGELOG### 🔍 What's Changed\n"
-          CHANGELOG="$CHANGELOG- Full diff: https://github.com/QuantClimate/GPJax/compare/$PREVIOUS_TAG...$CURRENT_TAG\n\n"
-
-          # Escape for GitHub output
           EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "changelog<<$EOF_MARKER" >> $GITHUB_OUTPUT
-          echo -e "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "$EOF_MARKER" >> $GITHUB_OUTPUT
+          {
+            echo "changelog<<$EOF_MARKER"
+            printf '%s\n' "$NOTES"
+            echo "$EOF_MARKER"
+          } >> "$GITHUB_OUTPUT"
 
   create-release:
     name: "Create GitHub Release"
@@ -328,7 +300,6 @@ jobs:
           args=(
             --title "GPJax $VERSION"
             --notes-file release-notes.md
-            --generate-notes
             --target "$GITHUB_SHA"
           )
           if [ "$DRAFT" = "true" ]; then
