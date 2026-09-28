@@ -19,7 +19,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -108,7 +108,7 @@ class ArcCosine(AbstractKernel):
         K = self._J(theta)
         K *= jnp.sqrt(x_x) ** self.order
         K *= jnp.sqrt(y_y) ** self.order
-        K *= _val(self.variance) / jnp.pi
+        K *= val(self.variance) / jnp.pi
 
         return K.squeeze()
 
@@ -123,7 +123,7 @@ class ArcCosine(AbstractKernel):
         Returns:
             ScalarFloat: The value of the weighted product between the two arguments``.
         """
-        return jnp.inner(_val(self.weight_variance) * x, y) + _val(self.bias_variance)
+        return jnp.inner(val(self.weight_variance) * x, y) + val(self.bias_variance)
 
     def _J(self, theta: ScalarFloat) -> ScalarFloat:
         r"""Evaluate the angular dependency function corresponding to the desired order.

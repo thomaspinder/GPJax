@@ -406,7 +406,7 @@ print(jnp.round(UtU, decimals=6))
 #
 # Before optimising any parameters, we condition with the PCA-initialised
 # defaults to establish a baseline. Calling
-# [`condition_on_observations`](#gpjax.models.OILMMModel.condition_on_observations)
+# [`condition`](#gpjax.models.OILMMModel.condition)
 # executes the OILMM inference algorithm:
 #
 # 1. **Project**: compute
@@ -419,7 +419,7 @@ print(jnp.round(UtU, decimals=6))
 #    $m$ independent posteriors.
 
 # %%
-posterior = model.condition_on_observations(train_data)
+posterior = model.condition(train_data)
 
 # %% [markdown]
 # ## Baseline predictions
@@ -435,7 +435,7 @@ test_time_hours = jnp.linspace(
 )
 X_test = ((test_time_hours - input_mean) / input_std).reshape(-1, 1)
 
-pre_pred = posterior.predict(X_test, return_full_cov=False)
+pre_pred = posterior.predict(X_test, covariance="diagonal")
 pre_opt_mean_standardised = pre_pred.mean.reshape(N_test, num_outputs)
 pre_opt_std_standardised = jnp.sqrt(jnp.diag(pre_pred.covariance())).reshape(
     N_test, num_outputs
@@ -542,8 +542,8 @@ print(f"Optimised MLL: {opt_mll:.3f}")
 # same test locations.
 
 # %%
-opt_posterior = opt_model.condition_on_observations(train_data)
-post_pred = opt_posterior.predict(X_test, return_full_cov=False)
+opt_posterior = opt_model.condition(train_data)
+post_pred = opt_posterior.predict(X_test, covariance="diagonal")
 post_opt_mean_standardised = post_pred.mean.reshape(N_test, num_outputs)
 post_opt_std_standardised = jnp.sqrt(jnp.diag(post_pred.covariance())).reshape(
     N_test, num_outputs
@@ -674,13 +674,12 @@ fig, axes = plt.subplots(1, num_latent, figsize=(5 * num_latent, 3), sharey=Fals
 
 for i in range(num_latent):
     ax = axes[i]
-    lat_y = opt_posterior.latent_datasets[i].y.squeeze()
+    latent = opt_posterior.latent_posteriors[i]
+    lat_y = latent.train_data.y.squeeze()
     ax.plot(
         time_hours, lat_y, "o", color=cols[i], alpha=0.4, ms=3, label="Projected data"
     )
-    lat_pred = opt_posterior.latent_posteriors[i].predict(
-        X_test, train_data=opt_posterior.latent_datasets[i]
-    )
+    lat_pred = latent.predict(X_test, covariance="diagonal")
     lat_mean = lat_pred.mean
     lat_std = jnp.sqrt(jnp.diag(lat_pred.covariance()))
 

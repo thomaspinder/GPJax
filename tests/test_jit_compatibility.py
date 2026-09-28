@@ -112,7 +112,7 @@ def test_prior_predict_jit(test_inputs):
 
 def test_conjugate_posterior_predict_jit(train_data, test_inputs):
     prior = Prior(mean_function=Constant(), kernel=RBF())
-    likelihood = Gaussian(num_datapoints=train_data.n)
+    likelihood = Gaussian()
     posterior = prior * likelihood
 
     def predict_fn(x_test, data):

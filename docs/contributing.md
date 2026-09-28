@@ -10,7 +10,7 @@ many ways to contribute, including:
 - Contributing or improving the [docs](gh:tree/main/docs) or
   [examples](gh:tree/main/docs/examples).
 - Fixing outstanding [issues](gh:issues) (bugs).
-- Extending or improving our [codebase](https://github.com/thomaspinder/GPJax).
+- Extending or improving our [codebase](https://github.com/QuantClimate/GPJax).
 
 
 ## Code of conduct
@@ -30,7 +30,7 @@ section](gh:discussions) on Github.
 
 Submitting code contributions to GPJax is done via a [GitHub pull
 request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests).
-Our preferred workflow is to first fork the [GitHub repository](https://github.com/thomaspinder/GPJax), clone it to
+Our preferred workflow is to first fork the [GitHub repository](https://github.com/QuantClimate/GPJax), clone it to
 your local machine, and develop on a _feature branch_. Once you're happy with your changes,
 install our `pre-commit hooks`, `commit` and `push` your code.
 
@@ -46,7 +46,7 @@ Before opening a pull request we recommend you check our [pull request checklist
 
 1.  Click [here](gh:fork) to Fork GPJax's
   codebase (alternatively, click the 'Fork' button towards the top right of
-  the [main repository page](https://github.com/thomaspinder/GPJax)). This
+  the [main repository page](https://github.com/QuantClimate/GPJax)). This
   adds a copy of the codebase to your GitHub user account.
 
 2.  Clone your GPJax fork from your GitHub account to your local disk, and add
@@ -54,7 +54,7 @@ Before opening a pull request we recommend you check our [pull request checklist
   ```bash
   $ git clone git@github.com:<your GitHub handle>/GPJax.git
   $ cd GPJax
-  $ git remote add upstream git@github.com:thomaspinder/GPJax.git
+  $ git remote add upstream git@github.com:QuantClimate/GPJax.git
   ```
 
 3.  Create a `feature` branch to hold your development changes:

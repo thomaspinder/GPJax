@@ -5,7 +5,8 @@ from __future__ import annotations
 import warnings
 
 import jax.numpy as jnp
-import paramax
+
+from gpjax.parameters import val
 
 
 def _validate_temporal_kernel(kernel) -> None:
@@ -14,7 +15,7 @@ def _validate_temporal_kernel(kernel) -> None:
     State-space GPs require kernels with scalar lengthscale, no active_dims
     selection (or trivial ``slice(None)``), and ``n_dims`` either ``None`` or 1.
     """
-    lengthscale = paramax.unwrap(kernel.lengthscale)
+    lengthscale = val(kernel.lengthscale)
     if jnp.asarray(lengthscale).ndim != 0:
         raise ValueError(
             "State-space kernels require a scalar lengthscale (1-D temporal input). "

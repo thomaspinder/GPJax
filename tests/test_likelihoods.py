@@ -20,6 +20,7 @@ from gpjax.likelihoods import (
     Bernoulli,
     Gaussian,
     Poisson,
+    StudentT,
     inv_probit,
 )
 from jax import config
@@ -53,7 +54,7 @@ def _compute_latent_dist(
 @pytest.mark.parametrize("obs_stddev", [0.1, 0.5, 1.0, 0.0])
 def test_gaussian_likelihood(n: int, obs_stddev: float):
     x = jnp.linspace(-3.0, 3.0).reshape(-1, 1)
-    likelihood = Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = Gaussian(obs_stddev=obs_stddev)
 
     assert isinstance(likelihood.link_function, Callable)
     assert isinstance(likelihood.link_function(x), npd.Normal)
@@ -65,16 +66,14 @@ def test_gaussian_likelihood(n: int, obs_stddev: float):
 
     # Check predictive mean and variance.
     assert (pred_dist.mean == latent_mean).all()
-    noise_matrix = (
-        jnp.eye(likelihood.num_datapoints) * likelihood.obs_stddev.unwrap() ** 2
-    )
+    noise_matrix = jnp.eye(n) * likelihood.obs_stddev.unwrap() ** 2
     assert np.allclose(pred_dist.covariance_matrix, latent_cov + noise_matrix)
 
 
 @pytest.mark.parametrize("n", [1, 2, 10])
 def test_bernoulli_likelihood(n: int):
     x = jnp.linspace(-3.0, 3.0).reshape(-1, 1)
-    likelihood = Bernoulli(num_datapoints=n)
+    likelihood = Bernoulli()
 
     assert isinstance(likelihood.link_function, Callable)
     assert isinstance(likelihood.link_function(x), npd.BernoulliProbs)
@@ -93,7 +92,7 @@ def test_bernoulli_likelihood(n: int):
 @pytest.mark.parametrize("n", [1, 2, 10])
 def test_poisson_likelihood(n: int):
     x = jnp.linspace(-3.0, 3.0).reshape(-1, 1)
-    likelihood = Poisson(num_datapoints=n)
+    likelihood = Poisson()
 
     assert isinstance(likelihood.link_function, Callable)
     assert isinstance(likelihood.link_function(x), npd.Poisson)
@@ -108,12 +107,42 @@ def test_poisson_likelihood(n: int):
     assert (pred_dist.mean == rate).all()
 
 
+@pytest.mark.parametrize("n", [1, 2, 10])
+@pytest.mark.parametrize("degrees_of_freedom", [2.5, 4.0, 30.0])
+def test_studentt_likelihood(n: int, degrees_of_freedom: float):
+    x = jnp.linspace(-3.0, 3.0).reshape(-1, 1)
+    likelihood = StudentT(degrees_of_freedom=degrees_of_freedom)
+
+    assert isinstance(likelihood.link_function, Callable)
+    assert isinstance(likelihood.link_function(x), npd.StudentT)
+    assert jnp.allclose(likelihood.degrees_of_freedom.unwrap(), degrees_of_freedom)
+    assert jnp.allclose(likelihood.scale.unwrap(), 1.0)
+
+    # Construct latent function distribution.
+    latent_dist, latent_mean, _latent_cov = _compute_latent_dist(n)
+    pred_dist = likelihood(latent_dist)
+    assert isinstance(pred_dist, npd.StudentT)
+
+    # Check predictive mean matches the latent mean, pushed through the link.
+    assert (pred_dist.mean == latent_mean).all()
+
+
+def test_studentt_likelihood_scale():
+    likelihood = StudentT(degrees_of_freedom=3.0, scale=0.5)
+    assert jnp.allclose(likelihood.degrees_of_freedom.unwrap(), 3.0)
+    assert jnp.allclose(likelihood.scale.unwrap(), 0.5)
+
+    f = jnp.zeros((5,))
+    dist = likelihood.link_function(f)
+    assert jnp.allclose(dist.scale, 0.5)
+
+
 class TestMultiOutputGaussian:
     def test_init_scalar_noise(self):
         """Scalar obs_stddev broadcasts to [P] vector."""
         from gpjax.likelihoods import MultiOutputGaussian
 
-        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=0.5)
+        lik = MultiOutputGaussian(num_outputs=3, obs_stddev=0.5)
         assert lik.obs_stddev.unwrap().shape == (3,)
         assert jnp.allclose(lik.obs_stddev.unwrap(), jnp.full(3, 0.5))
 
@@ -122,14 +151,14 @@ class TestMultiOutputGaussian:
         from gpjax.likelihoods import MultiOutputGaussian
 
         noise = jnp.array([0.1, 0.2, 0.3])
-        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=noise)
+        lik = MultiOutputGaussian(num_outputs=3, obs_stddev=noise)
         assert jnp.allclose(lik.obs_stddev.unwrap(), noise)
 
     def test_noise_vector_shape(self):
         """noise_vector() returns [NP] in output-major order."""
         from gpjax.likelihoods import MultiOutputGaussian
 
-        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=3, obs_stddev=1.0)
+        lik = MultiOutputGaussian(num_outputs=3, obs_stddev=1.0)
         nv = lik.noise_vector(10)
         assert nv.shape == (30,)
 
@@ -138,7 +167,7 @@ class TestMultiOutputGaussian:
         from gpjax.likelihoods import MultiOutputGaussian
 
         noise = jnp.array([1.0, 2.0])
-        lik = MultiOutputGaussian(num_datapoints=3, num_outputs=2, obs_stddev=noise)
+        lik = MultiOutputGaussian(num_outputs=2, obs_stddev=noise)
         nv = lik.noise_vector(3)
         # Output-major: [σ₁² repeated N, σ₂² repeated N]
         expected = jnp.array([1.0, 1.0, 1.0, 4.0, 4.0, 4.0])
@@ -148,5 +177,5 @@ class TestMultiOutputGaussian:
         """MultiOutputGaussian is a Gaussian subclass for posterior dispatch."""
         from gpjax.likelihoods import MultiOutputGaussian
 
-        lik = MultiOutputGaussian(num_datapoints=10, num_outputs=2)
+        lik = MultiOutputGaussian(num_outputs=2)
         assert isinstance(lik, Gaussian)

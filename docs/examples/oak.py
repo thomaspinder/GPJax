@@ -273,7 +273,7 @@ oak_kernel = OrthogonalAdditiveKernel(base_kernels, max_order=3)
 
 mean_function = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=mean_function, kernel=oak_kernel)
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=num_train)
+likelihood = gpx.likelihoods.Gaussian()
 posterior = prior * likelihood
 
 # %%
@@ -286,7 +286,7 @@ opt_posterior, history = gpx.fit_scipy(
 )
 
 latent_dist = opt_posterior.predict(
-    X_test, train_data=train_data, return_covariance_type="diagonal"
+    X_test, train_data=train_data, covariance="diagonal"
 )
 predictive_dist = opt_posterior.likelihood(latent_dist)
 predictive_mean = predictive_dist.mean

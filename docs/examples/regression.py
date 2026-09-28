@@ -136,11 +136,11 @@ prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 # the evaluation of the GP's mean and covariance.
 #
 # Since we want to sample from the full posterior, we need to calculate the full covariance matrix.
-# We can enforce this by including the `return_covariance_type = "dense"` attribute when predicting.
+# We can enforce this by including the `covariance = "dense"` attribute when predicting.
 # Note this is what will be defaulted if left blank.
 
 # %% mystnb={"figure": {"caption": "Twenty function samples drawn from the zero-mean RBF prior, shown alongside the prior mean and variance band.", "name": "fig-regression-prior-samples"}}
-prior_dist = prior.predict(xtest, return_covariance_type="dense")
+prior_dist = prior.predict(xtest, covariance="dense")
 
 prior_mean = prior_dist.mean
 prior_std = prior_dist.variance
@@ -181,19 +181,23 @@ plt.show()
 # and what each one assumes about the observations.
 
 # %%
-likelihood = gpx.likelihoods.Gaussian(num_datapoints=D.n)
+likelihood = gpx.likelihoods.Gaussian()
 
 # %% [markdown]
-# The posterior is proportional to the prior multiplied by the likelihood, written as
+# The prior and likelihood together define the joint model over the latent
+# function and the observations,
 #
 # $$
-# p(f(\cdot) | \mathcal{D}) \propto p(f(\cdot)) * p(\mathcal{D} | f(\cdot)).
-# $$ (eq-regression-posterior)
+# p(f(\cdot), \mathcal{D}) = p(\mathcal{D} | f(\cdot))\, p(f(\cdot)).
+# $$ (eq-regression-joint)
 #
-# Mimicking this construct, the posterior is established in GPJax through the `*` operator.
+# Mimicking this equation, the joint model is established in GPJax through the
+# `*` operator. Conditioning it on the data — `model.condition(D)`, or the
+# operator form `model | D` that reads as $p(f \mid \mathcal{D})$ — yields the
+# posterior process.
 
 # %%
-posterior = prior * likelihood
+model = prior * likelihood
 
 # %% [markdown]
 # <!-- ## Hyperparameter optimisation
@@ -212,20 +216,20 @@ posterior = prior * likelihood
 # these parameters by optimising the marginal log-likelihood (MLL).
 
 # %%
-print(-gpx.objectives.conjugate_mll(posterior, D))
+print(-gpx.objectives.conjugate_mll(model, D))
 
 # %% [markdown]
 # We can now define an optimiser. For this example we'll use the `bfgs`
 # optimiser.
 
 # %%
-opt_posterior, history = gpx.fit_scipy(
-    model=posterior,
+opt_model, history = gpx.fit_scipy(
+    model=model,
     objective=lambda p, d: -gpx.objectives.conjugate_mll(p, d),
     train_data=D,
 )
 
-print(-gpx.objectives.conjugate_mll(opt_posterior, D))
+print(-gpx.objectives.conjugate_mll(opt_model, D))
 
 # %% [markdown]
 # To inspect the learned hyperparameters, we can render a summary table of the optimised
@@ -234,26 +238,27 @@ print(-gpx.objectives.conjugate_mll(opt_posterior, D))
 # sanity check after optimisation.
 
 # %%
-gpx.summarise(opt_posterior)
+gpx.summarise(opt_model)
 
 # %% [markdown]
 # ## Prediction
 #
 # Equipped with the posterior and a set of optimised hyperparameter values, we are now
 # in a position to query our GP's predictive distribution at novel test inputs. To do
-# this, we use our defined `posterior` and `likelihood` at our test inputs to obtain
-# the predictive distribution as a `Distrax` multivariate Gaussian upon which `mean`
-# and `stddev` can be used to extract the predictive mean and standard deviatation.
+# this, we condition the optimised model on the training data — this factorises
+# the training covariance exactly once and caches it — and then query the
+# resulting posterior process at the test inputs. Pushing the latent
+# distribution through the likelihood yields the predictive distribution, upon
+# which `mean` and `stddev` can be used to extract the predictive mean and
+# standard deviation.
 #
-# We are only concerned here about the variance between the test points and themselves, so
-# we can just copute the diagonal version of the covariance.  We enforce this by using
-# `return_covariance_type = "diagonal"` in the `predict` call.
+# We are only concerned here with the variance at the test points themselves,
+# so we request the diagonal covariance via `covariance="diagonal"`.
 
 # %%
-latent_dist = opt_posterior.predict(
-    xtest, train_data=D, return_covariance_type="diagonal"
-)
-predictive_dist = opt_posterior.likelihood(latent_dist)
+posterior = opt_model.condition(D)  # equivalently: opt_model | D
+latent_dist = posterior(xtest, covariance="diagonal")
+predictive_dist = opt_model.likelihood(latent_dist)
 
 predictive_mean = predictive_dist.mean
 predictive_std = jnp.sqrt(predictive_dist.variance)

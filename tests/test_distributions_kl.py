@@ -10,10 +10,13 @@ from gpjax.distributions import (
     GaussianDistribution,
     _kl_divergence,
 )
+from gpjax.linalg.custom_operators import BlockDiag, Kronecker
 import gpjax.linalg.utils as linalg_utils
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy as jsp
+from jaxtyping import Array, Float
 import lineax as lx
 import pytest
 
@@ -94,6 +97,30 @@ def _scale(kind: str, which: str) -> lx.AbstractLinearOperator:
         return lx.DiagonalLinearOperator(diagonal)
     if kind == "identity":
         return lx.IdentityLinearOperator(_STRUCT)
+    if kind == "block_diag":
+        # Two disjoint principal submatrices of a PD matrix are themselves
+        # PD, so this is a genuine (non-dense-equivalent) covariance operator.
+        return BlockDiag(
+            [
+                lx.MatrixLinearOperator(matrix[:2, :2]),
+                lx.MatrixLinearOperator(matrix[2:, 2:]),
+            ]
+        )
+    if kind == "kronecker":
+        return Kronecker(
+            lx.MatrixLinearOperator(matrix[:2, :2]),
+            lx.MatrixLinearOperator(matrix[2:, 2:]),
+        )
+    raise ValueError(kind)
+
+
+def _dense_equivalent(kind: str, which: str) -> Float[Array, "4 4"]:
+    """Densifies a structured `_scale` operator for independent cross-checks."""
+    matrix = SIGMA_Q if which == "q" else SIGMA_P
+    if kind == "block_diag":
+        return jsp.linalg.block_diag(matrix[:2, :2], matrix[2:, 2:])
+    if kind == "kronecker":
+        return jnp.kron(matrix[:2, :2], matrix[2:, 2:])
     raise ValueError(kind)
 
 
@@ -111,6 +138,10 @@ REFERENCE_KL = {
     ("identity", "identity"): 5.0625,
     ("dense", "diagonal"): 12.294647261400954,
     ("diagonal", "dense"): 2.428489493791848,
+    # Independently computed (see `_dense_equivalent`) via the textbook
+    # dense formula, not via `_kl_divergence` itself -- issue #709.
+    ("block_diag", "block_diag"): 0.8534692623379325,
+    ("kronecker", "kronecker"): 0.179706013056113,
 }
 
 
@@ -194,11 +225,47 @@ def test_kl_matches_closed_form_formula():
 
 
 # ---------------------------------------------------------------------------
+# BlockDiag / Kronecker support (issue #709)
+#
+# `kl_divergence` calls `lx.linear_solve(..., solver=lx.Triangular())`, which
+# queries `lx.has_unit_diagonal` on the Cholesky factor. `BlockDiag` and
+# `Kronecker` are registered for the other Lineax operator predicates but were
+# missing this one, so the solve raised `NotImplementedError` for any
+# covariance backed by either operator.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["block_diag", "kronecker"])
+def test_kl_matches_dense_equivalent(kind):
+    """Cross-check against a manually densified covariance, independent of
+    the hardcoded `REFERENCE_KL` constants."""
+    q, p = _distributions(kind, kind)
+    dense_q = GaussianDistribution(
+        MU_Q, lx.MatrixLinearOperator(_dense_equivalent(kind, "q"))
+    )
+    dense_p = GaussianDistribution(
+        MU_P, lx.MatrixLinearOperator(_dense_equivalent(kind, "p"))
+    )
+    expected = _kl_divergence(dense_q, dense_p)
+    assert jnp.abs(_kl_divergence(q, p) - expected) < 1e-10
+
+
+@pytest.mark.parametrize("kind", ["block_diag", "kronecker"])
+def test_kl_via_public_method_works_for_structured_operators(kind):
+    """Acceptance check for issue #709: the public API must not raise."""
+    q, p = _distributions(kind, kind)
+    result = q.kl_divergence(p)
+    assert jnp.isfinite(result)
+
+
+# ---------------------------------------------------------------------------
 # Mathematical properties
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("kind", ["dense", "diagonal", "identity"])
+@pytest.mark.parametrize(
+    "kind", ["dense", "diagonal", "identity", "block_diag", "kronecker"]
+)
 def test_kl_of_distribution_with_itself_is_zero(kind):
     q, _ = _distributions(kind, kind)
     assert jnp.abs(_kl_divergence(q, q)) < 1e-10
@@ -277,3 +344,47 @@ def test_kl_is_jittable_for_diagonal_scale():
 
     result = jax.jit(kl_diag)(DIAG_Q, DIAG_P)
     assert jnp.abs(result - REFERENCE_KL[("diagonal", "diagonal")]) < 1e-10
+
+
+def test_kl_is_jittable_for_block_diag_scale():
+    def kl_block_diag(block_1_q, block_2_q, block_1_p, block_2_p):
+        q = GaussianDistribution(
+            MU_Q,
+            BlockDiag(
+                [lx.MatrixLinearOperator(block_1_q), lx.MatrixLinearOperator(block_2_q)]
+            ),
+        )
+        p = GaussianDistribution(
+            MU_P,
+            BlockDiag(
+                [lx.MatrixLinearOperator(block_1_p), lx.MatrixLinearOperator(block_2_p)]
+            ),
+        )
+        return _kl_divergence(q, p)
+
+    result = jax.jit(kl_block_diag)(
+        SIGMA_Q[:2, :2], SIGMA_Q[2:, 2:], SIGMA_P[:2, :2], SIGMA_P[2:, 2:]
+    )
+    assert jnp.abs(result - REFERENCE_KL[("block_diag", "block_diag")]) < 1e-10
+
+
+def test_kl_is_jittable_for_kronecker_scale():
+    def kl_kronecker(factor_1_q, factor_2_q, factor_1_p, factor_2_p):
+        q = GaussianDistribution(
+            MU_Q,
+            Kronecker(
+                lx.MatrixLinearOperator(factor_1_q), lx.MatrixLinearOperator(factor_2_q)
+            ),
+        )
+        p = GaussianDistribution(
+            MU_P,
+            Kronecker(
+                lx.MatrixLinearOperator(factor_1_p), lx.MatrixLinearOperator(factor_2_p)
+            ),
+        )
+        return _kl_divergence(q, p)
+
+    result = jax.jit(kl_kronecker)(
+        SIGMA_Q[:2, :2], SIGMA_Q[2:, 2:], SIGMA_P[:2, :2], SIGMA_P[2:, 2:]
+    )
+    assert jnp.abs(result - REFERENCE_KL[("kronecker", "kronecker")]) < 1e-10

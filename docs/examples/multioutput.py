@@ -155,7 +155,7 @@ kernel = gpx.kernels.ICMKernel(
 meanf = gpx.mean_functions.Zero()
 prior = gpx.gps.Prior(mean_function=meanf, kernel=kernel)
 likelihood = gpx.likelihoods.MultiOutputGaussian(
-    num_datapoints=N, num_outputs=P, obs_stddev=1.0
+    num_outputs=P, obs_stddev=1.0
 )
 posterior = prior * likelihood
 
@@ -442,7 +442,7 @@ lcm_kernel = gpx.kernels.LCMKernel(
 meanf_lcm = gpx.mean_functions.Zero()
 prior_lcm = gpx.gps.Prior(mean_function=meanf_lcm, kernel=lcm_kernel)
 likelihood_lcm = gpx.likelihoods.MultiOutputGaussian(
-    num_datapoints=N_lcm, num_outputs=P_lcm, obs_stddev=1.0
+    num_outputs=P_lcm, obs_stddev=1.0
 )
 posterior_lcm = prior_lcm * likelihood_lcm
 

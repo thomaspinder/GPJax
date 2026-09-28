@@ -29,7 +29,7 @@ def test_prediction_jit_compiles():
     X = jnp.linspace(0, 1, N).reshape(-1, 1)
     y = jr.normal(key, (N, 4))
     dataset = gpx.Dataset(X=X, y=y)
-    posterior = model.condition_on_observations(dataset)
+    posterior = model.condition(dataset)
 
     @jax.jit
     def predict_fn(X_test):

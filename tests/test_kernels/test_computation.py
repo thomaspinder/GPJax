@@ -2,9 +2,15 @@ from gpjax.kernels.computations import (
     ConstantDiagonalKernelComputation,
     DiagonalKernelComputation,
 )
-from gpjax.kernels.stationary import RBF
+from gpjax.kernels.stationary import (
+    RBF,
+    Matern12,
+    Matern32,
+    Matern52,
+)
 import jax.numpy as jnp
 import lineax as lx
+import pytest
 
 
 def test_dense_computation():
@@ -44,6 +50,21 @@ def test_diagonal_computation():
 
     # All the off diagonal entries should be zero
     assert jnp.allclose(diagonal_matrix - jnp.diag(diag_entries), 0.0)
+
+
+@pytest.mark.parametrize("kernel_type", [RBF, Matern12, Matern32, Matern52])
+def test_gram_matches_cross_covariance_on_self(kernel_type):
+    """AbstractKernelComputation.gram delegates to _gram, which for the base
+    class computes cross_covariance(kernel, x, x). This must remain
+    numerically identical to calling cross_covariance directly.
+    """
+    kernel = kernel_type()
+    x = jnp.linspace(-3.0, 3.0, 5).reshape(-1, 1)
+
+    gram_matrix = kernel.gram(x).as_matrix()
+    cross_covariance_matrix = kernel.cross_covariance(x, x)
+
+    assert jnp.allclose(gram_matrix, cross_covariance_matrix)
 
 
 def test_constant_diagonal_computation():

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import gpjax as gpx
 from gpjax.state_space import StateSpacePrior, state_space_mll
-from gpjax.state_space.gps import StateSpaceConjugatePosterior
+from gpjax.state_space.gps import StateSpaceConjugateModel
 import jax.numpy as jnp
 import jax.random as jr
 
@@ -35,10 +35,8 @@ class StateSpaceMllSuite:
             mean_function=gpx.mean_functions.Zero(),
             kernel=gpx.kernels.Matern32(lengthscale=1.0, variance=1.0),
         )
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=0.1)
-        self.posterior = StateSpaceConjugatePosterior(
-            prior=prior, likelihood=likelihood
-        )
+        likelihood = gpx.likelihoods.Gaussian(obs_stddev=0.1)
+        self.posterior = StateSpaceConjugateModel(prior=prior, likelihood=likelihood)
         self.data = _temporal_dataset(n)
         realise(state_space_mll(self.posterior, self.data))
 

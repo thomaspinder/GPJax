@@ -18,7 +18,7 @@ import jax.numpy as jnp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import AbstractKernel, _val
+from gpjax.kernels.base import AbstractKernel, val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -73,5 +73,5 @@ class Linear(AbstractKernel):
     ) -> ScalarFloat:
         x = self.slice_input(x)
         y = self.slice_input(y)
-        K = _val(self.variance) * jnp.matmul(x.T, y)
+        K = val(self.variance) * jnp.matmul(x.T, y)
         return K.squeeze()

@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import jax.random as jr
 from numpyro.distributions import biject_to, constraints
 from numpyro.distributions.transforms import SoftplusLowerCholeskyTransform
+import paramax
 from paramax import AbstractUnwrappable
 
 # numpyro's biject_to is a ConstraintRegistry that maps constraints to
@@ -36,7 +37,7 @@ class _DtypePreservingSoftplusLowerCholeskyTransform(SoftplusLowerCholeskyTransf
     ``x.dtype``. The inverse is already dtype-preserving upstream.
 
     Remove this class once the upstream allocations accept ``dtype``.
-    See https://github.com/thomaspinder/GPJax/discussions/628.
+    See https://github.com/QuantClimate/GPJax/discussions/628.
     """
 
     def __call__(self, x):
@@ -54,9 +55,32 @@ class _DtypePreservingSoftplusLowerCholeskyTransform(SoftplusLowerCholeskyTransf
 _dtype_preserving_lower_cholesky = _DtypePreservingSoftplusLowerCholeskyTransform()
 
 
-def _val(x):
-    """Unwrap a paramax parameter or return the value directly."""
-    return x.unwrap() if isinstance(x, AbstractUnwrappable) else x
+def val(x):
+    """Return a parameter's constrained value.
+
+    Call this wherever a parameter meets arithmetic. Models are always held in
+    their wrapped form -- including the model ``fit`` returns -- so ``val`` is
+    the single point at which the constraining bijection is applied.
+
+    Safe to apply to anything: a parameter is resolved to its constrained value
+    (recursively, so nested wrappers such as ``paramax.non_trainable`` are
+    handled), while a plain array or float is returned unchanged.
+
+    Args:
+        x: A parameter, or any value that does not need unwrapping.
+
+    Returns:
+        The constrained value of ``x`` if it is a parameter, else ``x`` itself.
+
+    Example:
+        >>> import jax.numpy as jnp
+        >>> from gpjax.parameters import PositiveReal, val
+        >>> float(val(PositiveReal(jnp.array(2.0))))
+        2.0
+        >>> float(val(jnp.array(2.0)))
+        2.0
+    """
+    return paramax.unwrap(x) if isinstance(x, AbstractUnwrappable) else x
 
 
 class PositiveReal(AbstractUnwrappable):
@@ -164,12 +188,8 @@ class CoregionalizationMatrix(eqx.Module):
 
     @property
     def B(self) -> jnp.ndarray:
-        w = self.W.unwrap() if isinstance(self.W, AbstractUnwrappable) else self.W
-        k = (
-            self.kappa.unwrap()
-            if isinstance(self.kappa, AbstractUnwrappable)
-            else self.kappa
-        )
+        w = val(self.W)
+        k = val(self.kappa)
         return w @ w.T + jnp.diag(k)
 
 
@@ -180,4 +200,5 @@ __all__ = [
     "PositiveReal",
     "Real",
     "SigmoidBounded",
+    "val",
 ]

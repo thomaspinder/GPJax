@@ -152,3 +152,16 @@ def _is_nsd_blockdiag(op):
 @lx.is_negative_semidefinite.register(Kronecker)
 def _is_nsd_kronecker(op):
     return False
+
+
+@lx.has_unit_diagonal.register(BlockDiag)
+def _has_unit_diagonal_blockdiag(op):
+    # Neither operator's blocks are guaranteed to have unit diagonal in
+    # general, so report `False` rather than inspecting the blocks: this is
+    # the same conservative default lineax's own composite operators use.
+    return False
+
+
+@lx.has_unit_diagonal.register(Kronecker)
+def _has_unit_diagonal_kronecker(op):
+    return False

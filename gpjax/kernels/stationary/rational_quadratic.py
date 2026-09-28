@@ -13,11 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import ClassVar
+
 import beartype.typing as tp
 from jaxtyping import Float
 from paramax import AbstractUnwrappable
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.kernels.computations import (
     AbstractKernelComputation,
     DenseKernelComputation,
@@ -48,7 +50,7 @@ class RationalQuadratic(StationaryKernel):
     squared lengthscale.
     """
 
-    name: str = "Rational Quadratic"
+    name: ClassVar[str] = "Rational Quadratic"
     alpha: tp.Any
 
     def __init__(
@@ -80,10 +82,10 @@ class RationalQuadratic(StationaryKernel):
         super().__init__(active_dims, lengthscale, variance, n_dims, compute_engine)
 
     def __call__(self, x: Float[Array, " D"], y: Float[Array, " D"]) -> ScalarFloat:
-        x = self.slice_input(x) / _val(self.lengthscale)
-        y = self.slice_input(y) / _val(self.lengthscale)
-        alpha_val = _val(self.alpha)
-        K = _val(self.variance) * (1 + 0.5 * squared_distance(x, y) / alpha_val) ** (
+        x = self.slice_input(x) / val(self.lengthscale)
+        y = self.slice_input(y) / val(self.lengthscale)
+        alpha_val = val(self.alpha)
+        K = val(self.variance) * (1 + 0.5 * squared_distance(x, y) / alpha_val) ** (
             -alpha_val
         )
         return K.squeeze()

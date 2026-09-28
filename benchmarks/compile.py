@@ -39,10 +39,10 @@ class CompileSuite:
         kernel = gpx.kernels.RBF()
         mean = gpx.mean_functions.Zero()
         prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)
-        likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+        likelihood = gpx.likelihoods.Gaussian()
         self.posterior = prior * likelihood
         self.q = VariationalGaussian(
-            posterior=self.posterior, inducing_inputs=X[:M_INDUCING]
+            model=self.posterior, inducing_inputs=X[:M_INDUCING]
         )
 
         self.jitted_mll = jax.jit(objectives.conjugate_mll)

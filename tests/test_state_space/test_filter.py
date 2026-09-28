@@ -138,7 +138,7 @@ def test_kalman_filter_matches_dense_mll_on_matern12(jitter):
         kernel=gpx.kernels.Matern12(lengthscale=lengthscale, variance=variance),
         jitter=jitter,
     )
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n, obs_stddev=obs_stddev)
+    likelihood = gpx.likelihoods.Gaussian(obs_stddev=obs_stddev)
     posterior = prior * likelihood
     dense_mll = gpx.objectives.conjugate_mll(posterior, train_data)
 

@@ -7,13 +7,24 @@
    :toctree: generated/
    :nosignatures:
 
-   AbstractPosterior
-   AbstractPrior
-   ChainedPosterior
-   ConjugatePosterior
-   HeteroscedasticPosterior
-   LatentPosterior
-   NonConjugatePosterior
+   ConjugateModel
+   HeteroscedasticModel
+   JointModel
+   NonConjugateModel
    Prior
-   construct_posterior
+   construct_model
+```
+
+## Conditioning
+
+```{eval-rst}
+.. currentmodule:: gpjax.conditioning
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   ExactPosterior
+   LatentPosterior
+   Posterior
 ```

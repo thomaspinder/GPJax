@@ -16,7 +16,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Float
 
-from gpjax.kernels.base import _val
+from gpjax.kernels.base import val
 from gpjax.typing import Array
 
 if tp.TYPE_CHECKING:
@@ -78,7 +78,7 @@ def rank_first_order(
 
     lengthscales = kernel._lengthscales
     variances = kernel._variances
-    order_variances = _val(kernel.order_variances)
+    order_variances = val(kernel.order_variances)
 
     integral_matrices = jax.vmap(_sobol_integral_matrix)(
         x_train.T, lengthscales, variances
@@ -145,7 +145,7 @@ def predict_first_order(
 
     lengthscale_dim = kernel._lengthscales[dim]
     variance_dim = kernel._variances[dim]
-    first_order_variance = _val(kernel.order_variances)[1]
+    first_order_variance = val(kernel.order_variances)[1]
 
     # K_star: (M, N) cross-covariance between grid and training points
     K_star = _build_first_order_cross_covariance(

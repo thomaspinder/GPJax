@@ -27,7 +27,7 @@ from jaxtyping import (
 import paramax
 from paramax import AbstractUnwrappable
 
-from gpjax.parameters import _val
+from gpjax.parameters import val
 from gpjax.summary import _SummaryMixin
 from gpjax.typing import (
     Array,
@@ -146,7 +146,7 @@ class Constant(AbstractMeanFunction):
         Returns:
             Float[Array, "1"]: The evaluated mean function.
         """
-        return jnp.ones((x.shape[0], 1), dtype=x.dtype) * _val(self.constant)
+        return jnp.ones((x.shape[0], 1), dtype=x.dtype) * val(self.constant)
 
 
 class Zero(Constant):

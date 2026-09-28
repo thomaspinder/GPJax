@@ -72,6 +72,7 @@ default_role = "literal"
 
 exclude_patterns = [
     "_build",
+    "adr/*",  # ADRs are in-repo records, not (yet) part of the docs site
     "Thumbs.db",
     ".DS_Store",
     "conf.py",  # this config module is not a document
@@ -132,13 +133,13 @@ myst_url_schemes = {
     "https": None,
     "mailto": None,
     "ftp": None,
-    "gh": {"url": "https://github.com/thomaspinder/GPJax/{{path}}"},
+    "gh": {"url": "https://github.com/QuantClimate/GPJax/{{path}}"},
     "gh-issue": {
-        "url": "https://github.com/thomaspinder/GPJax/issues/{{path}}",
+        "url": "https://github.com/QuantClimate/GPJax/issues/{{path}}",
         "title": "Issue #{{path}}",
     },
     "gh-pr": {
-        "url": "https://github.com/thomaspinder/GPJax/pull/{{path}}",
+        "url": "https://github.com/QuantClimate/GPJax/pull/{{path}}",
         "title": "PR #{{path}}",
     },
 }
@@ -181,8 +182,14 @@ nb_execution_show_tb = True
 # Everything else (broken xrefs, bad anchors, malformed directives) stays fatal
 # on deploy, which it was not when that build ran without `-W` at all.
 # The PR gate suppresses nothing.
+# codeautolink cannot match doctest blocks carrying `# doctest: +SKIP` markers
+# against their rendered HTML (a matcher limitation, not a doc defect — xdoctest
+# validates the examples). Suppressed on every path; predates the v1.0 stack but
+# first surfaced when this workflow ran cold post-Sphinx-migration.
+suppress_warnings = ["codeautolink.match_block"]
+
 if os.environ.get("GPJAX_DOCS_RESILIENT") == "1":
-    suppress_warnings = [
+    suppress_warnings = suppress_warnings + [
         "mystnb.exec",  # execution failure + "traceback saved in:" follow-up
         "mystnb.glue",  # a glue key that never got produced by a failed notebook
         # A notebook that fails to execute renders with no outputs, and MyST-NB
@@ -295,7 +302,9 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 html_theme = "shibuya"
 html_title = "GPJax"
-html_baseurl = "https://docs.jaxgaussianprocesses.com/"  # for sitemap + canonical
+# Sitemap, canonical link, og:url and the absolute og:image URL all derive from
+# this, so it must match the domain GitHub Pages is actually serving (docs/CNAME).
+html_baseurl = "https://gpjax.quantclimate.com/"
 sitemap_url_scheme = "{link}"
 html_static_path = ["stylesheets"]
 html_css_files = ["extra.css"]
@@ -322,7 +331,7 @@ html_theme_options = {
     # is pinned over `--accent-9` in stylesheets/extra.css.
     "accent_color": "red",
     "color_mode": "auto",  # follow the reader's light/dark preference
-    "github_url": "https://github.com/thomaspinder/GPJax",
+    "github_url": "https://github.com/QuantClimate/GPJax",
     "nav_links": [
         {"title": "PyPI", "url": "https://pypi.org/project/gpjax"},
     ],
@@ -360,14 +369,15 @@ ogp_enable_meta_description = True
 ogp_social_cards = {"enable": True, "line_color": "#7a2e2a"}
 
 html_context = {
-    "github_user": "thomaspinder",
+    "github_user": "QuantClimate",
     "github_repo": "GPJax",
     "github_version": "main",
     "doc_path": "docs",
 }
 
 # -- Redirects from the retired MkDocs site (sphinx-reredirects) -------------
-# docs.jaxgaussianprocesses.com served the MkDocs site with `use_directory_urls`
+# The retired MkDocs site (then at docs.jaxgaussianprocesses.com) ran with
+# `use_directory_urls`
 # (the default), so every old page lived at `<path>/`, i.e. the file
 # `<path>/index.html`. The keys below therefore end in `/index`, which is what
 # puts the emitted meta-refresh stub exactly where the old URL pointed.

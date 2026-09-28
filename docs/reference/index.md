@@ -8,6 +8,7 @@ module's `__all__`, so the reference and the public API cannot drift apart.
 :maxdepth: 1
 
 dataset
+xarray
 distributions
 gps
 kernels

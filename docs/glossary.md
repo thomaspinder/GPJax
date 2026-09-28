@@ -30,7 +30,7 @@ Cholesky factor
 conjugate
 : A prior and likelihood pair for which the posterior has the same form as the
   prior, so it is available in closed form. For Gaussian processes this means a
-  Gaussian likelihood, giving a [`ConjugatePosterior`](#gpjax.gps.ConjugatePosterior)
+  Gaussian likelihood, giving a [`ConjugateModel`](#gpjax.gps.ConjugateModel)
   whose [`conjugate_mll`](#gpjax.objectives.conjugate_mll) needs no approximation.
   Anything else — Bernoulli, Poisson — is non-conjugate, and the latent function
   values must be approximated: by MAP or a Laplace approximation, by
@@ -86,9 +86,11 @@ natural parameters
   respect to the natural parameters is exactly the ordinary gradient with respect
   to the *expectation* parameters, so following the information geometry of the
   distribution costs no Fisher-matrix inversion. Convergence is typically far
-  faster than plain gradient descent on the moments. See
-  [`NaturalVariationalGaussian`](#gpjax.variational_families.NaturalVariationalGaussian)
-  and [`ExpectationVariationalGaussian`](#gpjax.variational_families.ExpectationVariationalGaussian).
+  faster than plain gradient descent on the moments. GPJax computes both
+  coordinate systems on the fly inside
+  [`fit_natgrads`](#gpjax.fit.fit_natgrads), which operates directly on
+  [`VariationalGaussian`](#gpjax.variational_families.VariationalGaussian) and
+  [`WhitenedVariationalGaussian`](#gpjax.variational_families.WhitenedVariationalGaussian).
 
 variance
 : The kernel hyperparameter $\sigma^2$ setting the marginal variance of the

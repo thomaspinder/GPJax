@@ -9,9 +9,9 @@ SvgpElboSuite (uncollapsed VariationalGaussian + stochastic ELBO) varies
 both M (inducing count) and batch_size; VfeElboSuite (collapsed analytic
 ELBO) varies M only — the collapsed objective requires the full dataset.
 
-VariationalParametrisationSuite compares the four variational Gaussian
-parameterisations (standard, whitened, natural, expectation) at one
-fixed (n, M) so users can see the per-step cost of the choice.
+VariationalParametrisationSuite compares the three variational Gaussian
+parameterisations (standard, whitened, dual) at one fixed (n, M) so users
+can see the per-step cost of the choice.
 
 HeteroscedasticElboSuite and OilmmPredictSuite are independent — they
 do not participate in the alignment because their model structure
@@ -26,9 +26,8 @@ from gpjax.dataset import Dataset
 from gpjax.likelihoods import HeteroscedasticGaussian
 from gpjax.variational_families import (
     CollapsedVariationalGaussian,
-    ExpectationVariationalGaussian,
+    DualVariationalGaussian,
     HeteroscedasticVariationalFamily,
-    NaturalVariationalGaussian,
     VariationalGaussian,
     WhitenedVariationalGaussian,
 )
@@ -50,7 +49,7 @@ def _conjugate_posterior(n: int):
     kernel = gpx.kernels.RBF()
     mean = gpx.mean_functions.Zero()
     prior = gpx.gps.Prior(kernel=kernel, mean_function=mean)
-    likelihood = gpx.likelihoods.Gaussian(num_datapoints=n)
+    likelihood = gpx.likelihoods.Gaussian()
     return prior * likelihood, data
 
 
@@ -86,7 +85,7 @@ class SvgpElboSuite:
 
     def setup(self, n, m, batch_size):
         posterior, data, Z = _sparse_setup(n, m=m)
-        self.q = VariationalGaussian(posterior=posterior, inducing_inputs=Z)
+        self.q = VariationalGaussian(model=posterior, inducing_inputs=Z)
         self.batch = Dataset(X=data.X[:batch_size], y=data.y[:batch_size])
         realise(objectives.elbo(self.q, self.batch))
 
@@ -107,7 +106,7 @@ class VfeElboSuite:
 
     def setup(self, n, m):
         posterior, self.data, Z = _sparse_setup(n, m=m)
-        self.q = CollapsedVariationalGaussian(posterior=posterior, inducing_inputs=Z)
+        self.q = CollapsedVariationalGaussian(model=posterior, inducing_inputs=Z)
         realise(objectives.collapsed_elbo(self.q, self.data))
 
     def time_collapsed_elbo(self, n, m):
@@ -117,17 +116,25 @@ class VfeElboSuite:
 _VARIATIONAL_FAMILIES = {
     "standard": VariationalGaussian,
     "whitened": WhitenedVariationalGaussian,
-    "natural": NaturalVariationalGaussian,
-    "expectation": ExpectationVariationalGaussian,
+    "dual": DualVariationalGaussian,
 }
 
 
 class VariationalParametrisationSuite:
-    """Per-step ELBO cost across the four variational Gaussian families.
+    """Per-step ELBO cost across the variational Gaussian parameterisations.
 
-    All four parameterise the same q(u); the differences are in how the
-    KL term and predictive moments are computed. Holding (n, M) fixed
-    isolates the parameterisation cost.
+    All three parameterise the same q(u); the differences are in how the
+    KL term and predictive moments are computed. The dual (t-SVGP) family
+    stores sites rather than moments and recovers q(u) through
+    R = Kzz + Kzz Lambda_2 Kzz, so every predict and every KL factorises
+    both Kzz and R, against one factorisation for the standard family and
+    none in the whitened KL. Holding (n, M) fixed isolates that cost.
+
+    The arm deliberately times the generic ``elbo`` on all three families
+    rather than ``dual_elbo`` on the dual one: the point of the comparison
+    is the parameterisation, so the objective has to be held fixed. The
+    dual family's own fast path is ``dual_elbo``, which replaces the
+    per-point ``predict`` with one batched ``marginals`` call.
     """
 
     params = (list(_VARIATIONAL_FAMILIES),)
@@ -136,7 +143,7 @@ class VariationalParametrisationSuite:
     def setup(self, family):
         n = 1000
         posterior, self.data, Z = _sparse_setup(n)
-        self.q = _VARIATIONAL_FAMILIES[family](posterior=posterior, inducing_inputs=Z)
+        self.q = _VARIATIONAL_FAMILIES[family](model=posterior, inducing_inputs=Z)
         realise(objectives.elbo(self.q, self.data))
 
     def time_elbo(self, family):
@@ -157,11 +164,11 @@ class HeteroscedasticElboSuite:
         noise_prior = gpx.gps.Prior(
             kernel=noise_kernel, mean_function=gpx.mean_functions.Zero()
         )
-        likelihood = HeteroscedasticGaussian(num_datapoints=n, noise_prior=noise_prior)
+        likelihood = HeteroscedasticGaussian(noise_prior=noise_prior)
         posterior = signal_prior * likelihood
         Z = data.X[:M_INDUCING]
         self.q = HeteroscedasticVariationalFamily(
-            posterior=posterior, inducing_inputs=Z, inducing_inputs_g=Z
+            model=posterior, inducing_inputs=Z, inducing_inputs_g=Z
         )
         self.data = data
         realise(objectives.heteroscedastic_elbo(self.q, self.data))
@@ -183,7 +190,7 @@ class OilmmPredictSuite:
         X = jnp.linspace(0, 1, N).reshape(-1, 1)
         y = jr.normal(key, (N, P))
         dataset = gpx.Dataset(X=X, y=y)
-        self.posterior = model.condition_on_observations(dataset)
+        self.posterior = model.condition(dataset)
         self.X_test = jnp.linspace(0.1, 0.9, 20).reshape(-1, 1)
         realise(self.posterior.predict(self.X_test))
 

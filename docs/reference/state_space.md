@@ -7,7 +7,7 @@
    :toctree: generated/
    :nosignatures:
 
-   StateSpaceConjugatePosterior
+   StateSpaceConjugateModel
    StateSpacePrior
    TruncatedPeriodic
    fit

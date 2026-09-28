@@ -198,3 +198,29 @@ def test_dataset_multi_output_properties():
     D = Dataset(X=X, y=y)
     assert D.multi_output is True
     assert D.num_outputs == 3
+
+
+def test_n_total_defaults_to_none():
+    x = jnp.linspace(0.0, 1.0, 10).reshape(-1, 1)
+    dataset = Dataset(X=x, y=jnp.sin(x))
+    assert dataset.n_total is None
+
+
+def test_get_batch_stamps_n_total():
+    from gpjax.fit import get_batch
+    import jax
+    import jax.random as jr
+
+    x = jnp.linspace(0.0, 1.0, 25).reshape(-1, 1)
+    dataset = Dataset(X=x, y=jnp.sin(x))
+    batch = get_batch(dataset, batch_size=4, key=jr.key(0))
+    assert batch.n == 4
+    assert batch.n_total == 25
+
+    # The stamp is static aux_data: it survives pytree operations.
+    mapped = jax.tree_util.tree_map(lambda leaf: leaf, batch)
+    assert mapped.n_total == 25
+
+    # Batching a batch preserves the original full size.
+    rebatch = get_batch(batch, batch_size=2, key=jr.key(1))
+    assert rebatch.n_total == 25
