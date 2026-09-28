@@ -347,7 +347,13 @@ class Gaussian(AbstractLikelihood):
         Returns:
             npd.Normal: The likelihood function.
         """
-        return npd.Normal(loc=f, scale=val(self.obs_stddev).astype(f.dtype))
+        # obs_stddev is non-negative, and zero (noise-free) is valid here; numpyro's
+        # argument validation, on by default from 0.22, would reject it as scale <= 0.
+        return npd.Normal(
+            loc=f,
+            scale=val(self.obs_stddev).astype(f.dtype),
+            validate_args=False,
+        )
 
     def predict(
         self, dist: tp.Union[npd.MultivariateNormal, GaussianDistribution]
