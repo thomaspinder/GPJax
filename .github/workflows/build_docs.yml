@@ -36,6 +36,9 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # asv publish places each stored benchmark result on main's history,
+          # so it needs that history; a depth-1 clone drops every older result.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
