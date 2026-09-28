@@ -4,7 +4,7 @@
 <img width="700" height="300" src="https://raw.githubusercontent.com/QuantClimate/GPJax/main/docs/static/gpjax_logo.svg" alt="GPJax's logo">
 </p>
 
-[![codecov](https://codecov.io/gh/QuantClimate/GPJax/branch/master/graph/badge.svg?token=DM1DRDASU2)](https://codecov.io/gh/QuantClimate/GPJax)
+[![codecov](https://codecov.io/gh/QuantClimate/GPJax/graph/badge.svg)](https://codecov.io/gh/QuantClimate/GPJax)
 [![CodeFactor](https://www.codefactor.io/repository/github/QuantClimate/GPJax/badge)](https://www.codefactor.io/repository/github/QuantClimate/GPJax)
 [![PyPI version](https://badge.fury.io/py/GPJax.svg)](https://badge.fury.io/py/GPJax)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/gpjax.svg)](https://anaconda.org/conda-forge/gpjax)
@@ -36,12 +36,10 @@ broader conversations, such as best GP fitting practices or questions about the
 mathematics of GPs, we invite you to [open a
 discussion](https://github.com/QuantClimate/GPJax/discussions).
 
-Another way you can contribute to GPJax is through [issue
-triaging](https://www.codetriage.com/what).  This can include reproducing bug reports,
-asking for vital information such as version numbers and reproduction instructions, or
-identifying stale issues. If you would like to begin triaging issues, an easy way to get
-started is to
-[subscribe to GPJax on CodeTriage](https://www.codetriage.com/QuantClimate/GPJax).
+Another way you can contribute to GPJax is through issue triaging. This can include
+reproducing bug reports, asking for vital information such as version numbers and
+reproduction instructions, or identifying stale issues. To get started, browse the
+[open issues](https://github.com/QuantClimate/GPJax/issues).
 
 As a contributor to GPJax, you are expected to abide by our [code of
 conduct](docs/CODE_OF_CONDUCT.md). If you feel that you have either experienced or
