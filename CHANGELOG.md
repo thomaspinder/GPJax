@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`gpjax.xarray`: labelled gridded data in and out
+  ([#782](https://github.com/thomaspinder/GPJax/issues/782)).**
+  `from_xarray(ds, target=..., inputs=[...])` flattens an `xr.Dataset` into an
+  ordinary `Dataset`. Inputs can be coordinates or other data variables; datetime
+  inputs become days since the first timestamp, and NaN cells are dropped. It
+  also returns a `GridSpec`, which builds inputs for a new grid
+  (`spec.inputs_for(grid)`) and maps a predictive distribution back onto the
+  labelled grid (`spec.to_xarray(dist)`). That gives the mean and variance by
+  default, or joint posterior samples with a `sample` dimension when called with
+  `num_samples=`. `Dataset` is unchanged, and `import gpjax` does not import
+  xarray. Install with `pip install "gpjax[xarray]"`. A new example, *Gridded
+  Data with xarray*, walks through the workflow.
+
 - **`gpjax.parameters.val`.** Promoted from the private `_val` helper to documented
   public API, and now the single accessor for a parameter's constrained value:
   `val(kernel.lengthscale)` applies the constraining bijection, while plain arrays and

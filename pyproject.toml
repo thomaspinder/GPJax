@@ -81,6 +81,12 @@ docs = [
   "pandas>=1.5.3",
   "scikit-learn>=1.5.1",
   "ucimlrepo>=0.0.7",
+  "xarray>=2024.1",           # docs/examples/xarray_workflow.py
+]
+# Labelled-data bridge (`gpjax.xarray`). Optional so the core install stays
+# pure JAX; `import gpjax` never imports it.
+xarray = [
+  "xarray>=2024.1",
 ]
 
 [tool.uv]
@@ -112,6 +118,9 @@ dev = [
   "poethepoet>=0.37.0",
   "twine>=6.2.0",
   "hypothesis>=6.148.2",
+  # The `xarray` extra, repeated here because CI syncs without extras and the
+  # `gpjax.xarray` tests must still run.
+  "xarray>=2024.1",
   # Workflow security audit (`poe lint-actions`, .github/workflows/zizmor.yml).
   # Pinned through uv.lock rather than `uvx zizmor@latest` so a new release
   # cannot turn every open PR red without a commit.

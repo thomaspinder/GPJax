@@ -89,6 +89,7 @@ GPJax into the package it is today.
 > - [**Orthogonal Additive Kernels**](https://docs.jaxgaussianprocesses.com/examples/oak.html)
 > - [**Gaussian Processes for Vector Fields and Ocean Current Modelling**](https://docs.jaxgaussianprocesses.com/examples/oceanmodelling.html)
 > - [**Spatial Modelling with Composable Gaussian Processes**](https://docs.jaxgaussianprocesses.com/examples/spatial_linear_gp.html)
+> - [**Gridded Data with xarray**](https://docs.jaxgaussianprocesses.com/examples/xarray_workflow.html)
 > - [**UCI Data Benchmarking**](https://docs.jaxgaussianprocesses.com/examples/yacht.html)
 
 ### Guides for customisation
