@@ -1,6 +1,6 @@
 # Legacy docs domain redirect
 
-The documentation moved to `gpjax.quantclimate.com` (GitHub Pages). This
+The documentation moved to `gpjax.quantclimate.com` (Cloudflare). This
 directory is the entire contents of the Netlify site that keeps the **old**
 host, `docs.jaxgaussianprocesses.com`, alive as a permanent redirect.
 
@@ -9,8 +9,8 @@ hand, once, and then only again if the redirect target changes.
 
 ## Why this exists
 
-GitHub Pages serves exactly one custom domain per site, so it cannot answer for
-both hosts. Without this, every published link to the old domain 404s — the JOSS
+The docs Worker can only serve hostnames in the `quantclimate.com` Cloudflare
+zone, so it cannot answer for the old host. Without this, every published link to the old domain 404s — the JOSS
 paper, the PyPI project page, search results, and any third-party citation.
 
 ## Deploying it

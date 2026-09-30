@@ -303,7 +303,7 @@ intersphinx_mapping = {
 html_theme = "shibuya"
 html_title = "GPJax"
 # Sitemap, canonical link, og:url and the absolute og:image URL all derive from
-# this, so it must match the domain GitHub Pages is actually serving (docs/CNAME).
+# this, so it must match the custom domain in docs/wrangler.jsonc.
 html_baseurl = "https://gpjax.quantclimate.com/"
 sitemap_url_scheme = "{link}"
 html_static_path = ["stylesheets"]
@@ -311,9 +311,10 @@ html_css_files = ["extra.css"]
 # Folds the Migrations sidebar group after shibuya's own sidebar script has run.
 # See the file header for why this cannot be expressed in theme options.
 html_favicon = "static/favicon.ico"
-# GPJax serves the docs from a custom domain, so GitHub Pages needs a CNAME file
-# at the site root. impulso has no counterpart: it deploys to a github.io path.
-html_extra_path = ["CNAME"]
+# Cloudflare serves the docs with html_handling "none" (docs/wrangler.jsonc), so
+# a directory URL, such as / or a sphinx-reredirects stub, only serves its
+# index.html through the rules in _redirects.
+html_extra_path = ["_redirects"]
 html_theme_options = {
     # `accent_color` only accepts a radix ramp *name*. shibuya writes the value
     # verbatim into `<html data-accent-color="...">` and its stylesheet carries
