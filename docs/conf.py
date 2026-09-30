@@ -375,25 +375,6 @@ html_context = {
     "doc_path": "docs",
 }
 
-# -- Cloudflare Web Analytics -------------------------------------------------
-# GitHub Pages serves the docs through a DNS-only CNAME. Cloudflare does not
-# proxy this traffic, so it cannot inject its beacon. The page must load the
-# script itself.
-#
-# The token belongs to the Web Analytics site for the quantclimate.com zone.
-# Cloudflare matches the hostname by suffix, so that site also accepts data from
-# gpjax.quantclimate.com. The token is not a secret: the browser of each reader
-# receives it.
-html_js_files = [
-    (
-        "https://static.cloudflareinsights.com/beacon.min.js",
-        {
-            "type": "module",
-            "data-cf-beacon": '{"token": "3f29427f68be43bcb980df919a279816"}',
-        },
-    ),
-]
-
 # -- Redirects from the retired MkDocs site (sphinx-reredirects) -------------
 # The retired MkDocs site (then at docs.jaxgaussianprocesses.com) ran with
 # `use_directory_urls`
