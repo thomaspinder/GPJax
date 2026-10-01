@@ -313,8 +313,9 @@ html_css_files = ["extra.css"]
 html_favicon = "static/favicon.ico"
 # Cloudflare serves the docs with html_handling "none" (docs/wrangler.jsonc), so
 # a directory URL, such as / or a sphinx-reredirects stub, only serves its
-# index.html through the rules in _redirects.
-html_extra_path = ["_redirects"]
+# index.html through the rules in _redirects. _headers adds the CORS header that
+# GitHub Pages used to send.
+html_extra_path = ["_redirects", "_headers"]
 html_theme_options = {
     # `accent_color` only accepts a radix ramp *name*. shibuya writes the value
     # verbatim into `<html data-accent-color="...">` and its stylesheet carries
