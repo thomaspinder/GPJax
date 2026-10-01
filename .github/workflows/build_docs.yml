@@ -15,9 +15,9 @@ on:
       - main
   workflow_dispatch:
 
-# Pages publication is confined to `deploy-docs`; the build job only reads the
-# repository. Keeping `pages`/`id-token` off the workflow level means the
-# notebook execution step never runs with a deployment-capable token.
+# Publication is confined to `deploy-docs`; the build job only reads the
+# repository. Keeping the Cloudflare token out of the build job means the
+# notebook execution step never runs with a deployment-capable credential.
 permissions: {}
 
 concurrency:
@@ -114,10 +114,13 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - name: Upload the docs build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
+          name: docs-html
           path: docs/_build/html
+          if-no-files-found: error
+          retention-days: 7
 
   deploy-docs:
     needs: build-docs
@@ -129,15 +132,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      pages: write # deploy to GitHub Pages
-      id-token: write # OIDC verification of the deployment
+      contents: read # checkout, for docs/wrangler.jsonc
     concurrency:
-      group: pages
+      group: cloudflare-docs
       cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy documentation
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the docs build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-html
+          path: docs/_build/html
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      # Cloudflare serves the docs as the static assets of the `gpjax-docs`
+      # Worker (docs/wrangler.jsonc). The token lives only in this job.
+      - name: Deploy to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.145.0 deploy --config docs/wrangler.jsonc
